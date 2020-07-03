@@ -76,9 +76,9 @@ Export function Set-SymlinkedPath {
 	
 	$result = Set-Symlink $OriginalPath $TargetPath
 	if ($null -eq $result) {
-		echo "Symlink already exists and matches requested target: '${OriginalPath}'."
+		echo "Symlink already exists and matches requested target: '$OriginalPath'."
 	} else {
-		echo "Created symlink from '${OriginalPath}' to '${TargetPath}'."
+		echo "Created symlink from '$OriginalPath' to '$TargetPath'."
 	}
 }
 
@@ -88,14 +88,14 @@ Export function Assert-Directory {
 	param([Parameter(Mandatory)]$Path)
 
 	if (Test-Path -Type Container $Path) {
-		echo "Directory '${Path}' already exists."
+		echo "Directory '$Path' already exists."
 		return
 	}
 	if (Test-Path $Path) {
-		throw "Path '${Path}' already exists, but it's not a directory."
+		throw "Path '$Path' already exists, but it's not a directory."
 	}
 	$null = New-Item -ItemType Directory $Path
-	echo "Created directory '${Path}'."
+	echo "Created directory '$Path'."
 }
 
 
@@ -110,11 +110,11 @@ Export function Assert-File {
 	)
 
 	if (Test-Path -Type Leaf $Path) {
-		echo "File '${Path}' already exists."
+		echo "File '$Path' already exists."
 		return
 	}
 	if (Test-Path $Path) {
-		throw "Path '${Path}' already exists, but it's not a file."
+		throw "Path '$Path' already exists, but it's not a file."
 	}
 	
 	$Parent = Split-Path -Parent $Path
@@ -125,7 +125,7 @@ Export function Assert-File {
 	# create new file with default content
 	& $DefaultContent > $Path
 	
-	echo "Created file '${Path}'."
+	echo "Created file '$Path'."
 }
 
 
@@ -137,7 +137,9 @@ Export function Export-Shortcut {
 			[Parameter(Mandatory)]
 			[string]
 		$TargetPath,
+			[Alias("ArgumentList")]
 		$Arguments,
+			[string]
 		$WorkingDirectory,
 			[switch]
 		$StartMaximized,
@@ -156,6 +158,8 @@ Export function Export-Shortcut {
 		
 		if ($WorkingDirectory -eq $null) {
 			$WorkingDirectory = Split-Path $Target 
+		} else {
+			$WorkingDirectory = [string](Resolve-Path $WorkingDirectory)
 		}
 		
 		if ($IconPath -eq $null) {
@@ -167,7 +171,7 @@ Export function Export-Shortcut {
 		if ($null -eq $Cmd) {
 			throw "Cannot create shortcut to command '$TargetPath', as no such command exists in PATH."
 		}
-		$Target = $TargetPath
+		$Target = $Cmd.Source
 		if ($IconPath -eq $null) {
 			$IconPath = $Cmd.Source
 		}
