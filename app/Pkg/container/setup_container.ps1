@@ -9,5 +9,10 @@ $ErrorActionPreference = "Stop"
 Import-Module Microsoft.PowerShell.Utility
 Import-Module Microsoft.PowerShell.Management
 
+# allows expanding .zip
+Import-Module Microsoft.PowerShell.Archive
+
+# TODO: only import relevant file for both Enable and Install operations
 # setup environment for Pkg script
-Import-Module $PSScriptRoot\Configure
+Import-Module $PSScriptRoot\Env_Enable
+Import-Module $PSScriptRoot\Env_Install

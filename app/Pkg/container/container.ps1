@@ -17,6 +17,8 @@ $InternalArguments.Keys | % {
 	Set-Variable -Scope Global -Option Constant `
 			-Name ("Pkg_" + $_) -Value $InternalArguments[$_]
 }
+# this cannot be a constant, as it would break internal behavior
+Set-Variable -Scope Global -Name this -Value $Pkg_Manifest
 
 # cleanup variables
 Remove-Variable ScriptBlockStr

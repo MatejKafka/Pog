@@ -173,7 +173,7 @@ function Invoke-Container {
 
 Export function Enable-Pkg {
 	[CmdletBinding()]
-	Param(
+	param(
 			[Parameter(Mandatory)]
 			[ValidateSet([PkgPackageName])]
 			[string]
@@ -183,6 +183,11 @@ Export function Enable-Pkg {
 			[switch]
 		$AllowClobber
 	)
+
+	#dynamicparam {
+		# create dynamic parameters based on manifest parameters for matching package
+		# see https://github.com/PowerShell/PowerShell/issues/6585 for a way to do this
+	#}
 	
 	begin {
 		$PackagePath = Get-PackagePath $PackageName		
@@ -202,6 +207,39 @@ Export function Enable-Pkg {
 		
 		Invoke-Container $PackagePath $ManifestPath $Manifest.Enable $InternalArgs $PkgParams
 		echo "Successfully enabled $PackageName."
+	}
+}
+
+Export function Install-Pkg {
+	[CmdletBinding()]
+	param(
+			[Parameter(Mandatory)]
+			[ValidateSet([PkgPackageName])]
+			[string]
+		$PackageName,
+			# allow overwriting current .\app directory, if one exists
+			[switch]
+		$AllowOverwrite
+	)
+	
+	begin {
+		$PackagePath = Get-PackagePath $PackageName		
+		$ManifestPath = Get-ManifestPath $PackagePath
+		
+		$Manifest = Import-PowerShellDataFile $ManifestPath
+		if ($Manifest.Name -eq $PackageName) {
+			echo "Installing package $($Manifest.Name), version $($Manifest.Version)..."
+		} else {
+			echo "Installing package $($Manifest.Name) (installed as $PackageName), version $($Manifest.Version)..."
+		}
+		
+		$InternalArgs = @{
+			Manifest = $Manifest
+			AllowOverwrite = [bool]$AllowOverwrite
+		}
+		
+		Invoke-Container $PackagePath $ManifestPath $Manifest.Install $InternalArgs @{}
+		echo "Successfully installed $PackageName."
 	}
 }
 

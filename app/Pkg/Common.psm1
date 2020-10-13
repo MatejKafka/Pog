@@ -48,3 +48,17 @@ Export function Get-ManifestPath {
 	throw ("Could not find manifest file for package $PackageName. " `
 			+ "Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
 }
+
+Export function Get-Manifest {
+	param(
+			[Parameter(Mandatory)]
+		$PackageName,
+			[switch]
+		$NoError
+	)
+	
+	$PackagePath = Get-PackagePath $PackageName		
+	$ManifestPath = Get-ManifestPath $PackagePath -NoError:$NoError
+	if ($null -eq $ManifestPath) {return $null}
+	return Import-PowerShellDataFile $ManifestPath
+}

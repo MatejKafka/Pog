@@ -47,6 +47,45 @@ Export function Assert-Admin {
 }
 
 
+function Add-DynamicParam {
+	param(
+			[Parameter(Mandatory)]
+			[System.Management.Automation.RuntimeDefinedParameter]
+		$RuntimeParameter,
+			[System.Management.Automation.RuntimeDefinedParameterDictionary]
+		$ParameterDictionary
+	)
+
+	# create the dictionary (should contain all created dynamic params, returned from dynamicparam block)
+	if ($null -eq $ParameterDictionary) {
+		$ParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+	}
+	$ParameterDictionary.Add($RuntimeParameter.Name, $RuntimeParameter)
+	return $ParameterDictionary
+}
+
+
+Export function New-DynamicSwitchParam {
+	param(
+			[Parameter(Mandatory)]
+			[string]
+		$ParameterName,
+			[System.Management.Automation.RuntimeDefinedParameterDictionary]
+		$ParameterDictionary
+	)
+
+	# create a dummy collection of attributes
+	$AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+	# add dummy parameter to fix the "cannot be specified in parameter set '__AllParameterSets'." error
+	$AttributeCollection.Add([System.Management.Automation.ParameterAttribute]::new())
+	
+	# create and return the dynamic parameter
+	$RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter(
+			$ParameterName, [switch], $AttributeCollection)	
+	return Add-DynamicParam $RuntimeParameter $ParameterDictionary
+}
+
+
 Export function New-DynamicParam {
 	param(
 			[Parameter(Mandatory)]
@@ -83,11 +122,6 @@ Export function New-DynamicParam {
 	# Create and return the dynamic parameter
 	$RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter(
 			$ParameterName, [string], $AttributeCollection)
-			
-	# Create the dictionary
-	if ($null -eq $ParameterDictionary) {
-		$ParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-	}
-	$ParameterDictionary.Add($ParameterName, $RuntimeParameter)
-	return $ParameterDictionary
+	
+	return Add-DynamicParam $RuntimeParameter $ParameterDictionary
 }

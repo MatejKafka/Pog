@@ -4,17 +4,53 @@
 #  https://docs.microsoft.com/en-us/windows/win32/shell/app-registration
 
 
-Import-Module $PSScriptRoot"\Env"
+Import-Module $PSScriptRoot"\Environment"
 Import-Module $PSScriptRoot"\..\Paths"
 Import-Module $PSScriptRoot"\..\Utils"
 Import-Module $PSScriptRoot"\..\Common"
 Import-Module $PSScriptRoot"\..\command_generator\SubstituteExe.psm1"
 
-Export-ModuleMember -Function Add-SystemEnvVar, Add-SystemEnvPath, Set-SystemEnvVar, Assert-Admin
+Export-ModuleMember -Function Add-EnvVar, Set-EnvVar, Add-EnvPath, Assert-Admin
 
+
+function Assert-ParentDirectory {
+	param(
+			[Parameter(Mandatory)]
+		$Path
+	)
+	
+	$Parent = Split-Path $Path
+	if (-not (Test-Path $Parent)) {
+		$null = New-Item -ItemType Directory $Parent
+	}
+}
+
+Export function Merge-Directories {
+	param(
+			[Parameter(Mandatory)]
+		$SrcDir,
+			[Parameter(Mandatory)]
+		$TargetDir,
+			# when set, target will be left without overwriting in case of collision
+			[switch]
+		$PreferTarget
+	)
+	
+	ls -Force $SrcDir | % {
+		$Target = $TargetDir + "\" + $_.Name
+		if (Test-Path $Target) {
+			if ($PreferTarget) {return}  # skip
+			# overwrite with new version
+			rm -Recurse $Target
+		}
+		Move-Item $_ $Target
+	}
+	rm -Recurse $SrcDir
+}
 
 function Set-Symlink {
 	param(
+			# This path must be either non-existent, or already a correct symlink.
 			[Parameter(Mandatory)]
 		$LinkPath,
 			[Parameter(Mandatory)]
@@ -24,28 +60,29 @@ function Set-Symlink {
 	)
 
 	if ($RelativeTarget) {
+		# target is a relative path from $LinkPath
 		$Target = $TargetPath
 	} elseif ([System.IO.Path]::IsPathRooted($LinkPath) -or [System.IO.Path]::IsPathRooted($TargetPath)) {
+		# one of the paths is rooted, use absolute path for symlink
 		$Target = Resolve-Path $TargetPath
 	} else {
-		# get relative path for symlink
+		# get relative path from $LinkPath to $TargetPath for symlink
 		$Target = Get-RelativePath (Split-Path $LinkPath) $TargetPath
 	}
 	
+	$LinkPath = Resolve-VirtualPath $LinkPath
 	if (Test-Path $LinkPath) {
 		$Item = Get-Item $LinkPath
 		if ($Item.Target -eq $Target) {
 			return $null # we already have a correct symlink
 		}
+		
 		# not a correct item, delete and recreate
-		if ($Item.PSIsContainer) {
-			$Item.Delete($true) # true = delete dir content
-		} else {
-			$Item.Delete()
-		}
+		Remove-Item -Recurse $Item
+	} else {
+		Assert-ParentDirectory $LinkPath
 	}
 	
-	#                              \/ using $TargetPath, as $Target may be relative to link
 	if (Test-Path -Type Container $TargetPath) {
 		# it seems New-Item cannot create relative link to directory
 		$null = cmd /C mklink /D `"$LinkPath`" `"$Target`"
@@ -66,19 +103,40 @@ Export function Set-SymlinkedPath {
 		$Directory
 	)
 
-	$null = if (-not (Test-Path $TargetPath)) {
-		if (-not (Test-Path $OriginalPath)) {
-			New-Item -ItemType (if ($Directory) {"Directory"} else {"File"}) $TargetPath
-		} else {
-			Move-Item $OriginalPath $TargetPath
+	dynamicparam {
+		if ($Directory) {
+			return New-DynamicSwitchParam "Merge"
 		}
 	}
-	
-	$result = Set-Symlink $OriginalPath $TargetPath
-	if ($null -eq $result) {
-		echo "Symlink already exists and matches requested target: '$OriginalPath'."
-	} else {
-		echo "Created symlink from '$OriginalPath' to '$TargetPath'."
+
+	begin {	
+		$ShouldMerge = if ($PSBoundParameters.Keys -contains "Merge") {$PSBoundParameters.Merge} else {$false}
+
+		if ((Test-Path $TargetPath) -and !(Test-Path -Type $(if ($Directory) {"Container"} else {"Leaf"}) $TargetPath)) {
+			# mismatch between requested and real target type
+			rm -Recurse $TargetPath
+		}
+
+		if (-not (Test-Path $TargetPath)) {
+			Assert-ParentDirectory $TargetPath
+			if ((Test-Path $OriginalPath) -and (Get-Item $OriginalPath).Target -eq $null) {
+				# if source exists and it's not a symlink, move it
+				Move-Item $OriginalPath $TargetPath
+			} else {
+				$null = New-Item $TargetPath -ItemType $(if ($Directory) {"Directory"} else {"File"})
+			}
+		} elseif ($Directory -and $ShouldMerge -and (Test-Path -PathType Container $OriginalPath) `
+				-and $null -eq (Get-Item $OriginalPath).LinkType) {
+			echo "Merging directory $OriginalPath to $TargetPath..."
+			Merge-Directories $OriginalPath $TargetPath
+		}
+		
+		$result = Set-Symlink $OriginalPath $TargetPath
+		if ($null -eq $result) {
+			echo "Symlink already exists and matches requested target: '$OriginalPath'."
+		} else {
+			echo "Created symlink from '$OriginalPath' to '$TargetPath'."
+		}
 	}
 }
 
@@ -139,7 +197,6 @@ Export function Export-Shortcut {
 		$TargetPath,
 			[Alias("ArgumentList")]
 		$Arguments,
-			[string]
 		$WorkingDirectory,
 			[switch]
 		$StartMaximized,
@@ -151,32 +208,28 @@ Export function Export-Shortcut {
 	$Shell = New-Object -ComObject "WScript.Shell"
 	# Shell object has different CWD, have to resolve all paths
 	$ShortcutPath = Resolve-VirtualPath "./$ShortcutName.lnk"
-
-	if ($TargetPath.Contains("/") -or $TargetPath.Contains("\")) {
+	
+	$Target = if ($TargetPath.Contains("/") -or $TargetPath.Contains("\")) {
 		# assume the target is a path
-		$Target = Resolve-Path $TargetPath
-		
-		if ($WorkingDirectory -eq $null) {
-			$WorkingDirectory = Split-Path $Target 
-		} else {
-			$WorkingDirectory = [string](Resolve-Path $WorkingDirectory)
-		}
-		
-		if ($IconPath -eq $null) {
-			$IconPath = $Target
-		}
+		Resolve-Path $TargetPath
 	} else {
 		# assume the target is a command in env:PATH
 		$Cmd = Get-Command -CommandType Application $TargetPath -ErrorAction SilentlyContinue
 		if ($null -eq $Cmd) {
 			throw "Cannot create shortcut to command '$TargetPath', as no such command exists in PATH."
 		}
-		$Target = $Cmd.Source
-		if ($IconPath -eq $null) {
-			$IconPath = $Cmd.Source
-		}
+		$Cmd.Source
 	}
 	
+	if ($WorkingDirectory -eq $null) {
+		$WorkingDirectory = Split-Path $Target 
+	} else {
+		$WorkingDirectory = [string](Resolve-Path $WorkingDirectory)
+	}
+
+	if ($IconPath -eq $null) {
+		$IconPath = $Target
+	}
 	$IconPath = Resolve-Path $IconPath
 	
 	# support taking icon from another .lnk
@@ -188,7 +241,6 @@ Export function Export-Shortcut {
 	
 	$WinStyle = if ($StartMaximized) {3} else {1}
 	$Description = Split-Path -LeafBase $TargetPath
-
 
 	$S = $Shell.CreateShortcut($ShortcutPath)
 
@@ -288,7 +340,7 @@ Export function Export-Command {
 	)
 	
 	# ensure BIN_DIR is in env:PATH
-	$null = Add-SystemEnvPath -Prepend $script:BIN_DIR
+	$null = Add-EnvPath -Prepend $script:BIN_DIR
 	
 	if (-not (Test-Path $ExePath)) {
 		throw "Cannot register command '$CmdName', provided target '$ExePath' does not exist."
@@ -337,6 +389,13 @@ Export function Export-Command {
 		}
 	
 	if ($UseSymlink) {
+		$Ext = [System.IO.Path]::GetExtension($ExePath)
+		if ($Ext -in @(".cmd", ".bat")) {
+			Write-Warning ("When running a batch file (.cmd/.bat) through a symlink, " +
+				"the script will think it is located at the symlink location, not in the real location in the package directory, " +
+				"which might break paths to other parts of the package.")
+		}
+	
 		$null = Set-Symlink $LinkPath $ExePath
 		echo "Registered command '$CmdName' as symlink."
 	} else {
