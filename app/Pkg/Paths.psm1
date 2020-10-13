@@ -6,6 +6,7 @@ $PKG_NAME = "Pkg"
 
 $ROOT = Resolve-Path $PSScriptRoot"\..\.."
 
+$MANIFEST_REPO = Resolve-Path $ROOT"\data\manifests\"
 $PACKAGE_ROOT_FILE = Resolve-Path $ROOT"\data\roots.txt"
 $UNRESOLVED_PACKAGE_ROOTS = [Collections.ArrayList]::new()
 # cast through [array] is needed, otherwise if there is only single root, ArrayList would throw type error
@@ -22,6 +23,8 @@ $BIN_DIR = Resolve-Path $ROOT"\data\pkg_bin"
 
 
 $MANIFEST_PATHS = @(".\manifest.psd1", ".\.manifest\manifest.psd1")
+$MANIFEST_CLEANUP_PATHS = @(".\manifest.psd1", ".\.manifest\")
+
 $CONTAINER_SCRIPT = Resolve-Path $PSScriptRoot"\container\container.ps1"
 $CONTAINER_SETUP_SCRIPT = Resolve-Path $PSScriptRoot"\container\setup_container.ps1"
 

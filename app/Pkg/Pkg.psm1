@@ -11,6 +11,12 @@ class PkgPackageName : System.Management.Automation.IValidateSetValuesGenerator 
     }
 }
 
+class PkgRepoManifest : System.Management.Automation.IValidateSetValuesGenerator {
+    [String[]] GetValidValues() {
+        return ls $script:MANIFEST_REPO -Directory | Select -ExpandProperty Name
+    }
+}
+
 class PkgPackageRoot : System.Management.Automation.IValidateSetValuesGenerator {
     [String[]] GetValidValues() {
 		return $script:PACKAGE_ROOTS + $script:UNRESOLVED_PACKAGE_ROOTS
@@ -243,30 +249,94 @@ Export function Install-Pkg {
 	}
 }
 
-Export function New-PkgManifest {
+Export function Initialize-PkgPackage {
 	[CmdletBinding()]
 	Param(
 			[Parameter(Mandatory)]
-			[ValidateSet([PkgPackageName])]
+			[ValidateSet([PkgRepoManifest])]
+			[Alias("PackageName")]
 			[string]
-		$PackageName
+		$ManifestName,
+			[string]
+		$TargetName,
+			[ValidateSet([PkgPackageRoot])]
+			[string]
+		$TargetPkgRoot = $script:PACKAGE_ROOTS[0],
+			[switch]
+		$AllowOverwrite
+	)
+	
+	if ([string]::IsNullOrEmpty($TargetName)) {
+		$TargetName = $ManifestName
+	}
+	
+	$SrcPath = Join-Path $script:MANIFEST_REPO $ManifestName
+	$TargetPath = Join-Path $TargetPkgRoot $TargetName
+	
+	if (Test-Path $TargetPath) {
+		if (!$AllowOverwrite) {
+			throw "There is already an initialized package with name '$TargetName' in '$TargetPkgRoot'. Pass -AllowOverwrite to overwrite current manifest."
+		}
+		echo "Overwriting previous package manifest..."
+		$script:MANIFEST_CLEANUP_PATHS | % {
+			rm -Recurse (Join-Path $TargetPath $_)
+		}
+	} else {
+		$null = New-Item -Type Directory $TargetPath
+	}
+	
+	ls $SrcPath | Copy-Item -Destination $TargetPath
+	echo "Initialized '$TargetPath' with package manifest '$ManifestName'."
+}
+
+Export function New-PkgManifest {
+	[CmdletBinding()]
+	param(
+			[Parameter(Mandatory)]
+			[ValidateScript({
+				if ($_ -in (new-object PkgRepoManifest).GetValidValues()) {
+					throw "Package manifest with name '$_' already exists in local repository."
+				}
+				return $true
+			})]
+			[Alias("PackageName")]
+			[string]
+		$ManifestName
 	)
 
 	begin {
-		$PackagePath = Get-PackagePath $PackageName		
-		
-		$ManifestPath = try {
-			Get-ManifestPath $PackagePath
-		} catch {
-			Resolve-VirtualPath (Join-Path $PackagePath $MANIFEST_PATHS[0])
-		}
+		$ManifestDir = New-Item -Type Directory -Path $script:MANIFEST_REPO -Name $ManifestName
+		$ManifestPath = Resolve-VirtualPath (Join-Path $ManifestDir $MANIFEST_PATHS[0])
 		
 		if (Test-Path $ManifestPath) {
 			throw "Package $PackageName already has a manifest at '$ManifestPath'."
 		}
 		
 		$manifest = Get-Content -Raw $PSScriptRoot\resources\manifest_template.psd1
-		$withName = $manifest.Replace("<NAME>", $PackageName.Replace('"', '""'))
+		$withName = $manifest.Replace("<NAME>", $ManifestName.Replace('"', '""'))
 		return New-Item -Path $ManifestPath -Value $withName
+	}
+}
+
+Export function Copy-PkgManifestsToRepository {
+	[CmdletBinding()]
+	param()
+	
+	# TODO: rewrite, buggy
+	
+	$script:PACKAGE_ROOTS | ls | ? {$_.Name[0] -ne "_"} | % {	
+		$ManifestDir = Join-Path $script:MANIFEST_REPO $_.Name
+		if (Test-Path $ManifestDir) {
+			$ManifestDir = Resolve-Path $ManifestDir
+			ls $ManifestDir | rm -Recurse
+		} else {
+			$ManifestDir = New-Item -Type Directory -Path $script:MANIFEST_REPO -Name $_.Name
+		}
+		$Path = $_
+		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $Path $_} | % {
+			if (Test-Path $_) {
+				cp $_ $ManifestDir -Recurse
+			}
+		}
 	}
 }
