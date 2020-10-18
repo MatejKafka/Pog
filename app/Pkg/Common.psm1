@@ -22,7 +22,7 @@ Export function Get-PackagePath {
 	if ($NoError) {
 		return $null
 	}
-	throw ("Could not find package $PackageName in known package directories. " `
+	throw ("Could not find package '$PackageName' in known package directories. " `
 			+ "Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
 }
 
@@ -44,8 +44,8 @@ Export function Get-ManifestPath {
 	if ($NoError) {
 		return $null
 	}
-	$PackageName = Split-Path $PackagePath
-	throw ("Could not find manifest file for package $PackageName. " `
+	$PackageName = Split-Path $PackagePath -Leaf
+	throw ("Could not find manifest file for package '$PackageName'. " `
 			+ "Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
 }
 

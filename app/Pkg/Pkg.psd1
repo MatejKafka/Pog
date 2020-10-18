@@ -10,7 +10,7 @@
 		"New-PkgRoot"
 		"Remove-PkgRoot"
 
-		"Initialize-PkgPackage"
+		"Import-PkgPackage"
 		"Enable-Pkg"
 		"Install-Pkg"
 	)

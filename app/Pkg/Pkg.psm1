@@ -225,7 +225,11 @@ Export function Install-Pkg {
 		$PackageName,
 			# allow overwriting current .\app directory, if one exists
 			[switch]
-		$AllowOverwrite
+		$AllowOverwrite,
+			# download files with low priority, which results in better network
+			#  responsiveness for other programs, but possibly slower download
+			[switch]
+		$LowPriority
 	)
 	
 	begin {
@@ -242,6 +246,7 @@ Export function Install-Pkg {
 		$InternalArgs = @{
 			Manifest = $Manifest
 			AllowOverwrite = [bool]$AllowOverwrite
+			DownloadPriority = if ($LowPriority) {"Low"} else {"Foreground"}
 		}
 		
 		Invoke-Container $PackagePath $ManifestPath $Manifest.Install $InternalArgs @{}
@@ -249,7 +254,7 @@ Export function Install-Pkg {
 	}
 }
 
-Export function Initialize-PkgPackage {
+Export function Import-PkgPackage {
 	[CmdletBinding()]
 	Param(
 			[Parameter(Mandatory)]
@@ -285,7 +290,7 @@ Export function Initialize-PkgPackage {
 		$null = New-Item -Type Directory $TargetPath
 	}
 	
-	ls $SrcPath | Copy-Item -Destination $TargetPath
+	ls $SrcPath | Copy-Item -Destination $TargetPath -Recurse
 	echo "Initialized '$TargetPath' with package manifest '$ManifestName'."
 }
 

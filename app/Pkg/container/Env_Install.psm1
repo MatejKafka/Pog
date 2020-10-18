@@ -1,5 +1,10 @@
 . $PSScriptRoot\..\header.ps1
 
+# allows expanding .zip
+Import-Module Microsoft.PowerShell.Archive
+# allows downloading files using BITS
+Import-Module BitsTransfer
+
 
 Export function Install-FromUrl {
 	param(
@@ -62,7 +67,7 @@ Export function Install-FromUrl {
 }
 
 
-Export function Invoke-TmpFileDownload {
+function Invoke-TmpFileDownload {
 	param(
 			[Parameter(Mandatory)]
 			[string]
@@ -84,13 +89,16 @@ Export function Invoke-TmpFileDownload {
 	
 	while ($true) {
 		try {
-			$TmpPath = Join-Path ([System.IO.Path]::GetTempPath()) ((New-Guid).Guid + "-" + $Suffix)
+			$TmpFileName = (New-Guid).Guid + "-" + $Suffix
+			$TmpPath = Join-Path ([System.IO.Path]::GetTempPath()) $TmpFileName
 			$TmpFile = New-item $TmpPath
 			break
 		} catch {}
 	}
 	
 	# we have a temp file with unique name and requested extension, download content
+	$Description = "Downloading file from '$SrcUrl' to temp file '$TmpFileName'."
+	Start-BitsTransfer $SrcUrl -Destination $TmpFile -Priority $global:Pkg_DownloadPriority -Description $Description
 	Invoke-WebRequest $SrcUrl -OutFile $TmpFile
 	
 	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
