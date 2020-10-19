@@ -5,6 +5,10 @@
 		"Export-PkgShortcutsToStartMenu"
 		"New-PkgManifest"
 		"Copy-PkgManifestsToRepository"
+		"Validate-PkgManifest"
+		"Validate-PkgImportedManifest"
+		"Get-PkgPackage"
+		"Get-PkgInstalledPackage"
 		
 		"Get-PkgRoot"
 		"New-PkgRoot"

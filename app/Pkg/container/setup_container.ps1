@@ -1,3 +1,9 @@
+param(
+		[Parameter(Mandatory)]
+		[string]
+	$EnvType
+)
+
 Set-StrictMode -Version Latest
 
 # block automatic module loading to isolate the configuration script from system packages
@@ -9,7 +15,10 @@ $ErrorActionPreference = "Stop"
 Import-Module Microsoft.PowerShell.Utility
 Import-Module Microsoft.PowerShell.Management
 
-# TODO: only import relevant file for both Enable and Install operations
+
 # setup environment for Pkg script
-Import-Module $PSScriptRoot\Env_Enable
-Import-Module $PSScriptRoot\Env_Install
+switch ($EnvType) {
+	Enable {Import-Module $PSScriptRoot\Env_Enable}
+	Install {Import-Module $PSScriptRoot\Env_Install}
+	default {throw "Unknown Pkg container environment type: " + $_}
+}
