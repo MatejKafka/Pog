@@ -318,19 +318,33 @@ function Validate-Manifest {
 		"Enable" = [scriptblock]; "Install" = [scriptblock]
 	}
 	
+	$Issues = @()
+	
 	$RequiredKeys.GetEnumerator() | % {
 		$StrTypes = $_.Value -join " | "
-		if ($_.Key -notin $Manifest.Keys) {throw "Missing manifest property '$($_.Key)' of type '$StrTypes'."}
+		if (!$Manifest.ContainsKey($_.Key)) {
+			$Issues += "Missing manifest property '$($_.Key)' of type '$StrTypes'."
+			return
+		}
 		$RealType = $Manifest[$_.Key].GetType()
 		if ($RealType -notin $_.Value) {
-			throw "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
+			$Issues += "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
 		}
 	}
 	
-	$ValidArch = @("x64", "x86", "*")
-	if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
-		throw "Invalid 'Architecture' value - got '$($Manifest.Architecture)', expected one of $ValidArch, or an array."
+	if ($Manifest.ContainsKey("Architecture")) {
+		$ValidArch = @("x64", "x86", "*")
+		if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
+			$Issues += "Invalid 'Architecture' value - got '$($Manifest.Architecture)', expected one of $ValidArch, or an array."
+		}
 	}
+	
+	if ($Issues.Count -gt 1) {
+		throw ("Issues encountered when validating manifest:`n`t" + ($Issues -join "`n`t"))
+	} elseif ($Issues.Count -eq 1) {
+		throw $Issues
+	}
+	
 	Write-Verbose "Manifest is valid."
 }
 
