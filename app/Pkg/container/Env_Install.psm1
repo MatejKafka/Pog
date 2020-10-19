@@ -99,7 +99,6 @@ function Invoke-TmpFileDownload {
 	# we have a temp file with unique name and requested extension, download content
 	$Description = "Downloading file from '$SrcUrl' to temp file '$TmpFileName'."
 	Start-BitsTransfer $SrcUrl -Destination $TmpFile -Priority $global:Pkg_DownloadPriority -Description $Description
-	Invoke-WebRequest $SrcUrl -OutFile $TmpFile
 	
 	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
 		$RealHash = (Get-FileHash $TmpFile -Algorithm SHA256).Hash
