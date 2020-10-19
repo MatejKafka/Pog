@@ -31,23 +31,23 @@ Export function Install-FromUrl {
 		if (-not $global:Pkg_AllowOverwrite) {
 			throw "./app directory already exists; pass -AllowOverwrite to overwrite it."
 		}
-		echo "Removing previous ./app directory..."
+		Write-Verbose "Removing previous ./app directory..."
 		rm -Recurse -Force .\app
 	}
 	
-	echo "Downloading archive from $SrcUrl"
+	Write-Verbose "Downloading archive from $SrcUrl"
 	$Tmp = Invoke-TmpFileDownload $SrcUrl -ExpectedHash $ExpectedHash
 	
 	try {
 		if ($Force7zip -or $Tmp.Name.EndsWith(".7z") -or $Tmp.Name.EndsWith(".7z.exe")) {
-			echo "Expanding downloaded archive using 7zip..."
+			Write-Verbose "Expanding downloaded archive using 7zip..."
 			# run 7zip with silenced status reports
 			& $PSScriptRoot\bin\7za.exe x $Tmp ("-o" + $TMP_EXPAND_PATH) -bso0 -bsp0
 			if ($LastExitCode -gt 0) {
 				throw "Could not expand archive: 7za.exe returned exit code $LastExitCode. There is likely additional output above."
 			}
 		} else {
-			echo "Expanding downloaded archive..."
+			Write-Verbose "Expanding downloaded archive..."
 			Expand-Archive -Path $Tmp -DestinationPath $TMP_EXPAND_PATH -Force
 		}
 	} finally {
@@ -63,7 +63,7 @@ Export function Install-FromUrl {
 		rm $TMP_EXPAND_PATH
 	}
 	
-	echo "Package successfully installed from downloaded archive."
+	Write-Verbose "Package successfully installed from downloaded archive."
 }
 
 

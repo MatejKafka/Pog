@@ -168,7 +168,7 @@ Export function Enable-Pkg {
 			AllowClobber = [bool]$AllowClobber
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParams
+		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParams -Verbose:$VerbosePreference
 		echo "Successfully enabled $PackageName."
 	}
 }
@@ -206,7 +206,7 @@ Export function Install-Pkg {
 			DownloadPriority = if ($LowPriority) {"Low"} else {"Foreground"}
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Install $Manifest.Install $InternalArgs @{}
+		Invoke-Container $PackagePath $ManifestPath Install $Manifest.Install $InternalArgs @{} -Verbose:$VerbosePreference
 		echo "Successfully installed $PackageName."
 	}
 }
@@ -239,7 +239,7 @@ Export function Import-PkgPackage {
 		if (!$AllowOverwrite) {
 			throw "There is already an initialized package with name '$TargetName' in '$TargetPkgRoot'. Pass -AllowOverwrite to overwrite current manifest."
 		}
-		echo "Overwriting previous package manifest..."
+		Write-Verbose "Overwriting previous package manifest..."
 		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | rm -Recurse
 	} else {
 		$null = New-Item -Type Directory $TargetPath
@@ -309,7 +309,7 @@ function Validate-Manifest {
 	)
 	
 	if ("Private" -in $Manifest.Keys -and $Manifest.Private) {
-		echo "Skipped validation of private package manifest '$Manifest.Name'."
+		Write-Verbose "Skipped validation of private package manifest '$Manifest.Name'."
 		return
 	}
 	
@@ -319,16 +319,19 @@ function Validate-Manifest {
 	}
 	
 	$RequiredKeys.GetEnumerator() | % {
-		if ($_.Key -notin $Manifest.Keys) {throw "Missing manifest property '$($_.Key)' of type '$($_.Value)'."}
+		$StrTypes = $_.Value -join " | "
+		if ($_.Key -notin $Manifest.Keys) {throw "Missing manifest property '$($_.Key)' of type '$StrTypes'."}
 		$RealType = $Manifest[$_.Key].GetType()
-		if ($RealType -notin $_.Value) {throw "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$($_.Value)'."}
+		if ($RealType -notin $_.Value) {
+			throw "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
+		}
 	}
 	
-	$ValidArch = @("amd64", "x86", "*")
+	$ValidArch = @("x64", "x86", "*")
 	if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
 		throw "Invalid 'Architecture' value - got '$($Manifest.Architecture)', expected one of $ValidArch, or an array."
 	}
-	echo "Manifest is valid."
+	Write-Verbose "Manifest is valid."
 }
 
 Export function Validate-PkgManifest {
@@ -346,8 +349,12 @@ Export function Validate-PkgManifest {
 		$ManifestPath = Get-ManifestPath $DirPath
 		$Manifest = Import-PowerShellDataFile $ManifestPath
 		
-		echo "Validating package manifest '$ManifestName' from local repository..."
-		Validate-Manifest $Manifest
+		Write-Verbose "Validating package manifest '$ManifestName' from local repository..."
+		try {
+			Validate-Manifest $Manifest
+		} catch {
+			Write-Warning "Validation of package manifest '$ManifestName' from local repository failed: $_"
+		}
 	}
 }
 
@@ -365,7 +372,11 @@ Export function Validate-PkgImportedManifest {
 		$ManifestPath = Get-ManifestPath $PackagePath
 		$Manifest = Import-PowerShellDataFile $ManifestPath
 		
-		echo "Validating imported package manifest '$PackageName' at '$ManifestPath'..."
-		Validate-Manifest $Manifest
+		Write-Verbose "Validating imported package manifest '$PackageName' at '$ManifestPath'..."
+		try {
+			Validate-Manifest $Manifest
+		} catch {
+			Write-Warning "Validation of imported package manifest '$PackageName' at '$ManifestPath' failed: $_"
+		}
 	}
 }

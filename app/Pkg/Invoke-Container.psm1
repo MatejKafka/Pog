@@ -63,6 +63,7 @@ function Set-ErrorSrcFile {
 }
 
 Export function Invoke-Container {
+	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
 			[string]

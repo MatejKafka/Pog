@@ -127,15 +127,15 @@ Export function Set-SymlinkedPath {
 			}
 		} elseif ($Directory -and $ShouldMerge -and (Test-Path -PathType Container $OriginalPath) `
 				-and $null -eq (Get-Item $OriginalPath).LinkType) {
-			echo "Merging directory $OriginalPath to $TargetPath..."
+			Write-Verbose "Merging directory $OriginalPath to $TargetPath..."
 			Merge-Directories $OriginalPath $TargetPath
 		}
 		
 		$result = Set-Symlink $OriginalPath $TargetPath
 		if ($null -eq $result) {
-			echo "Symlink already exists and matches requested target: '$OriginalPath'."
+			Write-Verbose "Symlink already exists and matches requested target: '$OriginalPath'."
 		} else {
-			echo "Created symlink from '$OriginalPath' to '$TargetPath'."
+			Write-Verbose "Created symlink from '$OriginalPath' to '$TargetPath'."
 		}
 	}
 }
@@ -146,14 +146,14 @@ Export function Assert-Directory {
 	param([Parameter(Mandatory)]$Path)
 
 	if (Test-Path -Type Container $Path) {
-		echo "Directory '$Path' already exists."
+		Write-Verbose "Directory '$Path' already exists."
 		return
 	}
 	if (Test-Path $Path) {
 		throw "Path '$Path' already exists, but it's not a directory."
 	}
 	$null = New-Item -ItemType Directory $Path
-	echo "Created directory '$Path'."
+	Write-Verbose "Created directory '$Path'."
 }
 
 
@@ -168,7 +168,7 @@ Export function Assert-File {
 	)
 
 	if (Test-Path -Type Leaf $Path) {
-		echo "File '$Path' already exists."
+		Write-Verbose "File '$Path' already exists."
 		return
 	}
 	if (Test-Path $Path) {
@@ -183,7 +183,7 @@ Export function Assert-File {
 	# create new file with default content
 	& $DefaultContent > $Path
 	
-	echo "Created file '$Path'."
+	Write-Verbose "Created file '$Path'."
 }
 
 
@@ -251,12 +251,12 @@ Export function Export-Shortcut {
 			-and $S.WindowStyle -eq $WinStyle `
 			-and $S.IconLocation -eq $Icon `
 			-and $S.Description -eq $Description) {
-		echo "Shortcut '$ShortcutName' is already configured."
+		Write-Verbose "Shortcut '$ShortcutName' is already configured."
 		return
 	}
 	
 	if (Test-Path $ShortcutPath) {
-		echo "Shortcut at '$ShortcutPath' already exists, reusing it..."
+		Write-Verbose "Shortcut at '$ShortcutPath' already exists, reusing it..."
 	}
 	
 	$S.TargetPath = $Target
@@ -267,7 +267,7 @@ Export function Export-Shortcut {
 	$S.Description = $Description
 	
 	$S.Save()
-	echo "Setup a shortcut called '$ShortcutName' (target: '$TargetPath')."
+	Write-Verbose "Setup a shortcut called '$ShortcutName' (target: '$TargetPath')."
 }
 
 
@@ -300,7 +300,7 @@ Export function Disable-DisplayScaling {
 	} else {
 		$null = New-ItemProperty -Path $RegPath -Name $ExePath -PropertyType String -Value "~ HIGHDPIAWARE"
 	}
-	echo "Disabled system display scaling for '${ExePath}'."
+	Write-Verbose "Disabled system display scaling for '${ExePath}'."
 }
 
 
@@ -310,7 +310,7 @@ Export function Assert-Dependency {
 		if ($null -eq (Get-PackagePath -NoError $_)) {
 			$Unsatisfied += $_
 		} else {
-			echo "Validated dependency: ${_}."
+			Write-Verbose "Validated dependency: ${_}."
 		}
 	}
 	
@@ -397,9 +397,9 @@ Export function Export-Command {
 		}
 	
 		$null = Set-Symlink $LinkPath $ExePath
-		echo "Registered command '$CmdName' as symlink."
+		Write-Verbose "Registered command '$CmdName' as symlink."
 	} else {
 		Write-SubstituteExe $LinkPath $ExePath -SetWorkingDirectory:$SetWorkingDirectory
-		echo "Registered command '$CmdName' as substitute exe."
+		Write-Verbose "Registered command '$CmdName' as substitute exe."
 	}
 }
