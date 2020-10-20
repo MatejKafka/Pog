@@ -5,10 +5,10 @@
 
 
 Import-Module $PSScriptRoot"\Environment"
+Import-Module $PSScriptRoot"\command_generator\SubstituteExe"
 Import-Module $PSScriptRoot"\..\Paths"
 Import-Module $PSScriptRoot"\..\Utils"
 Import-Module $PSScriptRoot"\..\Common"
-Import-Module $PSScriptRoot"\..\command_generator\SubstituteExe.psm1"
 
 Export-ModuleMember -Function Add-EnvVar, Set-EnvVar, Add-EnvPath, Assert-Admin
 
@@ -294,7 +294,8 @@ Export function Disable-DisplayScaling {
 	
 		$OldVal = Get-ItemPropertyValue -Path $RegPath -Name $ExePath
 		if (($OldVal -split "\s+").Contains("HIGHDPIAWARE")) {
-			return "System display scaling already disabled for '${ExePath}'."
+			Write-Verbose "System display scaling already disabled for '${ExePath}'."
+			return
 		}
 		$null = Set-ItemProperty -Path $RegPath -Name $ExePath -Value ($OldVal + " HIGHDPIAWARE")
 	} else {
@@ -362,12 +363,14 @@ Export function Export-Command {
 			# exe
 			$Matches = Test-SubstituteExe $LinkPath $ExePath -SetWorkingDirectory:$SetWorkingDirectory
 			if ($Matches -and !$UseSymlink) {
-				return "Command ${CmdName} is already registered for this package."
+				Write-Verbose "Command ${CmdName} is already registered for this package."
+				return
 			}
 		} else {
 			# symlink
 			if ($Item.Target -eq $ExePath -and $UseSymlink) {
-				return "Command ${CmdName} is already registered for this package."
+				Write-Verbose "Command ${CmdName} is already registered for this package."
+				return
 			}
 		}
 	

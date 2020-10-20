@@ -1,5 +1,5 @@
-. $PSScriptRoot\..\header.ps1
-Import-Module $PSScriptRoot"\..\Utils"
+. $PSScriptRoot\..\..\header.ps1
+Import-Module $PSScriptRoot"\..\..\Utils"
 
 $KEEP_TEMPLATE = "$PSScriptRoot\templates\keepCwd.exe"
 $KEEP_FILE_LENGTH = 126792
