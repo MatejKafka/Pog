@@ -1,7 +1,7 @@
 @{
 	Name = "<NAME>"
 	Version = ""
-	Architecture = "amd64"
+	Architecture = "x64"
 	
 	Install = {
 		
