@@ -67,6 +67,25 @@ Export function Install-FromUrl {
 }
 
 
+function DownloadFile {
+	param($SrcUrl, $TargetPath)
+	
+	# Unfortunately, BITS breaks for github and other pages with redirects, see here for description:
+	#  https://powershell.org/forums/topic/bits-transfer-with-github/
+	#$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
+	#Start-BitsTransfer $SrcUrl -Destination $TargetPath -Priority $global:Pkg_DownloadPriority -Description $Description
+	
+	if ($global:Pkg_DownloadPriority -ne "Foreground") {
+		Write-Warning "Low priority download requested by user (-LowPriority flag)."
+		Write-Warning "Unfortunately, low priority downloads using BITS are currently disabled due to incompatibility with GitHub releases."
+		Write-Warning " (see here for details: https://powershell.org/forums/topic/bits-transfer-with-github/)"
+	}
+	
+	# we'll have to use Invoke-WebRequest instead, which doesn't offer low priority mode and has worse progress indicator
+	Invoke-WebRequest $SrcUrl -OutFile $TargetPath
+}
+
+
 function Invoke-TmpFileDownload {
 	param(
 			[Parameter(Mandatory)]
@@ -97,8 +116,7 @@ function Invoke-TmpFileDownload {
 	}
 	
 	# we have a temp file with unique name and requested extension, download content
-	$Description = "Downloading file from '$SrcUrl' to temp file '$TmpFileName'."
-	Start-BitsTransfer $SrcUrl -Destination $TmpFile -Priority $global:Pkg_DownloadPriority -Description $Description
+	DownloadFile $SrcUrl $TmpFile
 	
 	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
 		$RealHash = (Get-FileHash $TmpFile -Algorithm SHA256).Hash
