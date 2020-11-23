@@ -1,4 +1,5 @@
 . $PSScriptRoot\..\header.ps1
+Import-Module $PSScriptRoot\..\Paths
 
 # allows expanding .zip
 Import-Module Microsoft.PowerShell.Archive
@@ -6,9 +7,34 @@ Import-Module Microsoft.PowerShell.Archive
 Import-Module BitsTransfer
 
 
+function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
+	if ($Force7zip -or $ArchiveFile.Name.EndsWith(".7z") -or $ArchiveFile.Name.EndsWith(".7z.exe")) {
+		Write-Verbose "Expanding archive using 7zip..."
+		# run 7zip with silenced status reports
+		& $PSScriptRoot\bin\7za.exe x $ArchiveFile ("-o" + $TargetPath) -bso0 -bsp0
+		if ($LastExitCode -gt 0) {
+			throw "Could not expand archive: 7za.exe returned exit code $LastExitCode. There is likely additional output above."
+		}
+	} else {
+		Write-Verbose "Expanding archive..."
+		# Expand-Archive is really chatty with Verbose output, so we'll suppress it
+		#  however, passing -Verbose:$false causes an erroneous verbose print to appear
+		#  see: https://github.com/PowerShell/PowerShell/issues/14245
+		try {
+			$CurrentVerbose = $global:VerbosePreference
+			$global:VerbosePreference = "SilentlyContinue"
+			Expand-Archive -Path $ArchiveFile -DestinationPath $TargetPath -Force
+		} finally {
+			$global:VerbosePreference = $CurrentVerbose
+		}
+		
+	}
+}
+
 Export function Install-FromUrl {
+	[CmdletBinding(PositionalBinding=$false)]
 	param(
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, Position=0)]
 			[string]
 		$SrcUrl,
 			# SHA256 hash that the downloaded archive should match
@@ -35,34 +61,44 @@ Export function Install-FromUrl {
 		rm -Recurse -Force .\app
 	}
 	
-	Write-Verbose "Downloading archive from $SrcUrl"
-	$Tmp = Invoke-TmpFileDownload $SrcUrl -ExpectedHash $ExpectedHash
+	if (Test-Path $TMP_EXPAND_PATH) {
+		Write-Warning "Clearing orphaned tmp installer directory, probably from failed previous install..."
+		rm -Recurse -Force $TMP_EXPAND_PATH
+	}
 	
-	try {
-		if ($Force7zip -or $Tmp.Name.EndsWith(".7z") -or $Tmp.Name.EndsWith(".7z.exe")) {
-			Write-Verbose "Expanding downloaded archive using 7zip..."
-			# run 7zip with silenced status reports
-			& $PSScriptRoot\bin\7za.exe x $Tmp ("-o" + $TMP_EXPAND_PATH) -bso0 -bsp0
-			if ($LastExitCode -gt 0) {
-				throw "Could not expand archive: 7za.exe returned exit code $LastExitCode. There is likely additional output above."
-			}
-		} else {
-			Write-Verbose "Expanding downloaded archive..."
-			Expand-Archive -Path $Tmp -DestinationPath $TMP_EXPAND_PATH -Force
+	Write-Verbose "Downloading archive from '$SrcUrl'..."
+	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
+		# we have fixed hash, we can use download cache
+		$DownloadedFile = Invoke-CachedFileDownload $SrcUrl -ExpectedHash $ExpectedHash
+		ExtractArchive $DownloadedFile $TMP_EXPAND_PATH -Force7zip:$Force7zip
+	} else {
+		# the hash is not set, cannot safely cache the file
+		$DownloadedFile = Invoke-TmpFileDownload $SrcUrl
+		try {
+			ExtractArchive $DownloadedFile $TMP_EXPAND_PATH -Force7zip:$Force7zip
+		} finally {
+			# remove the file after we finish
+			rm $DownloadedFile
 		}
-	} finally {
-		rm $Tmp
 	}
 	
 	if ($NoSubdirectory) {
 		# use files from the root of archive directly
 		Rename-Item $TMP_EXPAND_PATH .\app
 	} else {
-		# there should be a single folder here
-		mv (ls $TMP_EXPAND_PATH) .\app
-		rm $TMP_EXPAND_PATH
+		try {
+			$DirContent = ls $TMP_EXPAND_PATH
+			# there should be a single folder here
+			if (@($DirContent).Count -ne 1 -or -not $DirContent[0].PSIsContainer) {
+				throw "There are multiple files in the root of the extracted archive, single directory expected. " +
+					"Package author should pass '-NoSubdirectory' to 'Install-FromUrl' if the archive does not " +
+					"have a wrapper directory in its root."
+			}
+			mv $DirContent .\app
+		} finally {
+			rm -Recurse $TMP_EXPAND_PATH
+		}
 	}
-	
 	Write-Verbose "Package successfully installed from downloaded archive."
 }
 
@@ -76,6 +112,7 @@ function DownloadFile {
 	#Start-BitsTransfer $SrcUrl -Destination $TargetPath -Priority $global:Pkg_DownloadPriority -Description $Description
 	
 	if ($global:Pkg_DownloadPriority -ne "Foreground") {
+		# TODO: FIXME
 		Write-Warning "Low priority download requested by user (-LowPriority flag)."
 		Write-Warning "Unfortunately, low priority downloads using BITS are currently disabled due to incompatibility with GitHub releases."
 		Write-Warning " (see here for details: https://powershell.org/forums/topic/bits-transfer-with-github/)"
@@ -86,29 +123,91 @@ function DownloadFile {
 }
 
 
+function GetDownloadCacheEntry($Hash) {
+	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $Hash
+	if (-not (Test-Path $DirPath)) {
+		return $null
+	}
+	
+	# cache hit, validate file count
+	$File = ls -File $DirPath
+	if (@($File).Count -ne 1) {
+		Write-Warning "Invalid download cache entry - contains multiple, or no items, erasing...: $Hash"
+		rm -Recurse $DirPath
+		return $null
+	}
+	
+	# validate file hash
+	$FileHash = (Get-FileHash $File -Algorithm SHA256).Hash
+	if ($Hash -ne $FileHash) {
+		Write-Warning "Invalid download cache entry - content hash does not match, erasing...: $Hash"
+		rm -Recurse $DirPath
+		return $null
+	}
+	
+	return $File
+}
+
+function Invoke-CachedFileDownload {
+	param(
+			[Parameter(Mandatory)]
+			[string]
+		$SrcUrl,
+			[Parameter(Mandatory)]
+			[string]
+		$ExpectedHash # SHA256 hash of expected file
+	)
+	
+	# each cache entry is a directory named with the SHA256 hash of target file,
+	#  containing a single file with original name
+	#  e.g. $script:DOWNLOAD_CACHE_DIR/<sha-256>/app-v1.2.0.zip
+	
+	$CachedFile = GetDownloadCacheEntry $ExpectedHash
+	if ($null -ne $CachedFile) {
+		Write-Verbose "Found cached copy of requested file."
+		return $CachedFile
+	}
+	
+	# cache miss, download the file
+	Write-Verbose "Cached copy not found, downloading file to cache..."
+	
+	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $ExpectedHash
+	# use file name from the URL
+	$TargetPath = Join-Path $DirPath ([uri]$SrcUrl).Segments[-1]
+	
+	try {
+		New-Item -Type Directory $DirPath
+		DownloadFile $SrcUrl $TargetPath
+		$File = Get-Item $TargetPath
+		
+		$RealHash = (Get-FileHash $File -Algorithm SHA256).Hash
+		if ($ExpectedHash -ne $RealHash) {
+			throw "Incorrect hash for file downloaded from $SrcUrl (expected : $ExpectedHash, real: $RealHash)."
+		}
+		# hash check passed, return file reference
+		return $File
+	} catch {
+		# not -ErrorAction Ignore, we want to have a log in $Error for debugging
+		rm -Recurse -Force $DirPath -ErrorAction SilentlyContinue 
+		throw $_
+	}
+}
+
+
 function Invoke-TmpFileDownload {
 	param(
 			[Parameter(Mandatory)]
 			[string]
 		$SrcUrl,
-			# If set, generated file will have given extension.
-			# If not set, file name from the URL (last segment of path) will be appended to the random file name as "extension".
-			[string]
-		$Extension,
 			[string]
 		$ExpectedHash # SHA256 hash of expected file
 	)
 	
-	# TODO: automatically clean up the temp files on installer exit
-	#  (possibly by storing names of all generated files and adding exit hook to delete them)
-	
-	$Suffix = if (-not [string]::IsNullOrEmpty($Extension)) {$Extension}
-		# use file name from the URL
-		else {([uri]$SrcUrl).Segments[-1].Replace("/", "").Replace("\", "")}
-	
+	# generate unused file name
 	while ($true) {
 		try {
-			$TmpFileName = (New-Guid).Guid + "-" + $Suffix
+			# use file name from the URL
+			$TmpFileName = (New-Guid).Guid + "-" + ([uri]$SrcUrl).Segments[-1]
 			$TmpPath = Join-Path ([System.IO.Path]::GetTempPath()) $TmpFileName
 			$TmpFile = New-item $TmpPath
 			break

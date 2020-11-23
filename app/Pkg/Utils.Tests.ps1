@@ -1,5 +1,6 @@
-Import-Module $PSScriptRoot\Utils.psm1
-
+BeforeAll {
+	Import-Module -Force $PSScriptRoot\Utils.psm1
+}
 
 Describe "DynamicParams" {
 	BeforeAll {

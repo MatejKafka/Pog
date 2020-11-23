@@ -1,0 +1,16 @@
+Telegram - config is all over the place, not clear what's config and what's cache
+
+git - add env var or cli parameter to set custom config/data dir
+	currently, $HOME is used
+
+Discord - electron, plz just stop with your shit
+
+JetBrains IDEs store consent options in AppData - currently hardcoded
+	TODO: file a feature request to set custom 'common data path' - where device id, consent options,... are stored
+
+node & npm
+	AppData\Roaming\npm-cache
+	HOME\.config (update-notifier)
+	
+OBS - auto-updater
+	add `EnableAutoUpdates=false` to section [General] in ./config/global.ini to disable during enabling

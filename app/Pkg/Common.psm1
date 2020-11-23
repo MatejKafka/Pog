@@ -2,7 +2,17 @@
 
 Import-Module $PSScriptRoot"\Paths"
 Import-Module $PSScriptRoot"\Utils"
+Import-Module $PSScriptRoot"\VersionParser"
 
+
+Export function Get-LatestPackageVersion {
+	param (
+			[Parameter(Mandatory)]
+			[ValidateScript({Test-Path $_})]
+		$PackagePath
+	)
+	return Get-LatestVersion (ls $PackagePath -Directory).Name
+}
 
 Export function Get-PackagePath {
 	param(
@@ -35,10 +45,10 @@ Export function Get-ManifestPath {
 	$SearchedPaths = @()
 	foreach ($ManifestRelPath in $MANIFEST_PATHS) {
 		$ManifestPath = Resolve-VirtualPath (Join-Path $PackagePath $ManifestRelPath)
-		$SearchedPaths += $ManifestPath
 		if (Test-Path -Type Leaf $ManifestPath) {
-			return $ManifestPath
+			return Get-Item $ManifestPath
 		}
+		$SearchedPaths += $ManifestPath
 	}
 	
 	if ($NoError) {

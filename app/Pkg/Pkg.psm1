@@ -157,7 +157,9 @@ Export function Enable-Pkg {
 		$ManifestPath = Get-ManifestPath $PackagePath
 		$Manifest = Import-PowerShellDataFile $ManifestPath
 		
-		if ($Manifest.Name -eq $PackageName) {
+		if ($Manifest.ContainsKey("Private") -and $Manifest.Private) {
+			echo "Enabling private package $PackageName..."
+		} elseif ($Manifest.Name -eq $PackageName) {
 			echo "Enabling package $($Manifest.Name), version $($Manifest.Version)..."
 		} else {
 			echo "Enabling package $($Manifest.Name) (installed as $PackageName), version $($Manifest.Version)..."
@@ -211,16 +213,19 @@ Export function Install-Pkg {
 	}
 }
 
-Export function Import-PkgPackage {
-	[CmdletBinding()]
+Export function Import-Pkg {
+	[CmdletBinding(PositionalBinding = $false)]
 	Param(
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, Position = 0)]
 			[ValidateSet([PkgRepoManifest])]
-			[Alias("PackageName")]
 			[string]
-		$ManifestName,
+		$PackageName,
+			# TODO: add autocomplete
+			[Parameter(Position = 1)]
 			[string]
-		$TargetName,
+		$Version = "latest",
+			[string]
+		$TargetName = $PackageName,
 			[ValidateSet([PkgPackageRoot])]
 			[string]
 		$TargetPkgRoot = $script:PACKAGE_ROOTS[0],
@@ -228,84 +233,132 @@ Export function Import-PkgPackage {
 		$AllowOverwrite
 	)
 	
-	if ([string]::IsNullOrEmpty($TargetName)) {
-		$TargetName = $ManifestName
+	if ($Version -eq "latest") {
+		# find latest version
+		$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
+	} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
+		throw "Unknown version of package ${PackageName}: $Version"
 	}
 	
-	$SrcPath = Join-Path $script:MANIFEST_REPO $ManifestName
+	$SrcPath = Join-Path $script:MANIFEST_REPO $PackageName $Version
 	$TargetPath = Join-Path $TargetPkgRoot $TargetName
 	
 	if (Test-Path $TargetPath) {
 		if (!$AllowOverwrite) {
 			throw "There is already an initialized package with name '$TargetName' in '$TargetPkgRoot'. Pass -AllowOverwrite to overwrite current manifest."
 		}
-		Write-Verbose "Overwriting previous package manifest..."
+		echo "Overwriting previous package manifest..."
 		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | rm -Recurse
 	} else {
 		$null = New-Item -Type Directory $TargetPath
 	}
 	
 	ls $SrcPath | Copy-Item -Destination $TargetPath -Recurse
-	echo "Initialized '$TargetPath' with package manifest '$ManifestName'."
+	echo "Initialized '$TargetPath' with package manifest '$PackageName' (version $Version)."
+}
+
+Export function Get-PkgManifest {
+	[CmdletBinding()]
+	Param(
+			[Parameter(Mandatory)]
+			[ValidateSet([PkgRepoManifest])]
+			[string]
+		$PackageName,
+			# TODO: add autocomplete
+			[string]
+		$Version = "latest"
+	)
+	
+	if ($Version -eq "latest") {
+		# find latest version
+		$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
+	} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
+		throw "Unknown version of package ${PackageName}: $Version"
+	}
+	return Get-ManifestPath (Join-Path $script:MANIFEST_REPO $PackageName $Version)
+} 
+
+function FillManifestTemplate($PackageName, $Version) {
+	$Manifest = Get-Content -Raw $RESOURCE_DIR\manifest_template.txt
+	return $Manifest -f @(
+		$PackageName.Replace("``", '``').Replace('"', '`"')
+		$Version.Replace("``", '``').Replace('"', '`"')
+	)
 }
 
 Export function New-PkgManifest {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
-			[ValidateScript({
-				if ($_ -in [PkgRepoManifest]::new().GetValidValues()) {
-					throw "Package manifest with name '$_' already exists in local repository."
-				}
-				return $true
-			})]
-			[Alias("PackageName")]
 			[string]
-		$ManifestName
+		$PackageName,
+			[Parameter(Mandatory)]
+			[string]
+		$Version
 	)
 
+	# TODO: validate state of the package directory (check if it's not empty after error,...)
 	begin {
-		$ManifestDir = New-Item -Type Directory -Path $script:MANIFEST_REPO -Name $ManifestName
-		$ManifestPath = Resolve-VirtualPath (Join-Path $ManifestDir $MANIFEST_PATHS[0])
-		
-		if (Test-Path $ManifestPath) {
-			throw "Package $PackageName already has a manifest at '$ManifestPath'."
+		$PackagePath = Join-Path $script:MANIFEST_REPO $PackageName
+	
+		if ($PackageName -notin [PkgRepoManifest]::new().GetValidValues()) {
+			# manifest directory for this package does not exist
+			New-Item -Type Directory $PackagePath
 		}
 		
-		$manifest = Get-Content -Raw $PSScriptRoot\resources\manifest_template.psd1
-		$withName = $manifest.Replace("<NAME>", $ManifestName.Replace('"', '""'))
-		return New-Item -Path $ManifestPath -Value $withName
+		$VersionDirPath = Join-Path $PackagePath $Version
+		
+		if (-not (Test-Path $VersionDirPath)) {
+			# create manifest dir for version
+			$ManifestDir = New-Item -Type Directory $VersionDirPath
+		} elseif (@(ls $VersionDirPath).Count -ne 0) {
+			# there is non-empty manifest dir here
+			throw "Package $PackageName already has a manifest for version '$Version'."			
+		} else {
+			# manifest dir exists, but it's empty
+			$ManifestDir = Get-Item $VersionDirPath
+		}
+		
+		$ManifestPath = Join-Path $ManifestDir $MANIFEST_PATHS[0]
+		return New-Item -Path $ManifestPath -Value (FillManifestTemplate $PackageName $Version)
 	}
 }
 
-Export function Copy-PkgManifestsToRepository {
+Export function New-PkgDirectManifest {
 	[CmdletBinding()]
-	param()
+	param(
+			[Parameter(Mandatory)]
+			[ValidateSet([PkgPackageName])]
+			[string]
+		$PackageName
+	)
 	
-	# TODO: rewrite, buggy
-	
-	$script:PACKAGE_ROOTS | ls | ? {$_.Name[0] -ne "_"} | % {	
-		$ManifestDir = Join-Path $script:MANIFEST_REPO $_.Name
-		if (Test-Path $ManifestDir) {
-			$ManifestDir = Resolve-Path $ManifestDir
-			ls $ManifestDir | rm -Recurse
-		} else {
-			$ManifestDir = New-Item -Type Directory -Path $script:MANIFEST_REPO -Name $_.Name
+	begin {
+		$PackagePath = Get-PackagePath $PackageName
+		
+		$ManifestPath = try {
+			Get-ManifestPath $PackagePath
+		} catch {
+			Resolve-VirtualPath (Join-Path $PackagePath $MANIFEST_PATHS[0])
 		}
-		$Path = $_
-		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $Path $_} | % {
-			if (Test-Path $_) {
-				cp $_ $ManifestDir -Recurse
-			}
-		}
-	}
+ 		
+ 		if (Test-Path $ManifestPath) {
+ 			throw "Package $PackageName already has a manifest at '$ManifestPath'."
+ 		}
+ 		
+		return Copy-Item $RESOURCE_DIR\manifest_template_direct.psd1 $ManifestPath -PassThru
+ 	}
 }
 
 function Validate-Manifest {
 	param(
 			[Parameter(Mandatory)]
 			[Hashtable]
-		$Manifest
+		$Manifest,
+			[string]
+		$ExpectedName,
+			[string]
+		$ExpectedVersion
 	)
 	
 	if ("Private" -in $Manifest.Keys -and $Manifest.Private) {
@@ -317,6 +370,11 @@ function Validate-Manifest {
 		"Name" = [string]; "Version" = [string]; "Architecture" = @([string], [Object[]]);
 		"Enable" = [scriptblock]; "Install" = [scriptblock]
 	}
+	
+	$OptionalKeys = @{
+		"Description" = [string]
+	}
+	
 	
 	$Issues = @()
 	
@@ -332,6 +390,32 @@ function Validate-Manifest {
 		}
 	}
 	
+	$OptionalKeys.GetEnumerator() | ? {$Manifest.ContainsKey($_.Key)} | % {
+		$RealType = $Manifest[$_.Key].GetType()
+		if ($RealType -notin $_.Value) {
+			$StrTypes = $_.Value -join " | "
+			$Issues += "Optional property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
+		}
+	}
+	
+	$AllowedKeys = $RequiredKeys.Keys + $OptionalKeys.Keys
+	$Manifest.Keys | ? {-not $_.StartsWith("_")} | ? {$_ -notin $AllowedKeys} | % {
+		$Issues += "Found unknown property '$_' - private properties must be prefixed with underscore ('_PrivateProperty')."
+	}
+	
+	
+	if ($Manifest.ContainsKey("Name")) {
+		if (-not [string]::IsNullOrEmpty($ExpectedName) -and $Manifest.Name -ne $ExpectedName) {
+			$Issues += "Incorrect 'Name' property value - got '$($Manifest.Name)', expected '$ExpectedName'."
+		}
+	}
+	
+	if ($Manifest.ContainsKey("Version")) {
+		if (-not [string]::IsNullOrEmpty($ExpectedVersion) -and $Manifest.Version -ne $ExpectedVersion) {
+			$Issues += "Incorrect 'Version' property value - got '$($Manifest.Version)', expected '$ExpectedVersion'."
+		}	
+	}
+	
 	if ($Manifest.ContainsKey("Architecture")) {
 		$ValidArch = @("x64", "x86", "*")
 		if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
@@ -340,7 +424,7 @@ function Validate-Manifest {
 	}
 	
 	if ($Issues.Count -gt 1) {
-		throw ("Issues encountered when validating manifest:`n`t" + ($Issues -join "`n`t"))
+		throw ("Multiple issues encountered when validating manifest:`n`t" + ($Issues -join "`n`t"))
 	} elseif ($Issues.Count -eq 1) {
 		throw $Issues
 	}
@@ -348,31 +432,46 @@ function Validate-Manifest {
 	Write-Verbose "Manifest is valid."
 }
 
-Export function Validate-PkgManifest {
+Export function Confirm-PkgPackage {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory, ValueFromPipeline)]
 			[ValidateSet([PkgRepoManifest])]
-			[Alias("PackageName")]
 			[string]
-		$ManifestName
+		$PackageName
 	)
 	
 	process {
-		$DirPath = Join-Path $script:MANIFEST_REPO $ManifestName
-		$ManifestPath = Get-ManifestPath $DirPath
-		$Manifest = Import-PowerShellDataFile $ManifestPath
+		Write-Verbose "Validating package '$PackageName' from local repository..."
 		
-		Write-Verbose "Validating package manifest '$ManifestName' from local repository..."
-		try {
-			Validate-Manifest $Manifest
-		} catch {
-			Write-Warning "Validation of package manifest '$ManifestName' from local repository failed: $_"
+		$DirPath = Join-Path $script:MANIFEST_REPO $PackageName
+		
+		$Files = ls $DirPath -File
+		if ($Files) {
+			Write-Warning "Package '$PackageName' has incorrect structure; root contains following files (only directories should be present): $Files"
+			return
+		}
+		
+		ls $DirPath | % {
+			$Version = $_.Name
+			try {
+				$ManifestPath = Get-ManifestPath $_
+			} catch {
+				Write-Warning "Could not find manifest for version '$Version' of '$PackageName': $_"
+				return
+			}
+			
+			$Manifest = Import-PowerShellDataFile $ManifestPath
+			try {
+				Validate-Manifest $Manifest $PackageName $Version
+			} catch {
+				Write-Warning "Validation of package manifest '$PackageName', version '$Version' from local repository failed: $_"
+			}			
 		}
 	}
 }
 
-Export function Validate-PkgImportedManifest {
+Export function Confirm-PkgImportedManifest {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory, ValueFromPipeline)]

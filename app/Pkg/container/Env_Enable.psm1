@@ -10,7 +10,9 @@ Import-Module $PSScriptRoot"\..\Paths"
 Import-Module $PSScriptRoot"\..\Utils"
 Import-Module $PSScriptRoot"\..\Common"
 
-Export-ModuleMember -Function Add-EnvVar, Set-EnvVar, Add-EnvPath, Assert-Admin
+# not sure if we should expose this, as packages really shouldn't need to use admin privilege
+# currently, this is used by Notepad++ to optionally redirect Notepad to Notepad++ in Registry
+Export-ModuleMember -Function Assert-Admin
 
 
 function Assert-ParentDirectory {
@@ -120,6 +122,7 @@ Export function Set-SymlinkedPath {
 		if (-not (Test-Path $TargetPath)) {
 			Assert-ParentDirectory $TargetPath
 			if ((Test-Path $OriginalPath) -and (Get-Item $OriginalPath).Target -eq $null) {
+				# TODO: check if $OriginalPath is being used by another process; block if it is so
 				# if source exists and it's not a symlink, move it
 				Move-Item $OriginalPath $TargetPath
 			} else {
@@ -172,6 +175,7 @@ Export function Assert-File {
 		return
 	}
 	if (Test-Path $Path) {
+		# TODO: think this through; maybe it would be better to unconditionally overwrite it
 		throw "Path '$Path' already exists, but it's not a file."
 	}
 	
@@ -200,6 +204,7 @@ Export function Export-Shortcut {
 		$WorkingDirectory,
 			[switch]
 		$StartMaximized,
+			[Alias("Icon")]
 		$IconPath
 	)
 	
@@ -339,9 +344,6 @@ Export function Export-Command {
 			[switch]
 		$NoSymlink
 	)
-	
-	# ensure BIN_DIR is in env:PATH
-	$null = Add-EnvPath -Prepend $script:BIN_DIR
 	
 	if (-not (Test-Path $ExePath)) {
 		throw "Cannot register command '$CmdName', provided target '$ExePath' does not exist."

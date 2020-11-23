@@ -1,0 +1,14 @@
+@{{
+	Name = "{0}"
+	Architecture = "x64"
+
+	Version = "{1}"
+	
+	Install = {{
+		
+	}}
+	
+	Enable = {{
+		
+	}}
+}}

@@ -24,11 +24,24 @@ DIRECTORIES:
 		program logs, error dumps,...
 
 
+Advantages over normal package managers and installers:
+	- unified way to install and uninstall programs
+		- issue: programs with deep system integration will need to be installed in non-portable mode
+	- unified directory structure, similar to MacOS .app packages
+	- package is self-contained, doesn't store data anywhere outside its directory
+	- easily auditable installer scripts written in PowerShell
+
+
 Requirements:
 	user has access to a set of commands like `Install-Pkg`, `Remove-Pkg`, `Start-Pkg`,...
 	`configure.ps1` scripts in each package are not called directly, instead they are called by library scripts, which setup an environment first
 	each command can either take a path to local package directory, or automatically uses the one where Pkg is installed
 	
+	it must be easy for user to create his own packages
+		- ideally, user should want to package most of his projects as Pkg apps
+		- allow Pkg packages that live only in roots, and not in repo
+	
+	TODO: clear up which parts of manifest are necessary in different locations (direct vs local repo vs remote)
 	
 	TODO: think through how specially written apps will use the package manager
 		think how `app` folder could be shared for these (on a network drive / NAS / ...)

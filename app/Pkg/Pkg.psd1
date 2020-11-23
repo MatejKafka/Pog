@@ -3,18 +3,21 @@
 	RootModule = 'Pkg.psm1'
 	FunctionsToExport = @(
 		"Export-PkgShortcutsToStartMenu"
+
+		"Get-PkgManifest"
 		"New-PkgManifest"
-		"Copy-PkgManifestsToRepository"
-		"Validate-PkgManifest"
-		"Validate-PkgImportedManifest"
-		"Get-PkgPackage"
-		"Get-PkgInstalledPackage"
+		"New-PkgDirectManifest"
+		"Confirm-PkgPackage"
+		"Confirm-PkgImportedManifest"
 		
 		"Get-PkgRoot"
 		"New-PkgRoot"
 		"Remove-PkgRoot"
 
-		"Import-PkgPackage"
+		"Get-PkgPackage"
+		"Get-PkgInstalledPackage"
+
+		"Import-Pkg"
 		"Enable-Pkg"
 		"Install-Pkg"
 	)

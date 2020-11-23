@@ -1,0 +1,15 @@
+REST query to get list of packages:
+https://api.github.com/repos/MatejKafka/PkgPackages/contents
+
+GraphQL query to get list of packages:
+{
+  repository(name: "PkgPackages", owner: "MatejKafka") {
+    object(expression: "master:") {
+      ... on Tree {
+        entries {
+          name
+        }
+      }
+    }
+  }
+}

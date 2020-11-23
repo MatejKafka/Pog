@@ -13,7 +13,7 @@ param(
 )
 
 $PreferenceVariables | % {
-	Set-Variable -Scope Script -Name $_.Name -Value $_.Value
+	Set-Variable -Scope Global -Name $_.Name -Value $_.Value
 }
 
 $ScriptBlock = [ScriptBlock]::Create($ScriptBlockStr)
