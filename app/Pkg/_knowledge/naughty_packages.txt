@@ -12,5 +12,4 @@ node & npm
 	AppData\Roaming\npm-cache
 	HOME\.config (update-notifier)
 	
-OBS - auto-updater
-	add `EnableAutoUpdates=false` to section [General] in ./config/global.ini to disable during enabling
+ProcessHacker - auto-updater writes to AppData
