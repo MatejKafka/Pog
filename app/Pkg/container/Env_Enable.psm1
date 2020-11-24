@@ -9,6 +9,7 @@ Import-Module $PSScriptRoot"\command_generator\SubstituteExe"
 Import-Module $PSScriptRoot"\..\Paths"
 Import-Module $PSScriptRoot"\..\Utils"
 Import-Module $PSScriptRoot"\..\Common"
+Import-Module $PSScriptRoot"\Common"
 
 # not sure if we should expose this, as packages really shouldn't need to use admin privilege
 # currently, this is used by Notepad++ to optionally redirect Notepad to Notepad++ in Registry
@@ -375,23 +376,31 @@ Export function Export-Command {
 				return
 			}
 		}
-	
-		if ($global:Pkg_AllowClobber) {
-			Write-Warning "Overwriting existing command: '${CmdName}'."
-			Remove-Item -Force $LinkPath
-		} else {
-			throw "Cannot register command '$($CmdName + $LinkExt)', there is already " + `
-					"a command under that name. Pass -AllowClobber to overwrite it."
-		}
 	}
+
+	$MatchingCommands = ls $script:BIN_DIR -File -Filter ($CmdName + ".*")
 	
-	Get-ChildItem $script:BIN_DIR -File `
-		| ? {$_.Name -eq $CmdName -or $_.Name -like ($CmdName + ".*")} `
-		| % {
-			Write-Warning ("There's already another registered command " `
-					+ "with the same basename: '$($_.Name)'. Depending on system env:PATHEXT, " `
-					+ "the existing command may override the new command.")
+	# there should not be more than 1, if we've done this checking correctly
+	if (@($MatchingCommands).Count -gt 1) {
+		Write-Warning "Pkg developers fucked something up, and there are multiple colliding commands. Plz send bug report."
+	}
+
+	if (@($MatchingCommands).Count -gt 0) {
+		# TODO: find which package registered the previous command
+		$ShouldContinue = ConfirmOverwrite "Overwrite existing command?" `
+			("There's already a command '$CmdName' registered by another package.`n" +`
+				"To suppress this prompt next time, pass -AllowOverwrite.") `
+			("Cannot register command '$($CmdName + $LinkExt)', there is already " + `
+				"a command under that name. Pass -AllowOverwrite to overwrite it.")
+
+		if (-not $ShouldContinue) {
+			Write-Verbose "Skipped command '$CmdName' registration, user refused to override existing command."
+			return
 		}
+
+		Write-Warning "Overwriting existing command '${CmdName}'."
+		Remove-Item -Force $MatchingCommands
+	}
 	
 	if ($UseSymlink) {
 		$Ext = [System.IO.Path]::GetExtension($ExePath)

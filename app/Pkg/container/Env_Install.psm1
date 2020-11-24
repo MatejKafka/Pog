@@ -1,5 +1,6 @@
 . $PSScriptRoot\..\header.ps1
 Import-Module $PSScriptRoot\..\Paths
+Import-Module $PSScriptRoot\Common
 
 # allows expanding .zip
 Import-Module Microsoft.PowerShell.Archive
@@ -54,9 +55,17 @@ Export function Install-FromUrl {
 	$TMP_EXPAND_PATH = ".\.install_tmp"
 	
 	if (Test-Path .\app) {
-		if (-not $global:Pkg_AllowOverwrite) {
-			throw "./app directory already exists; pass -AllowOverwrite to overwrite it."
+		$ErrorMsg = "Package is already installed - ./app subdirectory exists; pass -AllowOverwrite to overwrite it."
+		$ShouldContinue = ConfirmOverwrite "Overwrite existing package installation?" `
+			("Package seems to be already installed. Do you want to overwrite " +`
+				"current installation (./app subdirectory)?`n" +`
+				"Configuration and other package data will be kept.") `
+			$ErrorMsg
+	
+		if (-not $ShouldContinue) {
+			throw $ErrorMsg
 		}
+	
 		Write-Verbose "Removing previous ./app directory..."
 		rm -Recurse -Force .\app
 	}

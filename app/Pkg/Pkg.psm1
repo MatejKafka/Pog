@@ -143,8 +143,9 @@ Export function Enable-Pkg {
 		$PackageName,
 			[Hashtable]
 		$PkgParams = @{},
+			# allows overriding existing commands without confirmation
 			[switch]
-		$AllowClobber
+		$AllowOverwrite
 	)
 
 	#dynamicparam {
@@ -167,7 +168,7 @@ Export function Enable-Pkg {
 		
 		$InternalArgs = @{
 			Manifest = $Manifest
-			AllowClobber = [bool]$AllowClobber
+			AllowOverwrite = [bool]$AllowOverwrite
 		}
 		
 		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParams -Verbose:$VerbosePreference
