@@ -171,7 +171,7 @@ Export function Enable-Pkg {
 			AllowOverwrite = [bool]$AllowOverwrite
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParams -Verbose:$VerbosePreference
+		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParams
 		echo "Successfully enabled $PackageName."
 	}
 }
@@ -209,8 +209,27 @@ Export function Install-Pkg {
 			DownloadPriority = if ($LowPriority) {"Low"} else {"Foreground"}
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Install $Manifest.Install $InternalArgs @{} -Verbose:$VerbosePreference
+		Invoke-Container $PackagePath $ManifestPath Install $Manifest.Install $InternalArgs @{}
 		echo "Successfully installed $PackageName."
+	}
+}
+
+function ConfirmManifestOverwrite {
+	param(
+			[Parameter(Mandatory)]
+			[string]
+		$TargetName,
+			[Parameter(Mandatory)]
+			[string]
+		$TargetPkgRoot
+	)
+	
+	$Title = "Overwrite existing package manifest?"
+	$Message = "There is already an imported package with name '$TargetName' in '$TargetPkgRoot'. Should we overwrite its manifest?"
+	$Options = @("&Yes", "&No")
+	switch ($Host.UI.PromptForChoice($Title, $Message, $Options, 0)) {
+		0 {return $true} # Yes
+		1 {return $false} # No
 	}
 }
 
@@ -245,7 +264,7 @@ Export function Import-Pkg {
 	$TargetPath = Join-Path $TargetPkgRoot $TargetName
 	
 	if (Test-Path $TargetPath) {
-		if (!$AllowOverwrite) {
+		if (-not $AllowOverwrite -and -not (ConfirmManifestOverwrite $TargetName $TargetPkgRoot)) {
 			throw "There is already an initialized package with name '$TargetName' in '$TargetPkgRoot'. Pass -AllowOverwrite to overwrite current manifest."
 		}
 		echo "Overwriting previous package manifest..."

@@ -3,13 +3,12 @@
 # TODO: implement some form of App Path registration (at least for file and URL association)
 #  https://docs.microsoft.com/en-us/windows/win32/shell/app-registration
 
-
-Import-Module $PSScriptRoot"\Environment"
-Import-Module $PSScriptRoot"\command_generator\SubstituteExe"
-Import-Module $PSScriptRoot"\..\Paths"
-Import-Module $PSScriptRoot"\..\Utils"
-Import-Module $PSScriptRoot"\..\Common"
-Import-Module $PSScriptRoot"\Common"
+Import-Module $PSScriptRoot\Environment
+Import-Module $PSScriptRoot\command_generator\SubstituteExe
+Import-Module $PSScriptRoot\..\Paths
+Import-Module $PSScriptRoot\..\Utils
+Import-Module $PSScriptRoot\..\Common
+Import-Module $PSScriptRoot\Confirmations
 
 # not sure if we should expose this, as packages really shouldn't need to use admin privilege
 # currently, this is used by Notepad++ to optionally redirect Notepad to Notepad++ in Registry
@@ -131,7 +130,7 @@ Export function Set-SymlinkedPath {
 			}
 		} elseif ($Directory -and $ShouldMerge -and (Test-Path -PathType Container $OriginalPath) `
 				-and $null -eq (Get-Item $OriginalPath).LinkType) {
-			Write-Verbose "Merging directory $OriginalPath to $TargetPath..."
+			Write-Information "Merging directory $OriginalPath to $TargetPath..."
 			Merge-Directories $OriginalPath $TargetPath
 		}
 		
@@ -139,7 +138,7 @@ Export function Set-SymlinkedPath {
 		if ($null -eq $result) {
 			Write-Verbose "Symlink already exists and matches requested target: '$OriginalPath'."
 		} else {
-			Write-Verbose "Created symlink from '$OriginalPath' to '$TargetPath'."
+			Write-Information "Created symlink from '$OriginalPath' to '$TargetPath'."
 		}
 	}
 }
@@ -157,7 +156,7 @@ Export function Assert-Directory {
 		throw "Path '$Path' already exists, but it's not a directory."
 	}
 	$null = New-Item -ItemType Directory $Path
-	Write-Verbose "Created directory '$Path'."
+	Write-Information "Created directory '$Path'."
 }
 
 
@@ -167,14 +166,51 @@ Export function Assert-File {
 			[Parameter(Mandatory)]
 			[string]
 		$Path,
+			# if file does not exist, use output of this script block to populate it
+			# file is left empty if this is not passed
 			[ScriptBlock]
-		$DefaultContent = {}
+		$DefaultContent = {},
+			# if file does exist and this is passed, the script block is ran with reference to the file
+			# NOTE: you have to save the output yourself (this was deemed more
+			#  robust and often more efficient solution than just returning the desired new content)
+			# return $true if something was changed, $false if original content was kept
+			[ValidateScript({
+				if ($_.GetType() -eq [scriptblock]) {return $true}
+				if ($_.GetType() -ne [string]) {
+					throw "-ContentUpdater must be either script block or path to PowerShell script file."
+				}
+				if (Test-Path -Type Leaf $_) {return $true}
+				throw "-ContentUpdater is a path string, but it doesn't point to an existing PowerShell script file."
+			})]
+		$ContentUpdater = $null
 	)
 
 	if (Test-Path -Type Leaf $Path) {
-		Write-Verbose "File '$Path' already exists."
+		if ($null -eq $ContentUpdater) {
+			Write-Verbose "File '$Path' already exists."
+			return
+		}
+
+		# TODO: this is quite error-prone for the manifest writer, think about ways how to improve it
+		$Output = & $ContentUpdater (Get-Item $Path)
+		if (@($Output).Count -gt 1) {
+			Write-Warning ("ContentUpdater script for Assert-File returned multiple " +`
+				"values - check that you [void] output of method calls and commands.")
+			$Output = $Output[$Output.Count - 1]
+		} elseif (@($Output).Count -eq 0) {
+			Write-Warning ("ContentUpdater script for Assert-File did not " +`
+				"return any value - it should return `$true or `$false.")
+			$Output = $true
+		}
+		
+		if ($Output) {
+			Write-Information "File '$Path' updated."
+		} else {
+			Write-Verbose "File '$Path' already exists with correct content."
+		}
 		return
 	}
+	
 	if (Test-Path $Path) {
 		# TODO: think this through; maybe it would be better to unconditionally overwrite it
 		throw "Path '$Path' already exists, but it's not a file."
@@ -188,7 +224,7 @@ Export function Assert-File {
 	# create new file with default content
 	& $DefaultContent > $Path
 	
-	Write-Verbose "Created file '$Path'."
+	Write-Information "Created file '$Path'."
 }
 
 
@@ -273,7 +309,7 @@ Export function Export-Shortcut {
 	$S.Description = $Description
 	
 	$S.Save()
-	Write-Verbose "Setup a shortcut called '$ShortcutName' (target: '$TargetPath')."
+	Write-Information "Setup a shortcut called '$ShortcutName' (target: '$TargetPath')."
 }
 
 
@@ -307,7 +343,7 @@ Export function Disable-DisplayScaling {
 	} else {
 		$null = New-ItemProperty -Path $RegPath -Name $ExePath -PropertyType String -Value "~ HIGHDPIAWARE"
 	}
-	Write-Verbose "Disabled system display scaling for '${ExePath}'."
+	Write-Information "Disabled system display scaling for '${ExePath}'."
 }
 
 
@@ -317,7 +353,7 @@ Export function Assert-Dependency {
 		if ($null -eq (Get-PackagePath -NoError $_)) {
 			$Unsatisfied += $_
 		} else {
-			Write-Verbose "Validated dependency: ${_}."
+			Write-Information "Validated dependency: ${_}."
 		}
 	}
 	
@@ -394,7 +430,7 @@ Export function Export-Command {
 				"a command under that name. Pass -AllowOverwrite to overwrite it.")
 
 		if (-not $ShouldContinue) {
-			Write-Verbose "Skipped command '$CmdName' registration, user refused to override existing command."
+			Write-Information "Skipped command '$CmdName' registration, user refused to override existing command."
 			return
 		}
 
@@ -411,9 +447,9 @@ Export function Export-Command {
 		}
 	
 		$null = Set-Symlink $LinkPath $ExePath
-		Write-Verbose "Registered command '$CmdName' as symlink."
+		Write-Information "Registered command '$CmdName' as symlink."
 	} else {
 		Write-SubstituteExe $LinkPath $ExePath -SetWorkingDirectory:$SetWorkingDirectory
-		Write-Verbose "Registered command '$CmdName' as substitute exe."
+		Write-Information "Registered command '$CmdName' as substitute exe."
 	}
 }

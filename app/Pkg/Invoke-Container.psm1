@@ -1,6 +1,7 @@
 . $PSScriptRoot\header.ps1
 
 Import-Module $PSScriptRoot"\Paths"
+Import-Module $PSScriptRoot"\Utils"
 
 
 enum ContainerEnvType {
@@ -20,13 +21,13 @@ $PreferenceVariableNames = @(
 	"LogEngineLifecycleEvent"
 	"LogProviderHealthEvent"
 	"LogProviderLifecycleEvent"
-	
+
+<# these don't seem like something an install script should know about
 	"PSEmailServer"
-	
 	"PSSessionApplicationName"
 	"PSSessionConfigurationName"
 	"PSSessionOption"
-	
+#>
 	"ProgressPreference"
 	"VerbosePreference"
 	"InformationPreference"
@@ -35,7 +36,12 @@ $PreferenceVariableNames = @(
 
 
 function Get-SetPreferenceVariables {
-	return Get-Variable | ? {$_.Name -in $PreferenceVariableNames}
+	# create copy, otherwise the values would dynamically change,
+	#  as Get-Variable returns live reference
+	$Out = @{}
+	Get-Variable | ? {$_.Name -in $PreferenceVariableNames} `
+		| % {$Out[$_.Name] = $_.Value}
+	return $Out
 }
 
 function New-ScriptPosition {
@@ -85,7 +91,15 @@ Export function Invoke-Container {
 		$ScriptArguments
 	)
 
+	Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState
 	$PrefVars = Get-SetPreferenceVariables
+
+	if ($PrefVars.VerbosePreference -eq "Continue") {
+		# if verbose prints are active, also activate information streams
+		# TODO: this is really convenient, but it kinda goes against
+		#  the original intended use of these variables, is it really good idea?
+		$PrefVars.InformationPreference = "Continue"
+	}
 	
 	$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory -FilePath $CONTAINER_SCRIPT `
 			-InitializationScript ([ScriptBlock]::Create(". $CONTAINER_SETUP_SCRIPT $EnvType")) `
@@ -94,7 +108,11 @@ Export function Invoke-Container {
 	try {
 		# FIXME: this breaks error source
 		# FIXME: Original error type is lost (changed to generic "Exception")
-		Receive-Job -Wait $ContainerJob
+		
+		# hackaround for https://github.com/PowerShell/PowerShell/issues/7814
+		# it seems that the duplication is caused by Receive-Job sending
+		#  original information messages through, and also emitting them again as new messages
+		Receive-Job -Wait $ContainerJob -InformationAction "SilentlyContinue"
 	} finally {
 		Stop-Job $ContainerJob
 		Remove-Job $ContainerJob

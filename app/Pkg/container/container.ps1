@@ -9,10 +9,11 @@ param(
 		[Hashtable]
 	$PkgArguments,
 		[Parameter(Mandatory)]
+		[Hashtable]
 	$PreferenceVariables
 )
 
-$PreferenceVariables | % {
+$PreferenceVariables.GetEnumerator() | % {
 	Set-Variable -Scope Global -Name $_.Name -Value $_.Value
 }
 

@@ -1,6 +1,6 @@
 . $PSScriptRoot\..\header.ps1
 Import-Module $PSScriptRoot\..\Paths
-Import-Module $PSScriptRoot\Common
+Import-Module $PSScriptRoot\Confirmations
 
 # allows expanding .zip
 Import-Module Microsoft.PowerShell.Archive
@@ -10,14 +10,14 @@ Import-Module BitsTransfer
 
 function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 	if ($Force7zip -or $ArchiveFile.Name.EndsWith(".7z") -or $ArchiveFile.Name.EndsWith(".7z.exe")) {
-		Write-Verbose "Expanding archive using 7zip..."
+		Write-Information "Expanding archive using 7zip..."
 		# run 7zip with silenced status reports
 		& $PSScriptRoot\bin\7za.exe x $ArchiveFile ("-o" + $TargetPath) -bso0 -bsp0
 		if ($LastExitCode -gt 0) {
 			throw "Could not expand archive: 7za.exe returned exit code $LastExitCode. There is likely additional output above."
 		}
 	} else {
-		Write-Verbose "Expanding archive..."
+		Write-Information "Expanding archive..."
 		# Expand-Archive is really chatty with Verbose output, so we'll suppress it
 		#  however, passing -Verbose:$false causes an erroneous verbose print to appear
 		#  see: https://github.com/PowerShell/PowerShell/issues/14245
@@ -66,7 +66,7 @@ Export function Install-FromUrl {
 			throw $ErrorMsg
 		}
 	
-		Write-Verbose "Removing previous ./app directory..."
+		Write-Information "Removing previous ./app directory..."
 		rm -Recurse -Force .\app
 	}
 	
@@ -75,7 +75,7 @@ Export function Install-FromUrl {
 		rm -Recurse -Force $TMP_EXPAND_PATH
 	}
 	
-	Write-Verbose "Downloading archive from '$SrcUrl'..."
+	Write-Information "Downloading archive from '$SrcUrl'..."
 	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
 		# we have fixed hash, we can use download cache
 		$DownloadedFile = Invoke-CachedFileDownload $SrcUrl -ExpectedHash $ExpectedHash
@@ -108,7 +108,7 @@ Export function Install-FromUrl {
 			rm -Recurse $TMP_EXPAND_PATH
 		}
 	}
-	Write-Verbose "Package successfully installed from downloaded archive."
+	Write-Information "Package successfully installed from downloaded archive."
 }
 
 
