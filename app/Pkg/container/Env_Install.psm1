@@ -9,6 +9,7 @@ Import-Module BitsTransfer
 
 
 function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
+	Write-Debug "Expanding archive (name: '$($ArchiveFile.Name), target: $TargetPath)')."
 	if ($Force7zip -or $ArchiveFile.Name.EndsWith(".7z") -or $ArchiveFile.Name.EndsWith(".7z.exe")) {
 		Write-Information "Expanding archive using 7zip..."
 		# run 7zip with silenced status reports
@@ -28,8 +29,8 @@ function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 		} finally {
 			$global:VerbosePreference = $CurrentVerbose
 		}
-		
 	}
+	Write-Debug "Archive expanded to '$TargetPath'."
 }
 
 Export function Install-FromUrl {
@@ -75,10 +76,11 @@ Export function Install-FromUrl {
 		rm -Recurse -Force $TMP_EXPAND_PATH
 	}
 	
-	Write-Information "Downloading archive from '$SrcUrl'..."
+	Write-Information "Retrieving archive from '$SrcUrl'..."
 	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
 		# we have fixed hash, we can use download cache
-		$DownloadedFile = Invoke-CachedFileDownload $SrcUrl -ExpectedHash $ExpectedHash
+		$DownloadedFile = Invoke-CachedFileDownload $SrcUrl -ExpectedHash $ExpectedHash.ToUpper()
+		Write-Debug "File correctly retrieved, expanding to '$TMP_EXPAND_PATH'..."
 		ExtractArchive $DownloadedFile $TMP_EXPAND_PATH -Force7zip:$Force7zip
 	} else {
 		# the hash is not set, cannot safely cache the file
@@ -93,9 +95,11 @@ Export function Install-FromUrl {
 	
 	if ($NoSubdirectory) {
 		# use files from the root of archive directly
+		Write-Debug "Renaming '$TMP_EXPAND_PATH' to './app'..."
 		Rename-Item $TMP_EXPAND_PATH .\app
 	} else {
 		try {
+			Write-Debug "Moving extracted directory to './app'..."
 			$DirContent = ls $TMP_EXPAND_PATH
 			# there should be a single folder here
 			if (@($DirContent).Count -ne 1 -or -not $DirContent[0].PSIsContainer) {
@@ -115,13 +119,15 @@ Export function Install-FromUrl {
 function DownloadFile {
 	param($SrcUrl, $TargetPath)
 	
+	Write-Debug "Downloading file from '$SrcUrl' to '$TargetPath'."
+	
 	# Unfortunately, BITS breaks for github and other pages with redirects, see here for description:
 	#  https://powershell.org/forums/topic/bits-transfer-with-github/
 	#$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
 	#Start-BitsTransfer $SrcUrl -Destination $TargetPath -Priority $global:Pkg_DownloadPriority -Description $Description
 	
 	if ($global:Pkg_DownloadPriority -ne "Foreground") {
-		# TODO: FIXME
+		# TODO: first resolve all redirects, then download using BITS
 		Write-Warning "Low priority download requested by user (-LowPriority flag)."
 		Write-Warning "Unfortunately, low priority downloads using BITS are currently disabled due to incompatibility with GitHub releases."
 		Write-Warning " (see here for details: https://powershell.org/forums/topic/bits-transfer-with-github/)"
@@ -129,14 +135,20 @@ function DownloadFile {
 	
 	# we'll have to use Invoke-WebRequest instead, which doesn't offer low priority mode and has worse progress indicator
 	Invoke-WebRequest $SrcUrl -OutFile $TargetPath
+	Write-Debug "File downloaded."
 }
 
 
 function GetDownloadCacheEntry($Hash) {
+	# each cache entry is a directory named with the SHA256 hash of target file,
+	#  containing a single file with original name
+	#  e.g. $script:DOWNLOAD_CACHE_DIR/<sha-256>/app-v1.2.0.zip
+
 	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $Hash
 	if (-not (Test-Path $DirPath)) {
 		return $null
 	}
+	Write-Debug "Found matching download cache entry."
 	
 	# cache hit, validate file count
 	$File = ls -File $DirPath
@@ -146,46 +158,42 @@ function GetDownloadCacheEntry($Hash) {
 		return $null
 	}
 	
-	# validate file hash
+	Write-Debug "Validating cache entry hash..."
+	# validate file hash (to prevent tampering / accidental file corruption)
 	$FileHash = (Get-FileHash $File -Algorithm SHA256).Hash
 	if ($Hash -ne $FileHash) {
 		Write-Warning "Invalid download cache entry - content hash does not match, erasing...: $Hash"
 		rm -Recurse $DirPath
 		return $null
 	}
+	Write-Debug "Cache entry hash validated."
 	
 	return $File
 }
 
-function Invoke-CachedFileDownload {
+function DownloadFileToCache {
 	param(
 			[Parameter(Mandatory)]
 			[string]
 		$SrcUrl,
+			# SHA256 hash of expected file
 			[Parameter(Mandatory)]
 			[string]
-		$ExpectedHash # SHA256 hash of expected file
+		$ExpectedHash	
 	)
 	
-	# each cache entry is a directory named with the SHA256 hash of target file,
-	#  containing a single file with original name
-	#  e.g. $script:DOWNLOAD_CACHE_DIR/<sha-256>/app-v1.2.0.zip
-	
-	$CachedFile = GetDownloadCacheEntry $ExpectedHash
-	if ($null -ne $CachedFile) {
-		Write-Verbose "Found cached copy of requested file."
-		return $CachedFile
+	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $ExpectedHash.ToUpper()
+	if (Test-Path $DirPath) {
+		throw "Download cache already contains an entry for '$ExpectedHash' (from '$SrcUrl')."
 	}
 	
-	# cache miss, download the file
-	Write-Verbose "Cached copy not found, downloading file to cache..."
-	
-	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $ExpectedHash
 	# use file name from the URL
 	$TargetPath = Join-Path $DirPath ([uri]$SrcUrl).Segments[-1]
+	Write-Debug "Target download path: '$TargetPath'."
 	
 	try {
-		New-Item -Type Directory $DirPath
+		$null = New-Item -Type Directory $DirPath
+		Write-Debug "Created download cache dir '$ExpectedHash'."
 		DownloadFile $SrcUrl $TargetPath
 		$File = Get-Item $TargetPath
 		
@@ -193,6 +201,7 @@ function Invoke-CachedFileDownload {
 		if ($ExpectedHash -ne $RealHash) {
 			throw "Incorrect hash for file downloaded from $SrcUrl (expected : $ExpectedHash, real: $RealHash)."
 		}
+		Write-Debug "Hash check passed, file was correctly downloaded to cache."
 		# hash check passed, return file reference
 		return $File
 	} catch {
@@ -200,6 +209,28 @@ function Invoke-CachedFileDownload {
 		rm -Recurse -Force $DirPath -ErrorAction SilentlyContinue 
 		throw $_
 	}
+}
+
+function Invoke-CachedFileDownload {
+	param(
+			[Parameter(Mandatory)]
+			[string]
+		$SrcUrl,
+			# SHA256 hash of expected file
+			[Parameter(Mandatory)]
+			[string]
+		$ExpectedHash
+	)
+	
+	Write-Debug "Checking if we have a cached copy for '$ExpectedHash'..."
+	$CachedFile = GetDownloadCacheEntry $ExpectedHash
+	if ($null -ne $CachedFile) {
+		Write-Verbose "Found cached copy of requested file."
+		return $CachedFile
+	}
+	
+	Write-Verbose "Cached copy not found, downloading file to cache..."
+	return DownloadFileToCache $SrcUrl $ExpectedHash
 }
 
 
