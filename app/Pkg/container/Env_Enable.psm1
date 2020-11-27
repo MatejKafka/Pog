@@ -21,7 +21,7 @@ function Assert-ParentDirectory {
 		$Path
 	)
 	
-	$Parent = Split-Path $Path
+	$Parent = Split-Path -Parent $Path
 	if (-not (Test-Path $Parent)) {
 		$null = New-Item -ItemType Directory $Parent
 	}
@@ -216,11 +216,7 @@ Export function Assert-File {
 		throw "Path '$Path' already exists, but it's not a file."
 	}
 	
-	$Parent = Split-Path -Parent $Path
-	if (-not(Test-Path $Parent)) {
-		New-Item -ItemType Directory $Parent
-	}
-
+	Assert-ParentDirectory $Path
 	# create new file with default content
 	& $DefaultContent > $Path
 	

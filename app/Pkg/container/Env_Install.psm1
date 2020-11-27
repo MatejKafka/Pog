@@ -8,14 +8,26 @@ Import-Module Microsoft.PowerShell.Archive
 Import-Module BitsTransfer
 
 
+$7ZipCmd = Get-Command "7z.exe" -ErrorAction Ignore
+if ($null -eq $7ZipCmd) {
+	throw "Could not find 7zip (7z.exe), which is used for package installation. " +`
+			"If you know why this happened, please restore 7zip and run this again. " +`
+			"If you don't, contact Pkg developers and we'll hopefully figure out where's the issue."
+}
+
+
 function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 	Write-Debug "Expanding archive (name: '$($ArchiveFile.Name), target: $TargetPath)')."
-	if ($Force7zip -or $ArchiveFile.Name.EndsWith(".7z") -or $ArchiveFile.Name.EndsWith(".7z.exe")) {
+	if ($Force7zip -or $ArchiveFile.Name.EndsWith(".7z") -or $ArchiveFile.Name.EndsWith(".exe")) {
 		Write-Information "Expanding archive using 7zip..."
 		# run 7zip with silenced status reports
-		& $PSScriptRoot\bin\7za.exe x $ArchiveFile ("-o" + $TargetPath) -bso0 -bsp0
+		& $7ZipCmd x $ArchiveFile ("-o" + $TargetPath) -bso0 -bsp0
 		if ($LastExitCode -gt 0) {
-			throw "Could not expand archive: 7za.exe returned exit code $LastExitCode. There is likely additional output above."
+			throw "Could not expand archive: 7zip returned exit code $LastExitCode. There is likely additional output above."
+		}
+		if (-not (Test-Path $TargetPath)) {
+			throw "7zip indicated success, but the extracted directory is not present. " +`
+					"Seems like Pkg developers fucked something up, plz send bug report."
 		}
 	} else {
 		Write-Information "Expanding archive..."
@@ -25,7 +37,14 @@ function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 		try {
 			$CurrentVerbose = $global:VerbosePreference
 			$global:VerbosePreference = "SilentlyContinue"
-			Expand-Archive -Path $ArchiveFile -DestinationPath $TargetPath -Force
+			$null = Expand-Archive -Path $ArchiveFile -DestinationPath $TargetPath -Force
+		} catch [IO.FileFormatException] {
+			throw "Could not expand archive: File format not recognized by Expand-Archive. " +`
+					"For manifest authors: If the format is something 7zip should recognize, " +`
+					"pass '-Force7zip' switch to 'Install-FromUrl' in package manifest, " +`
+					"or change the URL file extension to '.7z'."
+		} catch {
+			throw "Could not expand archive: $_"
 		} finally {
 			$global:VerbosePreference = $CurrentVerbose
 		}
@@ -66,9 +85,11 @@ Export function Install-FromUrl {
 		if (-not $ShouldContinue) {
 			throw $ErrorMsg
 		}
-	
-		Write-Information "Removing previous ./app directory..."
-		rm -Recurse -Force .\app
+		
+		# do not remove the ./app directory just yet
+		# first, we'll download the new version, and after
+		#  all checks pass and we know we managed to set it up correctly,
+		#  we'll delete the old version
 	}
 	
 	if (Test-Path $TMP_EXPAND_PATH) {
@@ -94,12 +115,16 @@ Export function Install-FromUrl {
 	}
 	
 	if ($NoSubdirectory) {
+		if (Test-Path .\app) {
+			Write-Information "Removing previous ./app directory..."
+			rm -Recurse -Force .\app
+		}
+	
 		# use files from the root of archive directly
 		Write-Debug "Renaming '$TMP_EXPAND_PATH' to './app'..."
 		Rename-Item $TMP_EXPAND_PATH .\app
 	} else {
 		try {
-			Write-Debug "Moving extracted directory to './app'..."
 			$DirContent = ls $TMP_EXPAND_PATH
 			# there should be a single folder here
 			if (@($DirContent).Count -ne 1 -or -not $DirContent[0].PSIsContainer) {
@@ -107,6 +132,13 @@ Export function Install-FromUrl {
 					"Package author should pass '-NoSubdirectory' to 'Install-FromUrl' if the archive does not " +
 					"have a wrapper directory in its root."
 			}
+			
+			if (Test-Path .\app) {
+				Write-Information "Removing previous ./app directory..."
+				rm -Recurse -Force .\app
+			}
+			
+			Write-Debug "Moving extracted directory to './app'..."			
 			mv $DirContent .\app
 		} finally {
 			rm -Recurse $TMP_EXPAND_PATH

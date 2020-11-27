@@ -319,13 +319,7 @@ Export function New-PkgManifest {
 
 	# TODO: validate state of the package directory (check if it's not empty after error,...)
 	begin {
-		$PackagePath = Join-Path $script:MANIFEST_REPO $PackageName
-	
-		if ($PackageName -notin [PkgRepoManifest]::new().GetValidValues()) {
-			# manifest directory for this package does not exist
-			New-Item -Type Directory $PackagePath
-		}
-		
+		$PackagePath = Join-Path $script:MANIFEST_REPO $PackageName	
 		$VersionDirPath = Join-Path $PackagePath $Version
 		
 		if (-not (Test-Path $VersionDirPath)) {
