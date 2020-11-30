@@ -49,7 +49,8 @@ Export function Set-EnvVar {
 	
 	$OldValue = [Environment]::GetEnvironmentVariable($VarName, $Target)
 	if ($OldValue -eq $Value) {
-		return "env:$VarName already set to '$Value'."
+		Write-Verbose "env:$VarName already set to '$Value'."
+		return
 	}
 	
 	if ($Systemwide) {
@@ -92,11 +93,13 @@ Export function Add-EnvVar {
 	
 	if ($null -eq $OldValue) {
 		# variable not set yet
-		return Set-EnvVar $VarName $Value -Systemwide:$Systemwide
+		Set-EnvVar $VarName $Value -Systemwide:$Systemwide
+		return
 	}
 	
 	if ($OldValue.Split([IO.Path]::PathSeparator).Contains($Value)) {
-		return "Value '$Value' already inserted in env:$VarName."
+		Write-Verbose "Value '$Value' already inserted in env:$VarName."
+		return
 	}
 	
 	if ($Systemwide) {
@@ -112,7 +115,7 @@ Export function Add-EnvVar {
 
 	[Environment]::SetEnvironmentVariable($VarName, $NewValue, $Target)
 	Update-EnvVar $VarName	
-	return "Inserted '$Value' into env:$VarName."
+	Write-Information "Inserted '$Value' into env:$VarName."
 }
 
 <#

@@ -3,6 +3,7 @@
 	Version = "0.2.1"
 	# unfortunately, the fixed nim binaries for substitute executables
 	#  are not portable, so we are currently bound to x64
+	# also, 7zip (dependency) is currently x64
 	Architecture = "x64"
 	
 	Install = {
@@ -10,6 +11,8 @@
 	}
 	
 	Enable = {
+		Assert-Dependency "7zip"
+	
 		# the Environment module is not exposed to `Enable` scripts,
 		#  as normal packages should NOT set any environment variables,
 		#  so we'll import it directly

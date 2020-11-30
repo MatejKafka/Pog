@@ -7,9 +7,13 @@ Discord - electron, plz just stop with your shit
 
 JetBrains IDEs store consent options in AppData - currently hardcoded
 	TODO: file a feature request to set custom 'common data path' - where device id, consent options,... are stored
+	they also use Java Preferences to store some data, which writes to registry
+		(HKCU/SOFTWARE/JavaSoft/Prefs)
 
 node & npm
 	AppData\Roaming\npm-cache
 	HOME\.config (update-notifier)
 	
 ProcessHacker - auto-updater writes to AppData
+
+Notepad++ - auto-update checker

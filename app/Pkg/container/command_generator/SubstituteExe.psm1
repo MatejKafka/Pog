@@ -6,7 +6,7 @@ $KEEP_FILE_LENGTH = 126792
 $KEEP_CMD_OFFSET = 0xB530
 
 $WITH_TEMPLATE = "$PSScriptRoot\templates\withCwd.exe"
-$WITH_FILE_LENGTH = 128378
+$WITH_FILE_LENGTH = 128905
 $WITH_WD_OFFSET = 0xB990
 $WITH_CMD_OFFSET = 0xBDB0
 
@@ -108,15 +108,31 @@ function CompareFileRegion($Stream, $Offset, [string]$ComparedText) {
 function TestInner($Stream, $ExePath, $SetWorkingDirectory) {
 	if (($Stream.Length -eq $WITH_FILE_LENGTH) -ne $SetWorkingDirectory) {
 		# mismatch (one keeps working directory, other one changes it)
+		if ($SetWorkingDirectory) {
+			Write-Debug "Substitute exe type mismatch - found substitute exe only sets target."
+		} else {
+			Write-Debug "Substitute exe type mismatch - found substitute exe sets working directory, only target was expected."
+		}
+		Write-Debug "(expected size: $WITH_FILE_LENGTH, real size: $($Stream.Length))"
 		return $false
 	}
 	
 	if (-not $SetWorkingDirectory) {
-		return CompareFileRegion $Stream $KEEP_CMD_OFFSET $ExePath
+		$Matches = CompareFileRegion $Stream $KEEP_CMD_OFFSET $ExePath
+		if (-not $Matches) {
+			Write-Debug "Substitute exe target path does not match (no working directory set)."
+		}
+		return $Matches
 	} else {
 		$WdMatches = CompareFileRegion $Stream $WITH_WD_OFFSET (Split-Path $ExePath)
-		if (-not $WdMatches) {return $false}
+		if (-not $WdMatches) {
+			Write-Debug "Substitute exe target working directory does not match."
+			return $false
+		}
 		$LeafMatches = CompareFileRegion $Stream $WITH_CMD_OFFSET (Split-Path -Leaf $ExePath)
+		if (-not $LeafMatches) {
+			Write-Debug "Substitute exe target path does not match."
+		}
 		return $LeafMatches
 	}
 }

@@ -14,6 +14,8 @@ Import-Module $PSScriptRoot\Confirmations
 # currently, this is used by Notepad++ to optionally redirect Notepad to Notepad++ in Registry
 Export-ModuleMember -Function Assert-Admin
 
+# also not sure about this, PowerShell (private package) uses it to set PSModulePath
+Export-ModuleMember -Function Add-EnvVar
 
 function Assert-ParentDirectory {
 	param(
