@@ -356,15 +356,7 @@ Export function Assert-Dependency {
 	}
 	
 	if ($Unsatisfied.Count -eq 0) {return}
-	
-	$CallerPackage = if ($MyInvocation.ScriptName -eq "") {
-		"<unknown>"
-	} else {
-		# get parent directory name
-		Split-Path -Leaf (Split-Path $MyInvocation.ScriptName)
-	}
-	
-	throw "Unsatisfied dependencies for package ${CallerPackage}: " + ($Unsatisfied -join ", ")
+	throw "Unsatisfied dependencies for package $($Pkg_Manifest.Name): " + ($Unsatisfied -join ", ")
 }
 
 

@@ -8,25 +8,58 @@ Import-Module Microsoft.PowerShell.Archive
 Import-Module BitsTransfer
 
 
-$7ZipCmd = Get-Command "7z.exe" -ErrorAction Ignore
+$7ZipCmd = Get-Command "7z" -ErrorAction Ignore
 if ($null -eq $7ZipCmd) {
-	throw "Could not find 7zip (7z.exe), which is used for package installation. " +`
+	throw "Could not find 7zip (command '7z'), which is used for package installation. " +`
+			"It is supposed to be installed as a normal Pkg package, unless you manually removed it. " +`
 			"If you know why this happened, please restore 7zip and run this again. " +`
 			"If you don't, contact Pkg developers and we'll hopefully figure out where's the issue."
+}
+
+# TODO: create tar package for better compatibility
+$TarCmd = Get-Command "tar" -ErrorAction Ignore
+if ($null -eq $TarCmd) {
+	throw "Could not find tar (command 'tar'), which is used for package installation. " +`
+			"It is supposed to be installed systemwide in C:\Windows\System32\tar.exe since Windows 10 v17063. " +`
+			"If you don't know why it's missing, either download it yourself and put it on PATH, " +`
+			"or contact Pkg developers and we'll hopefully figure out where's the issue."	
 }
 
 
 function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 	Write-Debug "Expanding archive (name: '$($ArchiveFile.Name), target: $TargetPath)')."
-	if ($Force7zip -or $ArchiveFile.Name.EndsWith(".7z") -or $ArchiveFile.Name.EndsWith(".exe")) {
-		Write-Information "Expanding archive using 7zip..."
-		# run 7zip with silenced status reports
-		& $7ZipCmd x $ArchiveFile ("-o" + $TargetPath) -bso0 -bsp0
+	# only use Expand-Archive for .zip, 7zip for everything else
+	if (-not $Force7zip -and $ArchiveFile.Name.EndsWith(".tar.gz")) {
+		Write-Information "Expanding archive using 'tar'..."
+		# tar expects the target dir to exist, so we'll create it
+		$null = ni -Type Directory $TargetPath
+		# run tar
+		# -f <file> = expanded archive
+		# -m = do not restore modification times
+		# -C <dir> = dir to extract to
+		& $TarCmd --extract -f $ArchiveFile -m -C $TargetPath
 		if ($LastExitCode -gt 0) {
 			throw "Could not expand archive: 7zip returned exit code $LastExitCode. There is likely additional output above."
 		}
 		if (-not (Test-Path $TargetPath)) {
-			throw "7zip indicated success, but the extracted directory is not present. " +`
+			throw "'tar' indicated success, but the extracted directory is not present. " +`
+					"Seems like Pkg developers fucked something up, plz send bug report."
+		}
+	} elseif ($Force7zip -or -not $ArchiveFile.Name.EndsWith(".zip")) {
+		Write-Information "Expanding archive using '7zip'..."
+		# run 7zip
+		# bso0 = disable output
+		# bsp0 = disable progress reports
+		# bse1 = send errors to stdout
+		# aoa = automatically overwrite existing files
+		#  (should not usually occur, unless the archive is a bit malformed,
+		#  but e.g. wireshark NSIS installer does it for some reason)
+		& $7ZipCmd x $ArchiveFile ("-o" + $TargetPath) -bso0 -bsp0 -bse1 -aoa
+		if ($LastExitCode -gt 0) {
+			throw "Could not expand archive: 7zip returned exit code $LastExitCode. There is likely additional output above."
+		}
+		if (-not (Test-Path $TargetPath)) {
+			throw "'7zip' indicated success, but the extracted directory is not present. " +`
 					"Seems like Pkg developers fucked something up, plz send bug report."
 		}
 	} else {

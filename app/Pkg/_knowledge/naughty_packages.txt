@@ -1,4 +1,5 @@
 Telegram - config is all over the place, not clear what's config and what's cache
+	also adds shortcut to Start Menu, iirc related to notifications
 
 git - add env var or cli parameter to set custom config/data dir
 	currently, $HOME is used
@@ -17,3 +18,11 @@ node & npm
 ProcessHacker - auto-updater writes to AppData
 
 Notepad++ - auto-update checker
+
+wireshark - winsparkle auto-updater writes to registry (HKCU/SOFTWARE/Wireshark)
+
+
+Java - creates profiling files in TEMP/hsperfdata_<username>
+	can be disabled with `-XX:-UsePerfData` param, but since it's
+	 quite minor and java can currently run directly without wrapper,
+	 let's add it when the substitute exe supports passing arguments

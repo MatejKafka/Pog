@@ -14,7 +14,7 @@ param(
 )
 
 $PreferenceVariables.GetEnumerator() | % {
-	Set-Variable -Scope Global -Name $_.Name -Value $_.Value
+	Set-Variable -Name $_.Name -Value $_.Value
 }
 
 $ScriptBlock = [ScriptBlock]::Create($ScriptBlockStr)
@@ -24,8 +24,8 @@ $InternalArguments.Keys | % {
 	Set-Variable -Scope Global -Option Constant `
 			-Name ("Pkg_" + $_) -Value $InternalArguments[$_]
 }
-# this cannot be a constant, as it would break internal behavior
-Set-Variable -Scope Global -Name this -Value $Pkg_Manifest
+# this probably cannot be a constant, as it would break internal behavior
+Set-Variable -Name this -Value $Pkg_Manifest
 
 # cleanup variables
 Remove-Variable ScriptBlockStr
@@ -33,4 +33,4 @@ Remove-Variable InternalArguments
 Remove-Variable PreferenceVariables
 
 # FIXME: double call, due to a supposed Import-PowerShellDataFile bug
-& (& $ScriptBlock) @PkgArguments
+. (. $ScriptBlock) @PkgArguments
