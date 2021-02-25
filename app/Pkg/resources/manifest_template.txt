@@ -1,11 +1,13 @@
 @{{
 	Name = "{0}"
 	Architecture = "x64"
-
+	
 	Version = "{1}"
+	_Hash = "?"
 	
 	Install = {{
-		
+		$Url = ""
+		Install-FromUrl $Url -ExpectedHash $this._Hash
 	}}
 	
 	Enable = {{

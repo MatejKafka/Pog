@@ -19,6 +19,7 @@ function Update-EnvVar {
 		$Machine + [IO.Path]::PathSeparator + $User
 	}
 	[Environment]::SetEnvironmentVariable($VarName, $Value)
+	Write-Debug "Updated PS environment variable '${VarName}' from system."
 }
 
 
@@ -47,17 +48,22 @@ Export function Set-EnvVar {
 	$Target = if ($Systemwide) {[EnvironmentVariableTarget]::Machine}
 		else {[EnvironmentVariableTarget]::User}
 	
+	$TargetReadable = if ($Systemwide) {"system-wide"} else {"for current user"}
+	
 	$OldValue = [Environment]::GetEnvironmentVariable($VarName, $Target)
 	if ($OldValue -eq $Value) {
-		Write-Verbose "env:$VarName already set to '$Value'."
+		Write-Verbose "'env:$VarName' already set to '$Value' $TargetReadable."
+		# the var might be set in system, but our process might have the old/no value
+		# this ensures that after this call, value of $env:VarName is up to date
+		Update-EnvVar $VarName
 		return
 	}
 	
 	if ($Systemwide) {
-		Assert-Admin "Cannot write system environment variable $VarName without administrator privileges."
+		Assert-Admin "Cannot write system-wide environment variable 'env:$VarName' without administrator privileges."
 	}
 	
-	Write-Warning "Setting $Target environment variable env:$VarName to '$Value'..."
+	Write-Warning "Setting environment variable 'env:$VarName' to '$Value' $TargetReadable..."
 	[Environment]::SetEnvironmentVariable($VarName, $Value, $Target)
 	Update-EnvVar $VarName
 }
@@ -85,10 +91,12 @@ Export function Add-EnvVar {
 			[switch]
 		$Systemwide
 	)
-
+	
 	$Target = if ($Systemwide) {[EnvironmentVariableTarget]::Machine}
 		else {[EnvironmentVariableTarget]::User}
-
+	
+	$TargetReadable = if ($Systemwide) {"system-wide"} else {"for current user"}
+	
 	$OldValue = [Environment]::GetEnvironmentVariable($VarName, $Target)
 	
 	if ($null -eq $OldValue) {
@@ -98,14 +106,15 @@ Export function Add-EnvVar {
 	}
 	
 	if ($OldValue.Split([IO.Path]::PathSeparator).Contains($Value)) {
-		Write-Verbose "Value '$Value' already inserted in env:$VarName."
+		Write-Verbose "Value '$Value' already present in 'env:$VarName' $TargetReadable."
 		return
 	}
 	
 	if ($Systemwide) {
-		Assert-Admin "Cannot update system environment variable $VarName without administrator privileges."
-	}	
-	Write-Warning "Adding '$Value' to env:$VarName..."
+		Assert-Admin "Cannot update system-wide environment variable 'env:$VarName' without administrator privileges."
+	}
+	
+	Write-Warning "Adding '$Value' to 'env:$VarName' $TargetReadable..."
 	
 	$NewValue = if ($Prepend) {
 		$Value + [IO.Path]::PathSeparator + $OldValue
@@ -114,30 +123,58 @@ Export function Add-EnvVar {
 	}
 
 	[Environment]::SetEnvironmentVariable($VarName, $NewValue, $Target)
-	Update-EnvVar $VarName	
-	Write-Information "Inserted '$Value' into env:$VarName."
+	Update-EnvVar $VarName
+	
+	$Verb = if ($Prepend) {"Prepended"} else {"Appended"}
+	Write-Information "$Verb '$Value' to 'env:$VarName'."
 }
 
 <#
 .SYNOPSIS
-	Adds folder to system PATH env variable.
-.PARAMETER Folder
-	Folder to add.
+	Adds directory to PATH env variable.
+.PARAMETER Directory
+	Directory path to add.
 .PARAMETER Systemwide
-	If set, system environemnt variable will be set. Otherwise, user environment variable will be set.
+	If set, system-wide environment variable will be set (requires elevation).
+	Otherwise, user environment variable will be set.
 #>
 Export function Add-EnvPath {
 	param(
 			[ValidateScript({Test-Path -PathType Container $_})]
 			[Parameter(Mandatory)]
 			[string]
-		$Folder,
+		$Directory,
 			[switch]
 		$Prepend,
 			[switch]
 		$Systemwide
 	)
-
-	$AbsPath = Resolve-Path $Folder
+	
+	$AbsPath = Resolve-Path $Directory
 	Add-EnvVar "Path" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
+}
+
+<#
+.SYNOPSIS
+	Adds directory to PSModulePath env variable.
+.PARAMETER Directory
+	Directory path to add.
+.PARAMETER Systemwide
+	If set, system-wide environment variable will be set (requires elevation).
+	Otherwise, user environment variable will be set.
+#>
+Export function Add-EnvPSModulePath {
+	param(
+			[ValidateScript({Test-Path -PathType Container $_})]
+			[Parameter(Mandatory)]
+			[string]
+		$Directory,
+			[switch]
+		$Prepend,
+			[switch]
+		$Systemwide
+	)
+	
+	$AbsPath = Resolve-Path $Directory
+	Add-EnvVar "PSModulePath" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
 }

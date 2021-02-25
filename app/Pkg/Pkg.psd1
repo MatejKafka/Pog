@@ -1,22 +1,43 @@
 @{
 	ModuleVersion = '0.2.0'
 	RootModule = 'Pkg.psm1'
+	
+	DefaultCommandPrefix = 'Pkg'
+	
 	FunctionsToExport = @(
+		"Export-ShortcutsToStartMenu"
+		
+		"Get-Manifest"
+		"New-Manifest"
+		"New-DirectManifest"
+		
+		"Confirm-RepositoryPackage"
+		"Confirm-Package"
+		"Get-RepositoryPackage"
+		"Get-Package"
+		
+		"Get-Root"
+		"New-Root"
+		"Remove-Root"
+		
+		"Import-"
+		"Enable-"
+		"Install-"
+		
+		
+		# https://github.com/PowerShell/PowerShell/issues/12858
+		#  as a workaround, we "export" both versions, so that the commands are correctly auto-loaded
 		"Export-PkgShortcutsToStartMenu"
-
 		"Get-PkgManifest"
 		"New-PkgManifest"
 		"New-PkgDirectManifest"
+		"Confirm-PkgRepositoryPackage"
 		"Confirm-PkgPackage"
-		"Confirm-PkgImportedManifest"
-		
+		"Get-PkgRepositoryPackage"
+		"Get-PkgPackage"
 		"Get-PkgRoot"
 		"New-PkgRoot"
 		"Remove-PkgRoot"
-
-		"Get-PkgPackage"
-		"Get-PkgInstalledPackage"
-
 		"Import-Pkg"
 		"Enable-Pkg"
 		"Install-Pkg"

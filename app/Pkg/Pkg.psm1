@@ -35,12 +35,12 @@ function Export-AppShortcuts {
 		[IO.Path]::GetExtension($_.Name) -eq ".lnk"
 	} | % {
 		Copy-Item $_ -Destination $ExportPath
-		echo "Exported shortcut $($_.Name) from $(Split-Path -Leaf $AppPath)."
+		echo "Exported shortcut '$($_.Name)' from '$(Split-Path -Leaf $AppPath)'."
 	}
 }
 
 
-Export function Export-PkgShortcutsToStartMenu {
+Export function Export-ShortcutsToStartMenu {
 	[CmdletBinding()]
 	param(
 			[switch]
@@ -50,15 +50,15 @@ Export function Export-PkgShortcutsToStartMenu {
 	)
 	
 	$TargetDir = if ($UseSystemWideMenu) {
-		Join-Path $SYSTEM_START_MENU $PKG_NAME
+		Join-Path $SYSTEM_START_MENU "Pkg"
 	} else {
-		Join-Path $USER_START_MENU $PKG_NAME
+		Join-Path $USER_START_MENU "Pkg"
 	}
 	
-	echo "Exporting shortcuts to $TargetDir."
+	echo "Exporting shortcuts to '$TargetDir'."
 	
 	if (Test-Path $TargetDir) {
-		echo "Clearing previous $PKG_NAME start menu entries..."
+		echo "Clearing previous Pkg start menu entries..."
 		Remove-Item -Recurse $TargetDir
 	}
 	$null = New-Item -ItemType Directory $TargetDir
@@ -71,13 +71,13 @@ Export function Export-PkgShortcutsToStartMenu {
 }
 
 
-Export function Get-PkgPackage {
+Export function Get-RepositoryPackage {
 	[CmdletBinding()]
-	param()	
+	param()
 	return [PkgRepoManifest]::new().GetValidValues()
 }
 
-Export function Get-PkgInstalledPackage {
+Export function Get-Package {
 	[CmdletBinding()]
 	param()
 	return [PkgPackageName]::new().GetValidValues()
@@ -88,11 +88,11 @@ function Write-PkgRootList {
 	($PACKAGE_ROOTS + $UNRESOLVED_PACKAGE_ROOTS) | Set-Content $PACKAGE_ROOT_FILE
 }
 
-Export function Get-PkgRoot {
+Export function Get-Root {
 	return $PACKAGE_ROOTS + $UNRESOLVED_PACKAGE_ROOTS
 }
 
-Export function New-PkgRoot {
+Export function New-Root {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
@@ -111,7 +111,7 @@ Export function New-PkgRoot {
 	return "Added $Resolved as package root."
 }
 
-Export function Remove-PkgRoot {
+Export function Remove-Root {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
@@ -119,7 +119,7 @@ Export function Remove-PkgRoot {
 			[string]
 		$RootDir
 	)
-
+	
 	$Resolved = Resolve-VirtualPath $RootDir
 	
 	if ($UNRESOLVED_PACKAGE_ROOTS.Contains($Resolved)) {
@@ -134,7 +134,7 @@ Export function Remove-PkgRoot {
 }
 
 
-Export function Enable-Pkg {
+Export function Enable- {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
@@ -142,21 +142,31 @@ Export function Enable-Pkg {
 			[string]
 		$PackageName,
 			[Hashtable]
-		$PkgParams = @{},
+		$PkgParameters = @{},
 			# allows overriding existing commands without confirmation
 			[switch]
 		$AllowOverwrite
 	)
-
-	#dynamicparam {
-		# create dynamic parameters based on manifest parameters for matching package
-		# see https://github.com/PowerShell/PowerShell/issues/6585 for a way to do this
-	#}
+	
+	dynamicparam {
+		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "_"
+		$function:ExtractParamsFn = $CopiedParams.ExtractFn
+		return $CopiedParams.Parameters
+	}
 	
 	begin {
-		$PackagePath = Get-PackagePath $PackageName		
+		$ForwardedParams = ExtractParamsFn $PSBoundParameters
+		try {
+			$PkgParameters = $PkgParameters + $ForwardedParams
+		} catch {
+			$CmdName = $MyInvocation.MyCommand.Name
+			throw "The same parameter was passed to '${CmdName}' both using '-PkgParameters' and forwarded dynamic parameter. " +`
+					"Each parameter must present in at most one of these: " + $_
+		}
+		
+		$PackagePath = Get-PackagePath $PackageName
 		$ManifestPath = Get-ManifestPath $PackagePath
-		$Manifest = Import-PowerShellDataFile $ManifestPath
+		$Manifest = Import-PkgManifestFile $ManifestPath
 		
 		if ($Manifest.ContainsKey("Private") -and $Manifest.Private) {
 			echo "Enabling private package $PackageName..."
@@ -171,18 +181,20 @@ Export function Enable-Pkg {
 			AllowOverwrite = [bool]$AllowOverwrite
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParams
+		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParameters
 		echo "Successfully enabled $PackageName."
 	}
 }
 
-Export function Install-Pkg {
+Export function Install- {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
 			[ValidateSet([PkgPackageName])]
 			[string]
 		$PackageName,
+			[Hashtable]
+		$PkgParameters = @{},
 			# allow overwriting current .\app directory, if one exists
 			[switch]
 		$AllowOverwrite,
@@ -192,15 +204,33 @@ Export function Install-Pkg {
 		$LowPriority
 	)
 	
+	dynamicparam {
+		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "_"
+		$function:ExtractParamsFn = $CopiedParams.ExtractFn
+		return $CopiedParams.Parameters
+	}
+	
 	begin {
-		$PackagePath = Get-PackagePath $PackageName		
-		$ManifestPath = Get-ManifestPath $PackagePath		
-		$Manifest = Import-PowerShellDataFile $ManifestPath
+		$ForwardedParams = ExtractParamsFn $PSBoundParameters
+		try {
+			$PkgParameters = $PkgParameters + $ForwardedParams
+		} catch {
+			$CmdName = $MyInvocation.MyCommand.Name
+			throw "The same parameter was passed to '${CmdName}' both using '-PkgParameters' and forwarded dynamic parameter. " +`
+					"Each parameter must present in at most one of these: " + $_
+		}
 		
-		if ($Manifest.Name -eq $PackageName) {
-			echo "Installing package $($Manifest.Name), version $($Manifest.Version)..."
+		$PackagePath = Get-PackagePath $PackageName
+		$ManifestPath = Get-ManifestPath $PackagePath
+		$Manifest = Import-PkgManifestFile $ManifestPath
+		
+		# Name is not required for private packages
+		if ("Name" -notin $Manifest.Keys) {
+			echo "Installing private package '$PackageName'..."
+		} elseif ($Manifest.Name -eq $PackageName) {
+			echo "Installing package '$($Manifest.Name)', version '$($Manifest.Version)'..."
 		} else {
-			echo "Installing package $($Manifest.Name) (installed as $PackageName), version $($Manifest.Version)..."
+			echo "Installing package '$($Manifest.Name)' (installed as '$PackageName'), version '$($Manifest.Version)'..."
 		}
 		
 		$InternalArgs = @{
@@ -209,7 +239,7 @@ Export function Install-Pkg {
 			DownloadPriority = if ($LowPriority) {"Low"} else {"Foreground"}
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Install $Manifest.Install $InternalArgs @{}
+		Invoke-Container $PackagePath $ManifestPath Install $Manifest.Install $InternalArgs $PkgParameters
 		echo "Successfully installed $PackageName."
 	}
 }
@@ -221,11 +251,16 @@ function ConfirmManifestOverwrite {
 		$TargetName,
 			[Parameter(Mandatory)]
 			[string]
-		$TargetPkgRoot
+		$TargetPkgRoot,
+			[Hashtable]
+		$Manifest
 	)
 	
 	$Title = "Overwrite existing package manifest?"
-	$Message = "There is already an imported package with name '$TargetName' in '$TargetPkgRoot'. Should we overwrite its manifest?"
+	$ManifestDescription = if ($null -eq $Manifest) {""}
+			else {" (manifest '$($Manifest.Name)', version '$($Manifest.Version)')"}
+	$Message = "There is already an imported package with name '$TargetName' " +`
+			"in '$TargetPkgRoot'$ManifestDescription. Should we overwrite its manifest?"
 	$Options = @("&Yes", "&No")
 	switch ($Host.UI.PromptForChoice($Title, $Message, $Options, 0)) {
 		0 {return $true} # Yes
@@ -233,7 +268,7 @@ function ConfirmManifestOverwrite {
 	}
 }
 
-Export function Import-Pkg {
+Export function Import- {
 	[CmdletBinding(PositionalBinding = $false)]
 	Param(
 			[Parameter(Mandatory, Position = 0)]
@@ -264,8 +299,29 @@ Export function Import-Pkg {
 	$TargetPath = Join-Path $TargetPkgRoot $TargetName
 	
 	if (Test-Path $TargetPath) {
-		if (-not $AllowOverwrite -and -not (ConfirmManifestOverwrite $TargetName $TargetPkgRoot)) {
-			throw "There is already an initialized package with name '$TargetName' in '$TargetPkgRoot'. Pass -AllowOverwrite to overwrite current manifest."
+		# target directory already exists
+		# let's figure out what it contains
+		
+		$OrigManifestPath = Get-ManifestPath $TargetPath -NoError
+		$OrigManifest = if ($null -eq $OrigManifestPath) {
+			# it seems that there is no pkg manifest present
+			# either a random folder was erronously created, or this is a package, but corrupted
+			Write-Warning "A directory with name '$TargetName' already exists in '$TargetPkgRoot', " +`
+					"but it doesn't seem to contain a Pkg manifest. " +`
+					"All directories in Pkg root should be packages with valid manifest."
+			$null
+		} else {
+			try {
+				Import-PkgManifestFile $OrigManifestPath
+			} catch {
+				# package has a manifest, but it's invalid (probably corrupted)
+				Write-Warning "Found an existing manifest in '$TargetName' at '$TargetPkgRoot', but it's syntactically invalid."
+				$null
+			}
+		}
+	
+		if (-not $AllowOverwrite -and -not (ConfirmManifestOverwrite $TargetName $TargetPkgRoot $OrigManifest)) {
+			throw "There is already a package with name '$TargetName' in '$TargetPkgRoot'. Pass -AllowOverwrite to overwrite current manifest without confirmation."
 		}
 		echo "Overwriting previous package manifest..."
 		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | rm -Recurse
@@ -277,7 +333,7 @@ Export function Import-Pkg {
 	echo "Initialized '$TargetPath' with package manifest '$PackageName' (version $Version)."
 }
 
-Export function Get-PkgManifest {
+Export function Get-Manifest {
 	[CmdletBinding()]
 	Param(
 			[Parameter(Mandatory)]
@@ -306,7 +362,7 @@ function FillManifestTemplate($PackageName, $Version) {
 	)
 }
 
-Export function New-PkgManifest {
+Export function New-Manifest {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
@@ -338,7 +394,7 @@ Export function New-PkgManifest {
 	}
 }
 
-Export function New-PkgDirectManifest {
+Export function New-DirectManifest {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
@@ -355,98 +411,16 @@ Export function New-PkgDirectManifest {
 		} catch {
 			Resolve-VirtualPath (Join-Path $PackagePath $MANIFEST_PATHS[0])
 		}
- 		
- 		if (Test-Path $ManifestPath) {
- 			throw "Package $PackageName already has a manifest at '$ManifestPath'."
- 		}
- 		
+		
+		if (Test-Path $ManifestPath) {
+			throw "Package $PackageName already has a manifest at '$ManifestPath'."
+		}
+		
 		return Copy-Item $RESOURCE_DIR\manifest_template_direct.psd1 $ManifestPath -PassThru
- 	}
+	}
 }
 
-function Validate-Manifest {
-	param(
-			[Parameter(Mandatory)]
-			[Hashtable]
-		$Manifest,
-			[string]
-		$ExpectedName,
-			[string]
-		$ExpectedVersion
-	)
-	
-	if ("Private" -in $Manifest.Keys -and $Manifest.Private) {
-		Write-Verbose "Skipped validation of private package manifest '$Manifest.Name'."
-		return
-	}
-	
-	$RequiredKeys = @{
-		"Name" = [string]; "Version" = [string]; "Architecture" = @([string], [Object[]]);
-		"Enable" = [scriptblock]; "Install" = [scriptblock]
-	}
-	
-	$OptionalKeys = @{
-		"Description" = [string]
-	}
-	
-	
-	$Issues = @()
-	
-	$RequiredKeys.GetEnumerator() | % {
-		$StrTypes = $_.Value -join " | "
-		if (!$Manifest.ContainsKey($_.Key)) {
-			$Issues += "Missing manifest property '$($_.Key)' of type '$StrTypes'."
-			return
-		}
-		$RealType = $Manifest[$_.Key].GetType()
-		if ($RealType -notin $_.Value) {
-			$Issues += "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
-		}
-	}
-	
-	$OptionalKeys.GetEnumerator() | ? {$Manifest.ContainsKey($_.Key)} | % {
-		$RealType = $Manifest[$_.Key].GetType()
-		if ($RealType -notin $_.Value) {
-			$StrTypes = $_.Value -join " | "
-			$Issues += "Optional property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
-		}
-	}
-	
-	$AllowedKeys = $RequiredKeys.Keys + $OptionalKeys.Keys
-	$Manifest.Keys | ? {-not $_.StartsWith("_")} | ? {$_ -notin $AllowedKeys} | % {
-		$Issues += "Found unknown property '$_' - private properties must be prefixed with underscore ('_PrivateProperty')."
-	}
-	
-	
-	if ($Manifest.ContainsKey("Name")) {
-		if (-not [string]::IsNullOrEmpty($ExpectedName) -and $Manifest.Name -ne $ExpectedName) {
-			$Issues += "Incorrect 'Name' property value - got '$($Manifest.Name)', expected '$ExpectedName'."
-		}
-	}
-	
-	if ($Manifest.ContainsKey("Version")) {
-		if (-not [string]::IsNullOrEmpty($ExpectedVersion) -and $Manifest.Version -ne $ExpectedVersion) {
-			$Issues += "Incorrect 'Version' property value - got '$($Manifest.Version)', expected '$ExpectedVersion'."
-		}	
-	}
-	
-	if ($Manifest.ContainsKey("Architecture")) {
-		$ValidArch = @("x64", "x86", "*")
-		if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
-			$Issues += "Invalid 'Architecture' value - got '$($Manifest.Architecture)', expected one of $ValidArch, or an array."
-		}
-	}
-	
-	if ($Issues.Count -gt 1) {
-		throw ("Multiple issues encountered when validating manifest:`n`t" + ($Issues -join "`n`t"))
-	} elseif ($Issues.Count -eq 1) {
-		throw $Issues
-	}
-	
-	Write-Verbose "Manifest is valid."
-}
-
-Export function Confirm-PkgPackage {
+Export function Confirm-RepositoryPackage {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory, ValueFromPipeline)]
@@ -475,7 +449,13 @@ Export function Confirm-PkgPackage {
 				return
 			}
 			
-			$Manifest = Import-PowerShellDataFile $ManifestPath
+			try {
+				$Manifest = Import-PkgManifestFile $ManifestPath
+			} catch {
+				Write-Warning $_
+				return
+			}
+			
 			try {
 				Validate-Manifest $Manifest $PackageName $Version
 			} catch {
@@ -485,7 +465,8 @@ Export function Confirm-PkgPackage {
 	}
 }
 
-Export function Confirm-PkgImportedManifest {
+# TODO: expand to really check whole package, not just manifest
+Export function Confirm-Package {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory, ValueFromPipeline)]
@@ -497,13 +478,20 @@ Export function Confirm-PkgImportedManifest {
 	process {
 		$PackagePath = Get-PackagePath $PackageName
 		$ManifestPath = Get-ManifestPath $PackagePath
-		$Manifest = Import-PowerShellDataFile $ManifestPath
+		
+		try {
+			$Manifest = Import-PkgManifestFile $ManifestPath
+		} catch {
+			Write-Warning $_
+			return
+		}
 		
 		Write-Verbose "Validating imported package manifest '$PackageName' at '$ManifestPath'..."
 		try {
 			Validate-Manifest $Manifest
 		} catch {
 			Write-Warning "Validation of imported package manifest '$PackageName' at '$ManifestPath' failed: $_"
+			return
 		}
 	}
 }

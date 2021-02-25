@@ -33,4 +33,6 @@ Remove-Variable InternalArguments
 Remove-Variable PreferenceVariables
 
 # FIXME: double call, due to a supposed Import-PowerShellDataFile bug
+#  see https://github.com/PowerShell/PowerShell/issues/12789
+# when this bug is fixed, this will break; also fix the dynamicparam in Enable-Pkg and Install-Pkg
 . (. $ScriptBlock) @PkgArguments

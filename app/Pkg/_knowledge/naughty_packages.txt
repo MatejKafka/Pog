@@ -1,3 +1,7 @@
+multiple apps writing to HKCU/SOFTWARE/<appname>
+
+
+
 Telegram - config is all over the place, not clear what's config and what's cache
 	also adds shortcut to Start Menu, iirc related to notifications
 
@@ -21,8 +25,13 @@ Notepad++ - auto-update checker
 
 wireshark - winsparkle auto-updater writes to registry (HKCU/SOFTWARE/Wireshark)
 
+vscode - AppData\Roaming\vstelemetry
 
 Java - creates profiling files in TEMP/hsperfdata_<username>
 	can be disabled with `-XX:-UsePerfData` param, but since it's
 	 quite minor and java can currently run directly without wrapper,
 	 let's add it when the substitute exe supports passing arguments
+
+
+Shotcut (and probably other QT-based software)
+	Computer\HKEY_CURRENT_USER\SOFTWARE\QtProject

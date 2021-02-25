@@ -1,9 +1,6 @@
 Import-Module $PSScriptRoot"\Utils"
 
 
-$PKG_NAME = "Pkg"
-
-
 $ROOT = Resolve-Path $PSScriptRoot"\..\.."
 
 $BIN_DIR = Resolve-Path $ROOT"\data\pkg_bin"

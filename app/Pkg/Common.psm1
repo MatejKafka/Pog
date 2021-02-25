@@ -1,8 +1,13 @@
+<#
+Module with opinionated, Pkg-related support functions.
+#>
+
 . $PSScriptRoot\header.ps1
 
 Import-Module $PSScriptRoot"\Paths"
 Import-Module $PSScriptRoot"\Utils"
 Import-Module $PSScriptRoot"\VersionParser"
+Import-Module $PSScriptRoot"\lib\Convert-CommandParametersToDynamic"
 
 
 Export function Get-LatestPackageVersion {
@@ -57,4 +62,170 @@ Export function Get-ManifestPath {
 	$PackageName = Split-Path $PackagePath -Leaf
 	throw ("Could not find manifest file for package '$PackageName'. " `
 			+ "Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
+}
+
+Export function Import-PkgManifestFile {
+	param(
+		[Parameter(Mandatory)]$ManifestPath,
+		[switch]$NoError
+	)
+	
+	if (-not (Test-Path -Type Leaf $ManifestPath)) {
+		throw "Requested manifest file does not exist: '$ManifestPath'."
+	}
+	
+	try {
+		return Import-PowerShellDataFile $ManifestPath
+	} catch {
+		throw [Exception]::new("Could not load package manifest from '$ManifestPath', " +`
+				"it is not a valid PowerShell data file.", $_.Exception)
+	}
+}
+
+# takes a package name, and returns all static parameters of a selected setup script as a runtime parameter dictionary
+# keyword-only, no positional arguments; aliases are supported
+Export function Copy-ManifestParameters {
+	[CmdletBinding(DefaultParameterSetName = "PackageName")]
+	param(
+			[Parameter(Mandatory, ParameterSetName = "PackageName", Position = 0)]
+			[string]
+		$PackageName,
+			# either Install or Enable
+			[Parameter(Mandatory, ParameterSetName = "PackageName", Position = 1)]
+			[string]
+		$PropertyName,
+			[Parameter(Mandatory, ParameterSetName = "ScriptBlock")]
+			[ScriptBlock]
+		$ScriptBlock,
+			[Parameter(Mandatory)]
+			[string]
+		$NamePrefix
+	)
+	
+	if ($PSCmdlet.ParameterSetName -eq "PackageName") {
+		try {
+			$PackagePath = Get-PackagePath $PackageName
+			$ManifestPath = Get-ManifestPath $PackagePath
+			$Manifest = Import-PkgManifestFile $ManifestPath
+		} catch {
+			# probably incorrect package name, ignore it here
+			return $null
+		}
+		
+		# we execute the manifest script block, as powershell has a bug where it double wraps it for some reason
+		#  see https://github.com/PowerShell/PowerShell/issues/12789
+		# when this bug is fixed, this will break; it also needs to be fixed in container/container.ps1
+		$Sb = & $Manifest[$PropertyName]
+	} else {
+		# see above
+		$Sb = & $ScriptBlock
+	}
+	
+	# we cannot extract parameters directly from scriptblock
+	# instead, we'll turn it into a temporary function and use Get-Command to read the parameters
+	# see https://github.com/PowerShell/PowerShell/issues/13774
+	
+	# this is only set in local scope, no need to clean up
+	$function:TmpFn = $Sb
+	$Params = (Get-Command -Type Function TmpFn).Parameters
+	
+	$RuntimeDict = Convert-CommandParametersToDynamic $Params -AllowAliases -NamePrefix $NamePrefix
+	
+	$ExtractAddedParameters = {
+		param([Parameter(Mandatory)]$_PSBoundParameters)
+		
+		$Extracted = @{}
+		$RuntimeDict.Keys `
+			| ? {$_PSBoundParameters.ContainsKey($_)} `
+			| % {$Extracted[$_.Substring($NamePrefix.Length)] = $_PSBoundParameters[$_]}
+		
+		return $Extracted
+	}.GetNewClosure()
+	
+	return @{
+		Parameters = $RuntimeDict
+		ExtractFn = $ExtractAddedParameters
+	}
+}
+
+function Validate-Manifest {
+	param(
+			[Parameter(Mandatory)]
+			[Hashtable]
+		$Manifest,
+			[string]
+		$ExpectedName,
+			[string]
+		$ExpectedVersion
+	)
+	
+	if ("Private" -in $Manifest.Keys -and $Manifest.Private) {
+		Write-Verbose "Skipped validation of private package manifest '$Manifest.Name'."
+		return
+	}
+	
+	$RequiredKeys = @{
+		"Name" = [string]; "Version" = [string]; "Architecture" = @([string], [Object[]]);
+		"Enable" = [scriptblock]; "Install" = [scriptblock]
+	}
+	
+	$OptionalKeys = @{
+		"Description" = [string]
+	}
+	
+	
+	$Issues = @()
+	
+	$RequiredKeys.GetEnumerator() | % {
+		$StrTypes = $_.Value -join " | "
+		if (!$Manifest.ContainsKey($_.Key)) {
+			$Issues += "Missing manifest property '$($_.Key)' of type '$StrTypes'."
+			return
+		}
+		$RealType = $Manifest[$_.Key].GetType()
+		if ($RealType -notin $_.Value) {
+			$Issues += "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
+		}
+	}
+	
+	$OptionalKeys.GetEnumerator() | ? {$Manifest.ContainsKey($_.Key)} | % {
+		$RealType = $Manifest[$_.Key].GetType()
+		if ($RealType -notin $_.Value) {
+			$StrTypes = $_.Value -join " | "
+			$Issues += "Optional property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
+		}
+	}
+	
+	$AllowedKeys = $RequiredKeys.Keys + $OptionalKeys.Keys
+	$Manifest.Keys | ? {-not $_.StartsWith("_")} | ? {$_ -notin $AllowedKeys} | % {
+		$Issues += "Found unknown property '$_' - private properties must be prefixed with underscore ('_PrivateProperty')."
+	}
+	
+	
+	if ($Manifest.ContainsKey("Name")) {
+		if (-not [string]::IsNullOrEmpty($ExpectedName) -and $Manifest.Name -ne $ExpectedName) {
+			$Issues += "Incorrect 'Name' property value - got '$($Manifest.Name)', expected '$ExpectedName'."
+		}
+	}
+	
+	if ($Manifest.ContainsKey("Version")) {
+		if (-not [string]::IsNullOrEmpty($ExpectedVersion) -and $Manifest.Version -ne $ExpectedVersion) {
+			$Issues += "Incorrect 'Version' property value - got '$($Manifest.Version)', expected '$ExpectedVersion'."
+		}	
+	}
+	
+	if ($Manifest.ContainsKey("Architecture")) {
+		$ValidArch = @("x64", "x86", "*")
+		if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
+			$Issues += "Invalid 'Architecture' value - got '$($Manifest.Architecture)', expected one of $ValidArch, or an array."
+		}
+	}
+	
+	if ($Issues.Count -gt 1) {
+		throw ("Multiple issues encountered when validating manifest:`n`t" + ($Issues -join "`n`t"))
+	} elseif ($Issues.Count -eq 1) {
+		throw $Issues
+	}
+	
+	Write-Verbose "Manifest is valid."
 }

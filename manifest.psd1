@@ -7,7 +7,7 @@
 	Architecture = "x64"
 	
 	Install = {
-		echo "Pkg already installed. Auto-update is not supported right now."
+		echo "Pkg itself is already installed. Auto-update is not supported at the moment."
 	}
 	
 	Enable = {
@@ -28,11 +28,12 @@
 		Assert-Directory "./cache/download_cache"
 		
 		# register default root if not already present
+		# TODO: check if we haven't moved since last enable, update if so
 		Assert-File "./data/roots.txt" {Resolve-Path .\..}
 		
 		# add Pkg dir to PSModulePath
-		Add-EnvVar "PSModulePath" (Resolve-Path .\app)	
-		# add bin dir to PATH
+		Add-EnvPSModulePath .\app
+		# add pkg_bin dir to PATH
 		Add-EnvPath ./data/pkg_bin -Prepend
 	}
 }
