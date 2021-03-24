@@ -15,7 +15,6 @@ $ErrorActionPreference = "Stop"
 Import-Module Microsoft.PowerShell.Utility
 Import-Module Microsoft.PowerShell.Management
 
-
 # setup environment for Pkg script
 switch ($EnvType) {
 	Enable {Import-Module $PSScriptRoot\Env_Enable}

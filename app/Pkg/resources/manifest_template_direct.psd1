@@ -1,5 +1,5 @@
 @{
-	Private = $true	
+	Private = $true
 	Enable = {
 		
 	}

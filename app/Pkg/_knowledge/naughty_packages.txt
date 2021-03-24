@@ -1,6 +1,7 @@
 multiple apps writing to HKCU/SOFTWARE/<appname>
 
 
+Firefox - error reporting and updater
 
 Telegram - config is all over the place, not clear what's config and what's cache
 	also adds shortcut to Start Menu, iirc related to notifications
@@ -20,8 +21,6 @@ node & npm
 	HOME\.config (update-notifier)
 	
 ProcessHacker - auto-updater writes to AppData
-
-Notepad++ - auto-update checker
 
 wireshark - winsparkle auto-updater writes to registry (HKCU/SOFTWARE/Wireshark)
 

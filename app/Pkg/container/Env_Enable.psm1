@@ -12,7 +12,6 @@ Import-Module $PSScriptRoot\Environment
 Import-Module $PSScriptRoot\command_generator\SubstituteExe
 Import-Module $PSScriptRoot\..\Paths
 Import-Module $PSScriptRoot\..\Utils
-Import-Module $PSScriptRoot\..\Common
 Import-Module $PSScriptRoot\Confirmations
 
 
@@ -27,6 +26,26 @@ Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 
 
 enum ItemType {File; Directory}
+
+
+# set of all shortcuts that were not "refreshed" during this Enable call
+# starts with all shortcuts found in package, and each time Export-Shortcut is called, it is removed
+# before end of Enable, all shortcuts still in this set are deleted
+$StaleShortcuts = New-Object System.Collections.Generic.HashSet[string]
+ls -File -Filter "./*.lnk" | % {$StaleShortcuts.Add($_.BaseName)}
+
+
+<# This function is called after the Enable script finishes. #>
+Export function _pkg_cleanup {
+	# remove stale shortcuts
+	if ($StaleShortcuts.Count -gt 0) {
+		Write-Verbose "Removing stale shortcuts..."
+	}
+	$StaleShortcuts | % {
+		rm ("./" + $_ + ".lnk")
+		Write-Verbose "Removed stale shortcut '$_'."
+	}
+}
 
 
 function Assert-ParentDirectory {
@@ -154,7 +173,9 @@ Export function Set-SymlinkedPath {
 		$TestType = switch ($ItemType) {File {"Leaf"}; Directory {"Container"}}
 		$OppositeType = switch ($ItemType) {File {[ItemType]::Directory}; Directory {[ItemType]::File}}
 
-		if ($null -eq (Get-Item $OriginalPath).LinkType -and -not (Test-Path -Type $TestType $OriginalPath)) {
+		# if orig exists and doesn't match expected item type
+		if ((Test-Path $OriginalPath) -and ($null -eq (Get-Item $OriginalPath).LinkType) `
+				-and -not (Test-Path -Type $TestType $OriginalPath)) {
 			throw "Cannot symlink source path '$OriginalPath' to '$TargetPath' - expected '$ItemType', found '$OppositeType'."
 		}
 
@@ -170,9 +191,10 @@ Export function Set-SymlinkedPath {
 
 		if (-not (Test-Path $TargetPath)) {
 			Assert-ParentDirectory $TargetPath
+			# $OriginalPath exists and it's not a symlink
 			if ((Test-Path $OriginalPath) -and (Get-Item $OriginalPath).Target -eq $null) {
 				# TODO: check if $OriginalPath is being used by another process; block if it is so
-				# if source exists and it's not a symlink, move it
+				# move it to target and then create symlink
 				Move-Item $OriginalPath $TargetPath
 			} else {
 				$null = New-Item $TargetPath -ItemType $ItemType
@@ -239,20 +261,16 @@ Export function Assert-File {
 			return
 		}
 
-		# TODO: this is quite error-prone for the manifest writer, think about ways how to improve it
-		$Output = & $ContentUpdater (Get-Item $Path)
-		if (@($Output).Count -gt 1) {
-			Write-Warning ("ContentUpdater script for Assert-File returned multiple " +`
-				"values - check that you [void] output of method calls and commands.")
-			$Output = $Output[$Output.Count - 1]
-		} elseif (@($Output).Count -eq 0) {
-			Write-Warning ("ContentUpdater script for Assert-File did not " +`
-				"return any value - it should return `$true or `$false.")
-			$Output = $true
-		}
+		$File = Get-Item $Path
+		& $ContentUpdater $File
 
-		if ($Output) {
+		$WasChanged = $File.LastWriteTime -ne (Get-Item $Path).LastWriteTime
+		if ($WasChanged) {
 			Write-Information "File '$Path' updated."
+			Write-Debug ("^ For manifest writers: last write time of the file changed during " +`
+					"-ContentUpdater execution. If you don't think it should have changed " +`
+					"and the file appears to be the same, " +`
+					"check for differences in whitespace (especially \r\n vs \n).")
 		} else {
 			Write-Verbose "File '$Path' already exists with correct content."
 		}
@@ -266,7 +284,9 @@ Export function Assert-File {
 
 	Assert-ParentDirectory $Path
 	# create new file with default content
-	& $DefaultContent > $Path
+	# -NoNewline doesn't skip just the trailing newline, but all newlines;
+	#  so we add the newlines between manually and use -NoNewline to avoid the trailing newline
+	& $DefaultContent | Join-String -Separator "`n" | Set-Content $Path -NoNewline
 
 	Write-Information "Created file '$Path'."
 }
@@ -288,6 +308,10 @@ Export function Export-Shortcut {
 			[Alias("Icon")]
 		$IconPath
 	)
+
+	# this shortcut was refreshed, not stale, remove it
+	# noop when not present
+	[void]$StaleShortcuts.Remove($ShortcutName)
 
 	# FIXME: this doesn't look correct (wrt whitespace escaping)
 	$Arguments = $Arguments -join " "
@@ -474,19 +498,4 @@ Export function Disable-DisplayScaling {
 		$null = New-ItemProperty -Path $RegPath -Name $ExePath -PropertyType String -Value "~ HIGHDPIAWARE"
 	}
 	Write-Information "Disabled system display scaling for '${ExePath}'."
-}
-
-
-Export function Assert-Dependency {
-	$Unsatisfied = @()
-	$Args | % {
-		if ($null -eq (Get-PackagePath -NoError $_)) {
-			$Unsatisfied += $_
-		} else {
-			Write-Information "Validated dependency: ${_}."
-		}
-	}
-
-	if ($Unsatisfied.Count -eq 0) {return}
-	throw "Unsatisfied dependencies for package $($Pkg_Manifest.Name): " + ($Unsatisfied -join ", ")
 }

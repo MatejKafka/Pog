@@ -149,12 +149,19 @@ Export function Enable- {
 	)
 	
 	dynamicparam {
+		if (-not $MyInvocation.BoundParameters.ContainsKey("PackageName")) {return}
+		
 		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "_"
+		if ($null -eq $CopiedParams) {return;}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}
 	
 	begin {
+		$PackagePath = Get-PackagePath $PackageName
+		$ManifestPath = Get-ManifestPath $PackagePath
+		$Manifest = Import-PkgManifestFile $ManifestPath
+		
 		$ForwardedParams = ExtractParamsFn $PSBoundParameters
 		try {
 			$PkgParameters = $PkgParameters + $ForwardedParams
@@ -163,10 +170,6 @@ Export function Enable- {
 			throw "The same parameter was passed to '${CmdName}' both using '-PkgParameters' and forwarded dynamic parameter. " +`
 					"Each parameter must present in at most one of these: " + $_
 		}
-		
-		$PackagePath = Get-PackagePath $PackageName
-		$ManifestPath = Get-ManifestPath $PackagePath
-		$Manifest = Import-PkgManifestFile $ManifestPath
 		
 		if ($Manifest.ContainsKey("Private") -and $Manifest.Private) {
 			echo "Enabling private package $PackageName..."
@@ -177,11 +180,10 @@ Export function Enable- {
 		}
 		
 		$InternalArgs = @{
-			Manifest = $Manifest
 			AllowOverwrite = [bool]$AllowOverwrite
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Enable $Manifest.Enable $InternalArgs $PkgParameters
+		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PkgParameters
 		echo "Successfully enabled $PackageName."
 	}
 }
@@ -205,12 +207,19 @@ Export function Install- {
 	)
 	
 	dynamicparam {
+		if (-not $MyInvocation.BoundParameters.ContainsKey("PackageName")) {return}
+		
 		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "_"
+		if ($null -eq $CopiedParams) {return;}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}
 	
 	begin {
+		$PackagePath = Get-PackagePath $PackageName
+		$ManifestPath = Get-ManifestPath $PackagePath
+		$Manifest = Import-PkgManifestFile $ManifestPath
+
 		$ForwardedParams = ExtractParamsFn $PSBoundParameters
 		try {
 			$PkgParameters = $PkgParameters + $ForwardedParams
@@ -219,10 +228,6 @@ Export function Install- {
 			throw "The same parameter was passed to '${CmdName}' both using '-PkgParameters' and forwarded dynamic parameter. " +`
 					"Each parameter must present in at most one of these: " + $_
 		}
-		
-		$PackagePath = Get-PackagePath $PackageName
-		$ManifestPath = Get-ManifestPath $PackagePath
-		$Manifest = Import-PkgManifestFile $ManifestPath
 		
 		# Name is not required for private packages
 		if ("Name" -notin $Manifest.Keys) {
@@ -234,12 +239,11 @@ Export function Install- {
 		}
 		
 		$InternalArgs = @{
-			Manifest = $Manifest
 			AllowOverwrite = [bool]$AllowOverwrite
 			DownloadPriority = if ($LowPriority) {"Low"} else {"Foreground"}
 		}
 		
-		Invoke-Container $PackagePath $ManifestPath Install $Manifest.Install $InternalArgs $PkgParameters
+		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PkgParameters
 		echo "Successfully installed $PackageName."
 	}
 }
@@ -457,7 +461,7 @@ Export function Confirm-RepositoryPackage {
 			}
 			
 			try {
-				Validate-Manifest $Manifest $PackageName $Version
+				Confirm-Manifest $Manifest $PackageName $Version
 			} catch {
 				Write-Warning "Validation of package manifest '$PackageName', version '$Version' from local repository failed: $_"
 			}			
@@ -488,7 +492,7 @@ Export function Confirm-Package {
 		
 		Write-Verbose "Validating imported package manifest '$PackageName' at '$ManifestPath'..."
 		try {
-			Validate-Manifest $Manifest
+			Confirm-Manifest $Manifest
 		} catch {
 			Write-Warning "Validation of imported package manifest '$PackageName' at '$ManifestPath' failed: $_"
 			return

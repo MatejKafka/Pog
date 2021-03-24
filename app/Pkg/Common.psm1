@@ -148,7 +148,8 @@ Export function Copy-ManifestParameters {
 	}
 }
 
-function Validate-Manifest {
+
+Export function Confirm-Manifest {
 	param(
 			[Parameter(Mandatory)]
 			[Hashtable]
@@ -170,7 +171,7 @@ function Validate-Manifest {
 	}
 	
 	$OptionalKeys = @{
-		"Description" = [string]
+		"Description" = [string]; "Channel" = [string]
 	}
 	
 	

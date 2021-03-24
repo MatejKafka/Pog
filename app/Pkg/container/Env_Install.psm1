@@ -36,6 +36,12 @@ if ($null -eq $TarCmd) {
 }
 
 
+<# This function is called after the Install script finishes. #>
+Export function _pkg_cleanup {
+	# nothing for now
+}
+
+
 function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 	$ArchiveName = Split-Path -Leaf $ArchiveFile
 
@@ -209,17 +215,43 @@ Export function Install-FromUrl {
 		Write-Host "    Hash for the file at '$SrcUrl':" -ForegroundColor Magenta
 		Write-Host ("    " + $Hash.Hash) -ForegroundColor Magenta
 		Write-Host ""
-		return
+		# it seems more ergonomic to exit than return
+		exit
 	}
 	
 	if (Test-Path .\app) {
+		# first, we check if we can move/delete the ./app directory
+		# e.g. maybe the packaged program is running and holding a lock over a file inside
+		# if that would be the case, we would extract the package and then get
+		#  Acess Denied error, and user would waste his time waiting for the extraction all over again
+		Write-Debug "Checking if we can manipulate the existing './app' directory..."
+		try {
+			# it seems there isn't a more direct way to check if we can delete the directory
+			Move-Item .\app .\_app
+		} catch {
+			# TODO: use OpenFilesView to list the open file handles and programs
+			#  that are preventing us from overwriting the .\app directory
+			throw "There is an existing package installation, which we cannot overwrite (getting 'Access Denied') - " +`
+				"is it possible that some program from the package is running, " +`
+				"or that another program is using a file from this package?"
+		}
+		
+		try {
+			Move-Item  .\_app .\app
+		} catch {
+			# ok, seriously, wtf?
+			throw "Cannot move './app' directory back into place. Something seriously broken just happened." +`
+				"Seems like Pkg developers fucked something up, plz send bug report."
+		}
+		
 		$ShouldContinue = ConfirmOverwrite "Overwrite existing package installation?" `
 			("Package seems to be already installed. Do you want to overwrite " +`
 				"current installation (./app subdirectory)?`n" +`
 				"Configuration and other package data will be kept.")
 	
 		if (-not $ShouldContinue) {
-			throw $ErrorMsg
+			Write-Information "Not installing, user refused to overwrite existing package installation."
+			return
 		}
 		
 		# do not remove the ./app directory just yet
