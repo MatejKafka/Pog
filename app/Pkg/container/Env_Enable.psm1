@@ -378,7 +378,7 @@ Export function Export-Shortcut {
 	$S.Description = $Description
 
 	$S.Save()
-	Write-Information "Setup a shortcut called '$ShortcutName' (target: '$TargetPath')."
+	Write-Information "Set up a shortcut called '$ShortcutName' (target: '$TargetPath')."
 }
 
 Export function Export-Command {

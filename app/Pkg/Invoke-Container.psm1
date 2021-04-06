@@ -64,8 +64,7 @@ function Set-ErrorSrcFile {
 	$Err.InvocationInfo.DisplayScriptPosition = [System.Management.Automation.Language.ScriptExtent]::new(
 		(New-ScriptPosition $Src $Extent.StartLineNumber $Extent.StartColumnNumber $Line),
 		(New-ScriptPosition $Src $Extent.EndLineNumber $Extent.EndColumnNumber $Line)
-	) 
-	
+	)
 }
 
 Export function Invoke-Container {
@@ -100,22 +99,22 @@ Export function Invoke-Container {
 		# see below
 		$PrefVars.VerbosePreference = "Continue"
 	}
-	
+
 	if ($PrefVars.VerbosePreference -eq "Continue") {
 		# if verbose prints are active, also activate information streams
 		# TODO: this is really convenient, but it kinda goes against
 		#  the original intended use of these variables, is it really good idea?
 		$PrefVars.InformationPreference = "Continue"
 	}
-	
+
 	$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory -FilePath $CONTAINER_SCRIPT `
 			-InitializationScript ([ScriptBlock]::Create(". $CONTAINER_SETUP_SCRIPT $ContainerType")) `
 			-ArgumentList @($ManifestPath, $ContainerType, $InternalArguments, $ScriptArguments, $PrefVars)
-	
+
 	try {
 		# FIXME: this breaks error source
 		# FIXME: Original error type is lost (changed to generic "Exception")
-		
+
 		# hackaround for https://github.com/PowerShell/PowerShell/issues/7814
 		# it seems that the duplication is caused by Receive-Job sending
 		#  original information messages through, and also emitting them again as new messages
