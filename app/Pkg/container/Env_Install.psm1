@@ -17,6 +17,7 @@ enum UserAgentType {
 	Wget
 }
 
+$TMP_EXPAND_PATH = ".\.install_tmp"
 
 $7ZipCmd = Get-Command "7z" -ErrorAction Ignore
 if ($null -eq $7ZipCmd) {
@@ -52,7 +53,7 @@ function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 			-PercentComplete $Percentage `
 			-Completed:($Percentage -eq 100)
 	}
-	
+
 	# if these seem a bit cryptic to you, you are a sane human being, congratulations
 	$Params = @(
 		"-bso0" # disable normal output
@@ -62,9 +63,9 @@ function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 			# (should not usually occur, unless the archive is a bit malformed,
 			# but NSIS installers occasionally do it for some reason)
 	)
-	
+
 	ShowProgress 0
-	
+
 	# run 7zip
 	& $7ZipCmd x $ArchiveFile ("-o" + $TargetPath) @Params | % {
 		# progress print pattern
@@ -78,17 +79,16 @@ function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 			echo $_
 		}
 	}
-	
+
 	# hide progress bar
 	ShowProgress 100
-	sleep 2
-	
+
 	if ($LastExitCode -gt 0) {
 		throw "Could not expand archive: 7zip returned exit code $LastExitCode. There is likely additional output above."
 	}
-	
+
 	if (-not (Test-Path $TargetPath)) {
-		throw "'7zip' indicated success, but the extracted directory is not present. " +`
+		throw "'7zip' indicated success, but the extracted directory is missing. " +`
 				"Seems like Pkg developers fucked something up, plz send bug report."
 	}
 }
@@ -139,6 +139,34 @@ function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 	Write-Debug "Archive expanded to '$TargetPath'."
 }
 
+function Get-ExtractedDirPath([string]$Subdirectory) {
+	$DirContent = ls $TMP_EXPAND_PATH
+	if (-not $Subdirectory) {
+		if (@($DirContent).Count -eq 1 -and $DirContent[0].PSIsContainer) {
+			# single directory in archive root (as is common for Linux-style archives)
+			Write-Debug "Archive root contains single directory '$DirContent', using it for './app'."
+			return $DirContent[0]
+		} else {
+			# no single subdirectory, multiple files in root (Windows-style archive)
+			Write-Debug "Archive root contains multiple items, using archive root directly for './app'."
+			return $TMP_EXPAND_PATH
+		}
+	} else {
+		$DirPath = Join-Path $TMP_EXPAND_PATH $Subdirectory
+		Write-Debug "Using passed path inside archive: '$DirPath'."
+
+		# test if the path exists in the extracted directory
+		if (-not (Test-Path -Type Container $DirPath)) {
+			$Dirs = (ls $TMP_EXPAND_PATH).Name | % {"'" + $_ + "'"}
+			$Dirs = $Dirs -join ", "
+			throw "'-Subdirectory $Subdirectory' param was provided to 'Install-FromUrl' " +`
+				"in package manifest, but the directory does not exist inside the archive. " +`
+				"Root of the archive contains the following items: $Dirs."
+		}
+		return Get-Item $DirPath
+	}
+}
+
 Export function Install-FromUrl {
 	[CmdletBinding(PositionalBinding=$false)]
 	param(
@@ -153,7 +181,7 @@ Export function Install-FromUrl {
 			[string]
 			[ValidateScript({
 				if ($_ -ne "?" -and $_ -notmatch '^(\-|[a-zA-Z0-9]*)$') {
-					throw "Parameter must be alphanumeric string, 64 characters long (or '?'), got '$_'."
+					throw "Parameter must be alphanumeric string (SHA-256 hash), 64 characters long (or '?'), got '$_'."
 				}
 				return $true
 			})]
@@ -162,12 +190,8 @@ Export function Install-FromUrl {
 			#  and the rest is ignored
 			[string]
 		$Subdirectory = "",
-			# normally, an archive root should contain a folder which contains the files;
-			#  however, sometimes, the files are directly in the root of the zip archive; use this switch for these occasions
-			[switch]
-		$NoSubdirectory,
 			# force the cmdlet to use 7za.exe binary to extract the archive
-			# if not set, 7za.exe will be used for .7z and .7z.exe archives, and builtin Expand-Archive cmdlet for others
+			# if not set, 7z.exe will be used for .7z and .7z.exe archives, and builtin Expand-Archive cmdlet for others
 			[switch]
 		$Force7zip,
 			# some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason
@@ -180,32 +204,21 @@ Export function Install-FromUrl {
 			[switch]
 		$NsisInstaller
 	)
-	
-	
+
 	if ($NsisInstaller) {
-		Write-Debug "Passed '-NsisInstaller', automatically applying `-Force7zip` and `-NoSubdirectory`."
+		Write-Debug "Passed '-NsisInstaller', automatically applying `-Force7zip`."
 		$Force7zip = $true
-		# TODO: is it not possible that someone has an NSIS installer, but only needs one subdirectory?
-		#  (this would then collide with `$Subdirectory` param)
-		$NoSubdirectory = $true
 	}
-	
-	if ($NoSubdirectory -and -not [string]::IsNullOrEmpty($Subdirectory)) {
-		throw "'-NoSubdirectory' switch must not be passed together with '-Subdirectory <path>'."
-	}
-	
+
 	$DownloadParams = @{
 		UserAgent = $UserAgent
 	}
-	
-	
-	$TMP_EXPAND_PATH = ".\.install_tmp"
-	
+
 	if (Test-Path $TMP_EXPAND_PATH) {
 		Write-Warning "Clearing orphaned tmp installer directory, probably from failed previous install..."
 		rm -Recurse -Force $TMP_EXPAND_PATH
 	}
-	
+
 	# do not continue installation if manifest writer just wants to get the file hash
 	if ($ExpectedHash -eq "?") {
 		Write-Host ""
@@ -218,7 +231,7 @@ Export function Install-FromUrl {
 		# it seems more ergonomic to exit than return
 		exit
 	}
-	
+
 	if (Test-Path .\app) {
 		# first, we check if we can move/delete the ./app directory
 		# e.g. maybe the packaged program is running and holding a lock over a file inside
@@ -235,32 +248,32 @@ Export function Install-FromUrl {
 				"is it possible that some program from the package is running, " +`
 				"or that another program is using a file from this package?"
 		}
-		
+
 		try {
-			Move-Item  .\_app .\app
+			Move-Item .\_app .\app
 		} catch {
 			# ok, seriously, wtf?
 			throw "Cannot move './app' directory back into place. Something seriously broken just happened." +`
 				"Seems like Pkg developers fucked something up, plz send bug report."
 		}
-		
+
 		$ShouldContinue = ConfirmOverwrite "Overwrite existing package installation?" `
 			("Package seems to be already installed. Do you want to overwrite " +`
 				"current installation (./app subdirectory)?`n" +`
 				"Configuration and other package data will be kept.")
-	
+
 		if (-not $ShouldContinue) {
 			Write-Information "Not installing, user refused to overwrite existing package installation."
 			return
 		}
-		
+
 		# do not remove the ./app directory just yet
 		# first, we'll download the new version, and after
 		#  all checks pass and we know we managed to set it up correctly,
 		#  we'll delete the old version
 	}
-	
-	
+
+
 	Write-Information "Retrieving archive from '$SrcUrl' (or local cache)..."
 	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
 		# we have fixed hash, we can use download cache
@@ -272,75 +285,35 @@ Export function Install-FromUrl {
 		Write-Warning ("Downloading a file from '${SrcUrl}', but no checksum was provided in the package " +`
 				"(passed to 'Install-FromUrl'). This means that we cannot be sure if the download file is the " +`
 				"same one package author intended. This may or may not be a problem on its own, " +`
-				"but it's better style to include a checksum.")
+				"but it's better style to include a checksum, and improves security and reproducibility.")
 		# the hash is not set, cannot safely cache the file
 		$DownloadedFile = Invoke-TmpFileDownload $SrcUrl -DownloadParams $DownloadParams
 		try {
 			ExtractArchive $DownloadedFile $TMP_EXPAND_PATH -Force7zip:$Force7zip
 		} finally {
 			# remove the file after we finish
-			rm -Force $DownloadedFile
+			rm -Force -LiteralPath $DownloadedFile
 			Write-Debug "Removed downloaded archive from TMP."
 		}
 	}
-	
-	if ($NoSubdirectory) {
+
+	try {
+		$ExtractedDir = Get-ExtractedDirPath -Subdirectory $Subdirectory
+
 		if (Test-Path .\app) {
 			Write-Information "Removing previous ./app directory..."
 			rm -Recurse -Force .\app
 		}
 
-		$DirContent = ls $TMP_EXPAND_PATH
-		if (@($DirContent).Count -eq 1 -and $DirContent[0].PSIsContainer) {
-			Write-Warning ("-NoSubdirectory was passed to Install-FromUrl, but the archive " +`
-					"contains only a single directory, so it doesn't really make sense to pass the switch.")
-		}
-	
-		# use files from the root of archive directly
-		Write-Debug "Renaming '$TMP_EXPAND_PATH' to './app'..."
-		Rename-Item $TMP_EXPAND_PATH .\app
-	} else {
-		try {
-			$Src = if ([string]::IsNullOrEmpty($Subdirectory)) {
-				$DirContent = ls $TMP_EXPAND_PATH
-				# there should be a single folder here
-				if (@($DirContent).Count -ne 1 -or -not $DirContent[0].PSIsContainer) {
-					$Dirs = ($DirContent.Name | % {"'" + $_ + "'"}) -join ", "
-					throw ("There are multiple files in the root of the extracted archive, single directory expected. " +`
-						"Package author should pass '-NoSubdirectory' to 'Install-FromUrl' if the archive does not " +`
-						"have a wrapper directory in its root. " +`
-						"Root of the archive contains the following items: $Dirs.")
-				}
-				$DirContent
+		Write-Debug "Moving extracted directory '$ExtractedDir' to './app'..."
+		Move-Item -LiteralPath $ExtractedDir .\app
 
-			} else {
-				$DirPath = Join-Path $TMP_EXPAND_PATH $Subdirectory
-				Write-Debug "Using passed path inside archive: '$DirPath'."
-				
-				# test if the path exists in the extracted directory
-				if (-not (Test-Path -Type Container $DirPath)) {
-					$Dirs = (ls $TMP_EXPAND_PATH).Name | % {"'" + $_ + "'"}
-					$Dirs = $Dirs -join ", "
-					throw "'-Subdirectory $Subdirectory' param was provided to 'Install-FromUrl' " +`
-						"in package manifest, but the directory does not exist inside the archive. " +`
-						"Root of the archive contains the following items: $Dirs."
-				}				
-				Get-Item $DirPath
-			}
-			
-			if (Test-Path .\app) {
-				Write-Information "Removing previous ./app directory..."
-				rm -Recurse -Force .\app
-			}
-			
-			Write-Debug "Moving extracted directory '$Src' to './app'..."			
-			mv $Src ./app
-			
-		} finally {
-			rm -Recurse $TMP_EXPAND_PATH
+	} finally {
+		if (Test-Path $TMP_EXPAND_PATH) {
+			rm -Recurse -Force $TMP_EXPAND_PATH
 		}
 	}
-	
+
 	if ($NsisInstaller) {
 		if (-not (Test-Path -Type Container ./app/`$PLUGINSDIR)) {
 			throw "'-NsisInstaller' flag was passed to 'Install-FromUrl' in package manifest, " +`
@@ -349,16 +322,16 @@ Export function Install-FromUrl {
 		rm -Recurse ./app/`$PLUGINSDIR
 		Write-Debug "Removed `$PLUGINSDIR directory from extracted NSIS installer archive."
 	}
-	
+
 	Write-Information "Package successfully installed from downloaded archive."
 }
 
 
 function DownloadFile {
 	param($SrcUrl, $TargetPath, [UserAgentType]$UserAgent)
-	
+
 	Write-Debug "Downloading file from '$SrcUrl' to '$TargetPath'."
-	
+
 	$Params = @{}
 	switch ($UserAgent) {
 		PowerShell {}
@@ -375,19 +348,19 @@ function DownloadFile {
 	# TODO: this lets us figure out real URL, which could then be passed to Start-BitsTransfer
 	#       however, Start-BitsTransfer cannot fake user agent, but maybe we could figure out a workaround
 	#  [System.Net.HttpWebRequest]::Create('https://URL').GetResponse().ResponseUri.AbsoluteUri
-	
+
 	# Unfortunately, BITS breaks for github and other pages with redirects, see here for description:
 	#  https://powershell.org/forums/topic/bits-transfer-with-github/
 	#$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
 	#Start-BitsTransfer $SrcUrl -Destination $TargetPath -Priority $global:Pkg_DownloadPriority -Description $Description
-	
+
 	if ($global:Pkg_DownloadPriority -ne "Foreground") {
 		# TODO: first resolve all redirects, then download using BITS
 		Write-Warning "Low priority download requested by user (-LowPriority flag)."
 		Write-Warning "Unfortunately, low priority downloads using BITS are currently disabled due to incompatibility with GitHub releases."
 		Write-Warning " (see here for details: https://powershell.org/forums/topic/bits-transfer-with-github/)"
 	}
-	
+
 	# we'll have to use Invoke-WebRequest instead, which doesn't offer low priority mode and has worse progress indicator
 	Invoke-WebRequest $SrcUrl -OutFile $TargetPath @Params
 	Write-Debug "File downloaded."
@@ -404,7 +377,7 @@ function GetDownloadCacheEntry($Hash) {
 		return $null
 	}
 	Write-Debug "Found matching download cache entry."
-	
+
 	# cache hit, validate file count
 	$File = ls -File $DirPath
 	if (@($File).Count -ne 1) {
@@ -412,7 +385,7 @@ function GetDownloadCacheEntry($Hash) {
 		rm -Recurse $DirPath
 		return $null
 	}
-	
+
 	Write-Debug "Validating cache entry hash..."
 	# validate file hash (to prevent tampering / accidental file corruption)
 	$FileHash = (Get-FileHash $File -Algorithm SHA256).Hash
@@ -422,7 +395,7 @@ function GetDownloadCacheEntry($Hash) {
 		return $null
 	}
 	Write-Debug "Cache entry hash validated."
-	
+
 	return $File
 }
 
@@ -438,23 +411,23 @@ function DownloadFileToCache {
 			[Hashtable]
 		$DownloadParams = {}
 	)
-	
+
 	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $ExpectedHash.ToUpper()
 	if (Test-Path $DirPath) {
 		throw "Download cache already contains an entry for '$ExpectedHash' (from '$SrcUrl')."
 	}
-	
+
 	# TODO: extract it from the HTTP request headers
 	# use file name from the URL
 	$TargetPath = Join-Path $DirPath ([uri]$SrcUrl).Segments[-1]
 	Write-Debug "Target download path: '$TargetPath'."
-	
+
 	try {
 		$null = New-Item -Type Directory $DirPath
 		Write-Debug "Created download cache dir '$ExpectedHash'."
 		DownloadFile $SrcUrl $TargetPath @DownloadParams
 		$File = Get-Item $TargetPath
-		
+
 		$RealHash = (Get-FileHash $File -Algorithm SHA256).Hash
 		if ($ExpectedHash -ne $RealHash) {
 			throw "Incorrect hash for file downloaded from $SrcUrl (expected : $ExpectedHash, real: $RealHash)."
@@ -464,7 +437,7 @@ function DownloadFileToCache {
 		return $File
 	} catch {
 		# not -ErrorAction Ignore, we want to have a log in $Error for debugging
-		rm -Recurse -Force $DirPath -ErrorAction SilentlyContinue 
+		rm -Recurse -Force $DirPath -ErrorAction SilentlyContinue
 		throw $_
 	}
 }
@@ -481,14 +454,14 @@ function Invoke-CachedFileDownload {
 			[Hashtable]
 		$DownloadParams = @{}
 	)
-	
+
 	Write-Debug "Checking if we have a cached copy for '$ExpectedHash'..."
 	$CachedFile = GetDownloadCacheEntry $ExpectedHash
 	if ($null -ne $CachedFile) {
 		Write-Verbose "Found cached copy of requested file."
 		return $CachedFile
 	}
-	
+
 	Write-Verbose "Cached copy not found, downloading file to cache..."
 	return DownloadFileToCache $SrcUrl $ExpectedHash -DownloadParams $DownloadParams
 }
@@ -512,7 +485,7 @@ function Invoke-TmpFileDownload {
 			[Hashtable]
 		$DownloadParams = @{}
 	)
-	
+
 	# generate unused file name
 	while ($true) {
 		try {
@@ -523,8 +496,8 @@ function Invoke-TmpFileDownload {
 			break
 		} catch {}
 	}
-	
+
 	# we have a temp file with unique name and requested extension, download content
-	DownloadFile $SrcUrl $TmpFile @DownloadParams	
+	DownloadFile $SrcUrl $TmpFile @DownloadParams
 	return $TmpFile
 }
