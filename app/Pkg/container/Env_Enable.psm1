@@ -85,46 +85,48 @@ Export function Merge-Directories {
 
 function Set-Symlink {
 	param(
-			# This path must be either non-existent, or already a correct symlink.
+			# This path must be either non-existent, or already a symlink.
 			[Parameter(Mandatory)]
 		$LinkPath,
+			# Path to target, must exist.
 			[Parameter(Mandatory)]
-		$TargetPath,
-			[switch]
-		$RelativeTarget
+		$TargetPath
 	)
 
-	if ($RelativeTarget) {
-		# target is a relative path from $LinkPath
-		$Target = $TargetPath
-	} elseif ([System.IO.Path]::IsPathRooted($LinkPath) -or [System.IO.Path]::IsPathRooted($TargetPath)) {
+	$LinkAbs = Resolve-VirtualPath $LinkPath
+	# this one must exist
+	$TargetAbs = Resolve-Path $TargetPath
+
+	[string]$TargetStr = if ([System.IO.Path]::IsPathRooted($LinkPath) -or [System.IO.Path]::IsPathRooted($TargetPath)) {
 		# one of the paths is rooted, use absolute path for symlink
-		$Target = Resolve-Path $TargetPath
+		$TargetAbs
 	} else {
 		# get relative path from $LinkPath to $TargetPath for symlink
-		$Target = Get-RelativePath (Split-Path $LinkPath) $TargetPath
+		# use parent of $LinkPath, as relative symlinks are resolved from parent dir
+		[IO.Path]::GetRelativePath((Split-Path $LinkAbs), $TargetAbs)
 	}
 
-	$LinkPath = Resolve-VirtualPath $LinkPath
-	if (Test-Path $LinkPath) {
-		$Item = Get-Item $LinkPath
-		if ($Item.Target -eq $Target) {
+	if (Test-Path $LinkAbs) {
+		$Item = Get-Item $LinkAbs
+		if ($Item.Target -eq $TargetStr) {
 			return $null # we already have a correct symlink
 		}
 
 		# not a correct item, delete and recreate
 		Remove-Item -Recurse $Item
 	} else {
-		Assert-ParentDirectory $LinkPath
+		Assert-ParentDirectory $LinkAbs
 	}
 
-	if (Test-Path -Type Container $TargetPath) {
-		# it seems New-Item cannot create relative link to directory
-		$null = cmd /C mklink /D `"$LinkPath`" `"$Target`"
-		return (Get-Item $LinkPath)
+	Write-Debug "Creating symlink from '$LinkAbs' with target '$TargetStr'."
+	# New-Item -Type SymbolicLink has some dumb issues with relative paths - surprisingly, it seems safer to use mklink
+	#  see https://github.com/PowerShell/PowerShell/pull/12797#issuecomment-819169817
+	$null = if (Test-Path -Type Container $TargetAbs) {
+		cmd.exe /C mklink /D $LinkAbs $TargetStr
 	} else {
-		New-Item -ItemType SymbolicLink -Path $LinkPath -Target $Target
+		cmd.exe /C mklink $LinkAbs $TargetStr
 	}
+	return Get-Item $LinkAbs
 }
 
 <#
@@ -156,13 +158,13 @@ Export function Set-SymlinkedPath {
 		$OriginalPath,
 			[Parameter(Mandatory)]
 		$TargetPath,
+			[switch]
+		$Merge,
 			# if target is supposed to be 'File' or 'Directory'
 			[Parameter(Mandatory)]
 			[Alias("Type")]
 			[ItemType]
-		$ItemType,
-			[switch]
-		$Merge
+		$ItemType
 	)
 
 	begin {
@@ -171,11 +173,11 @@ Export function Set-SymlinkedPath {
 		}
 
 		$TestType = switch ($ItemType) {File {"Leaf"}; Directory {"Container"}}
-		$OppositeType = switch ($ItemType) {File {[ItemType]::Directory}; Directory {[ItemType]::File}}
 
 		# if orig exists and doesn't match expected item type
 		if ((Test-Path $OriginalPath) -and ($null -eq (Get-Item $OriginalPath).LinkType) `
 				-and -not (Test-Path -Type $TestType $OriginalPath)) {
+			$OppositeType = switch ($ItemType) {File {[ItemType]::Directory}; Directory {[ItemType]::File}}
 			throw "Cannot symlink source path '$OriginalPath' to '$TargetPath' - expected '$ItemType', found '$OppositeType'."
 		}
 
@@ -262,7 +264,7 @@ Export function Assert-File {
 		}
 
 		$File = Get-Item $Path
-		& $ContentUpdater $File
+		$null = & $ContentUpdater $File
 
 		$WasChanged = $File.LastWriteTime -ne (Get-Item $Path).LastWriteTime
 		if ($WasChanged) {

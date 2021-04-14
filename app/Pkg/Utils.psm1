@@ -10,30 +10,6 @@ Export function Resolve-VirtualPath {
 	return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 }
 
-Export function Get-RelativePath {
-	param(
-			[Parameter(Mandatory)]
-		$From,
-			[Parameter(Mandatory)]
-		$To
-	)
-	
-	$From = Resolve-Path $From
-	if (Test-Path -Type Leaf $From) {
-		$From = Resolve-Path (Split-Path $From)
-	}
-	# append \, otherwise the resulting relative path has needless ..\dir
-	#  (e.g path from C:\dir to C:\dir would be ..\dir)
-	$To = [string](Resolve-Path $To) + [System.IO.Path]::DirectorySeparatorChar
-	
-	try {
-		Push-Location $From
-		return Resolve-Path -Relative $To
-	} finally {
-		Pop-Location
-	}
-}
-
 Export function Assert-Admin {
 	param([string]$ErrorMessage = $null)
 
