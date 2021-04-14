@@ -1,4 +1,5 @@
 multiple apps writing to HKCU/SOFTWARE/<appname>
+multiple apps write to C:\ProgramData
 
 
 Firefox - error reporting and updater
