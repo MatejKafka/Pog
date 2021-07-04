@@ -77,6 +77,7 @@ Export function Import-PkgManifestFile {
 	try {
 		return Import-PowerShellDataFile $ManifestPath
 	} catch {
+		# TODO: better error messages (there's an open issue for that)
 		throw [Exception]::new("Could not load package manifest from '$ManifestPath', " +`
 				"it is not a valid PowerShell data file.", $_.Exception)
 	}

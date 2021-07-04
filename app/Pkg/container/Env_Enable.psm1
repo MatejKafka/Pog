@@ -308,7 +308,8 @@ Export function Export-Shortcut {
 			[switch]
 		$StartMaximized,
 			[Alias("Icon")]
-		$IconPath
+		$IconPath,
+		$Description
 	)
 
 	# this shortcut was refreshed, not stale, remove it
@@ -331,13 +332,15 @@ Export function Export-Shortcut {
 		if ($null -eq $Cmd) {
 			throw "Cannot create shortcut to command '$TargetPath', as no such command is known by the system (present in env:PATH)."
 		}
-		$Cmd.Source
+		Resolve-Path $Cmd.Source
 	}
+
+	Write-Debug "Resolved shortcut target: $Target"
 
 	if ($WorkingDirectory -eq $null) {
 		$WorkingDirectory = Split-Path $Target
 	} else {
-		$WorkingDirectory = [string](Resolve-Path $WorkingDirectory)
+		$WorkingDirectory = Resolve-Path $WorkingDirectory
 	}
 
 	if ($IconPath -eq $null) {
@@ -353,7 +356,10 @@ Export function Export-Shortcut {
 	}
 
 	$WinStyle = if ($StartMaximized) {3} else {1}
-	$Description = Split-Path -LeafBase $TargetPath
+	
+	if ($null -eq $Description) {
+		$Description = [string](Split-Path -LeafBase $TargetPath)
+	}
 
 	$S = $Shell.CreateShortcut($ShortcutPath)
 

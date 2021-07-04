@@ -12,12 +12,12 @@
 	
 	Enable = {
 		Assert-Dependency "7zip"
-	
+		
 		# the Environment module is not exposed to `Enable` scripts,
 		#  as normal packages should NOT set any environment variables,
 		#  so we'll import it directly
 		Import-Module "./app/Pkg/container/Environment"
-	
+		
 		Assert-Directory "./data"
 		Assert-Directory "./cache"
 		# local manifest repository
@@ -37,4 +37,3 @@
 		Add-EnvPath ./data/pkg_bin -Prepend
 	}
 }
-

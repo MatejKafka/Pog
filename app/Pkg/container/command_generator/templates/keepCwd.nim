@@ -1,3 +1,6 @@
+# consider using Job Objects to ensure child processes are killed whenever this one is
+# (https://docs.microsoft.com/en-us/windows/win32/procthread/job-objects)
+
 import os
 import osproc
 import strutils

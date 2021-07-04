@@ -21,3 +21,9 @@ switch ($EnvType) {
 	Install {Import-Module $PSScriptRoot\Env_Install}
 	default {throw "Unknown Pkg container environment type: " + $_}
 }
+
+# override Import-Module to hide the default verbose prints
+$OrigImport = gcm Import-Module
+function global:Import-Module {
+	& $OrigImport @Args -Verbose:$false
+}
