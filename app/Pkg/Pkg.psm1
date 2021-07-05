@@ -31,9 +31,7 @@ function Export-AppShortcuts {
 		[Parameter(Mandatory)]$ExportPath
 	)
 	
-	ls -File $AppPath | where {
-		[IO.Path]::GetExtension($_.Name) -eq ".lnk"
-	} | % {
+	ls -File -Filter "*.lnk" $AppPath | % {
 		Copy-Item $_ -Destination $ExportPath
 		echo "Exported shortcut '$($_.Name)' from '$(Split-Path -Leaf $AppPath)'."
 	}

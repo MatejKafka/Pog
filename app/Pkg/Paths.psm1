@@ -24,6 +24,8 @@ $PACKAGE_ROOTS = [Collections.ArrayList][array](Get-Content $PACKAGE_ROOT_FILE |
 $MANIFEST_PATHS = @(".\manifest.psd1", ".\.manifest\manifest.psd1")
 $MANIFEST_CLEANUP_PATHS = @(".\manifest.psd1", ".\.manifest\")
 
+$PACKAGE_EXPORT_DIR = ".\.pkg"
+
 $RESOURCE_DIR = Resolve-Path $PSScriptRoot"\resources\"
 
 $CONTAINER_SCRIPT = Resolve-Path $PSScriptRoot"\container\container.ps1"

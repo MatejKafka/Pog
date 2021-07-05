@@ -33,7 +33,7 @@ enum ItemType {File; Directory}
 # before end of Enable, all shortcuts still in this set are deleted
 $StaleShortcuts = New-Object System.Collections.Generic.HashSet[string]
 ls -File -Filter "./*.lnk" | % {$StaleShortcuts.Add($_.BaseName)}
-
+Write-Debug "Listed original shortcuts."
 
 <# This function is called after the Enable script finishes. #>
 Export function _pkg_cleanup {
@@ -314,7 +314,7 @@ Export function Export-Shortcut {
 
 	# this shortcut was refreshed, not stale, remove it
 	# noop when not present
-	[void]$StaleShortcuts.Remove($ShortcutName)
+	$null = $StaleShortcuts.Remove($ShortcutName)
 
 	# FIXME: this doesn't look correct (wrt whitespace escaping)
 	$Arguments = $Arguments -join " "
@@ -360,6 +360,7 @@ Export function Export-Shortcut {
 	if ($null -eq $Description) {
 		$Description = [string](Split-Path -LeafBase $TargetPath)
 	}
+
 
 	$S = $Shell.CreateShortcut($ShortcutPath)
 

@@ -22,8 +22,11 @@ switch ($EnvType) {
 	default {throw "Unknown Pkg container environment type: " + $_}
 }
 
-# override Import-Module to hide the default verbose prints
-$OrigImport = gcm Import-Module
+# override Import-Module to hide the default verbose prints when -Verbose is set for Pkg environment
+$_OrigImport = Get-Command Import-Module
 function global:Import-Module {
-	& $OrigImport @Args -Verbose:$false
+	# $VerbosePreference is set globally in container.ps1, so we'd need to overwrite it, and then set it back,
+	#  as it interacts weirdly with -Verbose:$false, which apparently doesn't work here for some reason;
+	#  it seems as the cleanest solution to do `4>$null`, which just hides the Verbose stream all-together
+	& $_OrigImport @Args 4>$null
 }
