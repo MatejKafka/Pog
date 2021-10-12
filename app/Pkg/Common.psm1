@@ -114,6 +114,14 @@ Export function Copy-ManifestParameters {
 			return $null
 		}
 		
+		if ($Manifest[$PropertyName] -isnot [scriptblock]) {
+			# not a script block, doesn't have parameters
+			return @{
+				Parameters = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
+				ExtractFn = {return @{}}
+			}
+		}
+		
 		# we execute the manifest script block, as powershell has a bug where it double wraps it for some reason
 		#  see https://github.com/PowerShell/PowerShell/issues/12789
 		# when this bug is fixed, this will break; it also needs to be fixed in container/container.ps1
@@ -169,7 +177,7 @@ Export function Confirm-Manifest {
 	
 	$RequiredKeys = @{
 		"Name" = [string]; "Version" = [string]; "Architecture" = @([string], [Object[]]);
-		"Enable" = [scriptblock]; "Install" = [scriptblock]
+		"Enable" = [scriptblock]; "Install" = @([scriptblock], [Hashtable], [string])
 	}
 	
 	$OptionalKeys = @{
@@ -221,6 +229,23 @@ Export function Confirm-Manifest {
 		$ValidArch = @("x64", "x86", "*")
 		if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
 			$Issues += "Invalid 'Architecture' value - got '$($Manifest.Architecture)', expected one of $ValidArch, or an array."
+		}
+	}
+
+	# TODO: better checking (currently, only Url and Hash are checked, and other keys are ignored)
+	if ($Manifest.ContainsKey("Install") -and $Manifest.Install -is [hashtable]) {
+		# check Install key structure
+		if (-not $Manifest.Install.ContainsKey("Url")) {
+			$Issues += "Missing 'Url' key in 'Install' hashtable - it should contain URL of the archive which is downloaded during installation."
+		} elseif ($Manifest.Install.Url.GetType() -notin @([string], [ScriptBlock])) {
+			$Issues += "'Install.Url' must be either string URL, or a ScriptBlock that returns the URL string, got '$($Manifest.Install.Url.GetType())'."
+		}
+		if ($Manifest.Install.ContainsKey("Hash")) {
+			if ($Manifest.Install.Hash -isnot [string]) {
+				$Issues += "'Install.Hash' must be a string (SHA256 hash), if present - got '$($Manifest.Install.Hash.GetType())'."
+			} elseif ($Manifest.Install.Hash -ne "?" -and $Manifest.Install.Hash -notmatch '^(\-|[a-fA-F0-9]{64})$') {
+				$Issues += "'Install.Hash' must be a SHA256 hash (64 character hex string), or '?' - got '$($Manifest.Install.Hash)'."
+			}
 		}
 	}
 	

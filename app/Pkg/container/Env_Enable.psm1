@@ -48,6 +48,13 @@ Export function _pkg_cleanup {
 	}
 }
 
+<# This function is called after the container setup is finished to run the passed script. #>
+Export function _pkg_main {
+	param($EnableSb, $PkgArguments)
+
+	# invoke the scriptblock
+	& $EnableSb @PkgArguments
+}
 
 function Assert-ParentDirectory {
 	param(
@@ -424,8 +431,8 @@ Export function Export-Command {
 		$Item = Get-Item $LinkPath
 		if ($Item.Target -eq $null) {
 			# exe
-			$Matches = Test-SubstituteExe $LinkPath $ExePath -SetWorkingDirectory:$SetWorkingDirectory
-			if ($Matches -and !$UseSymlink) {
+			$IsMatching = Test-SubstituteExe $LinkPath $ExePath -SetWorkingDirectory:$SetWorkingDirectory
+			if ($IsMatching -and !$UseSymlink) {
 				Write-Verbose "Command ${CmdName} is already registered for this package."
 				return
 			}

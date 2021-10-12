@@ -43,6 +43,21 @@ Export function _pkg_cleanup {
 	# nothing for now
 }
 
+<# This function is called after the container setup is finished to run the passed script. #>
+Export function _pkg_main {
+	param($Installer, $PkgArguments)
+
+	if ($Installer -is [scriptblock]) {
+		& $Installer @PkgArguments
+	} else {
+		if ($Installer.Url -is [scriptblock]) {
+			$Installer.Url = & $Installer.Url
+		}
+		# Install block is a hashtable of arguments to Install-FromUrl
+		Install-FromUrl @Installer
+	}
+}
+
 
 function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 	$ArchiveName = Split-Path -Leaf $ArchiveFile
@@ -101,7 +116,7 @@ function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 	if (-not $Force7zip -and $ArchiveFile.Name.EndsWith(".tar.gz")) {
 		Write-Information "Expanding archive using 'tar'..."
 		# tar expects the target dir to exist, so we'll create it
-		$null = ni -Type Directory $TargetPath
+		$null = New-Item -Type Directory $TargetPath
 		# run tar
 		# -f <file> = expanded archive
 		# -m = do not restore modification times
@@ -173,6 +188,7 @@ Export function Install-FromUrl {
 	param(
 			[Parameter(Mandatory, Position=0)]
 			[string]
+			[Alias("Url")]
 		$SrcUrl,
 			# SHA256 hash that the downloaded archive should match
 			# validation is skipped if null, but warning is printed
@@ -180,9 +196,10 @@ Export function Install-FromUrl {
 			# if '?' is passed, nothing will be installed, Pkg will download the file, compute SHA-256 hash and print it out
 			# this is intended to be used when writing a new manifest and trying to figure out the hash of the file
 			[string]
+			[Alias("Hash")]
 			[ValidateScript({
-				if ($_ -ne "?" -and $_ -notmatch '^(\-|[a-zA-Z0-9]*)$') {
-					throw "Parameter must be alphanumeric string (SHA-256 hash), 64 characters long (or '?'), got '$_'."
+				if ($_ -ne "?" -and $_ -notmatch '^(\-|[a-fA-F0-9]{64})$') {
+					throw "Parameter must be hex string (SHA-256 hash), 64 characters long (or '?'), got '$_'."
 				}
 				return $true
 			})]
@@ -244,6 +261,7 @@ Export function Install-FromUrl {
 			Move-Item .\app .\_app
 		} catch {
 			# TODO: use OpenFilesView to list the open file handles and programs
+			# FIXME: apparently, this may end up in a half-moved state where both app and _app exist
 			#  that are preventing us from overwriting the .\app directory
 			throw "There is an existing package installation, which we cannot overwrite (getting 'Access Denied') - " +`
 				"is it possible that some program from the package is running, " +`
@@ -367,6 +385,19 @@ function DownloadFile {
 	Write-Debug "File downloaded."
 }
 
+function GetFileHashWithProgressBar($File) {
+	function ShowProgress([int]$Percentage) {
+		Write-Progress `
+			-Activity "Validating file hash" `
+			-PercentComplete $Percentage `
+			-Completed:($Percentage -eq 100)
+	}
+	try {
+		# TODO: figure out how to show actual progress
+		ShowProgress 0
+		return (Get-FileHash $File -Algorithm SHA256).Hash
+	} finally {ShowProgress 100}
+}
 
 function GetDownloadCacheEntry($Hash) {
 	# each cache entry is a directory named with the SHA256 hash of target file,
@@ -389,7 +420,7 @@ function GetDownloadCacheEntry($Hash) {
 
 	Write-Debug "Validating cache entry hash..."
 	# validate file hash (to prevent tampering / accidental file corruption)
-	$FileHash = (Get-FileHash $File -Algorithm SHA256).Hash
+	$FileHash = GetFileHashWithProgressBar $File
 	if ($Hash -ne $FileHash) {
 		Write-Warning "Invalid download cache entry - content hash does not match, erasing...: $Hash"
 		rm -Recurse $DirPath
@@ -418,8 +449,8 @@ function DownloadFileToCache {
 		throw "Download cache already contains an entry for '$ExpectedHash' (from '$SrcUrl')."
 	}
 
-	# TODO: extract it from the HTTP request headers
 	# use file name from the URL
+	# TODO: extract it from the HTTP request headers
 	$TargetPath = Join-Path $DirPath ([uri]$SrcUrl).Segments[-1]
 	Write-Debug "Target download path: '$TargetPath'."
 
@@ -429,7 +460,7 @@ function DownloadFileToCache {
 		DownloadFile $SrcUrl $TargetPath @DownloadParams
 		$File = Get-Item $TargetPath
 
-		$RealHash = (Get-FileHash $File -Algorithm SHA256).Hash
+		$RealHash = GetFileHashWithProgressBar $File
 		if ($ExpectedHash -ne $RealHash) {
 			throw "Incorrect hash for file downloaded from $SrcUrl (expected : $ExpectedHash, real: $RealHash)."
 		}

@@ -17,6 +17,7 @@ param(
 	$PreferenceVariables
 )
 
+# this is the main script running inside container, which sets up the environment and calls the manifest
 # assumes setup_container.ps1 is called first
 # we cannot trivially import it, because of https://github.com/PowerShell/PowerShell/issues/15096
 
@@ -41,10 +42,7 @@ Remove-Variable InternalArguments
 Remove-Variable PreferenceVariables
 
 try {
-	# FIXME: double call, due to a supposed Import-PowerShellDataFile bug
-	#  see https://github.com/PowerShell/PowerShell/issues/12789
-	# when this bug is fixed, this will break; also fix the dynamicparam in Enable-Pkg and Install-Pkg
-	& $Manifest[$ContainerType] @PkgArguments
+	_pkg_main $Manifest[$ContainerType] $PkgArguments
 } finally {
 	# this is called even on `exit`, which is nice
 	Write-Debug "Cleaning up..."

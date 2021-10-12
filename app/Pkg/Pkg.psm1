@@ -9,7 +9,7 @@ Import-Module $PSScriptRoot"\Invoke-Container"
 
 class PkgPackageName : System.Management.Automation.IValidateSetValuesGenerator {
     [String[]] GetValidValues() {
-        return ls $script:PACKAGE_ROOTS -Directory | Select -ExpandProperty Name
+        return ls $script:PACKAGE_ROOTS -Directory | select -ExpandProperty Name
     }
 }
 
@@ -68,7 +68,7 @@ Export function Export-ShortcutsToStartMenu {
 	}
 	$null = New-Item -ItemType Directory $TargetDir
 	
-	ls $PACKAGE_ROOTS -Directory | where {
+	ls $PACKAGE_ROOTS -Directory | ? {
 		-not ($ExcludeUnderscoredPackages -and $_.Name.StartsWith("_"))
 	} | % {
 		Export-AppShortcuts $_.FullName $TargetDir
@@ -188,6 +188,7 @@ Export function Enable- {
 			AllowOverwrite = [bool]$AllowOverwrite
 		}
 		
+		Confirm-Manifest $Manifest
 		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PkgParameters
 		echo "Successfully enabled $PackageName."
 	}
@@ -248,6 +249,7 @@ Export function Install- {
 			DownloadPriority = if ($LowPriority) {"Low"} else {"Foreground"}
 		}
 		
+		Confirm-Manifest $Manifest
 		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PkgParameters
 		echo "Successfully installed $PackageName."
 	}
@@ -505,16 +507,23 @@ Export function Confirm-RepositoryPackage {
 		
 		$Files = ls $DirPath -File
 		if ($Files) {
-			Write-Warning "Package '$PackageName' has incorrect structure; root contains following files (only directories should be present): $Files"
+			Write-Warning "Package '$PackageName' has incorrect structure; root contains following files (only version directories should be present): $Files"
 			return
 		}
 		
 		ls $DirPath | % {
 			$Version = $_.Name
+			
+			if (@(ls $_).Count -gt 1) {
+				Write-Warning ("In the root of each package manifest directory should be either a single 'manifest.psd1' file, " `
+						+ "or a '.manifest' directory containing a 'manifest.psd1' file and other support files or directories. " `
+						+ "Instead, multiple files or directories were found for version '$Version' of package '$PackageName'.")
+			}
+			
 			try {
 				$ManifestPath = Get-ManifestPath $_
 			} catch {
-				Write-Warning "Could not find manifest for version '$Version' of '$PackageName': $_"
+				Write-Warning "Could not find manifest for version '$Version' of package '$PackageName': $_"
 				return
 			}
 			
@@ -529,7 +538,7 @@ Export function Confirm-RepositoryPackage {
 				Confirm-Manifest $Manifest $PackageName $Version
 			} catch {
 				Write-Warning "Validation of package manifest '$PackageName', version '$Version' from local repository failed: $_"
-			}			
+			}
 		}
 	}
 }
