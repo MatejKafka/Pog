@@ -7,6 +7,7 @@ $ROOT = Resolve-Path $PSScriptRoot"\..\.."
 $BIN_DIR = Resolve-Path $ROOT"\data\pkg_bin"
 $DOWNLOAD_CACHE_DIR = Resolve-Path $ROOT"\cache\download_cache"
 $MANIFEST_REPO = Resolve-Path $ROOT"\data\manifests\"
+$MANIFEST_GENERATOR_REPO = Resolve-Path $ROOT"\data\manifest_generators\"
 $PACKAGE_ROOT_FILE = Resolve-Path $ROOT"\data\roots.txt"
 
 $UNRESOLVED_PACKAGE_ROOTS = [Collections.ArrayList]::new()

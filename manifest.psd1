@@ -17,11 +17,13 @@
 		#  as normal packages should NOT set any environment variables,
 		#  so we'll import it directly
 		Import-Module "./app/Pkg/container/Environment"
-		
+
+		# TODO: import ./app/Pkg/Paths and read the paths from there
 		Assert-Directory "./data"
 		Assert-Directory "./cache"
 		# local manifest repository
 		Assert-Directory "./data/manifests"
+		Assert-Directory "./data/manifest_generators"
 		# directory where commands are exported; is added to PATH
 		Assert-Directory "./data/pkg_bin"
 		# downloaded package cache

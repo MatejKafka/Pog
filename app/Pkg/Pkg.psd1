@@ -11,6 +11,7 @@
 		"Get-Manifest"
 		"New-Manifest"
 		"New-DirectManifest"
+		"Update-Manifest"
 		
 		"Confirm-RepositoryPackage"
 		"Confirm-Package"
@@ -32,6 +33,7 @@
 		"Get-PkgManifest"
 		"New-PkgManifest"
 		"New-PkgDirectManifest"
+		"Update-PkgManifest"
 		"Confirm-PkgRepositoryPackage"
 		"Confirm-PkgPackage"
 		"Get-PkgRepositoryPackage"
