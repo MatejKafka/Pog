@@ -1,3 +1,4 @@
+# Requires -Version 7
 BeforeAll {
 	Import-Module -Force $PSScriptRoot\Utils.psm1
 }

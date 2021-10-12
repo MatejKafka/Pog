@@ -1,3 +1,4 @@
+# Requires -Version 7
 BeforeAll {
 	$module = Import-Module -Force $PSScriptRoot\VersionParser -PassThru
 }

@@ -1,3 +1,4 @@
+# Requires -Version 7
 Import-Module $PSScriptRoot\Env_Enable.psm1	
 
 # FIXME: this doesn't trigger init and cleanup, which might be an issue

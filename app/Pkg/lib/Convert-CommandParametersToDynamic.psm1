@@ -1,3 +1,4 @@
+# Requires -Version 7
 # source: https://social.technet.microsoft.com/Forums/en-US/21fb4dd5-360d-4c76-8afc-1ad0bd3ff71a/reuse-function-parameters
 # with slight modifications (added -NamePrefix parameter)
 

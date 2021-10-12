@@ -1,3 +1,4 @@
+# Requires -Version 7
 # source: https://gallery.technet.microsoft.com/scriptcenter/Inherit-Preference-82343b9d
 function Get-CallerPreference {
 	<#

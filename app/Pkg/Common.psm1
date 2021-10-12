@@ -1,3 +1,4 @@
+# Requires -Version 7
 <#
 Module with opinionated, Pkg-related support functions.
 #>

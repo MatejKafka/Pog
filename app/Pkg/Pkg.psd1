@@ -1,3 +1,4 @@
+# Requires -Version 7
 @{
 	ModuleVersion = '0.2.0'
 	RootModule = 'Pkg.psm1'
