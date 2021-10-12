@@ -3,6 +3,7 @@ multiple apps write to C:\ProgramData
 
 
 Firefox - error reporting and updater
+	C:\ProgramData\Mozilla
 
 Telegram - config is all over the place, not clear what's config and what's cache
 	also adds shortcut to Start Menu, iirc related to notifications
@@ -35,3 +36,5 @@ Java - creates profiling files in TEMP/hsperfdata_<username>
 
 Shotcut (and probably other QT-based software)
 	Computer\HKEY_CURRENT_USER\SOFTWARE\QtProject
+
+OBS - C:\ProgramData\obs-studio-hook

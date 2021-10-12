@@ -9,3 +9,4 @@ pacman (archwiki has a lot of interesting stuff)
 PortableApps (https://portableapps.com/development/portableapps.com_format)
 AppGet
 winget
+UWP bridge (https://docs.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes)
