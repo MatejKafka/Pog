@@ -249,7 +249,7 @@ Export function Assert-File {
 			# if file does not exist, use output of this script block to populate it
 			# file is left empty if this is not passed
 			[ScriptBlock]
-		$DefaultContent = {},
+		$DefaultContent = {param($File)},
 			# if file does exist and this is passed, the script block is ran with reference to the file
 			# NOTE: you have to save the output yourself (this was deemed more
 			#  robust and often more efficient solution than just returning the desired new content)
@@ -294,9 +294,15 @@ Export function Assert-File {
 
 	Assert-ParentDirectory $Path
 	# create new file with default content
-	# -NoNewline doesn't skip just the trailing newline, but all newlines;
-	#  so we add the newlines between manually and use -NoNewline to avoid the trailing newline
-	& $DefaultContent | Join-String -Separator "`n" | Set-Content $Path -NoNewline
+	# the generator script $DefaultContent can either create and populate the file directly,
+	#  or just return the desired content and we'll create it ourselves
+	# the first option is supported, because some apps have a builtin way to generate a default config directly
+	$NewContent = & $DefaultContent (Resolve-VirtualPath $Path)
+	if (-not (Test-Path $Path)) {
+		# -NoNewline doesn't skip just the trailing newline, but all newlines;
+		#  so we add the newlines between manually and use -NoNewline to avoid the trailing newline
+		$NewContent | Join-String -Separator "`n" | Set-Content $Path -NoNewline
+	}
 
 	Write-Information "Created file '$Path'."
 }
