@@ -33,14 +33,17 @@ $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
 
 # this probably cannot be a constant, as it would break internal behavior
 Set-Variable -Name this -Value $Manifest
+Set-Variable -Name _ -Value $Manifest
+Set-Variable -Name ManifestRoot -Value (Resolve-Path -Relative (Split-Path $ManifestPath))
 
 # cleanup variables
+Remove-Variable Manifest
 Remove-Variable ManifestPath
 Remove-Variable InternalArguments
 Remove-Variable PreferenceVariables
 
 try {
-	__main $Manifest[$ContainerType] $PackageArguments
+	__main $this[$ContainerType] $PackageArguments
 } finally {
 	# this is called even on `exit`, which is nice
 	Write-Debug "Cleaning up..."

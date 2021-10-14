@@ -1,5 +1,5 @@
 # Requires -Version 7
-Import-Module $PSScriptRoot"\Utils"
+Import-Module $PSScriptRoot\lib\header.ps1
 
 
 $APP_NAME = "Pog"
@@ -24,13 +24,14 @@ $PACKAGE_ROOTS = [Collections.ArrayList][array](Get-Content $PACKAGE_ROOT_FILE |
 		return (Resolve-Path $_).Path
 	}
 	# TODO: figure out how to dynamically get the name of Remove-PogRoot including current command prefix
-	Write-Warning "Could not find package root $_. Remove it using Remove-PogRoot or create the directory."
+	Write-Warning "Could not find package root '$_'. Remove it using Remove-PogRoot or create the directory."
 	[void]$UNRESOLVED_PACKAGE_ROOTS.Add($_)
 })
 
 
-$MANIFEST_PATHS = @(".\manifest.psd1", ".\.manifest\manifest.psd1")
-$MANIFEST_CLEANUP_PATHS = @(".\manifest.psd1", ".\.manifest\")
+$MANIFEST_PATHS = @(".\pog.psd1", ".\.pog\pog.psd1")
+# keep the old names for backwards compatibility
+$MANIFEST_CLEANUP_PATHS = @(".\pog.psd1", ".\.pog\", ".\manifest.psd1", ".\.manifest\")
 
 $RESOURCE_DIR = Resolve-Path $PSScriptRoot"\resources\"
 

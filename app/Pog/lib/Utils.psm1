@@ -1,7 +1,7 @@
 # Requires -Version 7
 . $PSScriptRoot\header.ps1
 
-Import-Module $PSScriptRoot\lib\Get-CallerPreference
+Import-Module $PSScriptRoot\Get-CallerPreference
 
 Export-ModuleMember -Function Get-CallerPreference
 
@@ -16,7 +16,7 @@ Export function Assert-Admin {
 
 	$CurrentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 	$IsAdmin = $CurrentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-	
+
 	if (-not $IsAdmin) {
 		if ($ErrorMessage) {
 			throw $ErrorMessage
@@ -55,10 +55,10 @@ Export function New-DynamicSwitchParam {
 	$AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
 	# add dummy parameter to fix the "cannot be specified in parameter set '__AllParameterSets'." error
 	$AttributeCollection.Add([System.Management.Automation.ParameterAttribute]::new())
-	
+
 	# create and return the dynamic parameter
 	$RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter(
-			$ParameterName, [switch], $AttributeCollection)	
+			$ParameterName, [switch], $AttributeCollection)
 	return Add-DynamicParam $RuntimeParameter $ParameterDictionary
 }
 
@@ -66,7 +66,7 @@ Export function New-DynamicParam {
 	param(
 			[Parameter(Mandatory)]
 			[string]
-		$ParameterName,		
+		$ParameterName,
 			[Parameter(Mandatory)]
 			[int]
 		$ParameterPosition,
@@ -76,7 +76,7 @@ Export function New-DynamicParam {
 			[System.Management.Automation.RuntimeDefinedParameterDictionary]
 		$ParameterDictionary
 	)
-	
+
 	# Create the collection of attributes
 	$AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
 
@@ -98,6 +98,6 @@ Export function New-DynamicParam {
 	# Create and return the dynamic parameter
 	$RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter(
 			$ParameterName, [string], $AttributeCollection)
-	
+
 	return Add-DynamicParam $RuntimeParameter $ParameterDictionary
 }

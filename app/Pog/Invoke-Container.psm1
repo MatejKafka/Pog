@@ -1,8 +1,8 @@
 # Requires -Version 7
-. $PSScriptRoot\header.ps1
+. $PSScriptRoot\lib\header.ps1
 
 Import-Module $PSScriptRoot"\Paths"
-Import-Module $PSScriptRoot"\Utils"
+Import-Module $PSScriptRoot"\lib\Utils"
 
 
 enum ContainerType {
@@ -51,7 +51,7 @@ function New-ScriptPosition {
 			$SrcFile, $LineNum, $ColumnNum, $Line, $null)
 }
 
-<# 
+<#
  Adds src script info to reconstructed error record.
  #>
 function Set-ErrorSrcFile {

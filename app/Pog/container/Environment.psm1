@@ -1,7 +1,7 @@
 # Requires -Version 7
-. $PSScriptRoot\..\header.ps1
+. $PSScriptRoot\..\lib\header.ps1
 
-Import-Module $PSScriptRoot"\..\Utils"
+Import-Module $PSScriptRoot\..\lib\Utils
 
 
 function Update-EnvVar {
@@ -10,10 +10,10 @@ function Update-EnvVar {
 			[string]
 		$VarName
 	)
-	
+
 	$Machine = [Environment]::GetEnvironmentVariable($VarName, [EnvironmentVariableTarget]::Machine)
 	$User = [Environment]::GetEnvironmentVariable($VarName, [EnvironmentVariableTarget]::User)
-	
+
 	$Value = if ($null -eq $Machine -or $null -eq $User) {
 		[string]($Machine + $User)
 	} else {
@@ -38,19 +38,19 @@ Export function Set-EnvVar {
 	param(
 			[Parameter(Mandatory)]
 			[string]
-		$VarName,		
+		$VarName,
 			[Parameter(Mandatory)]
 			[string]
 		$Value,
 			[switch]
 		$Systemwide
 	)
-	
+
 	$Target = if ($Systemwide) {[EnvironmentVariableTarget]::Machine}
 		else {[EnvironmentVariableTarget]::User}
-	
+
 	$TargetReadable = if ($Systemwide) {"system-wide"} else {"for current user"}
-	
+
 	$OldValue = [Environment]::GetEnvironmentVariable($VarName, $Target)
 	if ($OldValue -eq $Value) {
 		Write-Verbose "'env:$VarName' already set to '$Value' $TargetReadable."
@@ -59,11 +59,11 @@ Export function Set-EnvVar {
 		Update-EnvVar $VarName
 		return
 	}
-	
+
 	if ($Systemwide) {
 		Assert-Admin "Cannot write system-wide environment variable 'env:$VarName' without administrator privileges."
 	}
-	
+
 	Write-Warning "Setting environment variable 'env:$VarName' to '$Value' $TargetReadable..."
 	[Environment]::SetEnvironmentVariable($VarName, $Value, $Target)
 	Update-EnvVar $VarName
@@ -83,7 +83,7 @@ Export function Add-EnvVar {
 	param(
 			[Parameter(Mandatory)]
 			[string]
-		$VarName,		
+		$VarName,
 			[Parameter(Mandatory)]
 			[string]
 		$Value,
@@ -92,31 +92,31 @@ Export function Add-EnvVar {
 			[switch]
 		$Systemwide
 	)
-	
+
 	$Target = if ($Systemwide) {[EnvironmentVariableTarget]::Machine}
 		else {[EnvironmentVariableTarget]::User}
-	
+
 	$TargetReadable = if ($Systemwide) {"system-wide"} else {"for current user"}
-	
+
 	$OldValue = [Environment]::GetEnvironmentVariable($VarName, $Target)
-	
+
 	if ($null -eq $OldValue) {
 		# variable not set yet
 		Set-EnvVar $VarName $Value -Systemwide:$Systemwide
 		return
 	}
-	
+
 	if ($OldValue.Split([IO.Path]::PathSeparator).Contains($Value)) {
 		Write-Verbose "Value '$Value' already present in 'env:$VarName' $TargetReadable."
 		return
 	}
-	
+
 	if ($Systemwide) {
 		Assert-Admin "Cannot update system-wide environment variable 'env:$VarName' without administrator privileges."
 	}
-	
+
 	Write-Warning "Adding '$Value' to 'env:$VarName' $TargetReadable..."
-	
+
 	$NewValue = if ($Prepend) {
 		$Value + [IO.Path]::PathSeparator + $OldValue
 	} else {
@@ -125,7 +125,7 @@ Export function Add-EnvVar {
 
 	[Environment]::SetEnvironmentVariable($VarName, $NewValue, $Target)
 	Update-EnvVar $VarName
-	
+
 	$Verb = if ($Prepend) {"Prepended"} else {"Appended"}
 	Write-Information "$Verb '$Value' to 'env:$VarName'."
 }
@@ -150,7 +150,7 @@ Export function Add-EnvPath {
 			[switch]
 		$Systemwide
 	)
-	
+
 	$AbsPath = Resolve-Path $Directory
 	Add-EnvVar "Path" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
 }
@@ -175,7 +175,7 @@ Export function Add-EnvPSModulePath {
 			[switch]
 		$Systemwide
 	)
-	
+
 	$AbsPath = Resolve-Path $Directory
 	Add-EnvVar "PSModulePath" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
 }

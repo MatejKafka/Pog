@@ -1,5 +1,5 @@
 # Requires -Version 7
-. $PSScriptRoot\..\header.ps1
+. $PSScriptRoot\..\lib\header.ps1
 
 # TODO: implement some form of App Path registration (at least for file and URL association)
 #  https://docs.microsoft.com/en-us/windows/win32/shell/app-registration
@@ -12,7 +12,7 @@
 Import-Module $PSScriptRoot\Environment
 Import-Module $PSScriptRoot\command_generator\SubstituteExe
 Import-Module $PSScriptRoot\..\Paths
-Import-Module $PSScriptRoot\..\Utils
+Import-Module $PSScriptRoot\..\lib\Utils
 Import-Module $PSScriptRoot\Confirmations
 
 

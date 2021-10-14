@@ -1,5 +1,5 @@
 # Requires -Version 7
-. $PSScriptRoot\..\header.ps1
+. $PSScriptRoot\..\lib\header.ps1
 Import-Module $PSScriptRoot\..\Paths
 Import-Module $PSScriptRoot\Confirmations
 

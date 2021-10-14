@@ -3,11 +3,11 @@
 Module with opinionated, package-related support functions.
 #>
 
-. $PSScriptRoot\header.ps1
+. $PSScriptRoot\lib\header.ps1
 
 Import-Module $PSScriptRoot"\Paths"
-Import-Module $PSScriptRoot"\Utils"
-Import-Module $PSScriptRoot"\VersionParser"
+Import-Module $PSScriptRoot"\lib\Utils"
+Import-Module $PSScriptRoot"\lib\VersionParser"
 Import-Module $PSScriptRoot"\lib\Convert-CommandParametersToDynamic"
 
 

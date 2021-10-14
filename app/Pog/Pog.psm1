@@ -1,9 +1,10 @@
 # Requires -Version 7
-. $PSScriptRoot\header.ps1
+. $PSScriptRoot\lib\header.ps1
 
 Import-Module $PSScriptRoot"\Paths"
-Import-Module $PSScriptRoot"\Utils"
+Import-Module $PSScriptRoot"\lib\Utils"
 Import-Module $PSScriptRoot"\Common"
+Import-Module $PSScriptRoot"\Confirmations"
 Import-Module $PSScriptRoot"\Invoke-Container"
 
 
@@ -176,8 +177,7 @@ Export function Clear-DownloadCache {
 	$Title = "Remove the listed package archives, freeing ~{0:F} GB of space?" -f ($SizeSum / 1GB)
 	$Message = "This will not affect installed applications. Reinstallation of an application may take longer," + `
 		" as the package will have to be downloaded again."
-	$ShouldRemove = switch ($Host.UI.PromptForChoice($Title, $Message, @("&Yes", "&No"), 0)) {0 {$true} 1 {$false}}
-	if ($ShouldRemove) {
+	if (Confirm-Action $Title $Message) {
 		$RemovedEntries | rm -Recurse
 	}
 }
@@ -316,11 +316,7 @@ function ConfirmManifestOverwrite {
 			else {" (manifest '$($Manifest.Name)', version '$($Manifest.Version)')"}
 	$Message = "There is already an imported package with name '$TargetName' " +`
 			"in '$TargetPackageRoot'$ManifestDescription. Should we overwrite its manifest?"
-	$Options = @("&Yes", "&No")
-	switch ($Host.UI.PromptForChoice($Title, $Message, $Options, 0)) {
-		0 {return $true} # Yes
-		1 {return $false} # No
-	}
+	return Confirm-Action $Title $Message -ActionType "ManifestOverwrite"
 }
 
 Export function Import- {
@@ -361,9 +357,9 @@ Export function Import- {
 		$OrigManifest = if ($null -eq $OrigManifestPath) {
 			# it seems that there is no package manifest present
 			# either a random folder was erronously created, or this is a package, but corrupted
-			Write-Warning "A directory with name '$TargetName' already exists in '$TargetPackageRoot', " +`
+			Write-Warning ("A directory with name '$TargetName' already exists in '$TargetPackageRoot', " +`
 					"but it doesn't seem to contain a package manifest. " +`
-					"All directories in a package root should be packages with a valid manifest."
+					"All directories in a package root should be packages with a valid manifest.")
 			$null
 		} else {
 			try {
