@@ -1,2 +1,3 @@
-pwsh -noprofile -command "Import-Module %~dp0\app\Pkg; Enable-Pkg Pkg"
+@echo off
+pwsh -noprofile "%~dp0\setup.ps1"
 pause
