@@ -103,7 +103,7 @@ Export function Invoke-Container {
 
 	if ($PrefVars.VerbosePreference -eq "Continue") {
 		# if verbose prints are active, also activate information streams
-		# TODO: this is really convenient, but it kinda goes against
+		# TODO: this is quite convenient, but it kinda goes against
 		#  the original intended use of these variables, is it really good idea?
 		$PrefVars.InformationPreference = "Continue"
 	}
@@ -122,6 +122,7 @@ Export function Invoke-Container {
 		Receive-Job -Wait $ContainerJob -InformationAction "SilentlyContinue"
 	} finally {
 		Stop-Job $ContainerJob
+		Receive-Job -Wait $ContainerJob -InformationAction "SilentlyContinue"
 		Remove-Job $ContainerJob
 	}
 }
