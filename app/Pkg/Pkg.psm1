@@ -139,6 +139,50 @@ Export function Remove-Root {
 }
 
 
+<# Remove cached package archives older than the provided date.
+   TODO: Show actual package name and version here, not the file name (which may be quite random).
+    Probably write a metadata file into the directory when creating the cache entry.
+	Issue: In the improbable case of multiple packages using the same cache entry,
+	we must append to the cache entry metadata file, not overwrite
+   #>
+Export function Clear-DownloadCache {
+	[CmdletBinding(DefaultParameterSetName = "Days")]
+	param(
+			[Parameter(Mandatory, ParameterSetName = "Date", Position = 0)]
+			[DateTime]
+		$DateBefore,
+			[Parameter(Mandatory, ParameterSetName = "Days", Position = 0)]
+			[int]
+		$DaysBefore
+	)
+
+	if ($PSCmdlet.ParameterSetName -eq "Days") {
+		$DateBefore = [DateTime]::Now.AddDays(-$DaysBefore)
+	}
+
+	$RemovedEntries = ls -Directory $DOWNLOAD_CACHE_DIR | ? {$_.LastWriteTime -le $DateBefore}
+
+	if (@($RemovedEntries).Count -eq 0) {
+		throw "No cached package archives downloaded before '$($DateBefore.ToString())' found."
+	}
+
+	$SizeSum = 0
+	$RemovedEntries |
+		% {ls -File $_} |
+		sort Length -Descending |
+		% {$SizeSum += $_.Length; echo $_} |
+		% {"{0,10:F2} MB - {1}" -f @(($_.Length / 1MB), $_.Name)}
+
+	$Title = "Remove the listed package archives, freeing ~{0:F} GB of space?" -f ($SizeSum / 1GB)
+	$Message = "This will not affect installed applications. Reinstallation of an application may take longer," + `
+		" as the package will have to be downloaded again."
+	$ShouldRemove = switch ($Host.UI.PromptForChoice($Title, $Message, @("&Yes", "&No"), 0)) {0 {$true} 1 {$false}}
+	if ($ShouldRemove) {
+		$RemovedEntries | rm -Recurse
+	}
+}
+
+
 Export function Enable- {
 	[CmdletBinding()]
 	param(

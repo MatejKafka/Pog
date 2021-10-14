@@ -18,6 +18,8 @@
 		"Get-RepositoryPackage"
 		"Get-Package"
 		
+		"Clear-DownloadCache"
+
 		"Get-Root"
 		"New-Root"
 		"Remove-Root"
@@ -38,6 +40,7 @@
 		"Confirm-PkgPackage"
 		"Get-PkgRepositoryPackage"
 		"Get-PkgPackage"
+		"Clear-PkgDownloadCache"
 		"Get-PkgRoot"
 		"New-PkgRoot"
 		"Remove-PkgRoot"
