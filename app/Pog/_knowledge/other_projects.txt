@@ -1,6 +1,6 @@
 where can we steal and learn from? who do we compete with?
 
-TODO: write out features of these, what Pkg can steal and how it's better
+TODO: write out features of these, what Pog can steal and how it's better
 
 0install (https://0install.net/)
 chocolatey

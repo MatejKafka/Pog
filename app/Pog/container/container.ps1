@@ -11,7 +11,7 @@ param(
 	$InternalArguments,
 		[Parameter(Mandatory)]
 		[Hashtable]
-	$PkgArguments,
+	$PackageArguments,
 		[Parameter(Mandatory)]
 		[Hashtable]
 	$PreferenceVariables
@@ -26,10 +26,7 @@ $PreferenceVariables.GetEnumerator() | % {
 	Set-Variable -Name $_.Name -Value $_.Value
 }
 # create global constant from internal arguments
-Set-Variable -Scope Global -Option Constant -Name "_Pkg" -Value $InternalArguments
-#$InternalArguments.Keys | % {
-#	Set-Variable -Scope Global -Option Constant -Name ("Pkg_" + $_) -Value $InternalArguments[$_]
-#}
+Set-Variable -Scope Global -Option Constant -Name "_InternalArgs" -Value $InternalArguments
 
 # TOCTOU issue, check Invoke-Container for details
 $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
@@ -43,10 +40,10 @@ Remove-Variable InternalArguments
 Remove-Variable PreferenceVariables
 
 try {
-	_pkg_main $Manifest[$ContainerType] $PkgArguments
+	__main $Manifest[$ContainerType] $PackageArguments
 } finally {
 	# this is called even on `exit`, which is nice
 	Write-Debug "Cleaning up..."
-	_pkg_cleanup
+	__cleanup
 	Write-Debug "Cleanup finished."
 }

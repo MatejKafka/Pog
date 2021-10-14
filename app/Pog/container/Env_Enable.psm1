@@ -37,7 +37,7 @@ ls -File -Filter "./*.lnk" | % {$StaleShortcuts.Add($_.BaseName)}
 Write-Debug "Listed original shortcuts."
 
 <# This function is called after the Enable script finishes. #>
-Export function _pkg_cleanup {
+Export function __cleanup {
 	# remove stale shortcuts
 	if ($StaleShortcuts.Count -gt 0) {
 		Write-Verbose "Removing stale shortcuts..."
@@ -49,11 +49,11 @@ Export function _pkg_cleanup {
 }
 
 <# This function is called after the container setup is finished to run the passed script. #>
-Export function _pkg_main {
-	param($EnableSb, $PkgArguments)
+Export function __main {
+	param($EnableSb, $PackageArguments)
 
 	# invoke the scriptblock
-	& $EnableSb @PkgArguments
+	& $EnableSb @PackageArguments
 }
 
 function Assert-ParentDirectory {
@@ -158,7 +158,7 @@ function Set-Symlink {
 			- move source to target
 			- create symlink at source
 		else:
-			
+
 #>
 Export function Set-SymlinkedPath {
 	param(
@@ -370,7 +370,7 @@ Export function Export-Shortcut {
 	}
 
 	$WinStyle = if ($StartMaximized) {3} else {1}
-	
+
 	if ($null -eq $Description) {
 		$Description = [string](Split-Path -LeafBase $TargetPath)
 	}
@@ -416,7 +416,7 @@ Export function Export-Command {
 		$NoSymlink
 	)
 
-	# TODO: check if pkg_bin is in PATH, and warn the user if it's not
+	# TODO: check if BIN_DIR is in PATH, and warn the user if it's not
 	#  this TODO might be obsolete if we move to a per-package store of exported commands with separate copy mechanism
 
 	if (-not (Test-Path $ExePath)) {
@@ -455,7 +455,7 @@ Export function Export-Command {
 
 	# there should not be more than 1, if we've done this checking correctly
 	if (@($MatchingCommands).Count -gt 1) {
-		Write-Warning "Pkg developers fucked something up, and there are multiple colliding commands. Plz send bug report."
+		Write-Warning "Pog developers fucked something up, and there are multiple colliding commands. Plz send bug report."
 	}
 
 	# -gt 0 in case the previous if falls through

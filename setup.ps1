@@ -1,5 +1,5 @@
 # this module only uses library functions, so it is safe to import even during setup
-Import-Module "./app/Pkg/container/Environment"
+Import-Module "./app/Pog/container/Environment"
 
 function newdir($Dir) {
     $Dir = Join-Path $PSScriptRoot $Dir
@@ -13,9 +13,9 @@ function newdir($Dir) {
     $null = New-Item -Type Directory -Force $Dir
 }
 
-echo "Setting up all directories required by Pkg..."
+echo "Setting up all directories required by Pog..."
 
-# This duplicates the path definitions in app/Pkg/Paths.psm1, but we cannot use those,
+# This duplicates the path definitions in app/Pog/Paths.psm1, but we cannot use those,
 #  because the file assumes all the paths already exist and fails otherwise
 newdir "./data"
 newdir "./cache"
@@ -23,7 +23,7 @@ newdir "./cache"
 newdir "./data/manifests"
 newdir "./data/manifest_generators"
 # directory where commands are exported; is added to PATH
-newdir "./data/pkg_bin"
+newdir "./data/package_bin"
 # downloaded package cache
 newdir "./cache/download_cache"
 newdir "./cache/download_tmp"
@@ -35,22 +35,22 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
 }
 
 echo "Setting up PATH and PSModulePath..."
-# add Pkg dir to PSModulePath
+# add Pog dir to PSModulePath
 Add-EnvPSModulePath (Resolve-Path "$PSScriptRoot\app")
-# add pkg_bin dir to PATH
-Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\pkg_bin")
+# add binary dir to PATH
+Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
 
 
 # ====================================================================================
-# now, we should be ready to import pkg
-echo "Importing Pkg...`n"
-Import-Module Pkg
+# now, we should be ready to import Pog
+echo "Importing Pog...`n"
+Import-Module Pog
 
 try {
-    Enable-Pkg 7zip
+    Enable-Pog 7zip
 } catch {
-    throw ("Failed to enable the 7zip package, required for correct functioning of Pkg. " + `
-            "The 7zip package should be provided with Pkg itself. Error: " + $_)
+    throw ("Failed to enable the 7zip package, required for correct functioning of Pog. " + `
+            "The 7zip package should be provided with Pog itself. Error: " + $_)
 }
 
 if (-not (Get-Command "7z" -ErrorAction Ignore)) {
@@ -59,7 +59,7 @@ if (-not (Get-Command "7z" -ErrorAction Ignore)) {
 
 echo ""
 
-# now, everything should be setup correctly, enable Pkg itself to validate (it doesn't do anything, just prints a success message)
-Enable-Pkg Pkg
+# now, everything should be setup correctly, enable Pog itself to validate (it doesn't do anything, just prints a success message)
+Enable-Pog Pog
 
 echo ""

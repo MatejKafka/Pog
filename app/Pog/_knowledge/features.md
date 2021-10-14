@@ -10,5 +10,5 @@
 	- if none of the above options are set and the program supports it, use a symlink
 		- explicit opt-in, as it often leads to breakage (program has to explicitly support symlinking)
 	- substitute exe: precompiled binary that launches the target with given options
-	- launcher file: custom file format that's interpreted by a custom file handler set by Pkg
-		- downside: requires systemwide registration, but we are doing it anyway (adding `pkg_bin` to PATH, Pkg to PSModulePath,...)
+	- launcher file: custom file format that's interpreted by a custom file handler set by Pog
+		- downside: requires systemwide registration, but we are doing it anyway (adding `package_bin` to PATH, Pog to PSModulePath,...)

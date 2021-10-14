@@ -6,7 +6,7 @@ $CommonParameterNames = [System.Runtime.Serialization.FormatterServices]::GetUni
 	| Get-Member -MemberType Properties `
 	| Select-Object -ExpandProperty Name
 
-# Param attributes will be copied later. You basically have to create a blank attrib, then change the 
+# Param attributes will be copied later. You basically have to create a blank attrib, then change the
 # properties. Knowing the writable ones up front helps:
 $WritableParamAttributePropertyNames = New-Object System.Management.Automation.ParameterAttribute `
 	| Get-Member -MemberType Property `
@@ -24,7 +24,7 @@ function Convert-CommandParametersToDynamic {
 		[switch] $AllowAliases,
 		[switch] $AllowPositionAttributes
 	)
-	
+
 	begin {
 		$__WritableParamAttributePropertyNames = if (-not $AllowPositionAttributes) {
 			# If you don't want to allow Position attributes, tell the function that it's not a writable attribute
@@ -33,26 +33,26 @@ function Convert-CommandParametersToDynamic {
 			$script:WritableParamAttributePropertyNames
 		}
 	}
-	
+
 	process {
 		# Convert to object array and get rid of Common params:
 		$Parameters = $ParameterDictionary.GetEnumerator() | Where-Object { $CommonParameterNames -notcontains $_.Key }
-		
+
 		# Create the dictionary that this scriptblock will return:
 		$DynParamDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-		
+
 		foreach ($Parameter in $Parameters) {
 			$AttribColl = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-			
+
 			$Parameter.Value.Attributes | ForEach-Object {
 				$CurrentAttribute = $_
 				$AttributeTypeName = $_.TypeId.FullName
-				
+
 				switch -wildcard ($AttributeTypeName) {
 					System.Management.Automation.ArgumentTypeConverterAttribute {
 						return  # So blank param doesn't get added
 					}
-					
+
 					System.Management.Automation.AliasAttribute {
 						if ($AllowAliases) {
 							if ([string]::IsNullOrEmpty($NamePrefix)) {
@@ -65,42 +65,42 @@ function Convert-CommandParametersToDynamic {
 							}
 						}
 					}
-					
+
 					System.Management.Automation.Validate*Attribute {
 						$NewParamAttribute = $CurrentAttribute
 						$AttribColl.Add($NewParamAttribute)
 					}
-					
+
 					System.Management.Automation.ParameterAttribute {
 						$NewParamAttribute = New-Object System.Management.Automation.ParameterAttribute
-						
+
 						foreach ($PropName in $__WritableParamAttributePropertyNames) {
-							if ($NewParamAttribute.$PropName -ne $CurrentAttribute.$PropName) {  
+							if ($NewParamAttribute.$PropName -ne $CurrentAttribute.$PropName) {
 								# nulls cause an error if you assign them to some of the properties
 								$NewParamAttribute.$PropName = $CurrentAttribute.$PropName
 							}
 						}
-						
+
 						if ($RemoveMandatoryAttribute) {
 							$NewParamAttribute.Mandatory = $false
 						}
 						$NewParamAttribute.ParameterSetName = $CurrentAttribute.ParameterSetName
-						
+
 						$AttribColl.Add($NewParamAttribute)
 					}
-					
+
 					default {
 						Write-Warning "'Convert-CommandParametersToDynamic' doesn't handle dynamic " +`
 								"parameter copying for '${AttributeTypeName}'.`n" +`
 								"If this is something that you think you need as a package author, " +`
-								"open a new issue for Pkg and we'll see what we can do."
+								"open a new issue and we'll see what we can do."
 						return
 					}
 				}
 			}
-			
+
 			$ParameterType = $Parameter.Value.ParameterType
-			
+
 			$DynamicParameter = New-Object System.Management.Automation.RuntimeDefinedParameter(
 				($NamePrefix + $Parameter.Key),
 				$ParameterType,
@@ -108,7 +108,7 @@ function Convert-CommandParametersToDynamic {
 			)
 			$DynParamDictionary.Add($NamePrefix + $Parameter.Key, $DynamicParameter)
 		}
-		
+
 		# Return the dynamic parameters
 		return $DynParamDictionary
 	}

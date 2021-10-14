@@ -1,4 +1,4 @@
-# Interesting questions that I had to deal with when designing Pkg
+# Interesting questions that I had to deal with when designing Pog
 
 ## Single-manifest-per-version vs single-manifest-per-package
 

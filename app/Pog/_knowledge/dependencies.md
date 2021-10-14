@@ -11,13 +11,13 @@
 list packages in repo:
 
 ```powershell
-(Invoke-RestMethod "https://api.github.com/repos/MatejKafka/PkgPackages/git/trees/master").tree.path
+(Invoke-RestMethod "https://api.github.com/repos/MatejKafka/PogPackages/git/trees/master").tree.path
 ```
 
 list versions of a package:
 
 ```powershell
-(Invoke-RestMethod "https://api.github.com/repos/MatejKafka/PkgPackages/git/trees/master").tree
+(Invoke-RestMethod "https://api.github.com/repos/MatejKafka/PogPackages/git/trees/master").tree
 	| ? {$_.path -eq "texstudio"}
 	| % {(Invoke-RestMethod $_.url).tree}
 	| % {$_.path}

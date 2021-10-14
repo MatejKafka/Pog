@@ -23,9 +23,9 @@ $TMP_EXPAND_PATH = ".\.install_tmp"
 $7ZipCmd = Get-Command "7z" -ErrorAction Ignore
 if ($null -eq $7ZipCmd) {
 	throw "Could not find 7zip (command '7z'), which is used for package installation. " +`
-			"It is supposed to be installed as a normal Pkg package, unless you manually removed it. " +`
+			"It is supposed to be installed as a normal Pog package, unless you manually removed it. " +`
 			"If you know why this happened, please restore 7zip and run this again. " +`
-			"If you don't, contact Pkg developers and we'll hopefully figure out where's the issue."
+			"If you don't, contact Pog developers and we'll hopefully figure out where's the issue."
 }
 
 # TODO: create tar package for better compatibility
@@ -34,21 +34,21 @@ if ($null -eq $TarCmd) {
 	throw "Could not find tar (command 'tar'), which is used for package installation. " +`
 			"It is supposed to be installed systemwide in C:\Windows\System32\tar.exe since Windows 10 v17063. " +`
 			"If you don't know why it's missing, either download it yourself and put it on PATH, " +`
-			"or contact Pkg developers and we'll hopefully figure out where's the issue."
+			"or contact Pog developers and we'll hopefully figure out where's the issue."
 }
 
 
 <# This function is called after the Install script finishes. #>
-Export function _pkg_cleanup {
+Export function __cleanup {
 	# nothing for now
 }
 
 <# This function is called after the container setup is finished to run the passed script. #>
-Export function _pkg_main {
-	param($Installer, $PkgArguments)
+Export function __main {
+	param($Installer, $PackageArguments)
 
 	if ($Installer -is [scriptblock]) {
-		& $Installer @PkgArguments
+		& $Installer @PackageArguments
 	} else {
 		if ($Installer.Url -is [scriptblock]) {
 			$Installer.Url = & $Installer.Url
@@ -102,7 +102,7 @@ function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 	}
 	if (-not (Test-Path $TargetPath)) {
 		throw "'7zip' indicated success, but the extracted directory is missing. " +`
-				"Seems like Pkg developers fucked something up, plz send bug report."
+				"Seems like Pog developers fucked something up, plz send bug report."
 	}
 }
 
@@ -136,7 +136,7 @@ function _ExtractArchive_Inner($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 		}
 		if (-not (Test-Path $TargetPath)) {
 			throw "'tar' indicated success, but the extracted directory is not present. " +`
-					"Seems like Pkg developers fucked something up, plz send bug report."
+					"Seems like Pog developers fucked something up, plz send bug report."
 		}
 	} elseif ($Force7zip -or -not $ArchiveFile.Name.EndsWith(".zip")) {
 		Write-Information "Expanding archive using '7zip'..."
@@ -203,7 +203,7 @@ Export function Install-FromUrl {
 			SHA256 hash that the downloaded archive should match.
 			Validation is skipped if null, but warning is printed
 
-			If '?' is passed, nothing will be installed, Pkg will download the file, compute SHA-256 hash and print it out.
+			If '?' is passed, nothing will be installed, we will download the file, compute SHA-256 hash and print it out.
 			This is intended to be used when writing a new manifest and trying to figure out the hash of the file.
 			#>
 			[string]
@@ -284,7 +284,7 @@ Export function Install-FromUrl {
 		} catch {
 			# ok, seriously, wtf?
 			throw "Cannot move './app' directory back into place. Something seriously broken just happened." +`
-				"Seems like Pkg developers fucked something up, plz send bug report."
+				"Seems like Pog developers fucked something up, plz send bug report."
 		}
 
 		$ShouldContinue = ConfirmOverwrite "Overwrite existing package installation?" `
@@ -392,12 +392,12 @@ function DownloadFile {
 		# we can use BITS
 		Write-Debug "Downloading file using BITS..."
 		$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
-		$Priority = if ($global:_Pkg.DownloadLowPriority) {"Low"} else {"Foreground"}
+		$Priority = if ($global:_InternalArgs.DownloadLowPriority) {"Low"} else {"Foreground"}
 		Start-BitsTransfer $RealUrl -Destination $TargetPath -Priority $Priority -Description $Description
 	} else {
 		# we have to use Invoke-WebRequest, non-default user agent is required
 		Write-Debug "Downloading file using Invoke-WebRequest..."
-		if ($_Pkg.DownloadLowPriority) {
+		if ($global:_InternalArgs.DownloadLowPriority) {
 			Write-Debug ("Ignoring -LowPriority download flag, because a custom user agent was requested" + `
 					" when calling Install-FromUrl, which is not available with BITS transfers yet.")
 		}

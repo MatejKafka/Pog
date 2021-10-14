@@ -16,14 +16,15 @@ $ErrorActionPreference = "Stop"
 Import-Module Microsoft.PowerShell.Utility
 Import-Module Microsoft.PowerShell.Management
 
-# setup environment for Pkg script
+# setup environment for package manifest script
+# each environment module must provide `__main` and `__cleanup` functions
 switch ($EnvType) {
 	Enable {Import-Module $PSScriptRoot\Env_Enable}
 	Install {Import-Module $PSScriptRoot\Env_Install}
-	default {throw "Unknown Pkg container environment type: " + $_}
+	default {throw "Unknown container environment type: " + $_}
 }
 
-# override Import-Module to hide the default verbose prints when -Verbose is set for Pkg environment
+# override Import-Module to hide the default verbose prints when -Verbose is set for the container environment
 $_OrigImport = Get-Command Import-Module
 function global:Import-Module {
 	# $VerbosePreference is set globally in container.ps1, so we'd need to overwrite it, and then set it back,

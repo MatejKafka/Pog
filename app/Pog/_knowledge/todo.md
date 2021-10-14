@@ -29,7 +29,7 @@ osobne vidim 2 varianty:
 a budou tam vsechna IDE zapisovat (to neni uplne clean, protoze pak vlastne
 zapisuji do config dir ciziho package)
 
-2) udelat do Pkg koncept neceho jako shared memory; package rekne,
+2) udelat do Pog koncept neceho jako shared memory; package rekne,
 ze chce shared folder s timhle jmenem, vsechny package si vyzadaji
 stejnou slozku, a tam budou zapisovat
 """

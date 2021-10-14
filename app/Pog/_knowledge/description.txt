@@ -33,33 +33,33 @@ Advantages over normal package managers and installers:
 
 
 Requirements:
-	user has access to a set of commands like `Install-Pkg`, `Remove-Pkg`, `Start-Pkg`,...
+	user has access to a set of commands like `Install-Pog`, `Remove-Pog`, `Start-Pog`,...
 	`configure.ps1` scripts in each package are not called directly, instead they are called by library scripts, which setup an environment first
-	each command can either take a path to local package directory, or automatically uses the one where Pkg is installed
-	
+	each command can either take a path to local package directory, or automatically uses the one where Pog is installed
+
 	it must be easy for user to create his own packages
-		- ideally, user should want to package most of his projects as Pkg apps
-		- allow Pkg packages that live only in roots, and not in repo
-	
+		- ideally, user should want to package most of his projects as Pog apps
+		- allow Pog packages that live only in roots, and not in repo
+
 	TODO: clear up which parts of manifest are necessary in different locations (direct vs local repo vs remote)
-	
+
 	TODO: think through how specially written apps will use the package manager
 		think how `app` folder could be shared for these (on a network drive / NAS / ...)
-		
+
 	TODO: add global config for actions that happen on each `configure`
 		- for example, export shortcuts to start menu with preconfigured options,...
-		
-	TODO: figure out how to support simple startup hooks 
-	
+
+	TODO: figure out how to support simple startup hooks
+
 	TODO: support for registering default apps for protocols and extensions
 		see https://stackoverflow.com/questions/32354861/how-to-find-the-default-browser-via-the-registry-on-windows-10
-	
-	
+
+
 	stages:
 		1. empty
 		2. installed
 		3. configured
-	
+
 	operations:
 		install:
 			1. check stage:
@@ -76,24 +76,24 @@ Requirements:
 					- check if it's safe to run install without `clear`
 						- if not, run `clear` and then goto beginning
 						- if so, run `install` directly
-					
-					
+
+
 			1. checks if directory already contains Package.psd1
 				- if not:
 					- copy it from repository and run `Install` script
 					- check if /config exists - if not, run `SetDefaultConfig` script
 				- if so:
 					- ?
-		
+
 			reads Package.psd1 from repository, starts the script that installs the app itself
-			
-			1. takes `app` directory and writes 
-			
+
+			1. takes `app` directory and writes
+
 			takes Package.psd1 and `app` from package and unpacks them to installation directory;
 			in installation directory, there may already be the previous app, even with config - overwrite `app`, keep `config` and others alone
 			must not touch anything outside `app` directory and `Package.psd1` file
 			has to be idempotent
-		
+
 		configure:
 			takes installed package directory, and sets up program so it has correct system symlinks, configs,...
 			warn when reusing previous config
@@ -101,31 +101,31 @@ Requirements:
 			has to be idempotent
 			by default, backs up previous content of all overwritten locations
 			flags: -OverwriteConfig -NoBackup
-			
+
 		clear:
 			reverts the package into the state before `configure` was run
 			all symlinks must be cleared, as portable media/zips do not support symlinks
 			user config should be preserved without touching
 			must be idempotent
-			check if 
-		
+			check if
+
 		remove:
 			removes `app` directory, clears `cache` and `logs` directory,
 				possibly removes Package.psd1 (but probably doesn't, as it allows easier reinstall)
 			flags: -KeepLogs -KeepCache -FullRemove -Confirm
-				
+
 		update:
 			equivalent to clear -> remove -> install -> configure
-				
+
 	scenarios:
 		user has config from previous instance/backup, runs install&configure
 		-> previous config is used, app is installed and linked to previous config
-		
+
 		user has config and installed app, runs clear
 		-> config remains, but it's unbound from app and (especially) system settings like Documents, Registry, AppData,...
-		
+
 		user has config and cleared app, runs remove
 		-> `app` folder is removed, cache and logs are removed, config is kept as is (unless full remove is requested by user)
-		
+
 		user has cleared app, removes config, runs configure
-		-> 
+		->

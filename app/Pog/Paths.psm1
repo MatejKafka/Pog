@@ -2,9 +2,10 @@
 Import-Module $PSScriptRoot"\Utils"
 
 
+$APP_NAME = "Pog"
 $ROOT = Resolve-Path $PSScriptRoot"\..\.."
 
-$BIN_DIR = Resolve-Path $ROOT"\data\pkg_bin"
+$BIN_DIR = Resolve-Path $ROOT"\data\package_bin"
 # directory where package files with known hash are cached
 $DOWNLOAD_CACHE_DIR = Resolve-Path $ROOT"\cache\download_cache"
 # directory where package files without known hash are downloaded
@@ -22,17 +23,14 @@ $PACKAGE_ROOTS = [Collections.ArrayList][array](Get-Content $PACKAGE_ROOT_FILE |
 	if (Test-Path $_) {
 		return (Resolve-Path $_).Path
 	}
-	Write-Warning "Could not find package root $_. Remove it using Remove-PkgRoot or create the directory."
+	# TODO: figure out how to dynamically get the name of Remove-PogRoot including current command prefix
+	Write-Warning "Could not find package root $_. Remove it using Remove-PogRoot or create the directory."
 	[void]$UNRESOLVED_PACKAGE_ROOTS.Add($_)
 })
 
 
-
-
 $MANIFEST_PATHS = @(".\manifest.psd1", ".\.manifest\manifest.psd1")
 $MANIFEST_CLEANUP_PATHS = @(".\manifest.psd1", ".\.manifest\")
-
-$PACKAGE_EXPORT_DIR = ".\.pkg"
 
 $RESOURCE_DIR = Resolve-Path $PSScriptRoot"\resources\"
 

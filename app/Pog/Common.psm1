@@ -1,6 +1,6 @@
 # Requires -Version 7
 <#
-Module with opinionated, Pkg-related support functions.
+Module with opinionated, package-related support functions.
 #>
 
 . $PSScriptRoot\header.ps1
@@ -34,7 +34,7 @@ Export function Get-PackagePath {
 			return $PackagePath
 		}
 	}
-	
+
 	if ($NoError) {
 		return $null
 	}
@@ -56,7 +56,7 @@ Export function Get-ManifestPath {
 		}
 		$SearchedPaths += $ManifestPath
 	}
-	
+
 	if ($NoError) {
 		return $null
 	}
@@ -65,16 +65,15 @@ Export function Get-ManifestPath {
 			+ "Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
 }
 
-Export function Import-PkgManifestFile {
+Export function Import-PackageManifestFile {
 	param(
-		[Parameter(Mandatory)]$ManifestPath,
-		[switch]$NoError
+		[Parameter(Mandatory)]$ManifestPath
 	)
-	
+
 	if (-not (Test-Path -Type Leaf $ManifestPath)) {
 		throw "Requested manifest file does not exist: '$ManifestPath'."
 	}
-	
+
 	try {
 		return Import-PowerShellDataFile $ManifestPath
 	} catch {
@@ -103,17 +102,17 @@ Export function Copy-ManifestParameters {
 			[string]
 		$NamePrefix
 	)
-	
+
 	if ($PSCmdlet.ParameterSetName -eq "PackageName") {
 		try {
 			$PackagePath = Get-PackagePath $PackageName
 			$ManifestPath = Get-ManifestPath $PackagePath
-			$Manifest = Import-PkgManifestFile $ManifestPath
+			$Manifest = Import-PackageManifestFile $ManifestPath
 		} catch {
 			# probably incorrect package name, ignore it here
 			return $null
 		}
-		
+
 		if ($Manifest[$PropertyName] -isnot [scriptblock]) {
 			# not a script block, doesn't have parameters
 			return @{
@@ -121,7 +120,7 @@ Export function Copy-ManifestParameters {
 				ExtractFn = {return @{}}
 			}
 		}
-		
+
 		# we execute the manifest script block, as powershell has a bug where it double wraps it for some reason
 		#  see https://github.com/PowerShell/PowerShell/issues/12789
 		# when this bug is fixed, this will break; it also needs to be fixed in container/container.ps1
@@ -130,28 +129,28 @@ Export function Copy-ManifestParameters {
 		# see above
 		$Sb = & $ScriptBlock
 	}
-	
+
 	# we cannot extract parameters directly from scriptblock
 	# instead, we'll turn it into a temporary function and use Get-Command to read the parameters
 	# see https://github.com/PowerShell/PowerShell/issues/13774
-	
+
 	# this is only set in local scope, no need to clean up
 	$function:TmpFn = $Sb
 	$Params = (Get-Command -Type Function TmpFn).Parameters
-	
+
 	$RuntimeDict = Convert-CommandParametersToDynamic $Params -AllowAliases -NamePrefix $NamePrefix
-	
+
 	$ExtractAddedParameters = {
 		param([Parameter(Mandatory)]$_PSBoundParameters)
-		
+
 		$Extracted = @{}
 		$RuntimeDict.Keys `
 			| ? {$_PSBoundParameters.ContainsKey($_)} `
 			| % {$Extracted[$_.Substring($NamePrefix.Length)] = $_PSBoundParameters[$_]}
-		
+
 		return $Extracted
 	}.GetNewClosure()
-	
+
 	return @{
 		Parameters = $RuntimeDict
 		ExtractFn = $ExtractAddedParameters
@@ -169,24 +168,24 @@ Export function Confirm-Manifest {
 			[string]
 		$ExpectedVersion
 	)
-	
+
 	if ("Private" -in $Manifest.Keys -and $Manifest.Private) {
 		Write-Verbose "Skipped validation of private package manifest '$Manifest.Name'."
 		return
 	}
-	
+
 	$RequiredKeys = @{
 		"Name" = [string]; "Version" = [string]; "Architecture" = @([string], [Object[]]);
 		"Enable" = [scriptblock]; "Install" = @([scriptblock], [Hashtable], [string])
 	}
-	
+
 	$OptionalKeys = @{
 		"Description" = [string]; "Channel" = [string]
 	}
-	
-	
+
+
 	$Issues = @()
-	
+
 	$RequiredKeys.GetEnumerator() | % {
 		$StrTypes = $_.Value -join " | "
 		if (!$Manifest.ContainsKey($_.Key)) {
@@ -198,7 +197,7 @@ Export function Confirm-Manifest {
 			$Issues += "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
 		}
 	}
-	
+
 	$OptionalKeys.GetEnumerator() | ? {$Manifest.ContainsKey($_.Key)} | % {
 		$RealType = $Manifest[$_.Key].GetType()
 		if ($RealType -notin $_.Value) {
@@ -206,25 +205,25 @@ Export function Confirm-Manifest {
 			$Issues += "Optional property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
 		}
 	}
-	
+
 	$AllowedKeys = $RequiredKeys.Keys + $OptionalKeys.Keys
 	$Manifest.Keys | ? {-not $_.StartsWith("_")} | ? {$_ -notin $AllowedKeys} | % {
 		$Issues += "Found unknown property '$_' - private properties must be prefixed with underscore ('_PrivateProperty')."
 	}
-	
-	
+
+
 	if ($Manifest.ContainsKey("Name")) {
 		if (-not [string]::IsNullOrEmpty($ExpectedName) -and $Manifest.Name -ne $ExpectedName) {
 			$Issues += "Incorrect 'Name' property value - got '$($Manifest.Name)', expected '$ExpectedName'."
 		}
 	}
-	
+
 	if ($Manifest.ContainsKey("Version")) {
 		if (-not [string]::IsNullOrEmpty($ExpectedVersion) -and $Manifest.Version -ne $ExpectedVersion) {
 			$Issues += "Incorrect 'Version' property value - got '$($Manifest.Version)', expected '$ExpectedVersion'."
-		}	
+		}
 	}
-	
+
 	if ($Manifest.ContainsKey("Architecture")) {
 		$ValidArch = @("x64", "x86", "*")
 		if (@($Manifest.Architecture | ? {$_ -notin $ValidArch}).Count -gt 0) {
@@ -248,12 +247,12 @@ Export function Confirm-Manifest {
 			}
 		}
 	}
-	
+
 	if ($Issues.Count -gt 1) {
 		throw ("Multiple issues encountered when validating manifest:`n`t" + ($Issues -join "`n`t"))
 	} elseif ($Issues.Count -eq 1) {
 		throw $Issues
 	}
-	
+
 	Write-Verbose "Manifest is valid."
 }

@@ -14,7 +14,7 @@ $WITH_CMD_OFFSET = 0xBDB0
 
 # uses precompiled binary and patches 1 or 2 strings inside to change target
 # this is a bit obscure, but it allows for well-behaved substitute executables
-#  and Pkg doesn't need to ship full language compiler to work
+#  and we doesn't need to ship full language compiler for this to work
 # paths are stored as UTF-8
 
 
@@ -24,7 +24,7 @@ function WriteInner($SubstitutePath, $ExePath, $SetWorkingDirectory) {
 		if ($Encoded.Count -gt 1023) {
 			throw "Link path is too long, max 1023 bytes are allowed (in UTF-8 encoding): $ExePath"
 		}
-		
+
 		$Stream.Position = $KEEP_CMD_OFFSET
 		$Stream.Write($Encoded, 0, $Encoded.Count)
 	} else {
@@ -33,17 +33,17 @@ function WriteInner($SubstitutePath, $ExePath, $SetWorkingDirectory) {
 		if ($EncodedWd.Count -gt 1023) {
 			throw "Link working directory path is too long, max 1023 bytes are allowed (in UTF-8 encoding): $Wd"
 		}
-		
+
 		$Leaf = Split-Path -Leaf $ExePath
 		$EncodedCmd = [Text.Encoding]::UTF8.GetBytes($Leaf)
 		if ($EncodedCmd.Count -gt 259) {
 			throw "Command target name is too long, max 259 bytes are allowed (in UTF-8 encoding): $Leaf"
 		}
-		
+
 		# write working directory
 		$Stream.Position = $WITH_WD_OFFSET
 		$Stream.Write($EncodedWd, 0, $EncodedWd.Count)
-		
+
 		# write exe
 		$Stream.Position = $WITH_CMD_OFFSET
 		$Stream.Write($EncodedCmd, 0, $EncodedCmd.Count)
@@ -63,15 +63,15 @@ Export function Write-SubstituteExe {
 			[switch]
 		$SetWorkingDirectory
 	)
-	
+
 	$UsedTemplate = if ($SetWorkingDirectory) {$WITH_TEMPLATE} else {$KEEP_TEMPLATE}
-	
+
 	$ExePath = Resolve-Path $ExePath
 	$SubstitutePath = Resolve-VirtualPath $SubstitutePath
-	
+
 	Copy-Item $UsedTemplate $SubstitutePath
 	$Stream = [IO.File]::OpenWrite($SubstitutePath)
-	
+
 	try {
 		WriteInner $SubstitutePath $ExePath $SetWorkingDirectory
 	} catch {
@@ -86,18 +86,18 @@ Export function Write-SubstituteExe {
 
 function CompareFileRegion($Stream, $Offset, [string]$ComparedText) {
 	$Encoded = [Text.Encoding]::UTF8.GetBytes($ComparedText)
-	
+
 	if ($Encoded.Count -gt 1023) {
 		# too long
 		return $false
 	}
-	
+
 	$Stream.Position = $Offset
 	$b = [byte[]]::new($Encoded.Count)
 	[void]$Stream.Read($b, 0, $b.Count)
 	$term = [byte[]]::new(1)
 	[void]$Stream.Read($term, 0, 1)
-	
+
 	if ($term[0] -ne 0) {
 		# last byte is not null, written value is longer than it should be
 		return $false
@@ -117,7 +117,7 @@ function TestInner($Stream, $ExePath, $SetWorkingDirectory) {
 		Write-Debug "(expected size: $WITH_FILE_LENGTH, real size: $($Stream.Length))"
 		return $false
 	}
-	
+
 	if (-not $SetWorkingDirectory) {
 		$Matches = CompareFileRegion $Stream $KEEP_CMD_OFFSET $ExePath
 		if (-not $Matches) {
@@ -152,10 +152,10 @@ Export function Test-SubstituteExe {
 			[switch]
 		$SetWorkingDirectory
 	)
-	
+
 	$ExePath = Resolve-Path $ExePath
 	$SubstitutePath = Resolve-Path $SubstitutePath
-	
+
 	$Stream = [IO.File]::OpenRead($SubstitutePath)
 	try {
 		return TestInner $Stream $ExePath $SetWorkingDirectory
