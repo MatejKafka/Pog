@@ -37,7 +37,7 @@ function Export-AppShortcuts {
 		[Parameter(Mandatory)]$AppPath,
 		[Parameter(Mandatory)]$ExportPath
 	)
-	
+
 	ls -File -Filter "*.lnk" $AppPath | % {
 		Copy-Item $_ -Destination $ExportPath
 		echo "Exported shortcut '$($_.Name)' from '$(Split-Path -Leaf $AppPath)'."
@@ -201,7 +201,7 @@ Export function Enable- {
 		if (-not $MyInvocation.BoundParameters.ContainsKey("PackageName")) {return}
 		
 		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "_"
-		if ($null -eq $CopiedParams) {return;}
+		if ($null -eq $CopiedParams) {return}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}
@@ -260,7 +260,7 @@ Export function Install- {
 		if (-not $MyInvocation.BoundParameters.ContainsKey("PackageName")) {return}
 		
 		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "_"
-		if ($null -eq $CopiedParams) {return;}
+		if ($null -eq $CopiedParams) {return}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}

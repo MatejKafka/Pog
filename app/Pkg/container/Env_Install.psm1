@@ -81,7 +81,6 @@ function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 	)
 
 	ShowProgress 0
-
 	# run 7zip
 	& $7ZipCmd x $ArchiveFile ("-o" + $TargetPath) @Params | % {
 		# progress print pattern
@@ -95,14 +94,12 @@ function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 			echo $_
 		}
 	}
-
 	# hide progress bar
 	ShowProgress 100
 
 	if ($LastExitCode -gt 0) {
 		throw "Could not expand archive: 7zip returned exit code $LastExitCode. There is likely additional output above."
 	}
-
 	if (-not (Test-Path $TargetPath)) {
 		throw "'7zip' indicated success, but the extracted directory is missing. " +`
 				"Seems like Pkg developers fucked something up, plz send bug report."
@@ -190,11 +187,13 @@ Export function Install-FromUrl {
 			[string]
 			[Alias("Url")]
 		$SrcUrl,
-			# SHA256 hash that the downloaded archive should match
-			# validation is skipped if null, but warning is printed
-			#
-			# if '?' is passed, nothing will be installed, Pkg will download the file, compute SHA-256 hash and print it out
-			# this is intended to be used when writing a new manifest and trying to figure out the hash of the file
+			<#
+			SHA256 hash that the downloaded archive should match.
+			Validation is skipped if null, but warning is printed
+
+			If '?' is passed, nothing will be installed, Pkg will download the file, compute SHA-256 hash and print it out.
+			This is intended to be used when writing a new manifest and trying to figure out the hash of the file.
+			#>
 			[string]
 			[Alias("Hash")]
 			[ValidateScript({
@@ -286,9 +285,8 @@ Export function Install-FromUrl {
 			return
 		}
 
-		# do not remove the ./app directory just yet
-		# first, we'll download the new version, and after
-		#  all checks pass and we know we managed to set it up correctly,
+		# do not remove the ./app directory just yet; first, we'll download the new version,
+		#  and after all checks pass and we know we managed to set it up correctly,
 		#  we'll delete the old version
 	}
 
