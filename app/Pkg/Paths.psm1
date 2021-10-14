@@ -5,7 +5,13 @@ Import-Module $PSScriptRoot"\Utils"
 $ROOT = Resolve-Path $PSScriptRoot"\..\.."
 
 $BIN_DIR = Resolve-Path $ROOT"\data\pkg_bin"
+# directory where package files with known hash are cached
 $DOWNLOAD_CACHE_DIR = Resolve-Path $ROOT"\cache\download_cache"
+# directory where package files without known hash are downloaded
+# a custom directory is used over system $env:TMP directory, because sometimes we move files
+#  from this dir to download cache, and if the system directory was on a different partition,
+#  this move could be needlessly expensive
+$DOWNLOAD_TMP_DIR = Resolve-Path $ROOT"\cache\download_tmp"
 $MANIFEST_REPO = Resolve-Path $ROOT"\data\manifests\"
 $MANIFEST_GENERATOR_REPO = Resolve-Path $ROOT"\data\manifest_generators\"
 $PACKAGE_ROOT_FILE = Resolve-Path $ROOT"\data\roots.txt"

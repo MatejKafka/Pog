@@ -106,10 +106,22 @@ function ExtractArchive7Zip($ArchiveFile, $TargetPath) {
 	}
 }
 
-
 function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
+	# see last comment in DownloadFile for explanation of this weird try/finally construct
+	$ExtractionFinished = $false
+	try {
+		_ExtractArchive_Inner $ArchiveFile $TargetPath -Force7zip:$Force7zip
+		$ExtractionFinished = $true
+	} finally {
+		if (-not $ExtractionFinished) {
+			rm -Recurse -Force $TargetPath -ErrorAction Ignore
+		}
+	}
+}
+
+function _ExtractArchive_Inner($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 	Write-Debug "Expanding archive (name: '$($ArchiveFile.Name), target: $TargetPath)')."
-	# only use Expand-Archive for .zip, 7zip for everything else
+	# use Expand-Archive for .zip, tar for .tar.gz and 7zip for everything else
 	if (-not $Force7zip -and $ArchiveFile.Name.EndsWith(".tar.gz")) {
 		Write-Information "Expanding archive using 'tar'..."
 		# tar expects the target dir to exist, so we'll create it
@@ -240,10 +252,10 @@ Export function Install-FromUrl {
 	if ($ExpectedHash -eq "?") {
 		Write-Host ""
 		Write-Host "    NOTE: Not installing, only retrieving the file hash." -ForegroundColor Magenta
-		$Hash = GetUrlFileHash $SrcUrl -DownloadParams $DownloadParams
+		$Hash = GetUrlFileHash $SrcUrl -DownloadParams $DownloadParams -ShouldCache
 		Write-Host ""
 		Write-Host "    Hash for the file at '$SrcUrl':" -ForegroundColor Magenta
-		Write-Host ("    " + $Hash.Hash) -ForegroundColor Magenta
+		Write-Host "    $Hash" -ForegroundColor Magenta
 		Write-Host ""
 		# it seems more ergonomic to exit than return
 		exit
@@ -304,13 +316,13 @@ Export function Install-FromUrl {
 				"same one package author intended. This may or may not be a problem on its own, " +`
 				"but it's better style to include a checksum, and improves security and reproducibility.")
 		# the hash is not set, cannot safely cache the file
-		$DownloadedFile = Invoke-TmpFileDownload $SrcUrl -DownloadParams $DownloadParams
+		$TmpDir, $DownloadedFile = Invoke-TmpFileDownload $SrcUrl -DownloadParams $DownloadParams
 		try {
 			ExtractArchive $DownloadedFile $TMP_EXPAND_PATH -Force7zip:$Force7zip
 		} finally {
-			# remove the file after we finish
-			rm -Force -LiteralPath $DownloadedFile
-			Write-Debug "Removed downloaded archive from TMP."
+			# remove the temporary dir (including the file) after we finish
+			rm -Recurse $TmpDir
+			Write-Debug "Removed temporary downloaded archive '$DownloadedFile'."
 		}
 	}
 
@@ -326,15 +338,13 @@ Export function Install-FromUrl {
 		Move-Item -LiteralPath $ExtractedDir .\app
 
 	} finally {
-		if (Test-Path $TMP_EXPAND_PATH) {
-			rm -Recurse -Force $TMP_EXPAND_PATH
-		}
+		rm -Recurse -Force -LiteralPath $TMP_EXPAND_PATH -ErrorAction Ignore
 	}
 
 	if ($NsisInstaller) {
 		if (-not (Test-Path -Type Container ./app/`$PLUGINSDIR)) {
-			throw "'-NsisInstaller' flag was passed to 'Install-FromUrl' in package manifest, " +`
-				"but directory $PLUGINSDIR does not exist in the extracted path (and it should for an NSIS installer)."
+			throw "'-NsisInstaller' flag was passed to 'Install-FromUrl' in package manifest, " + `
+				"but directory `$PLUGINSDIR does not exist in the extracted path (NSIS self-extracting archive should contain it)."
 		}
 		rm -Recurse ./app/`$PLUGINSDIR
 		Write-Debug "Removed `$PLUGINSDIR directory from extracted NSIS installer archive."
@@ -345,10 +355,11 @@ Export function Install-FromUrl {
 
 
 function DownloadFile {
-	param($SrcUrl, $TargetPath, [UserAgentType]$UserAgent)
+	param($SrcUrl, $TargetDir, [UserAgentType]$UserAgent)
 
-	Write-Debug "Downloading file from '$SrcUrl' to '$TargetPath'."
+	Write-Debug "Downloading file from '$SrcUrl' to directory '$TargetDir'."
 
+	# in case other parameters are added, figure out if they can be passed to Start-BitsTransfer, or just iwr
 	$Params = @{}
 	switch ($UserAgent) {
 		PowerShell {}
@@ -362,31 +373,56 @@ function DownloadFile {
 		}
 	}
 
-	# TODO: this lets us figure out real URL, which could then be passed to Start-BitsTransfer
-	#       however, Start-BitsTransfer cannot fake user agent, but maybe we could figure out a workaround
-	#  [System.Net.HttpWebRequest]::Create('https://URL').GetResponse().ResponseUri.AbsoluteUri
+	# first, find the real download URL and some useful metadata
+	$Res = Invoke-WebRequest -Method Head $SrcUrl @Params
 
-	# Unfortunately, BITS breaks for github and other pages with redirects, see here for description:
-	#  https://powershell.org/forums/topic/bits-transfer-with-github/
-	#$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
-	#Start-BitsTransfer $SrcUrl -Destination $TargetPath -Priority $global:Pkg_DownloadPriority -Description $Description
+	$RealUrl = $Res.BaseResponse.RequestMessage.RequestUri
+	# try to get the file name from Content-Disposition header, fallback to last segment of original URL
+	$FileName = if ($Res.Headers.ContainsKey("Content-Disposition")) {
+		[Net.Http.Headers.ContentDispositionHeaderValue]::Parse($Res.Headers.'Content-Disposition').FileName -replace '"', ""
+	} else {$null}
+	$FileName ??= ([uri]$SrcUrl).Segments[-1]
+	$TargetPath = Join-Path $TargetDir $FileName
 
-	if ($global:Pkg_DownloadPriority -ne "Foreground") {
-		# TODO: first resolve all redirects, then download using BITS
-		Write-Warning "Low priority download requested by user (-LowPriority flag)."
-		Write-Warning "Unfortunately, low priority downloads using BITS are currently disabled due to incompatibility with GitHub releases."
-		Write-Warning " (see here for details: https://powershell.org/forums/topic/bits-transfer-with-github/)"
+	# we can use two different ways to download the file: BITS transfer, or direct download with Invoke-WebRequest
+	# BITS transfer has multiple advantages (better progress reporting, much faster, better error cleanup, priorities),
+	#  but it doesn't support custom HTTP User-Agent
+	# therefore, we use Invoke-WebRequest when custom User-Agent is set, and BITS for all other cases
+	if (-not $Params.ContainsKey("UserAgent")) {
+		# we can use BITS
+		Write-Debug "Downloading file using BITS..."
+		$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
+		$Priority = if ($global:_Pkg.DownloadLowPriority) {"Low"} else {"Foreground"}
+		Start-BitsTransfer $RealUrl -Destination $TargetPath -Priority $Priority -Description $Description
+	} else {
+		# we have to use Invoke-WebRequest, non-default user agent is required
+		Write-Debug "Downloading file using Invoke-WebRequest..."
+		if ($_Pkg.DownloadLowPriority) {
+			Write-Debug ("Ignoring -LowPriority download flag, because a custom user agent was requested" + `
+					" when calling Install-FromUrl, which is not available with BITS transfers yet.")
+		}
+		# when user presses Ctrl-C, finally blocks run, but catch blocks don't (imo, that's a weird design decision)
+		# however, we need to cleanup the file in case we are interrupted by Ctrl-C, or iwr fails in another way
+		#  (one would expect it to cleanup after itself like Start-BitsTransfer does, but apparently it doesn't, sigh)
+		# we use a boolean flag $IwrFinished to basically recreate a catch block that catches even Ctrl-C
+		$IwrFinished = $false
+		try {
+			Invoke-WebRequest $SrcUrl -OutFile $TargetPath @Params
+			$IwrFinished = $true
+		} finally {
+			if (-not $IwrFinished) {
+				rm -Force -LiteralPath $TargetPath -ErrorAction Ignore
+			}
+		}
 	}
-
-	# we'll have to use Invoke-WebRequest instead, which doesn't offer low priority mode and has worse progress indicator
-	Invoke-WebRequest $SrcUrl -OutFile $TargetPath @Params
 	Write-Debug "File downloaded."
+	return Get-Item $TargetPath
 }
 
-function GetFileHashWithProgressBar($File) {
+function GetFileHashWithProgressBar($File, $ProgressBarTitle = "Validating file hash") {
 	function ShowProgress([int]$Percentage) {
 		Write-Progress `
-			-Activity "Validating file hash" `
+			-Activity $ProgressBarTitle `
 			-PercentComplete $Percentage `
 			-Completed:($Percentage -eq 100)
 	}
@@ -412,7 +448,7 @@ function GetDownloadCacheEntry($Hash) {
 	$File = ls -File $DirPath
 	if (@($File).Count -ne 1) {
 		Write-Warning "Invalid download cache entry - contains multiple, or no items, erasing...: $Hash"
-		rm -Recurse $DirPath
+		rm -Recurse -LiteralPath $DirPath
 		return $null
 	}
 
@@ -421,7 +457,7 @@ function GetDownloadCacheEntry($Hash) {
 	$FileHash = GetFileHashWithProgressBar $File
 	if ($Hash -ne $FileHash) {
 		Write-Warning "Invalid download cache entry - content hash does not match, erasing...: $Hash"
-		rm -Recurse $DirPath
+		rm -Recurse -LiteralPath $DirPath
 		return $null
 	}
 	Write-Debug "Cache entry hash validated."
@@ -434,7 +470,7 @@ function DownloadFileToCache {
 			[Parameter(Mandatory)]
 			[string]
 		$SrcUrl,
-			# SHA256 hash of expected file
+			<# SHA256 hash of expected file #>
 			[Parameter(Mandatory)]
 			[string]
 		$ExpectedHash,
@@ -442,21 +478,16 @@ function DownloadFileToCache {
 		$DownloadParams = {}
 	)
 
+	# if this is changed, also modify MoveFileToCache
 	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $ExpectedHash.ToUpper()
 	if (Test-Path $DirPath) {
 		throw "Download cache already contains an entry for '$ExpectedHash' (from '$SrcUrl')."
 	}
 
-	# use file name from the URL
-	# TODO: extract it from the HTTP request headers
-	$TargetPath = Join-Path $DirPath ([uri]$SrcUrl).Segments[-1]
-	Write-Debug "Target download path: '$TargetPath'."
-
 	try {
 		$null = New-Item -Type Directory $DirPath
-		Write-Debug "Created download cache dir '$ExpectedHash'."
-		DownloadFile $SrcUrl $TargetPath @DownloadParams
-		$File = Get-Item $TargetPath
+		Write-Debug "Created download cache dir for hash '$ExpectedHash'."
+		$File = DownloadFile $SrcUrl $DirPath @DownloadParams
 
 		$RealHash = GetFileHashWithProgressBar $File
 		if ($ExpectedHash -ne $RealHash) {
@@ -467,8 +498,8 @@ function DownloadFileToCache {
 		return $File
 	} catch {
 		# not -ErrorAction Ignore, we want to have a log in $Error for debugging
-		rm -Recurse -Force $DirPath -ErrorAction SilentlyContinue
-		throw $_
+		rm -Recurse -Force -LiteralPath $DirPath -ErrorAction SilentlyContinue
+		throw
 	}
 }
 
@@ -477,7 +508,7 @@ function Invoke-CachedFileDownload {
 			[Parameter(Mandatory)]
 			[string]
 		$SrcUrl,
-			# SHA256 hash of expected file
+			<# SHA256 hash of expected file #>
 			[Parameter(Mandatory)]
 			[string]
 		$ExpectedHash,
@@ -496,13 +527,32 @@ function Invoke-CachedFileDownload {
 	return DownloadFileToCache $SrcUrl $ExpectedHash -DownloadParams $DownloadParams
 }
 
+<# Assumes the hash is correct. #>
+function MoveFileToCache($File, $Hash) {
+	$Hash = $Hash.ToUpper()
+	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $Hash
+	if (Test-Path $DirPath) {
+		# already populated, just delete the new file
+		Write-Debug "Download cache already contains entry for hash '$Hash'."
+		rm -LiteralPath $File
+		return
+	}
 
-function GetUrlFileHash($SrcUrl, $DownloadParams) {
-	$File = Invoke-TmpFileDownload $SrcUrl -DownloadParams $DownloadParams
+	Write-Debug "Moving file to download cache directory '$DirPath'."
+	$null = New-Item -Type Directory $DirPath
+	Move-Item $File $DirPath
+}
+
+function GetUrlFileHash($SrcUrl, $DownloadParams, [switch]$ShouldCache) {
+	$TmpDir, $File = Invoke-TmpFileDownload $SrcUrl -DownloadParams $DownloadParams
 	try {
-		return Get-FileHash $File
+		$Hash = GetFileHashWithProgressBar $File -ProgressBarTitle "Calculating file hash"
+		if ($ShouldCache) {
+			MoveFileToCache $File $Hash
+		}
+		return $Hash
 	} finally {
-		rm -Force $File
+		rm -Recurse $TmpDir
 	}
 }
 
@@ -516,18 +566,22 @@ function Invoke-TmpFileDownload {
 		$DownloadParams = @{}
 	)
 
-	# generate unused file name
-	while ($true) {
-		try {
-			# use file name from the URL
-			$TmpFileName = (New-Guid).Guid + "-" + ([uri]$SrcUrl).Segments[-1]
-			$TmpPath = Join-Path ([System.IO.Path]::GetTempPath()) $TmpFileName
-			$TmpFile = New-item $TmpPath
-			break
-		} catch {}
-	}
+	# create unused tmp dir
+	do {
+		$TmpDirPath = Join-Path $script:DOWNLOAD_TMP_DIR (New-Guid).Guid
+		$TmpDir = New-Item -Type Directory $TmpDirPath -ErrorAction Ignore
+	} while ($null -eq $TmpDir)
 
-	# we have a temp file with unique name and requested extension, download content
-	DownloadFile $SrcUrl $TmpFile @DownloadParams
-	return $TmpFile
+	# see last comment in DownloadFile for explanation of this weird try/finally construct
+	$DownloadFinished = $false
+	try {
+		# we have a temp file with unique name and requested extension, download content
+		$File = DownloadFile $SrcUrl $TmpDir @DownloadParams
+		$DownloadFinished = $true
+		return @($TmpDir, $File)
+	} finally {
+		if (-not $DownloadFinished) {
+			rm -Recurse $TmpDir
+		}
+	}
 }

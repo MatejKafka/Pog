@@ -25,10 +25,11 @@ param(
 $PreferenceVariables.GetEnumerator() | % {
 	Set-Variable -Name $_.Name -Value $_.Value
 }
-# create global constants from internal arguments
-$InternalArguments.Keys | % {
-	Set-Variable -Scope Global -Option Constant -Name ("Pkg_" + $_) -Value $InternalArguments[$_]
-}
+# create global constant from internal arguments
+Set-Variable -Scope Global -Option Constant -Name "_Pkg" -Value $InternalArguments
+#$InternalArguments.Keys | % {
+#	Set-Variable -Scope Global -Option Constant -Name ("Pkg_" + $_) -Value $InternalArguments[$_]
+#}
 
 # TOCTOU issue, check Invoke-Container for details
 $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)

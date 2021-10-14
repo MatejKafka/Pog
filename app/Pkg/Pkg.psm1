@@ -290,7 +290,7 @@ Export function Install- {
 		
 		$InternalArgs = @{
 			AllowOverwrite = [bool]$AllowOverwrite
-			DownloadPriority = if ($LowPriority) {"Low"} else {"Foreground"}
+			DownloadLowPriority = [bool]$LowPriority
 		}
 		
 		Confirm-Manifest $Manifest

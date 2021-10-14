@@ -62,7 +62,7 @@ Export function ConfirmOverwrite {
 	)
 
 	# user passed -AllowOverwrite
-	if ($global:Pkg_AllowOverwrite) {
+	if ($_Pkg.AllowOverwrite) {
 		return $true
 	}
 	return Confirm-Action $Title $Message "Pkg_AllowOverwrite"
