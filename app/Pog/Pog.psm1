@@ -343,7 +343,12 @@ Export function Import- {
 		# find latest version
 		$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
 	} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
-		throw "Unknown version of package ${PackageName}: $Version"
+		throw "Unknown version of package '$PackageName': $Version"
+	}
+
+	Write-Verbose "Validating the manifest before importing..."
+	if (-not (Confirm-PogRepositoryPackage $PackageName $Version)) {
+		throw "Validation of the repository manifest failed, refusing to import."
 	}
 
 	$SrcPath = Join-Path $script:MANIFEST_REPO $PackageName $Version
@@ -534,52 +539,75 @@ Export function Update-Manifest {
 Export function Confirm-RepositoryPackage {
 	[CmdletBinding()]
 	param(
-			[Parameter(Mandatory, ValueFromPipeline)]
+			[Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ValidateSet([RepoPackageName])]
 			[string]
-		$PackageName
+		$PackageName,
+			[Parameter(ValueFromPipelineByPropertyName)]
+			[string]
+		$Version
 	)
 
+	begin {
+		$NoIssues = $true
+		function AddIssue($IssueMsg) {
+			Set-Variable NoIssues $false -Scope 1
+			Write-Warning $IssueMsg
+		}
+	}
+
 	process {
-		Write-Verbose "Validating package '$PackageName' from local repository..."
+		$VersionStr = if ($Version) {", version '$Version'"} else {" (all versions)"}
+		Write-Verbose "Validating package '$PackageName'$VersionStr from local repository..."
 
-		$DirPath = Join-Path $script:MANIFEST_REPO $PackageName
-
-		$Files = ls $DirPath -File
-		if ($Files) {
-			Write-Warning "Package '$PackageName' has incorrect structure; root contains following files (only version directories should be present): $Files"
-			return
+		if (-not $Version) {
+			$DirPath = Join-Path $script:MANIFEST_REPO $PackageName
+			if (ls -File $DirPath) {
+				AddIssue "Package '$PackageName' has incorrect structure; root contains following files (only version directories should be present): $Files"
+				return
+			}
+			$VersionDirs = ls -Directory $DirPath
+		} else {
+			$DirPath = Join-Path $script:MANIFEST_REPO $PackageName $Version
+			if (-not (Test-Path $DirPath)) {
+				throw "Could not find version '$Version' of package '$PackageName' in the local repository. Tested path: '$DirPath'"
+			}
+			$VersionDirs = Get-Item $DirPath
 		}
 
-		ls $DirPath | % {
+		$VersionDirs | % {
 			$Version = $_.Name
 
 			if (@(ls $_).Count -gt 1) {
-				Write-Warning ("In the root of each package manifest directory should be either a single 'manifest.psd1' file, " `
-						+ "or a '.manifest' directory containing a 'manifest.psd1' file and other support files or directories. " `
+				AddIssue ("In the root of each package manifest directory should be either a single 'pog.psd1' file, " `
+						+ "or a '.pog' directory containing a 'pog.psd1' file and other support files or directories. " `
 						+ "Instead, multiple files or directories were found for version '$Version' of package '$PackageName'.")
 			}
 
 			try {
 				$ManifestPath = Get-ManifestPath $_
 			} catch {
-				Write-Warning "Could not find manifest for version '$Version' of package '$PackageName': $_"
+				AddIssue "Could not find manifest for version '$Version' of package '$PackageName': $_"
 				return
 			}
 
 			try {
 				$Manifest = Import-PackageManifestFile $ManifestPath
 			} catch {
-				Write-Warning $_
+				AddIssue $_
 				return
 			}
 
 			try {
 				Confirm-Manifest $Manifest $PackageName $Version
 			} catch {
-				Write-Warning "Validation of package manifest '$PackageName', version '$Version' from local repository failed: $_"
+				AddIssue "Validation of package manifest '$PackageName', version '$Version' from local repository failed: $_"
 			}
 		}
+	}
+
+	end {
+		return $NoIssues
 	}
 }
 

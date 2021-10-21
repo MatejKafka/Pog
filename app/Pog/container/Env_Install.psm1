@@ -122,6 +122,7 @@ function ExtractArchive($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 function _ExtractArchive_Inner($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 	Write-Debug "Expanding archive (name: '$($ArchiveFile.Name), target: $TargetPath)')."
 	# use Expand-Archive for .zip, tar for .tar.gz and 7zip for everything else
+	# tar is used for .tar.gz, because 7zip doesn't extract it in one step (it goes .tar.gz -> .tar -> content instead)
 	if (-not $Force7zip -and $ArchiveFile.Name.EndsWith(".tar.gz")) {
 		Write-Information "Expanding archive using 'tar'..."
 		# tar expects the target dir to exist, so we'll create it
