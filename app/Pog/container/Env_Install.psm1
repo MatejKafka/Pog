@@ -376,13 +376,19 @@ function DownloadFile {
 
 	# first, find the real download URL and some useful metadata
 	$Res = Invoke-WebRequest -Method Head $SrcUrl @Params
-
 	$RealUrl = $Res.BaseResponse.RequestMessage.RequestUri
+
 	# try to get the file name from Content-Disposition header, fallback to last segment of original URL
 	$FileName = if ($Res.Headers.ContainsKey("Content-Disposition")) {
 		[Net.Http.Headers.ContentDispositionHeaderValue]::Parse($Res.Headers.'Content-Disposition').FileName -replace '"', ""
 	} else {$null}
-	$FileName ??= ([uri]$SrcUrl).Segments[-1]
+
+	# FIXME: it's possible that the last segment of the URL is also empty (e.g. https://domain/dir_but_actually_archive/),
+	#  and then this fallback would also fail
+	if ([string]::IsNullOrWhiteSpace($FileName)) {
+		$FileName = ([uri]$SrcUrl).Segments[-1] # fallback
+	}
+
 	$TargetPath = Join-Path $TargetDir $FileName
 
 	# we can use two different ways to download the file: BITS transfer, or direct download with Invoke-WebRequest
