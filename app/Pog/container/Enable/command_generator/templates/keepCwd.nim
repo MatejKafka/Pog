@@ -5,7 +5,10 @@ import os
 import osproc
 import strutils
 
-setControlCHook(proc () {.noconv.} = quit(-1073741510))
+# do nothing on Ctrl-C, expect the spawned process to handle it
+# otherwise, this wrapper would exit, shell would return to prompt, and the spawned process would race
+#  with the shell for lines of input (both are reading from the same stdin), which is quite annoying to resolve
+setControlCHook(proc () {.noconv.} = discard)
 
 const CMD_PLACEHOLDER = "\x0".repeat(1024)
 
@@ -16,7 +19,7 @@ let cmdEnd = CMD_PLACEHOLDER.find('\x0')
 if cmdEnd == 0:
   echo "TRIED TO RUN UNPATCHED BINARY"
   quit(101)
-  
+
 let command = if cmdEnd < 0: CMD_PLACEHOLDER
     else: CMD_PLACEHOLDER[0..<cmdEnd]
 

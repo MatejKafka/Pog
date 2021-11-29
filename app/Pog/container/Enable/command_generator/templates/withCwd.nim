@@ -2,7 +2,10 @@ import os
 import osproc
 import strutils
 
-setControlCHook(proc () {.noconv.} = quit(-1073741510))
+# do nothing on Ctrl-C, expect the spawned process to handle it
+# otherwise, this wrapper would exit, shell would return to prompt, and the spawned process would race
+#  with the shell for lines of input (both are reading from the same stdin), which is quite annoying to resolve
+setControlCHook(proc () {.noconv.} = discard)
 
 # max single path element size on Windows
 const CMD_PLACEHOLDER = "\x0".repeat(260)

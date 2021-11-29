@@ -4,7 +4,7 @@ Import-Module $PSScriptRoot\..\..\Paths
 Import-Module $PSScriptRoot\..\..\lib\Utils
 Import-Module $PSScriptRoot\..\container_lib\Environment
 Import-Module $PSScriptRoot\..\container_lib\Confirmations
-Import-Module $PSScriptRoot\..\command_generator\SubstituteExe
+Import-Module $PSScriptRoot\command_generator\SubstituteExe
 
 # TODO: implement some form of App Path registration (at least for file and URL association)
 #  https://docs.microsoft.com/en-us/windows/win32/shell/app-registration

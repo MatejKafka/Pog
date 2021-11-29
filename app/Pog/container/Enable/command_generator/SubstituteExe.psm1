@@ -1,15 +1,15 @@
 # Requires -Version 7
-. $PSScriptRoot\..\..\lib\header.ps1
-Import-Module $PSScriptRoot\..\..\lib\Utils
+. $PSScriptRoot\..\..\..\lib\header.ps1
+Import-Module $PSScriptRoot\..\..\..\lib\Utils
 
-$KEEP_TEMPLATE = "$PSScriptRoot\templates\keepCwd.exe"
-$KEEP_FILE_LENGTH = 126792
-$KEEP_CMD_OFFSET = 0xB530
+$KEEP_TEMPLATE = "$PSScriptRoot\templates\keepCwd_console.exe"
+$KEEP_FILE_LENGTH = 105989
+$KEEP_CMD_OFFSET = 0x84B0
 
-$WITH_TEMPLATE = "$PSScriptRoot\templates\withCwd.exe"
-$WITH_FILE_LENGTH = 128905
-$WITH_WD_OFFSET = 0xB990
-$WITH_CMD_OFFSET = 0xBDB0
+$WITH_TEMPLATE = "$PSScriptRoot\templates\withCwd_console.exe"
+$WITH_FILE_LENGTH = 107399
+$WITH_WD_OFFSET = 0x8710
+$WITH_CMD_OFFSET = 0x8B30
 
 
 # uses precompiled binary and patches 1 or 2 strings inside to change target
