@@ -1,7 +1,7 @@
 # Requires -Version 7
-. $PSScriptRoot\..\lib\header.ps1
+. $PSScriptRoot\..\..\lib\header.ps1
 
-Import-Module $PSScriptRoot\..\Confirmations
+Import-Module $PSScriptRoot\..\..\Confirmations
 
 Export-ModuleMember -Function Confirm-Action
 

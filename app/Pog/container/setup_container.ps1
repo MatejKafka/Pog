@@ -19,8 +19,8 @@ Import-Module Microsoft.PowerShell.Management
 # setup environment for package manifest script
 # each environment module must provide `__main` and `__cleanup` functions
 switch ($EnvType) {
-	Enable {Import-Module $PSScriptRoot\Env_Enable}
-	Install {Import-Module $PSScriptRoot\Env_Install}
+	Enable {Import-Module $PSScriptRoot\Enable\Env_Enable}
+	Install {Import-Module $PSScriptRoot\Install\Env_Install}
 	default {throw "Unknown container environment type: " + $_}
 }
 

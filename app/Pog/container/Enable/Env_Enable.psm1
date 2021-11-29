@@ -1,5 +1,10 @@
 # Requires -Version 7
-. $PSScriptRoot\..\lib\header.ps1
+. $PSScriptRoot\..\..\lib\header.ps1
+Import-Module $PSScriptRoot\..\..\Paths
+Import-Module $PSScriptRoot\..\..\lib\Utils
+Import-Module $PSScriptRoot\..\container_lib\Environment
+Import-Module $PSScriptRoot\..\container_lib\Confirmations
+Import-Module $PSScriptRoot\..\command_generator\SubstituteExe
 
 # TODO: implement some form of App Path registration (at least for file and URL association)
 #  https://docs.microsoft.com/en-us/windows/win32/shell/app-registration
@@ -8,12 +13,6 @@
 # Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths
 # Computer\HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts
 # Computer\HKEY_CLASSES_ROOT\Applications
-
-Import-Module $PSScriptRoot\Environment
-Import-Module $PSScriptRoot\command_generator\SubstituteExe
-Import-Module $PSScriptRoot\..\Paths
-Import-Module $PSScriptRoot\..\lib\Utils
-Import-Module $PSScriptRoot\Confirmations
 
 
 Export-ModuleMember -Function Confirm-Action

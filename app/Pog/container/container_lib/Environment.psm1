@@ -1,7 +1,7 @@
 # Requires -Version 7
-. $PSScriptRoot\..\lib\header.ps1
+. $PSScriptRoot\..\..\lib\header.ps1
 
-Import-Module $PSScriptRoot\..\lib\Utils
+Import-Module $PSScriptRoot\..\..\lib\Utils
 
 
 function Update-EnvVar {
