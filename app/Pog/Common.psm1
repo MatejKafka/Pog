@@ -175,12 +175,12 @@ Export function Confirm-Manifest {
 	}
 
 	$RequiredKeys = @{
-		"Name" = [string]; "Version" = [string]; "Architecture" = @([string], [Object[]]);
-		"Enable" = [scriptblock]; "Install" = @([scriptblock], [Hashtable], [string])
+		Name = [string]; Version = [string]; Architecture = @([string], [Object[]]);
+		Enable = [scriptblock]; Install = @([scriptblock], [Hashtable], [string])
 	}
 
 	$OptionalKeys = @{
-		"Description" = [string]; "Channel" = [string]
+		Description = [string]; Website = [string]; Channel = [string]
 	}
 
 
