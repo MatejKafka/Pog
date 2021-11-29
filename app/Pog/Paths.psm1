@@ -2,7 +2,6 @@
 Import-Module $PSScriptRoot\lib\header.ps1
 
 
-$APP_NAME = "Pog"
 $ROOT = Resolve-Path $PSScriptRoot"\..\.."
 
 $BIN_DIR = Resolve-Path $ROOT"\data\package_bin"

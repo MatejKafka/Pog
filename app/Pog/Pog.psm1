@@ -56,13 +56,13 @@ Export function Export-ShortcutsToStartMenu {
 	)
 
 	$TargetDir = if ($UseSystemWideMenu) {
-		Join-Path $SYSTEM_START_MENU $APP_NAME
+		Join-Path $SYSTEM_START_MENU "Pog"
 	} else {
-		Join-Path $USER_START_MENU $APP_NAME
+		Join-Path $USER_START_MENU "Pog"
 	}
 
 	if (Test-Path $TargetDir) {
-		echo "Clearing previous $APP_NAME start menu entries..."
+		echo "Clearing previous Pog start menu entries..."
 		Remove-Item -Recurse $TargetDir
 	}
 
@@ -349,7 +349,7 @@ Export function Import- {
 	}
 
 	Write-Verbose "Validating the manifest before importing..."
-	if (-not (Confirm-PogRepositoryPackage $PackageName $Version)) {
+	if (-not (Confirm-RepositoryPackage $PackageName $Version)) {
 		throw "Validation of the repository manifest failed, refusing to import."
 	}
 
