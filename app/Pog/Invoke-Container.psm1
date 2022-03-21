@@ -113,6 +113,11 @@ Export function Invoke-Container {
 
 	$ContainerArgs = @($ContainerType, $ManifestPath, $InternalArguments, $ScriptArguments, $PrefVars)
 	if (-not $NoIsolation) {
+		# runspace-based version for testing (not used, because interactive input is not supported in runspaces):
+		#	% -UseNewRunspace -Parallel {
+		#		. "$using:PSScriptRoot\container\container.ps1" @using:ContainerArgs
+		#	}
+
 		# the indirect scriptblock creation is used to avoid https://github.com/PowerShell/PowerShell/issues/15096
 		#  and have a correct $PSScriptRoot inside the container
 		$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory `
