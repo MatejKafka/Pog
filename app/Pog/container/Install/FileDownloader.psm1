@@ -16,7 +16,7 @@ public enum UserAgentType {
 }
 '@
 
-function DownloadFile($SrcUrl, $TargetDir, [UserAgentType]$UserAgent) {
+function DownloadFile($SrcUrl, $TargetDir, [UserAgentType]$UserAgent, [switch]$NoBITSDownload) {
 	Write-Debug "Downloading file from '$SrcUrl' to directory '$TargetDir'."
 
 	# in case other parameters are added, figure out if they can be passed to Start-BitsTransfer, or just Invoke-WebRequest
@@ -34,7 +34,7 @@ function DownloadFile($SrcUrl, $TargetDir, [UserAgentType]$UserAgent) {
 	}
 
 	# first, find the real download URL and some useful metadata
-	$Res = Invoke-WebRequest -Method Head $SrcUrl @Params
+	$Res = Invoke-WebRequest $SrcUrl -Method Head -SkipHttpErrorCheck @Params
 	$RealUrl = $Res.BaseResponse.RequestMessage.RequestUri
 
 	# try to get the file name from Content-Disposition header, fallback to last segment of original URL
@@ -53,10 +53,10 @@ function DownloadFile($SrcUrl, $TargetDir, [UserAgentType]$UserAgent) {
 	# we can use two different ways to download the file: BITS transfer, or direct download with Invoke-WebRequest
 	# BITS transfer has multiple advantages (better progress reporting, much faster, better error cleanup, priorities),
 	#  but it doesn't support custom HTTP User-Agent
-	# therefore, we use Invoke-WebRequest when custom User-Agent is set, and BITS for all other cases
-	if (-not $Params.ContainsKey("UserAgent")) {
+	# therefore, we use Invoke-WebRequest when custom User-Agent is set, and BITS otherwise 
+	if (-not $Params.ContainsKey("UserAgent") -and -not $NoBITSDownload) {
 		# we can use BITS
-		Write-Debug "Downloading file using BITS..."
+		Write-Debug "Downloading file using BITS... (real URL: $RealUrl)"
 		$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
 		$Priority = if ($global:_InternalArgs.DownloadLowPriority) {"Low"} else {"Foreground"}
 		Start-BitsTransfer $RealUrl -Destination $TargetPath -Priority $Priority -Description $Description

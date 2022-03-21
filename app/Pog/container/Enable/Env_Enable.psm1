@@ -6,14 +6,6 @@ Import-Module $PSScriptRoot\..\container_lib\Environment
 Import-Module $PSScriptRoot\..\container_lib\Confirmations
 Import-Module $PSScriptRoot\command_generator\SubstituteExe
 
-# TODO: implement some form of App Path registration (at least for file and URL association)
-#  https://docs.microsoft.com/en-us/windows/win32/shell/app-registration
-#  https://docs.microsoft.com/en-us/windows/win32/shell/fa-verbs
-#  https://docs.microsoft.com/en-us/windows/win32/shell/fa-how-work
-# Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths
-# Computer\HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts
-# Computer\HKEY_CLASSES_ROOT\Applications
-
 
 Export-ModuleMember -Function Confirm-Action
 
@@ -25,7 +17,6 @@ Export-ModuleMember -Function Assert-Admin
 Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 
 
-enum ItemType {File; Directory}
 
 <# This function is called after the container setup is finished to run the passed script. #>
 Export function __main {
@@ -84,11 +75,11 @@ Export function Merge-Directories {
 		if (Test-Path $Target) {
 			if ($PreferTarget) {return}  # skip
 			# overwrite with new version
-			rm -Recurse $Target
+			Remove-Item -Recurse $Target
 		}
 		Move-Item $_ $Target
 	}
-	rm -Recurse $SrcDir
+	Remove-Item -Recurse $SrcDir
 }
 
 function Set-Symlink {
@@ -137,6 +128,7 @@ function Set-Symlink {
 	return Get-Item $LinkAbs
 }
 
+enum ItemType {File; Directory}
 <#
 	What Set-SymlinkedPath should do:
 	if target exists:
@@ -194,7 +186,7 @@ Export function Set-SymlinkedPath {
 		if ((Test-Path $TargetPath) -and -not (Test-Path -Type $TestType $TargetPath)) {
 			Write-Warning "Item '$TargetPath' exists, but it's not '$ItemType'. Replacing..."
 			# mismatch between requested and real target type
-			rm -Recurse $TargetPath
+			Remove-Item -Recurse $TargetPath
 		}
 
 		# TargetPath matches item type
@@ -321,10 +313,17 @@ Export function Export-Shortcut {
 		$WorkingDirectory,
 			[switch]
 		$StartMaximized,
+			[switch]
+		$StartMinimized,
 			[Alias("Icon")]
 		$IconPath,
 		$Description
 	)
+
+	# FIXME: switch to a single WindowStyle argument
+	if ($StartMaximized -and $StartMinimized) {
+		throw "Export-Shortcut: -StartMaximized and -StartMinimized switch parameters must not be passed together."
+	}
 
 	# this shortcut was refreshed, not stale, remove it
 	# noop when not present
@@ -351,10 +350,10 @@ Export function Export-Shortcut {
 
 	Write-Debug "Resolved shortcut target: $Target"
 
-	if ($WorkingDirectory -eq $null) {
-		$WorkingDirectory = Split-Path $Target
+	$WorkingDirectory = if ($WorkingDirectory -eq $null) {
+		Resolve-Path (Split-Path $Target)
 	} else {
-		$WorkingDirectory = Resolve-Path $WorkingDirectory
+		Resolve-Path $WorkingDirectory
 	}
 
 	if ($IconPath -eq $null) {
@@ -369,7 +368,7 @@ Export function Export-Shortcut {
 		$Icon = [string]$IconPath + ",0"
 	}
 
-	$WinStyle = if ($StartMaximized) {3} else {1}
+	$WinStyle = if ($StartMaximized) {3} elseif ($StartMinimized) {7} else {1}
 
 	if ($null -eq $Description) {
 		$Description = [string](Split-Path -LeafBase $TargetPath)

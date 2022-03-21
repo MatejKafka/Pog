@@ -39,10 +39,12 @@ function Export-AppShortcuts {
 		[Parameter(Mandatory)]$ExportPath
 	)
 
-	ls -File -Filter "*.lnk" $AppPath | % {
+	$Shortcuts = ls -File -Filter "*.lnk" $AppPath
+	$Shortcuts | % {
 		Copy-Item $_ -Destination $ExportPath
-		Write-Information "Exported shortcut '$($_.Name)' from '$(Split-Path -Leaf $AppPath)'."
+		Write-Verbose "Exported shortcut '$($_.Name)' from '$(Split-Path -Leaf $AppPath)'."
 	}
+	return @($Shortcuts).Count
 }
 
 
@@ -69,11 +71,11 @@ Export function Export-ShortcutsToStartMenu {
 	echo "Exporting shortcuts to '$TargetDir'."
 	$null = New-Item -ItemType Directory $TargetDir
 
-	ls $PACKAGE_ROOTS -Directory | ? {
-		-not ($ExcludeUnderscoredPackages -and $_.Name.StartsWith("_"))
-	} | % {
-		Export-AppShortcuts $_.FullName $TargetDir
-	}
+	$ShortcutCount = ls $PACKAGE_ROOTS -Directory `
+		| ? {-not ($ExcludeUnderscoredPackages -and $_.Name.StartsWith("_"))} `
+		| % {Export-AppShortcuts $_.FullName $TargetDir} `
+		| measure -Sum | % Sum
+	echo "Exported $ShortcutCount shortcuts."
 }
 
 
@@ -152,9 +154,9 @@ Export function Clear-DownloadCache {
 			[Parameter(Mandatory, ParameterSetName = "Date", Position = 0)]
 			[DateTime]
 		$DateBefore,
-			[Parameter(Mandatory, ParameterSetName = "Days", Position = 0)]
+			[Parameter(ParameterSetName = "Days", Position = 0)]
 			[int]
-		$DaysBefore
+		$DaysBefore = 0
 	)
 
 	if ($PSCmdlet.ParameterSetName -eq "Days") {
@@ -317,6 +319,9 @@ function ConfirmManifestOverwrite {
 			[Parameter(Mandatory)]
 			[string]
 		$TargetPackageRoot,
+			[Parameter(Mandatory)]
+			[string]
+		$ImportedVersion,
 			[Hashtable]
 		$Manifest
 	)
@@ -325,7 +330,7 @@ function ConfirmManifestOverwrite {
 	$ManifestDescription = if ($null -eq $Manifest) {""}
 			else {" (manifest '$($Manifest.Name)', version '$($Manifest.Version)')"}
 	$Message = "There is already an imported package with name '$TargetName' " +`
-			"in '$TargetPackageRoot'$ManifestDescription. Should we overwrite its manifest?"
+			"in '$TargetPackageRoot'$ManifestDescription. Overwrite its manifest with version '$ImportedVersion'?"
 	return Confirm-Action $Title $Message -ActionType "ManifestOverwrite"
 }
 
@@ -386,11 +391,11 @@ Export function Import- {
 			}
 		}
 
-		if (-not $AllowOverwrite -and -not (ConfirmManifestOverwrite $TargetName $TargetPackageRoot $OrigManifest)) {
+		if (-not $AllowOverwrite -and -not (ConfirmManifestOverwrite $TargetName $TargetPackageRoot $Version $OrigManifest)) {
 			throw "There is already a package with name '$TargetName' in '$TargetPackageRoot'. Pass -AllowOverwrite to overwrite current manifest without confirmation."
 		}
 		echo "Overwriting previous package manifest..."
-		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | rm -Recurse
+		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | Remove-Item -Recurse
 	} else {
 		$null = New-Item -Type Directory $TargetPath
 	}

@@ -129,8 +129,8 @@ function _ExtractArchive_Inner($ArchiveFile, $TargetPath, [switch]$Force7zip) {
 		} catch [IO.FileFormatException] {
 			throw "Could not expand archive: File format not recognized by Expand-Archive. " +`
 					"For manifest authors: If the format is something 7zip should recognize, " +`
-					"pass '-Force7zip' switch to 'Install-FromUrl' in package manifest, " +`
-					"or change the URL file extension to '.7z'."
+					"pass '-Force7zip' switch to 'Install-FromUrl' in the package manifest, " +`
+					"or change the downloaded file extension to '.7z'."
 		} catch {
 			throw "Could not expand archive: $_"
 		} finally {
