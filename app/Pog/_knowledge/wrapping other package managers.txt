@@ -1,0 +1,3 @@
+package should be able to register that it is a package manager, declare its prefix (e.g. 'npm:' or 'pip:'), which is
+then used for calling it (e.g. 'pog "npm:reactjs"'), provide argument completion (which is called internally from Pog)
+and interface for actually installing the requested package

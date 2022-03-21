@@ -1,0 +1,54 @@
+in code, use HKEY_CURRENT_USER\Software\Classes, not HKEY_CLASSES_ROOT
+
+
+https://docs.microsoft.com/en-us/windows/win32/shell/fa-how-work
+
+
+
+TODO: implement some form of App Path registration (at least for file and URL association)
+ https://docs.microsoft.com/en-us/windows/win32/shell/app-registration
+ https://docs.microsoft.com/en-us/windows/win32/shell/fa-verbs
+ https://docs.microsoft.com/en-us/windows/win32/shell/fa-how-work
+
+Computer\HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths
+Computer\HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts
+    https://github.com/DanysysTeam/PS-SFTA
+    https://stackoverflow.com/questions/3924753/where-does-windows-store-its-open-with-settings
+Computer\HKEY_CLASSES_ROOT\Applications
+
+this looks interesting, not fully sure what it does
+    HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs
+    HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+
+C:\Users\admin\AppData\Roaming\Microsoft\Windows\Recent
+
+
+File Explorer '-> New' context menu
+    Add ShellNew key to the extension key (e.g. '.txt', 'HKEY_CLASSES_ROOT\.txt')
+    Shell apparently scans the whole HKEY_CLASSES_ROOT each time you open the New context menu, a finds all extensions with ShellNew key
+    https://docs.microsoft.com/en-us/windows/win32/shell/context-menu-handlers#extending-a-new-submenu
+    http://mc-computing.com/winexplorer/WinExplorerRegistry_ShellNew.htm
+
+HKEY_CLASSES_ROOT\Applications\mspaint.exe\SupportedTypes
+    TODO: explore this
+
+
+HKEY_CLASSES_ROOT\
+	* – all files
+	Drive – all drives
+	Directory – all file system folders
+	Folder – all folders (even virtual)
+	AllFilesystemObjects – Directory+* (all files and directories)
+	. – files without extension
+
+HKEY_CLASSES_ROOT\SystemFileAssociations
+	verbs and other context menu configuration that are not dependent on the current file associations
+	(config in the root is ignored when user manually picks a different associated application)
+	has lower priority than the config in root
+
+HKEY_CLASSES_ROOT\ <extension> \shell\runas\ProgrammaticAccessOnly
+	hides the verb from context menu
+
+
+https://stackoverflow.com/questions/10686411/create-windows-right-click-context-menu-for-specific-folders
+https://www.tenforums.com/software-apps/177462-change-open-list-items.html
