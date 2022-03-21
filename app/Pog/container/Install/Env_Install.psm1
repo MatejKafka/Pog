@@ -170,8 +170,8 @@ Export function Install-FromUrl {
 	[CmdletBinding(PositionalBinding=$false)]
 	param(
 			[Parameter(Mandatory, Position=0)]
-			[string]
 			[Alias("Url")]
+			[string]
 		$SrcUrl,
 			<#
 			SHA-256 hash that the downloaded archive should match.
@@ -180,8 +180,8 @@ Export function Install-FromUrl {
 			If '?' is passed, nothing will be installed, we will download the file, compute the SHA-256 hash and print it out.
 			This is intended to be used when writing a new manifest and trying to figure out the hash of the file.
 			#>
-			[string]
 			[Alias("Hash")]
+			[string]
 			[ValidateScript({
 				if ($_ -ne "?" -and $_ -notmatch '^(\-|[a-fA-F0-9]{64})$') {
 					throw "Parameter must be hex string (SHA-256 hash), 64 characters long (or '?'), got '$_'."
@@ -189,21 +189,21 @@ Export function Install-FromUrl {
 				return $true
 			})]
 		$ExpectedHash,
-			# if passed, only the subdirectory with passed name/path is extracted to ./app
-			#  and the rest is ignored
+			<# If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored. #>
 			[string]
 		$Subdirectory = "",
-			# force the cmdlet to use 7z.exe binary to extract the archive
-			# if not set, 7z.exe will be used for .7z and .7z.exe archives, and builtin Expand-Archive cmdlet for others
+			<# Force the cmdlet to use 7z.exe binary to extract the archive.
+			   If not set, 7z.exe will be used for .7z and .7z.exe archives, and builtin Expand-Archive cmdlet for others. #>
 			[switch]
 		$Force7zip,
-			# some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason
-			# set this to `Browser` to use a browser user agent string (currently Firefox)
-			# set this to `Wget` to use wget user agent string
+			<# Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
+			   Set this to `Browser` to use a browser user agent string (currently Firefox).
+			   Set this to `Wget` to use wget user agent string. #>
 			[UserAgentType]
 		$UserAgent = [UserAgentType]::PowerShell,
-			# pass this if the retrieved file is an NSIS installer
-			# currently, only thing this does is remove the `$PLUGINSDIR` output directory
+			<# Pass this if the retrieved file is an NSIS installer
+			   Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
+			   NOTE: NSIS installers may do some initial config, which is skipped when extracted directly. #>
 			[switch]
 		$NsisInstaller,
 			<# If passed, BITS download service is not used even if available and the target is downloaded using `Invoke-WebRequest`.
