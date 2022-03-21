@@ -90,7 +90,10 @@ Export function Invoke-Container {
 		$InternalArguments,
 			[Parameter(Mandatory)]
 			[Hashtable]
-		$ScriptArguments
+		$ScriptArguments,
+			<# If set, the container does not run in an isolated PowerShell sesion and instead reuses the current session. #>
+			[switch]
+		$NoIsolation
 	)
 
 	Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState
@@ -108,22 +111,40 @@ Export function Invoke-Container {
 		$PrefVars.InformationPreference = "Continue"
 	}
 
-	# the indirect scriptblock creation is used to avoid https://github.com/PowerShell/PowerShell/issues/15096
-	#  and have a correct $PSScriptRoot inside the container
-	$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory `
-			-ScriptBlock ([ScriptBlock]::Create(". $PSScriptRoot\container\container.ps1 `@Args")) `
-			-ArgumentList @($ContainerType, $ManifestPath, $InternalArguments, $ScriptArguments, $PrefVars)
-	try {
-		# FIXME: this breaks error source
-		# FIXME: Original error type is lost (changed to generic "Exception")
+	$ContainerArgs = @($ContainerType, $ManifestPath, $InternalArguments, $ScriptArguments, $PrefVars)
+	if (-not $NoIsolation) {
+		# the indirect scriptblock creation is used to avoid https://github.com/PowerShell/PowerShell/issues/15096
+		#  and have a correct $PSScriptRoot inside the container
+		$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory `
+				-ScriptBlock ([ScriptBlock]::Create(". $PSScriptRoot\container\container.ps1 `@Args")) `
+				-ArgumentList $ContainerArgs 
 
-		# hackaround for https://github.com/PowerShell/PowerShell/issues/7814
-		# it seems that the duplication is caused by Receive-Job sending
-		#  original information messages through, and also emitting them again as new messages
-		Receive-Job -Wait $ContainerJob -InformationAction "SilentlyContinue"
-	} finally {
-		Stop-Job $ContainerJob
-		Receive-Job -Wait $ContainerJob -InformationAction "SilentlyContinue"
-		Remove-Job $ContainerJob
+		try {
+			# FIXME: this breaks error source
+			# FIXME: Original error type is lost (changed to generic "Exception")
+
+			# hackaround for https://github.com/PowerShell/PowerShell/issues/7814
+			# it seems that the duplication is caused by Receive-Job sending
+			#  original information messages through, and also emitting them again as new messages
+			Receive-Job -Wait $ContainerJob -InformationAction "SilentlyContinue"
+		} finally {
+			Stop-Job $ContainerJob
+			Receive-Job -Wait $ContainerJob -InformationAction "SilentlyContinue"
+			Remove-Job $ContainerJob
+		}
+	} else {
+		Write-Information "Running container script in the current PowerShell session..."
+		# invoke the container directly, without using a wrapper job
+		# this way, it runs faster and error messages are more informative, but it doesn't isolate
+		#  the environment (functions, variables,...) the script runs in, so it pollutes global namespace
+		#  and the script may fail if user overrides any built-in functions in his PowerShell profile, etc...
+		# this should mostly only be used for debugging, I do not consider it stable and it may randomly break
+
+		Push-Location $WorkingDirectory -StackName PogContainerInvoke
+		try {
+			& "$PSScriptRoot\container\container.ps1" @ContainerArgs
+		} finally {
+			Pop-Location -StackName PogContainerInvoke
+		}
 	}
 }

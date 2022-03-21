@@ -27,33 +27,34 @@ Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 
 enum ItemType {File; Directory}
 
-
-# set of all shortcuts that were not "refreshed" during this Enable call
-# starts with all shortcuts found in package, and each time Export-Shortcut is called, it is removed
-# before end of Enable, all shortcuts still in this set are deleted
-$StaleShortcuts = New-Object System.Collections.Generic.HashSet[string]
-ls -File -Filter "./*.lnk" | % {$StaleShortcuts.Add($_.BaseName)}
-Write-Debug "Listed original shortcuts."
-
-<# This function is called after the Enable script finishes. #>
-Export function __cleanup {
-	# remove stale shortcuts
-	if ($StaleShortcuts.Count -gt 0) {
-		Write-Verbose "Removing stale shortcuts..."
-	}
-	$StaleShortcuts | % {
-		rm ("./" + $_ + ".lnk")
-		Write-Verbose "Removed stale shortcut '$_'."
-	}
-}
-
 <# This function is called after the container setup is finished to run the passed script. #>
 Export function __main {
 	param($EnableSb, $PackageArguments)
 
+	# set of all shortcuts that were not "refreshed" during this Enable call
+	# starts with all shortcuts found in package, and each time Export-Shortcut is called, it is removed
+	# before end of Enable, all shortcuts still in this set are deleted
+	$script:StaleShortcuts = New-Object System.Collections.Generic.HashSet[string]
+	ls -File -Filter "./*.lnk" | % {[void]$script:StaleShortcuts.Add($_.BaseName)}
+	Write-Debug "Listed original shortcuts."
+
 	# invoke the scriptblock
 	& $EnableSb @PackageArguments
 }
+
+<# This function is called after the Enable script finishes. #>
+Export function __cleanup {
+	# remove stale shortcuts
+	if ($script:StaleShortcuts.Count -gt 0) {
+		Write-Verbose "Removing stale shortcuts..."
+	}
+	$script:StaleShortcuts | % {
+		Remove-Item ("./" + $_ + ".lnk")
+		Write-Verbose "Removed stale shortcut '$_'."
+	}
+}
+
+
 
 function Assert-ParentDirectory {
 	param(

@@ -54,7 +54,9 @@ $PreferenceVariables.GetEnumerator() | % {
 	Set-Variable -Name $_.Name -Value $_.Value
 }
 # create global constant from internal arguments
-Set-Variable -Scope Global -Option Constant -Name "_InternalArgs" -Value $InternalArguments
+# we use ReadOnly instead of Constant so that we can remove this variable
+#  afterwards in case we're not running in a separate job/runspace
+Set-Variable -Scope Global -Option ReadOnly -Name "_InternalArgs" -Value $InternalArguments
 
 # TOCTOU issue, check Invoke-Container for details
 $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
@@ -79,4 +81,10 @@ try {
 	Write-Debug "Cleaning up..."
 	__cleanup
 	Write-Debug "Cleanup finished."
+
+	# cleanup custom functions and variables – this is necessary when running the container without isolation
+	# remove the overriden Import-Module function (defined above)
+	Remove-Item Function:\Import-Module
+	# remove the read-only _InternalArgs variable
+	Remove-Variable -Force "_InternalArgs" -Scope Global
 }
