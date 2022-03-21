@@ -108,10 +108,11 @@ Export function Invoke-Container {
 		$PrefVars.InformationPreference = "Continue"
 	}
 
-	$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory -FilePath $CONTAINER_SCRIPT `
-			-InitializationScript ([ScriptBlock]::Create(". $CONTAINER_SETUP_SCRIPT $ContainerType")) `
-			-ArgumentList @($ManifestPath, $ContainerType, $InternalArguments, $ScriptArguments, $PrefVars)
-
+	# the indirect scriptblock creation is used to avoid https://github.com/PowerShell/PowerShell/issues/15096
+	#  and have a correct $PSScriptRoot inside the container
+	$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory `
+			-ScriptBlock ([ScriptBlock]::Create(". $PSScriptRoot\container\container.ps1 `@Args")) `
+			-ArgumentList @($ContainerType, $ManifestPath, $InternalArguments, $ScriptArguments, $PrefVars)
 	try {
 		# FIXME: this breaks error source
 		# FIXME: Original error type is lost (changed to generic "Exception")

@@ -34,9 +34,6 @@ $MANIFEST_CLEANUP_PATHS = @(".\pog.psd1", ".\.pog\", ".\manifest.psd1", ".\.mani
 
 $RESOURCE_DIR = Resolve-Path $PSScriptRoot"\resources\"
 
-$CONTAINER_SCRIPT = Resolve-Path $PSScriptRoot"\container\container.ps1"
-$CONTAINER_SETUP_SCRIPT = Resolve-Path $PSScriptRoot"\container\setup_container.ps1"
-
 
 $SYSTEM_START_MENU = Resolve-Path (Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\")
 $USER_START_MENU = Resolve-Path (Join-Path $env:AppData "Microsoft\Windows\Start Menu\")

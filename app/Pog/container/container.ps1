@@ -2,10 +2,10 @@
 param(
 		[Parameter(Mandatory)]
 		[string]
-	$ManifestPath,
+	$ContainerType,
 		[Parameter(Mandatory)]
 		[string]
-	$ContainerType,
+	$ManifestPath,
 		[Parameter(Mandatory)]
 		[Hashtable]
 	$InternalArguments,
@@ -17,9 +17,37 @@ param(
 	$PreferenceVariables
 )
 
+
 # this is the main script running inside container, which sets up the environment and calls the manifest
-# assumes setup_container.ps1 is called first
-# we cannot trivially import it, because of https://github.com/PowerShell/PowerShell/issues/15096
+
+Set-StrictMode -Version Latest
+
+# block automatic module loading to isolate the configuration script from system packages
+# this allows for a more consistent environment between different machines
+$PSModuleAutoLoadingPreference = "None"
+$ErrorActionPreference = "Stop"
+
+# these two imports contain basic stuff needed for printing output, errors, FS traversal,...
+Import-Module Microsoft.PowerShell.Utility
+Import-Module Microsoft.PowerShell.Management
+
+# setup environment for package manifest script
+# each environment module must provide a `__main` and `__cleanup` functions
+switch ($ContainerType) {
+	Enable {Import-Module $PSScriptRoot\Enable\Env_Enable}
+	Install {Import-Module $PSScriptRoot\Install\Env_Install}
+	default {throw "Unknown container environment type: " + $_}
+}
+
+# override Import-Module to hide the default verbose prints when -Verbose is set for the container environment
+$_OrigImport = Get-Command Import-Module
+function global:Import-Module {
+	# $VerbosePreference is set globally in container.ps1, so we'd need to overwrite it, and then set it back,
+	#  as it interacts weirdly with -Verbose:$false, which apparently doesn't work here for some reason;
+	#  it seems as the cleanest solution to do `4>$null`, which just hides the Verbose stream alltogether
+	& $_OrigImport @Args 4>$null
+}
+
 
 # copy preference variables from outside
 $PreferenceVariables.GetEnumerator() | % {
@@ -42,7 +70,9 @@ Remove-Variable ManifestPath
 Remove-Variable InternalArguments
 Remove-Variable PreferenceVariables
 
+
 try {
+	# invoke the container module entry point, which invokes the manifest script itself
 	__main $this[$ContainerType] $PackageArguments
 } finally {
 	# this is called even on `exit`, which is nice
