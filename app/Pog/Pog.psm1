@@ -198,11 +198,7 @@ Export function Enable- {
 		$PackageParameters = @{},
 			# allows overriding existing commands without confirmation
 			[switch]
-		$AllowOverwrite,
-			<# If set, the package enable script does not run in an isolated PowerShell session.
-			   Only use this for debugging package manifests, this is NOT TESTED and probably WILL BREAK. #>
-			[switch]
-		$NoIsolation
+		$AllowOverwrite
 	)
 
 	dynamicparam {
@@ -241,7 +237,7 @@ Export function Enable- {
 		}
 
 		Confirm-Manifest $Manifest
-		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PackageParameters -NoIsolation:$NoIsolation
+		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		echo "Successfully enabled $PackageName."
 	}
 }
@@ -261,11 +257,7 @@ Export function Install- {
 			<# If set, files are downloaded with low priority, which results in better network
 			   responsiveness for other programs, but possibly slower download speed. #>
 			[switch]
-		$LowPriority,
-			<# If set, the package install script does not run in an isolated PowerShell session.
-			   Only use this for debugging package manifests, this is NOT TESTED and probably WILL BREAK. #>
-			[switch]
-		$NoIsolation
+		$LowPriority
 	)
 
 	dynamicparam {
@@ -306,7 +298,7 @@ Export function Install- {
 		}
 
 		Confirm-Manifest $Manifest
-		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PackageParameters -NoIsolation:$NoIsolation
+		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		echo "Successfully installed $PackageName."
 	}
 }

@@ -32,7 +32,7 @@ Import-Module Microsoft.PowerShell.Utility
 Import-Module Microsoft.PowerShell.Management
 
 # setup environment for package manifest script
-# each environment module must provide a `__main` and `__cleanup` functions
+# each environment module must provide functions `__main` and `__cleanup`
 switch ($ContainerType) {
 	Enable {Import-Module $PSScriptRoot\Enable\Env_Enable}
 	Install {Import-Module $PSScriptRoot\Install\Env_Install}
@@ -42,7 +42,7 @@ switch ($ContainerType) {
 # override Import-Module to hide the default verbose prints when -Verbose is set for the container environment
 $_OrigImport = Get-Command Import-Module
 function global:Import-Module {
-	# $VerbosePreference is set globally in container.ps1, so we'd need to overwrite it, and then set it back,
+	# $VerbosePreference is set globally below, so we'd need to overwrite it, and then set it back,
 	#  as it interacts weirdly with -Verbose:$false, which apparently doesn't work here for some reason;
 	#  it seems as the cleanest solution to do `4>$null`, which just hides the Verbose stream alltogether
 	& $_OrigImport @Args 4>$null
@@ -54,9 +54,7 @@ $PreferenceVariables.GetEnumerator() | % {
 	Set-Variable -Name $_.Name -Value $_.Value
 }
 # create global constant from internal arguments
-# we use ReadOnly instead of Constant so that we can remove this variable
-#  afterwards in case we're not running in a separate job/runspace
-Set-Variable -Scope Global -Option ReadOnly -Name "_InternalArgs" -Value $InternalArguments
+Set-Variable -Scope Global -Option Constant -Name "_InternalArgs" -Value $InternalArguments
 
 # TOCTOU issue, check Invoke-Container for details
 $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
@@ -81,10 +79,4 @@ try {
 	Write-Debug "Cleaning up..."
 	__cleanup
 	Write-Debug "Cleanup finished."
-
-	# cleanup custom functions and variables – this is necessary when running the container without isolation
-	# remove the overriden Import-Module function (defined above)
-	Remove-Item Function:\Import-Module
-	# remove the read-only _InternalArgs variable
-	Remove-Variable -Force "_InternalArgs" -Scope Global
 }
