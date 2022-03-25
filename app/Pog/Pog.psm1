@@ -9,27 +9,27 @@ Import-Module $PSScriptRoot"\container\Invoke-Container"
 
 
 class ImportedPackageName : System.Management.Automation.IValidateSetValuesGenerator {
-    [String[]] GetValidValues() {
-        return ls $script:PACKAGE_ROOTS -Directory | select -ExpandProperty Name
-    }
+	[String[]] GetValidValues() {
+		return ls $script:PACKAGE_ROOTS -Directory | select -ExpandProperty Name
+	}
 }
 
 class RepoPackageName : System.Management.Automation.IValidateSetValuesGenerator {
-    [String[]] GetValidValues() {
-        return ls $script:MANIFEST_REPO -Directory | select -ExpandProperty Name
-    }
+	[String[]] GetValidValues() {
+		return ls $script:MANIFEST_REPO -Directory | select -ExpandProperty Name
+	}
 }
 
 class RepoManifestGeneratorName : System.Management.Automation.IValidateSetValuesGenerator {
-    [String[]] GetValidValues() {
-        return ls $script:MANIFEST_GENERATOR_REPO -Directory | select -ExpandProperty Name
-    }
+	[String[]] GetValidValues() {
+		return ls $script:MANIFEST_GENERATOR_REPO -Directory | select -ExpandProperty Name
+	}
 }
 
 class PackageRoot : System.Management.Automation.IValidateSetValuesGenerator {
-    [String[]] GetValidValues() {
+	[String[]] GetValidValues() {
 		return $script:PACKAGE_ROOTS + $script:UNRESOLVED_PACKAGE_ROOTS
-    }
+	}
 }
 
 
@@ -142,12 +142,13 @@ Export function Remove-Root {
 }
 
 
-<# Remove cached package archives older than the provided date.
-   TODO: Show actual package name and version here, not the file name (which may be quite random).
-    Probably write a metadata file into the directory when creating the cache entry.
-	Issue: In the improbable case of multiple packages using the same cache entry,
-	we must append to the cache entry metadata file, not overwrite
-   #>
+<#
+	Remove cached package archives older than the provided date.
+	TODO: Show actual package name and version here, not the file name (which may be quite random).
+	 Probably write a metadata file into the directory when creating the cache entry.
+	 Issue: In the improbable case of multiple packages using the same cache entry,
+	 we must append to the cache entry metadata file, not overwrite
+ #>
 Export function Clear-DownloadCache {
 	[CmdletBinding(DefaultParameterSetName = "Days")]
 	param(
@@ -514,7 +515,7 @@ function RetrievePackageVersions($PackageName, $GenDir) {
 # TODO: run this inside a container
 # TODO: set working directory of the generator script to the target dir?
 <# Generates manifests for new versions of the package. First checks for new versions,
-    then calls the manifest generator for each version. #>
+   then calls the manifest generator for each version. #>
 Export function Update-Manifest {
 	[CmdletBinding()]
 	param(
