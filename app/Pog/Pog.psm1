@@ -5,7 +5,7 @@ Import-Module $PSScriptRoot"\Paths"
 Import-Module $PSScriptRoot"\lib\Utils"
 Import-Module $PSScriptRoot"\Common"
 Import-Module $PSScriptRoot"\Confirmations"
-Import-Module $PSScriptRoot"\Invoke-Container"
+Import-Module $PSScriptRoot"\container\Invoke-Container"
 
 
 class ImportedPackageName : System.Management.Automation.IValidateSetValuesGenerator {

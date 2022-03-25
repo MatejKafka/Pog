@@ -1,8 +1,8 @@
 # Requires -Version 7
-. $PSScriptRoot\lib\header.ps1
+. $PSScriptRoot\..\lib\header.ps1
 
-Import-Module $PSScriptRoot"\Paths"
-Import-Module $PSScriptRoot"\lib\Utils"
+Import-Module $PSScriptRoot"\..\Paths"
+Import-Module $PSScriptRoot"\..\lib\Utils"
 
 
 enum ContainerType {
@@ -121,7 +121,7 @@ Export function Invoke-Container {
 		# the indirect scriptblock creation is used to avoid https://github.com/PowerShell/PowerShell/issues/15096
 		#  and have a correct $PSScriptRoot inside the container
 		$ContainerJob = Start-Job -WorkingDirectory $WorkingDirectory `
-				-ScriptBlock ([ScriptBlock]::Create(". $PSScriptRoot\container\container.ps1 `@Args")) `
+				-ScriptBlock ([ScriptBlock]::Create(". $PSScriptRoot\container.ps1 `@Args")) `
 				-ArgumentList $ContainerArgs 
 
 		try {
@@ -147,9 +147,10 @@ Export function Invoke-Container {
 
 		Push-Location $WorkingDirectory -StackName PogContainerInvoke
 		try {
-			& "$PSScriptRoot\container\container.ps1" @ContainerArgs
+			& "$PSScriptRoot\container.ps1" @ContainerArgs
 		} finally {
 			Pop-Location -StackName PogContainerInvoke
 		}
 	}
 }
+
