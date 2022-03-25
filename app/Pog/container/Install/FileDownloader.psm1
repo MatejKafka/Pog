@@ -16,73 +16,56 @@ public enum UserAgentType {
 }
 '@
 
-function DownloadFile($SrcUrl, $TargetDir, [UserAgentType]$UserAgent, [switch]$NoBITSDownload) {
-	Write-Debug "Downloading file from '$SrcUrl' to directory '$TargetDir'."
+<#
+	Downloads the file from $SrcUrl to $TargetDir.
 
-	# in case other parameters are added, figure out if they can be passed to Start-BitsTransfer, or just Invoke-WebRequest
-	$Params = @{}
+	BITS transfer (https://docs.microsoft.com/en-us/windows/win32/bits/about-bits)
+	is used for download. Originally, Invoke-WebRequest was used in some cases,
+	and it was potentially faster for small files for cold downloads (BITS service
+	takes some time to initialize when not used for a while), but the added complexity
+	does not seem to be worth it.
+ #>
+function DownloadFile($SrcUrl, $TargetDir, [UserAgentType]$UserAgent) {
+	Write-Verbose "Downloading file from '$SrcUrl' to directory '$TargetDir'."
+
+	# set BITS download arguments
+	$BitsParams = @{
+		Source = $SrcUrl
+		Destination = $TargetDir
+		Priority = if ($global:_InternalArgs.DownloadLowPriority) {"Low"} else {"Foreground"}
+		Description = "Downloading file from '$SrcUrl' to '$TargetDir'..."
+		# passing -Dynamic allows BITS to communicate with badly-mannered servers that don't
+		#  support HEAD requests, Content-Length headers,...;
+		#  see https://docs.microsoft.com/en-us/windows/win32/api/bits5_0/ne-bits5_0-bits_job_property_id),
+		#  section BITS_JOB_PROPERTY_DYNAMIC_CONTENT
+		Dynamic = $true
+	}
+
+	# user-agent override
 	switch ($UserAgent) {
 		PowerShell {}
 		Browser {
-			Write-Debug "Using fake browser user agent."
-			$Params.UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::FireFox
+			Write-Debug "Using fake browser (Firefox) user agent."
+			$BitsParams.CustomHeaders = "User-Agent: " + [Microsoft.PowerShell.Commands.PSUserAgent]::FireFox
 		}
 		Wget {
 			Write-Debug "Using fake wget user agent."
-			$Params.UserAgent = "Wget/1.20.3 (linux-gnu)"
+			$BitsParams.CustomHeaders = "User-Agent: Wget/1.20.3 (linux-gnu)"
 		}
 	}
 
-	# first, find the real download URL and some useful metadata
-	$Res = Invoke-WebRequest $SrcUrl -Method Head -SkipHttpErrorCheck @Params
-	$RealUrl = $Res.BaseResponse.RequestMessage.RequestUri
+	# download the file
+	Start-BitsTransfer @BitsParams
 
-	# try to get the file name from Content-Disposition header, fallback to last segment of original URL
-	$FileName = if ($Res.Headers.ContainsKey("Content-Disposition")) {
-		[Net.Http.Headers.ContentDispositionHeaderValue]::Parse($Res.Headers.'Content-Disposition').FileName -replace '"', ""
-	} else {$null}
-
-	# FIXME: it's possible that the last segment of the URL is also empty (e.g. https://domain/dir_but_actually_archive/),
-	#  and then this fallback would also fail
-	if ([string]::IsNullOrWhiteSpace($FileName)) {
-		$FileName = ([uri]$SrcUrl).Segments[-1] # fallback
+	$DownloadedFile = ls $TargetDir
+	# this should always hold
+	if (@($DownloadedFile).Count -ne 1) {
+		throw "Pog download cache entry directory contains multiple, or no files. This is an internal error," +`
+			" it should never happen, and it seems Pog developers fucked something up. Plz send bug report."
 	}
 
-	$TargetPath = Join-Path $TargetDir $FileName
-
-	# we can use two different ways to download the file: BITS transfer, or direct download with Invoke-WebRequest
-	# BITS transfer has multiple advantages (better progress reporting, much faster, better error cleanup, priorities),
-	#  but it doesn't support custom HTTP User-Agent
-	# therefore, we use Invoke-WebRequest when custom User-Agent is set, and BITS otherwise 
-	if (-not $Params.ContainsKey("UserAgent") -and -not $NoBITSDownload) {
-		# we can use BITS
-		Write-Debug "Downloading file using BITS... (real URL: $RealUrl)"
-		$Description = "Downloading file from '$SrcUrl' to '$TargetPath'..."
-		$Priority = if ($global:_InternalArgs.DownloadLowPriority) {"Low"} else {"Foreground"}
-		Start-BitsTransfer $RealUrl -Destination $TargetPath -Priority $Priority -Description $Description
-	} else {
-		# we have to use Invoke-WebRequest, non-default user agent is required
-		Write-Debug "Downloading file using Invoke-WebRequest..."
-		if ($global:_InternalArgs.DownloadLowPriority) {
-			Write-Debug ("Ignoring -LowPriority download flag, because a custom user agent was requested" + `
-					" when calling Install-FromUrl, which is not available with BITS transfers yet.")
-		}
-		# when user presses Ctrl-C, finally blocks run, but catch blocks don't (imo, that's a weird design decision)
-		# however, we need to cleanup the file in case we are interrupted by Ctrl-C, or iwr fails in another way
-		#  (one would expect it to cleanup after itself like Start-BitsTransfer does, but apparently it doesn't, sigh)
-		# we use a boolean flag $IwrFinished to basically recreate a catch block that catches even Ctrl-C
-		$IwrFinished = $false
-		try {
-			Invoke-WebRequest $SrcUrl -OutFile $TargetPath @Params
-			$IwrFinished = $true
-		} finally {
-			if (-not $IwrFinished) {
-				rm -Force -LiteralPath $TargetPath -ErrorAction Ignore
-			}
-		}
-	}
-	Write-Debug "File downloaded."
-	return Get-Item $TargetPath
+	Write-Debug "File downloaded (URL: $SrcUrl)."
+	return $DownloadedFile
 }
 
 function GetFileHashWithProgressBar($File, $ProgressBarTitle = "Validating file hash") {

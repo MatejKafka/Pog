@@ -206,10 +206,6 @@ Export function Install-FromUrl {
 			   NOTE: NSIS installers may do some initial config, which is skipped when extracted directly. #>
 			[switch]
 		$NsisInstaller,
-			<# If passed, BITS download service is not used even if available and the target is downloaded using `Invoke-WebRequest`.
-			   This may be necessary when the server does not support HEAD HTTP requests and returns an error code when it receives such a request. #>
-			[switch]
-		$NoBITSDownload,
 			<# If passed, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted. #>
 			[switch]
 		$NoArchive
@@ -229,9 +225,8 @@ Export function Install-FromUrl {
 		rm -Recurse -Force $TMP_EXPAND_PATH
 	}
 
-
+	# these parameters are directly forwarded to the `DownloadFile` function in .\FileDownloader.psm1
 	$DownloadParams = @{
-		NoBITSDownload = [bool]$NoBitsDownload
 		UserAgent = $UserAgent
 	}
 
