@@ -34,7 +34,8 @@ function WriteInner($SubstitutePath, $ExePath, $SetWorkingDirectory) {
 			throw "Link working directory path is too long, max 1023 bytes are allowed (in UTF-8 encoding): $Wd"
 		}
 
-		$Leaf = Split-Path -Leaf $ExePath
+		# the ".\" is important, otherwise our substitute exe would happily run random commands from PATH with the same name
+		$Leaf = ".\" + (Split-Path -Leaf $ExePath)
 		$EncodedCmd = [Text.Encoding]::UTF8.GetBytes($Leaf)
 		if ($EncodedCmd.Count -gt 259) {
 			throw "Command target name is too long, max 259 bytes are allowed (in UTF-8 encoding): $Leaf"
@@ -130,7 +131,7 @@ function TestInner($Stream, $ExePath, $SetWorkingDirectory) {
 			Write-Debug "Substitute exe target working directory does not match."
 			return $false
 		}
-		$LeafMatches = CompareFileRegion $Stream $WITH_CMD_OFFSET (Split-Path -Leaf $ExePath)
+		$LeafMatches = CompareFileRegion $Stream $WITH_CMD_OFFSET (".\" + (Split-Path -Leaf $ExePath))
 		if (-not $LeafMatches) {
 			Write-Debug "Substitute exe target path does not match."
 		}
