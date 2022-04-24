@@ -4,4 +4,6 @@
             'allowlist' = @('cd', 'ls', 'rm', 'echo', 'select', 'sort', '?', '%')
         }
     }
+
+    ExcludeRules = 'PSAvoidUsingWriteHost'
 }

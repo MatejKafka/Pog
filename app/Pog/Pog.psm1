@@ -339,7 +339,7 @@ Export function Import- {
 			[string]
 		$Version = "latest",
 			[string]
-		$TargetName = $PackageName,
+		$TargetName,
 			[ValidateSet([PackageRoot])]
 			[string]
 		$TargetPackageRoot = $script:PACKAGE_ROOTS[0],
@@ -347,10 +347,19 @@ Export function Import- {
 		$AllowOverwrite
 	)
 
+	$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $PackageName)
+	# get the name from the repository, so that the casing is correct
+	$PackageName = $RepoPackageDir.Name	
+
+	if (-not $TargetName) {
+		# this must be done after the $PackageName update above
+		$TargetName = $PackageName
+	}
+
 	if ($Version -eq "latest") {
 		# find latest version
-		$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
-	} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
+		$Version = Get-LatestPackageVersion $RepoPackageDir
+	} elseif (-not (Test-Path (Join-Path $RepoPackageDir $Version))) {
 		throw "Unknown version of package '$PackageName': $Version"
 	}
 
@@ -359,7 +368,7 @@ Export function Import- {
 		throw "Validation of the repository manifest failed, refusing to import."
 	}
 
-	$SrcPath = Join-Path $script:MANIFEST_REPO $PackageName $Version
+	$SrcPath = Join-Path $RepoPackageDir $Version
 	$TargetPath = Join-Path $TargetPackageRoot $TargetName
 
 	if (Test-Path $TargetPath) {
