@@ -341,7 +341,7 @@ Export function Export-Shortcut {
 		Resolve-Path $TargetPath
 	} else {
 		# assume the target is a command in env:PATH
-		$Cmd = Get-Command -CommandType Application $TargetPath -ErrorAction SilentlyContinue
+		$Cmd = Get-Command -CommandType Application $TargetPath -TotalCount 1 -ErrorAction SilentlyContinue
 		if ($null -eq $Cmd) {
 			throw "Cannot create shortcut to command '$TargetPath', as no such command is known by the system (present in env:PATH)."
 		}
