@@ -28,8 +28,11 @@ Describe "DynamicParams" {
 
 	# broken: https://github.com/PowerShell/PowerShell/issues/13771
 	It "parsed parameter order is correct" {
+		# reset PS default parameters for this test
+		$PSDefaultParameterValues = @{}
+
 		$params = TestFn -SwitchParam "test1" "test2" "test3"
-		
+
 		$params.Keys | Should -HaveCount 4
 		$params.SwitchParam | Should -Be $true
 		@($params.Param1, $params.Param2, $params.Param3) | Should -BeExactly @("test1", "test2", "test3")

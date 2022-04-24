@@ -36,7 +36,7 @@ function Add-DynamicParam {
 
 	# create the dictionary (should contain all created dynamic params, returned from dynamicparam block)
 	if ($null -eq $ParameterDictionary) {
-		$ParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+		$ParameterDictionary = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
 	}
 	$ParameterDictionary.Add($RuntimeParameter.Name, $RuntimeParameter)
 	return $ParameterDictionary
