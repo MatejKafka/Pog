@@ -9,7 +9,7 @@ Describe "Version parsing" {
 	}
 
 	AfterAll {
-		rm Function:ParseVersion
+		Remove-Item Function:ParseVersion
 	}
 	
 	It "parses PowerShell rc versions correctly" {
@@ -40,7 +40,7 @@ Describe "Version comparison" {
 	}
 
 	AfterAll {
-		rm Function:IsVersionGreater
+		Remove-Item Function:IsVersionGreater
 	}
 
 	It "correctly compares versions of different lengths" {
@@ -81,5 +81,15 @@ Describe "Version comparison" {
 		#  the comparison to multiple dash-separated groups without breaking
 		#  on some dev suffixes
 		IsVersionGreater "3.6-v3.7.1" "3.6-v3.7.1-b1" | Should -BeFalse
+	}
+
+	It "correctly compares 7zip versions" {
+		IsVersionGreater "2107" "1900" | Should -BeTrue
+		IsVersionGreater "2107" "2200" | Should -BeFalse
+	}
+
+	It "correctly compares Wireshark development versions" {
+		IsVersionGreater "3.7.0rc0-1634" "3.7.0rc0-1641" | Should -BeFalse
+		IsVersionGreater "3.7.0rc0-1640" "3.7.0rc0-1636" | Should -BeTrue
 	}
 }

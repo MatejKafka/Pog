@@ -3,14 +3,14 @@
 
 
 function PadArray([array]$arr, $length, $filler) {
-	while ($Arr.Count -lt $length) {
+	while (@($Arr).Count -lt $length) {
 		$Arr += @($filler)
 	}
 	return $Arr
 }
 
 function Zip($a1, $a2, $filler = $null) {
-	$l = [math]::Max($a1.Count, $a2.Count)
+	$l = [math]::Max(@($a1).Count, @($a2).Count)
 	$a1 = PadArray $a1 $l $filler
 	$a2 = PadArray $a2 $l $filler
 	for ($i = 0; $i -lt $l; $i += 1) {
