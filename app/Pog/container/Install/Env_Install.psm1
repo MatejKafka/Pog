@@ -197,6 +197,14 @@ Export function Install-FromUrl {
 			   Set this to `Wget` to use wget user agent string. #>
 			[UserAgentType]
 		$UserAgent = [UserAgentType]::PowerShell,
+			<#
+			If you need to modify the extracted archive (e.g. remove some files), pass a scriptblock, which receives
+			a path to the extracted directory as its only argument. All modifications to the extracted files should be
+			done in this scriptblock – this ensures that the ./app directory is not left in an inconsistent state
+			in case of a crash during installation.
+			#>
+			[ScriptBlock]
+		$SetupScript,
 			<# Pass this if the retrieved file is an NSIS installer
 			   Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
 			   NOTE: NSIS installers may do some initial config, which is skipped when extracted directly. #>
@@ -321,6 +329,11 @@ Export function Install-FromUrl {
 		}
 		rm -Recurse ./app/`$PLUGINSDIR
 		Write-Debug "Removed `$PLUGINSDIR directory from extracted NSIS installer archive."
+	}
+	if ($null -ne $SetupScript) {
+		# FIXME: move this to the correct place
+		# TODO: set working directory?
+		& $SetupScript (Resolve-Path ./app)
 	}
 
 	Write-Information "Package successfully installed from downloaded archive."
