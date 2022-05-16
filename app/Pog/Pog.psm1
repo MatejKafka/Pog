@@ -222,22 +222,28 @@ Export function Enable- {
 		} catch {
 			$CmdName = $MyInvocation.MyCommand.Name
 			throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
-					"Each parameter must present in at most one of these: " + $_
+					"Each parameter must be present in at most one of these: " + $_
 		}
 
+		Confirm-Manifest $Manifest
+
 		if ($Manifest.ContainsKey("Private") -and $Manifest.Private) {
-			echo "Enabling private package $PackageName..."
+			if ($Manifest.ContainsKey("Enable")) {
+				echo "Enabling private package '$PackageName'..."
+			} else {
+				echo "Private package '$PackageName' does not have an enabler script."
+				return
+			}
 		} elseif ($Manifest.Name -eq $PackageName) {
-			echo "Enabling package $($Manifest.Name), version $($Manifest.Version)..."
+			echo "Enabling package '$($Manifest.Name)', version '$($Manifest.Version)'..."
 		} else {
-			echo "Enabling package $($Manifest.Name) (installed as $PackageName), version $($Manifest.Version)..."
+			echo "Enabling package '$($Manifest.Name)' (installed as '$PackageName'), version '$($Manifest.Version)'..."
 		}
 
 		$InternalArgs = @{
 			AllowOverwrite = [bool]$AllowOverwrite
 		}
 
-		Confirm-Manifest $Manifest
 		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		echo "Successfully enabled $PackageName."
 	}
@@ -281,12 +287,19 @@ Export function Install- {
 		} catch {
 			$CmdName = $MyInvocation.MyCommand.Name
 			throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
-					"Each parameter must present in at most one of these: " + $_
+					"Each parameter must be present in at most one of these: " + $_
 		}
+
+		Confirm-Manifest $Manifest
 
 		# Name is not required for private packages
 		if ("Name" -notin $Manifest.Keys) {
-			echo "Installing private package '$PackageName'..."
+			if ($Manifest.ContainsKey("Install")) {
+				echo "Installing private package '$PackageName'..."
+			} else {
+				echo "Private package '$PackageName' does not have an installation script."
+				return
+			}
 		} elseif ($Manifest.Name -eq $PackageName) {
 			echo "Installing package '$($Manifest.Name)', version '$($Manifest.Version)'..."
 		} else {
@@ -298,7 +311,6 @@ Export function Install- {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Confirm-Manifest $Manifest
 		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		echo "Successfully installed $PackageName."
 	}
