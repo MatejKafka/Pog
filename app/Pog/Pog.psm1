@@ -427,12 +427,11 @@ Export function Get-Manifest {
 	return Get-ManifestPath (Join-Path $script:MANIFEST_REPO $PackageName $Version)
 }
 
-function FillManifestTemplate($PackageName, $Version) {
-	$Manifest = Get-Content -Raw $RESOURCE_DIR\manifest_template.txt
-	return $Manifest -f @(
-		$PackageName.Replace("``", '``').Replace('"', '`"')
-		$Version.Replace("``", '``').Replace('"', '`"')
-	)
+function FillManifestTemplate($PackageName, $Version, $ManifestTemplatePath) {
+	$Manifest = Get-Content -Raw $ManifestTemplatePath
+	$Manifest = $Manifest.Replace("'{{NAME}}'", "'" + $PackageName.Replace("'", "''") + "'")
+	$Manifest = $Manifest.Replace("'{{VERSION}}'", "'" + $Version.Replace("'", "''") + "'")
+	return $Manifest
 }
 
 Export function New-Manifest {
@@ -463,7 +462,8 @@ Export function New-Manifest {
 		}
 
 		$ManifestPath = Join-Path $ManifestDir $MANIFEST_PATHS[0]
-		return New-Item -Path $ManifestPath -Value (FillManifestTemplate $PackageName $Version)
+		$TemplatePath = "$RESOURCE_DIR\repository_manifest_template.psd1"
+		return New-Item -Path $ManifestPath -Value (FillManifestTemplate $PackageName $Version $TemplatePath)
 	}
 }
 
@@ -489,7 +489,7 @@ Export function New-DirectManifest {
 			throw "Package $PackageName already has a manifest at '$ManifestPath'."
 		}
 
-		return Copy-Item $RESOURCE_DIR\manifest_template_direct.psd1 $ManifestPath -PassThru
+		return Copy-Item $RESOURCE_DIR\direct_manifest_template.psd1 $ManifestPath -PassThru
 	}
 }
 

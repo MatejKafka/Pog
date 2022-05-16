@@ -1,3 +1,4 @@
-manifest_template.txt is used as a PS format string, which is why the curly braces are doubled
+repository_manifest_template.psd1 is a template, the strings `{{NAME}}` and `{{VERSION}}` are replaced with the respective values when creating a new manifest.
+NOTE that the template placeholders must be wrapped in single quotes, not double quotes
 
-manifest_template_direct.psd1 is copied directly, so it is a valid .psd1 file
+direct_manifest_template.psd1 is copied directly without any changes.
