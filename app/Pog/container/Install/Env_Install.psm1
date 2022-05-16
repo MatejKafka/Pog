@@ -192,10 +192,6 @@ Export function Install-FromUrl {
 			<# If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored. #>
 			[string]
 		$Subdirectory = "",
-			<# Force the cmdlet to use 7z.exe binary to extract the archive.
-			   If not set, 7z.exe will be used for .7z and .7z.exe archives, and builtin Expand-Archive cmdlet for others. #>
-			[switch]
-		$Force7zip,
 			<# Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
 			   Set this to `Browser` to use a browser user agent string (currently Firefox).
 			   Set this to `Wget` to use wget user agent string. #>
@@ -210,11 +206,6 @@ Export function Install-FromUrl {
 			[switch]
 		$NoArchive
 	)
-
-	if ($NsisInstaller) {
-		Write-Debug "Passed '-NsisInstaller', automatically applying `-Force7zip`."
-		$Force7zip = $true
-	}
 
 	if ($Subdirectory -and $NoArchive) {
 		throw "Install-FromUrl: Both -Subdirectory and -NoArchive arguments were passed, at most one may be passed."
@@ -277,7 +268,7 @@ Export function Install-FromUrl {
 				-ExpectedHash $ExpectedHash.ToUpper() -DownloadParams $DownloadParams
 		Write-Debug "File correctly retrieved, expanding to '$TMP_EXPAND_PATH'..."
 		if (-not $NoArchive) {
-			ExtractArchive $DownloadedFile $TMP_EXPAND_PATH -Force7zip:$Force7zip
+			ExtractArchive $DownloadedFile $TMP_EXPAND_PATH
 		} else {
 			$null = New-Item -Type Directory $TMP_EXPAND_PATH
 			Copy-Item $DownloadedFile $TMP_EXPAND_PATH
@@ -291,7 +282,7 @@ Export function Install-FromUrl {
 		$TmpDir, $DownloadedFile = Invoke-TmpFileDownload $SrcUrl -DownloadParams $DownloadParams
 		if (-not $NoArchive) {
 			try {
-				ExtractArchive $DownloadedFile $TMP_EXPAND_PATH -Force7zip:$Force7zip
+				ExtractArchive $DownloadedFile $TMP_EXPAND_PATH
 			} finally {
 				# remove the temporary dir (including the file) after we finish
 				Remove-Item -Recurse $TmpDir
