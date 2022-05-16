@@ -356,11 +356,16 @@ Export function Import- {
 		$TargetName = $PackageName
 	}
 
-	if ($Version -eq "latest") {
+	if ($Version -eq "latest" -or $Version -eq "") {
 		# find latest version
 		$Version = Get-LatestPackageVersion $RepoPackageDir
-	} elseif (-not (Test-Path (Join-Path $RepoPackageDir $Version))) {
-		throw "Unknown version of package '$PackageName': $Version"
+	} else {
+		if ($Version.Contains("/") -or $Version.Contains("/") -or $Version -eq "." -or $Version -eq "..") {
+			throw "Invalid package version, must be a valid directory name: $Version"
+		}
+		if (-not (Test-Path (Join-Path $RepoPackageDir $Version))) {
+			throw "Unknown version of package '$PackageName': $Version"
+		}
 	}
 
 	Write-Verbose "Validating the manifest before importing..."
