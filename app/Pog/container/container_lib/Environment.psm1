@@ -108,6 +108,9 @@ Export function Add-EnvVar {
 
 	if ($OldValue.Split([IO.Path]::PathSeparator).Contains($Value)) {
 		Write-Verbose "Value '$Value' already present in 'env:$VarName' $TargetReadable."
+		# the var might be set in system, but our process might have the old/no value
+		# this ensures that after this call, value of $env:VarName is up to date
+		Update-EnvVar $VarName
 		return
 	}
 
