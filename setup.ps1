@@ -1,5 +1,9 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
 # this module only uses library functions, so it is safe to import even during setup
-Import-Module "./app/Pog/container/Environment"
+Import-Module $PSScriptRoot/app/Pog/container/container_lib/Environment
+
 
 function newdir($Dir) {
     $Dir = Join-Path $PSScriptRoot $Dir
