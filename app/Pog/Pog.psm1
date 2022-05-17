@@ -164,24 +164,49 @@ Export function Clear-DownloadCache {
 		$DateBefore = [DateTime]::Now.AddDays(-$DaysBefore)
 	}
 
-	$RemovedEntries = ls -Directory $DOWNLOAD_CACHE_DIR | ? {$_.LastWriteTime -le $DateBefore}
+	$SizeSum = 0
+	$CacheEntries = ls -Directory $DOWNLOAD_CACHE_DIR | % {
+		$SourceFile = Get-Item "$_.json" -ErrorAction Ignore
+		$LastAccessTime = if ($SourceFile) {$SourceFile.LastWriteTime} else {$_.LastWriteTime}
 
-	if (@($RemovedEntries).Count -eq 0) {
+		if ($LastAccessTime -gt $DateBefore) {
+			return # recently used entry, don't delete
+		}
+
+		# read cache entry sources from the metadata file
+		$SourceStr = try {
+			Get-Content -Raw $SourceFile | ConvertFrom-Json -AsHashtable | % {
+				$_.PackageName + $(if ($_.ManifestVersion) {" $($_.ManifestVersion)"})
+			} | Join-String -Separator ", "
+		} catch {$null}
+
+		$CachedFile = ls -File $_
+		$SizeSum += $CachedFile.Length
+		return @{
+			EntryDirectory = $_
+			SourceFile = $SourceFile
+			SourceStr = $SourceStr
+			EntryName = $CachedFile.Name
+			EntrySize = $CachedFile.Length
+		}
+	}
+
+	if (@($CacheEntries).Count -eq 0) {
 		throw "No cached package archives downloaded before '$($DateBefore.ToString())' found."
 	}
 
-	$SizeSum = 0
-	$RemovedEntries |
-		% {ls -File $_} |
-		sort Length -Descending |
-		% {$SizeSum += $_.Length; echo $_} |
-		% {"{0,10:F2} MB - {1}" -f @(($_.Length / 1MB), $_.Name)}
+	# print the cache entry list
+	$CacheEntries | sort EntrySize -Descending | % {
+		Write-Host ("{0,10:F2} MB - {1}" -f @(
+			($_.EntrySize / 1MB),
+			$(if ($_.SourceStr) {$_.SourceStr} else {$_.EntryName})))
+	}
 
 	$Title = "Remove the listed package archives, freeing ~{0:F} GB of space?" -f ($SizeSum / 1GB)
 	$Message = "This will not affect installed applications. Reinstallation of an application may take longer," + `
-		" as the package will have to be downloaded again."
+		" as it will have to be downloaded again."
 	if (Confirm-Action $Title $Message) {
-		$RemovedEntries | rm -Recurse
+		$CacheEntries | % {$_.EntryDirectory; $_.SourceFile} | ? {Test-Path $_} | Remove-Item -Recurse -Force
 	} else {
 		echo "No package archives were removed."
 	}

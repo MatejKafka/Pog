@@ -1,6 +1,7 @@
 # Requires -Version 7
 . $PSScriptRoot\..\..\lib\header.ps1
 Import-Module $PSScriptRoot\..\..\Paths
+Import-Module $PSScriptRoot\..\..\lib\Utils
 
 # allows downloading files using BITS
 Import-Module BitsTransfer
@@ -82,6 +83,59 @@ function GetFileHashWithProgressBar($File, $ProgressBarTitle = "Validating file 
 	} finally {ShowProgress 100}
 }
 
+<#
+	Adds the current package to the cache entry metadata file, or creates it if it doesn't exist.
+
+	To avoid potential file name conflicts, the metadata file is not inside the cache entry directory,
+	but at the same level, with the same name and an additional extension (so for entry at `CACHE_DIR\<hash>`,
+	the metadata file will be located at `CACHE_DIR\<hash>.json`).
+
+	LastWriteTime of the metadata file reflects the last time the cache entry was used.
+
+	FIXME: The metadata file is currently update on a best-effort basis, and it's possible that if some operation
+	 fails, the content will not be up-to-date. Go through all code paths and figure out how to make it robust.
+ #>
+function SetCacheEntryMetadataFile($CacheEntryDirectory) {
+	$MetadataFilePath = $CacheEntryDirectory + ".json"
+	[array]$Sources = @()
+	if (Test-Path $MetadataFilePath) {
+		# load the current content
+		$Content = Get-Content -Raw $MetadataFilePath
+		try {
+			$Sources = ConvertFrom-Json $Content -AsHashtable -NoEnumerate
+		} catch {
+			Write-Warning "Download cache entry metadata file is not a valid JSON file, deleting..." +`
+					" (Path: '$MetadataFilePath')"
+			rm -Force $MetadataFilePath
+		}
+	}
+
+	$Manifest = $global:_Pog.Manifest
+	$NewEntry = @{
+		PackageName = $global:_Pog.PackageName
+		PackageDirectory = [string]$global:_Pog.PackageDirectory
+		ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
+		ManifestVersion = if ($Manifest.ContainsKey("Version")) {$Manifest.Version} else {$null}
+	}
+
+	# check if the entry is already contained
+	foreach ($Source in $Sources) {
+		if (-not (Compare-Hashtable $NewEntry $Source)) {
+			# our entry is already contained (probably reinstalling a package), nothing to do
+			Write-Debug "Download cache entry metadata file already contains the current package."
+			$File = Get-Item $MetadataFilePath
+			# we used this cache entry, refresh last write time, even through the file did not change
+			$File.LastWriteTime = Get-Date
+			return $File
+		}
+	}
+	# add the new entry
+	Write-Debug "Updating download cache entry metadata file..."
+	$Sources += $NewEntry
+	$Sources | ConvertTo-Json -Depth 100 | Set-Content -Path $MetadataFilePath
+	return Get-Item $MetadataFilePath
+}
+
 function GetDownloadCacheEntry($Hash) {
 	# each cache entry is a directory named with the SHA256 hash of target file,
 	#  containing a single file with original name
@@ -111,6 +165,9 @@ function GetDownloadCacheEntry($Hash) {
 	}
 	Write-Debug "Cache entry hash validated."
 
+	# update the metadata file
+	$null = SetCacheEntryMetadataFile $DirPath
+
 	return $File
 }
 
@@ -132,6 +189,8 @@ function DownloadFileToCache {
 	if (Test-Path $DirPath) {
 		throw "Download cache already contains an entry for '$ExpectedHash' (from '$SrcUrl')."
 	}
+	# create the metadata file
+	$MetadataFile = SetCacheEntryMetadataFile $DirPath
 
 	try {
 		$null = New-Item -Type Directory $DirPath
@@ -147,7 +206,7 @@ function DownloadFileToCache {
 		return $File
 	} catch {
 		# not -ErrorAction Ignore, we want to have a log in $Error for debugging
-		rm -Recurse -Force -LiteralPath $DirPath -ErrorAction SilentlyContinue
+		rm -Recurse -Force -LiteralPath @($DirPath, $MetadataFile) -ErrorAction SilentlyContinue
 		throw
 	}
 }
@@ -156,6 +215,10 @@ function DownloadFileToCache {
 function MoveFileToCache($File, $Hash) {
 	$Hash = $Hash.ToUpper()
 	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $Hash
+
+	# create the metadata file
+	$null = SetCacheEntryMetadataFile $DirPath
+
 	if (Test-Path $DirPath) {
 		# already populated, just delete the new file
 		Write-Debug "Download cache already contains entry for hash '$Hash'."
