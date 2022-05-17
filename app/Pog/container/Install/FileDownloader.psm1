@@ -32,7 +32,7 @@ function DownloadFile($SrcUrl, $TargetDir, [UserAgentType]$UserAgent) {
 	$BitsParams = @{
 		Source = $SrcUrl
 		Destination = $TargetDir
-		Priority = if ($global:_InternalArgs.DownloadLowPriority) {"Low"} else {"Foreground"}
+		Priority = if ($global:_Pog.InternalArgs.DownloadLowPriority) {"Low"} else {"Foreground"}
 		Description = "Downloading file from '$SrcUrl' to '$TargetDir'..."
 		# passing -Dynamic allows BITS to communicate with badly-mannered servers that don't
 		#  support HEAD requests, Content-Length headers,...;

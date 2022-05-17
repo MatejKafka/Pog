@@ -53,15 +53,22 @@ function global:Import-Module {
 $PreferenceVariables.GetEnumerator() | % {
 	Set-Variable -Name $_.Name -Value $_.Value
 }
-# create global constant from internal arguments
-Set-Variable -Scope Global -Option Constant -Name "_InternalArgs" -Value $InternalArguments
 
 # TOCTOU issue, check Invoke-Container for details
 $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
 
-# this probably cannot be a constant, as it would break internal behavior
+# create an internal global constant from package data and internal arguments
+Set-Variable -Scope Global -Option Constant -Name "_Pog" -Value @{
+	# FIXME: it would be cleaner to pass this as an argument instead of recovering it from the working directory
+	PackageName = Split-Path -Leaf .
+	PackageDirectory = Get-Location
+	Manifest = $Manifest
+	InternalArgs = $InternalArguments
+}
+
+# $this probably cannot be constant, as it would break internal behavior
+# it is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
 Set-Variable -Name this -Value $Manifest
-Set-Variable -Name _ -Value $Manifest
 Set-Variable -Name ManifestRoot -Value (Resolve-Path -Relative (Split-Path $ManifestPath))
 
 # cleanup variables
