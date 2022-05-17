@@ -214,6 +214,10 @@ Export function Clear-DownloadCache {
 
 
 Export function Enable- {
+	# .SYNOPSIS
+	#	Enables an installed package to allow external usage.
+	# .DESCRIPTION
+	#	Enables an installed package, setting up required files and exporting public commands and shortcuts.
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
@@ -224,7 +228,7 @@ Export function Enable- {
 		$PackageParameters = @{},
 			# allows overriding existing commands without confirmation
 			[switch]
-		$AllowOverwrite
+		$Force
 	)
 
 	dynamicparam {
@@ -266,7 +270,7 @@ Export function Enable- {
 		}
 
 		$InternalArgs = @{
-			AllowOverwrite = [bool]$AllowOverwrite
+			AllowOverwrite = [bool]$Force
 		}
 
 		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PackageParameters
@@ -275,6 +279,11 @@ Export function Enable- {
 }
 
 Export function Install- {
+	# .SYNOPSIS
+	#	Downloads and extracts package files.
+	# .DESCRIPTION
+	#	Downloads and extracts package files, populating the ./app directory of the package. Downloaded files
+	#	are cached, so repeated installs only require internet connection for the initial download.
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
@@ -285,7 +294,7 @@ Export function Install- {
 		$PackageParameters = @{},
 			<# If set, allows overwriting current .\app directory in the package, if one exists. #>
 			[switch]
-		$AllowOverwrite,
+		$Force,
 			<# If set, files are downloaded with low priority, which results in better network
 			   responsiveness for other programs, but possibly slower download speed. #>
 			[switch]
@@ -332,7 +341,7 @@ Export function Install- {
 		}
 
 		$InternalArgs = @{
-			AllowOverwrite = [bool]$AllowOverwrite
+			AllowOverwrite = [bool]$Force
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
@@ -365,6 +374,8 @@ function ConfirmManifestOverwrite {
 }
 
 Export function Import- {
+	# .SYNOPSIS
+	#	Imports a package manifest from the repository.
 	[CmdletBinding(PositionalBinding = $false)]
 	Param(
 			[Parameter(Mandatory, Position = 0)]
@@ -380,8 +391,9 @@ Export function Import- {
 			[ValidateSet([PackageRoot])]
 			[string]
 		$TargetPackageRoot = $script:PACKAGE_ROOTS[0],
+			<# Overwrite an existing package without prompting for confirmation. #>
 			[switch]
-		$AllowOverwrite
+		$Force
 	)
 
 	$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $PackageName)
@@ -435,8 +447,8 @@ Export function Import- {
 			}
 		}
 
-		if (-not $AllowOverwrite -and -not (ConfirmManifestOverwrite $TargetName $TargetPackageRoot $Version $OrigManifest)) {
-			throw "There is already a package with name '$TargetName' in '$TargetPackageRoot'. Pass -AllowOverwrite to overwrite current manifest without confirmation."
+		if (-not $Force -and -not (ConfirmManifestOverwrite $TargetName $TargetPackageRoot $Version $OrigManifest)) {
+			throw "There is already a package with name '$TargetName' in '$TargetPackageRoot'. Pass -Force to overwrite the current manifest without confirmation."
 		}
 		echo "Overwriting previous package manifest..."
 		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | Remove-Item -Recurse

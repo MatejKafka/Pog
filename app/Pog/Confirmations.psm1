@@ -20,12 +20,14 @@ if (-not (Test-Path Variable:global:InteractiveHost)) {
 $script:Confirms = @{}
 
 
+# TODO: should we use ShouldProcess/ShouldContinue instead of a custom prompt?
 Export function Confirm-Action {
 	param(
 			[Parameter(Mandatory)]
 			[string]
 		$Title,
 			[Parameter(Mandatory)]
+			[AllowEmptyString()]
 			[string]
 		$Message,
 			# if passed, options "Yes to All" and "No to All" are added and stored
