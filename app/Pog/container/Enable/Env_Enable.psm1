@@ -92,21 +92,22 @@ function Set-Symlink {
 		$TargetPath
 	)
 
-	$LinkAbs = Resolve-VirtualPath $LinkPath
-	# this one must exist
-	$TargetAbs = Resolve-Path $TargetPath
+	# note that this returns the provider path (real FS path), not the PSDrive path
+	$LinkAbsPath = Resolve-VirtualPath $LinkPath
+	# this one must exist, FullName is also a real FS path
+	$Target = Get-Item $TargetPath
 
 	[string]$TargetStr = if ([System.IO.Path]::IsPathRooted($LinkPath) -or [System.IO.Path]::IsPathRooted($TargetPath)) {
 		# one of the paths is rooted, use absolute path for symlink
-		$TargetAbs
+		[string]$Target
 	} else {
 		# get relative path from $LinkPath to $TargetPath for symlink
 		# use parent of $LinkPath, as relative symlinks are resolved from parent dir
-		[IO.Path]::GetRelativePath((Split-Path $LinkAbs), $TargetAbs)
+		[IO.Path]::GetRelativePath((Split-Path $LinkAbsPath), $Target)
 	}
 
-	if (Test-Path $LinkAbs) {
-		$Item = Get-Item $LinkAbs
+	if (Test-Path $LinkAbsPath) {
+		$Item = Get-Item $LinkAbsPath
 		if ($Item.Target -eq $TargetStr) {
 			return $null # we already have a correct symlink
 		}
@@ -114,18 +115,17 @@ function Set-Symlink {
 		# not a correct item, delete and recreate
 		Remove-Item -Recurse $Item
 	} else {
-		Assert-ParentDirectory $LinkAbs
+		Assert-ParentDirectory $LinkAbsPath
 	}
 
-	Write-Debug "Creating symlink from '$LinkAbs' with target '$TargetStr'."
-	# New-Item -Type SymbolicLink has some dumb issues with relative paths - surprisingly, it seems safer to use mklink
-	#  see https://github.com/PowerShell/PowerShell/pull/12797#issuecomment-819169817
-	$null = if (Test-Path -Type Container $TargetAbs) {
-		cmd.exe /C mklink /D $LinkAbs $TargetStr
+	Write-Debug "Creating symlink from '$LinkAbsPath' with target '$TargetStr'."
+	# New-Item -Type SymbolicLink has a dumb issue with relative paths, so we use the .NET methods instead
+	#  https://github.com/PowerShell/PowerShell/issues/15235
+	if ($Target.PSIsContainer) {
+		return [System.IO.Directory]::CreateSymbolicLink($LinkAbsPath, $TargetStr)
 	} else {
-		cmd.exe /C mklink $LinkAbs $TargetStr
+		return [System.IO.File]::CreateSymbolicLink($LinkAbsPath, $TargetStr)
 	}
-	return Get-Item $LinkAbs
 }
 
 enum ItemType {File; Directory}

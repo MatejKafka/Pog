@@ -1,15 +1,29 @@
 # Requires -Version 7
-Import-Module $PSScriptRoot\Env_Enable.psm1
+
+BeforeAll {
+	$Module = Import-Module -Force $PSScriptRoot\Env_Enable.psm1 -PassThru
+	# reset possible globally set values
+	$script:PSDefaultParameterValues = @{}
+	$OrigInformationPreference = $global:InformationPreference
+	$global:InformationPreference = "SilentlyContinue"
+}
+
+AfterAll {
+	$global:InformationPreference = $OrigInformationPreference
+	Remove-Variable OrigInformationPreference
+	Remove-Module $Module
+	Remove-Variable Module
+}
 
 # FIXME: this doesn't trigger init and cleanup, which might be an issue
 
 Describe "Set-SymlinkedPath" {
 	BeforeAll {
-		cd TestDrive:
+		Push-Location TestDrive: -StackName PogTests
 	}
 
 	AfterAll {
-		Set-Location D:
+		Pop-Location -StackName PogTests
 	}
 
 	BeforeEach {
@@ -30,10 +44,10 @@ Describe "Set-SymlinkedPath" {
 		mkdir src/src_only
 		mkdir target/target_only
 
-		Set-SymlinkedPath .\src .\target -Directory -Merge
+		Set-SymlinkedPath .\src .\target Directory -Merge
 
 		(Get-Item .\src).LinkType | Should -Be "SymbolicLink"
-		(Get-Item .\src).Target | Should -Be ".\target"
+		(Get-Item .\src).Target | Should -Be "target"
 		(ls .\target).Name | Should -BeExactly @("dir1", "src_only", "target_only")
 		(ls .\target\dir1).Name | Should -BeExactly @("new_file")
 	}
@@ -46,10 +60,10 @@ Describe "Set-SymlinkedPath" {
 		mkdir src/src_only
 		mkdir target/target_only
 
-		Set-SymlinkedPath .\src .\target -Directory
+		Set-SymlinkedPath .\src .\target Directory
 
 		(Get-Item .\src).LinkType | Should -Be "SymbolicLink"
-		(Get-Item .\src).Target | Should -Be ".\target"
+		(Get-Item .\src).Target | Should -Be "target"
 		(ls .\target).Name | Should -BeExactly @("dir1", "target_only")
 		(ls .\target\dir1).Name | Should -BeExactly @("original")
 	}
@@ -59,12 +73,12 @@ Describe "Set-SymlinkedPath" {
 		mkdir target/dir1
 		ni target/dir1/original
 		rm src
-		$null = cmd /C mklink /D .\src .\target
+		$null = cmd /C mklink /D .\src target
 
-		Set-SymlinkedPath .\src .\target -Directory
+		Set-SymlinkedPath .\src .\target Directory
 
 		(Get-Item .\src).LinkType | Should -Be "SymbolicLink"
-		(Get-Item .\src).Target | Should -Be ".\target"
+		(Get-Item .\src).Target | Should -Be "target"
 		(ls .\target).Name | Should -BeExactly @("dir1", "target_only")
 		(ls .\target\dir1).Name | Should -BeExactly @("original")
 	}
