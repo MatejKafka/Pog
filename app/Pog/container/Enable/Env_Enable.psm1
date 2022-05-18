@@ -329,8 +329,15 @@ Export function Export-Shortcut {
 	# noop when not present
 	$null = $StaleShortcuts.Remove($ShortcutName)
 
-	# FIXME: this doesn't look correct (wrt whitespace escaping)
-	$Arguments = $Arguments -join " "
+	# shortcut takes all the arguments as a single string, so we need to quote it ourselves
+	# unfortunately, I don't believe there's an universal way that will work with all programs,
+	#  but this way of quoting and escaping nested quotes should work correctly for most programs:
+	#  https://stackoverflow.com/a/15262019
+	# fortunately, as quotes aren't a valid char for file/directory names, we shouldn't have to escape them too often
+	$Arguments = $Arguments `
+			| % {[string]$_} `
+			| % {if ($_.Contains(" ") -or $_.Contains("`t")) {'"' + ($_ -replace '"', '"""') + '"'} else {$_}} `
+			| Join-String -Separator " "
 
 	$Shell = New-Object -ComObject "WScript.Shell"
 	# Shell object has different CWD, have to resolve all paths
@@ -365,6 +372,7 @@ Export function Export-Shortcut {
 	if (".lnk" -eq (Split-Path -Extension $IconPath)) {
 		$Icon = $Shell.CreateShortcut($IconPath).IconLocation
 	} else {
+		# icon index 0 = first icon in the file
 		$Icon = [string]$IconPath + ",0"
 	}
 
