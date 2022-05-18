@@ -1,6 +1,12 @@
 # Requires -Version 7
+
 BeforeAll {
-	Import-Module -Force $PSScriptRoot\Utils.psm1
+	$Module = Import-Module -Force $PSScriptRoot\Utils.psm1 -PassThru
+}
+
+AfterAll {
+	Remove-Module $Module
+	Remove-Variable Module
 }
 
 Describe "DynamicParams" {
@@ -27,7 +33,7 @@ Describe "DynamicParams" {
 	}
 
 	# broken: https://github.com/PowerShell/PowerShell/issues/13771
-	It "parsed parameter order is correct" {
+	It "parsed parameter order is correct" -Skip {
 		# reset PS default parameters for this test
 		$PSDefaultParameterValues = @{}
 
