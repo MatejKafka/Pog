@@ -63,8 +63,7 @@ Export function Get-ManifestPath {
 		return $null
 	}
 	$PackageName = Split-Path $PackagePath -Leaf
-	throw ("Could not find manifest file for package '$PackageName'. " `
-			+ "Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
+	throw ("Could not find manifest file. Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
 }
 
 Export function Import-PackageManifestFile {

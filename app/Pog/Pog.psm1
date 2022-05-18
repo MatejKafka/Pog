@@ -440,7 +440,7 @@ Export function Import- {
 
 	Write-Verbose "Validating the manifest before importing..."
 	if (-not (Confirm-RepositoryPackage $PackageName $Version)) {
-		throw "Validation of the repository manifest failed, refusing to import."
+		throw "Validation of the repository manifest failed (see warnings above), refusing to import."
 	}
 
 	$SrcPath = Join-Path $RepoPackageDir $Version
@@ -657,12 +657,12 @@ Export function Update-Manifest {
 			# only generate manifests for versions that don't already exist, unless -Force is passed
 			$ExistingVersions = ls -Directory $ManifestDir | % {$_.Name}
 
-			$GeneratedVersions = RetrievePackageVersions $PackageName $GenDir
+			$GeneratedVersions = RetrievePackageVersions $PackageName $GenDir |
 				# if -Force was not passed, filter out versions with already existing manifest
-				| ? {$Force -or $_.Version -notin $ExistingVersions}
+				? {$Force -or $_.Version -notin $ExistingVersions} `
 				# if $Version was passed, filter out the versions; as the versions generated
 				#  by the script may have other metadata, we cannot use the versions passed in $Version directly
-				| ? {$null -eq $Version -or $_.Version -in $Version}
+				? {$null -eq $Version -or $_.Version -in $Version}
 
 
 			if ($null -ne $Version -and @($Version).Count -ne @($GeneratedVersions).Count) {
@@ -762,7 +762,8 @@ Export function Confirm-RepositoryPackage {
 			try {
 				$ManifestPath = Get-ManifestPath $_
 			} catch {
-				AddIssue "Could not find manifest for version '$Version' of package '$PackageName': $_"
+				AddIssue ("Could not find manifest '$PackageName', version '$Version': " +`
+ 						$_.ToString().Replace("`n", "`n    "))
 				return
 			}
 
@@ -776,7 +777,10 @@ Export function Confirm-RepositoryPackage {
 			try {
 				Confirm-Manifest $Manifest $PackageName $Version
 			} catch {
-				AddIssue "Validation of package manifest '$PackageName', version '$Version' from local repository failed: $_"
+				AddIssue ("Validation of package manifest '$PackageName', version '$Version' from local repository failed." +`
+						"`n    Path: $ManifestPath" +`
+						"`n" +`
+						"`n    " + $_.ToString().Replace("`t", "     - "))
 			}
 		}
 	}
