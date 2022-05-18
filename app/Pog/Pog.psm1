@@ -373,6 +373,27 @@ function ConfirmManifestOverwrite {
 	return Confirm-Action $Title $Message -ActionType "ManifestOverwrite"
 }
 
+# whew, that's a lot of types...
+class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter {
+	[System.Collections.Generic.IEnumerable[System.Management.Automation.CompletionResult]]
+	CompleteArgument(
+			[string]$CommandName, [string]$ParameterName, [string]$WordToComplete,
+			[System.Management.Automation.Language.CommandAst]$Ast,
+			[System.Collections.IDictionary]$BoundParameters
+	) {
+		$ResultList = [System.Collections.Generic.List[System.Management.Automation.CompletionResult]]::new()
+		$ResultList.Add("latest")
+		try {
+			$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $BoundParameters.PackageName)
+		} catch {
+			return $ResultList
+		}
+		ls $RepoPackageDir | % Name | ? {$_.StartsWith($WordToComplete)} |
+				% {New-PackageVersion $_} | sort -Descending | % {$ResultList.Add($_.ToString())}
+		return $ResultList
+	}
+}
+
 Export function Import- {
 	# .SYNOPSIS
 	#	Imports a package manifest from the repository.
@@ -382,8 +403,8 @@ Export function Import- {
 			[ValidateSet([RepoPackageName])]
 			[string]
 		$PackageName,
-			# TODO: add autocomplete
 			[Parameter(Position = 1)]
+			[ArgumentCompleter([ManifestVersionCompleter])]
 			[string]
 		$Version = "latest",
 			[string]
@@ -467,8 +488,8 @@ Export function Get-Manifest {
 			[ValidateSet([RepoPackageName])]
 			[string]
 		$PackageName,
-			# TODO: add autocomplete
 			[string]
+			[ArgumentCompleter([ManifestVersionCompleter])]
 		$Version = "latest"
 	)
 

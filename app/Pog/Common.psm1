@@ -10,6 +10,8 @@ Import-Module $PSScriptRoot"\lib\Utils"
 Import-Module $PSScriptRoot"\lib\VersionParser"
 Import-Module $PSScriptRoot"\lib\Convert-CommandParametersToDynamic"
 
+Export-ModuleMember -Function New-PackageVersion
+
 
 Export function Get-LatestPackageVersion {
 	param (
