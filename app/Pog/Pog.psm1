@@ -64,18 +64,18 @@ Export function Export-ShortcutsToStartMenu {
 	}
 
 	if (Test-Path $TargetDir) {
-		echo "Clearing previous Pog start menu entries..."
+		Write-Information "Clearing previous Pog start menu entries..."
 		Remove-Item -Recurse $TargetDir
 	}
 
-	echo "Exporting shortcuts to '$TargetDir'."
+	Write-Information "Exporting shortcuts to '$TargetDir'."
 	$null = New-Item -ItemType Directory $TargetDir
 
 	$ShortcutCount = ls $PACKAGE_ROOTS -Directory `
 		| ? {-not ($ExcludeUnderscoredPackages -and $_.Name.StartsWith("_"))} `
 		| % {Export-AppShortcuts $_.FullName $TargetDir} `
-		| measure -Sum | % Sum
-	echo "Exported $ShortcutCount shortcuts."
+		| Measure-Object -Sum | % Sum
+	Write-Information "Exported $ShortcutCount shortcuts."
 }
 
 
@@ -208,7 +208,7 @@ Export function Clear-DownloadCache {
 	if (Confirm-Action $Title $Message) {
 		$CacheEntries | % {$_.EntryDirectory; $_.SourceFile} | ? {Test-Path $_} | Remove-Item -Recurse -Force
 	} else {
-		echo "No package archives were removed."
+		Write-Host "No package archives were removed."
 	}
 }
 
@@ -224,6 +224,10 @@ Export function Enable- {
 			[ValidateSet([ImportedPackageName])]
 			[string]
 		$PackageName,
+			### Extra parameters to pass to the Enable script in the package manifest. For interactive usage,
+			### prefer to use the automatically generated parameters on this command (e.g. instead of passing
+			### `@{Arg = Value}` to this parameter, pass `--Arg Value` as a standard parameter to this cmdlet),
+			### which gives you autocomplete and name/type checking.
 			[Hashtable]
 		$PackageParameters = @{},
 			# allows overriding existing commands without confirmation
@@ -232,9 +236,10 @@ Export function Enable- {
 	)
 
 	dynamicparam {
-		if (-not $MyInvocation.BoundParameters.ContainsKey("PackageName")) {return}
+		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
 
-		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "_"
+		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "-"
+		# could not copy parameters (probably -PackageName not set yet)
 		if ($null -eq $CopiedParams) {return}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
@@ -258,15 +263,15 @@ Export function Enable- {
 
 		if ($Manifest.ContainsKey("Private") -and $Manifest.Private) {
 			if ($Manifest.ContainsKey("Enable")) {
-				echo "Enabling private package '$PackageName'..."
+				Write-Information "Enabling private package '$PackageName'..."
 			} else {
-				echo "Private package '$PackageName' does not have an enabler script."
+				Write-Information "Private package '$PackageName' does not have an enabler script."
 				return
 			}
 		} elseif ($Manifest.Name -eq $PackageName) {
-			echo "Enabling package '$($Manifest.Name)', version '$($Manifest.Version)'..."
+			Write-Information "Enabling package '$($Manifest.Name)', version '$($Manifest.Version)'..."
 		} else {
-			echo "Enabling package '$($Manifest.Name)' (installed as '$PackageName'), version '$($Manifest.Version)'..."
+			Write-Information "Enabling package '$($Manifest.Name)' (installed as '$PackageName'), version '$($Manifest.Version)'..."
 		}
 
 		$InternalArgs = @{
@@ -274,7 +279,7 @@ Export function Enable- {
 		}
 
 		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PackageParameters
-		echo "Successfully enabled $PackageName."
+		Write-Information "Successfully enabled $PackageName."
 	}
 }
 
@@ -286,34 +291,43 @@ Export function Install- {
 	#	are cached, so repeated installs only require internet connection for the initial download.
 	[CmdletBinding()]
 	param(
+			### Name of the package to install. This is the install name, not necessarily the manifest app name.
 			[Parameter(Mandatory)]
 			[ValidateSet([ImportedPackageName])]
 			[string]
 		$PackageName,
+			# TODO: remove this when removing the option to use scriptblock for the Install block
+
+			### Extra parameters to pass to the Install script in the package manifest. For interactive usage,
+			### prefer to use the automatically generated parameters on this command (e.g. instead of passing
+			### `@{Arg = Value}` to this parameter, pass `--Arg Value` as a standard parameter to this cmdlet),
+			### which gives you autocomplete and name/type checking.
 			[Hashtable]
 		$PackageParameters = @{},
-			<# If set, allows overwriting current .\app directory in the package, if one exists. #>
+			### If set, and some version of the package is already installed, prompt before overwriting
+			### with the current version according to the manifest.
 			[switch]
-		$Force,
-			<# If set, files are downloaded with low priority, which results in better network
-			   responsiveness for other programs, but possibly slower download speed. #>
+		$Confirm,
+			### If set, files are downloaded with low priority, which results in better network responsiveness
+			### for other programs, but possibly slower download speed.
 			[switch]
 		$LowPriority
 	)
 
 	dynamicparam {
-		if (-not $MyInvocation.BoundParameters.ContainsKey("PackageName")) {return}
+		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
 
-		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "_"
+		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "-"
 		if ($null -eq $CopiedParams) {return}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}
 
 	begin {
+		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
 		$PackagePath = Get-PackagePath $PackageName
 		$ManifestPath = Get-ManifestPath $PackagePath
-		$Manifest = Import-PackageManifestFile $ManifestPath
+		$Manifest = Import-PackageManifestFile $ManifestPath -NoUnwrap
 
 		$ForwardedParams = ExtractParamsFn $PSBoundParameters
 		try {
@@ -329,24 +343,24 @@ Export function Install- {
 		# Name is not required for private packages
 		if ("Name" -notin $Manifest.Keys) {
 			if ($Manifest.ContainsKey("Install")) {
-				echo "Installing private package '$PackageName'..."
+				Write-Information "Installing private package '$PackageName'..."
 			} else {
-				echo "Private package '$PackageName' does not have an installation script."
+				Write-Information "Private package '$PackageName' does not have an installation script."
 				return
 			}
 		} elseif ($Manifest.Name -eq $PackageName) {
-			echo "Installing package '$($Manifest.Name)', version '$($Manifest.Version)'..."
+			Write-Information "Installing package '$($Manifest.Name)', version '$($Manifest.Version)'..."
 		} else {
-			echo "Installing package '$($Manifest.Name)' (installed as '$PackageName'), version '$($Manifest.Version)'..."
+			Write-Information "Installing package '$($Manifest.Name)' (installed as '$PackageName'), version '$($Manifest.Version)'..."
 		}
 
 		$InternalArgs = @{
-			AllowOverwrite = [bool]$Force
+			AllowOverwrite = -not [bool]$Confirm
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
 		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PackageParameters
-		echo "Successfully installed $PackageName."
+		Write-Information "Successfully installed $PackageName."
 	}
 }
 
@@ -471,14 +485,14 @@ Export function Import- {
 		if (-not $Force -and -not (ConfirmManifestOverwrite $TargetName $TargetPackageRoot $Version $OrigManifest)) {
 			throw "There is already a package with name '$TargetName' in '$TargetPackageRoot'. Pass -Force to overwrite the current manifest without confirmation."
 		}
-		echo "Overwriting previous package manifest..."
+		Write-Information "Overwriting previous package manifest..."
 		$script:MANIFEST_CLEANUP_PATHS | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | Remove-Item -Recurse
 	} else {
 		$null = New-Item -Type Directory $TargetPath
 	}
 
 	ls $SrcPath | Copy-Item -Destination $TargetPath -Recurse
-	echo "Initialized '$TargetPath' with package manifest '$PackageName' (version $Version)."
+	Write-Information "Initialized '$TargetPath' with package manifest '$PackageName' (version $Version)."
 }
 
 Export function Get-Manifest {
@@ -497,7 +511,7 @@ Export function Get-Manifest {
 		# find latest version
 		$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
 	} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
-		throw "Unknown version of package ${PackageName}: $Version"
+		throw "Unknown version of package '$PackageName': $Version"
 	}
 	return Get-ManifestPath (Join-Path $script:MANIFEST_REPO $PackageName $Version)
 }
@@ -596,7 +610,7 @@ function RetrievePackageVersions($PackageName, $GenDir) {
 		}
 }
 
-# TODO: run this inside a container
+# TODO: run this inside a container (make sure VersionParser module is available inside it)
 # TODO: set working directory of the generator script to the target dir?
 <# Generates manifests for new versions of the package. First checks for new versions,
    then calls the manifest generator for each version. #>
@@ -775,7 +789,7 @@ Export function Confirm-RepositoryPackage {
 			}
 
 			try {
-				Confirm-Manifest $Manifest $PackageName $Version
+				Confirm-Manifest $Manifest $PackageName $Version -IsRepositoryManifest
 			} catch {
 				AddIssue ("Validation of package manifest '$PackageName', version '$Version' from local repository failed." +`
 						"`n    Path: $ManifestPath" +`
@@ -790,7 +804,7 @@ Export function Confirm-RepositoryPackage {
 	}
 }
 
-# TODO: expand to really check whole package, not just manifest
+# TODO: expand to really check whole package, not just manifest, then update Install- and Enable- to use this instead of Confirm-Manifest
 Export function Confirm-Package {
 	[CmdletBinding()]
 	param(

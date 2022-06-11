@@ -6,6 +6,8 @@
 
 - https://doc.rust-lang.org/cargo/reference/manifest.html
 
+- https://opensource.com/article/18/7/evolution-package-managers
+
 ## GitHub API
 
 list packages in repo:

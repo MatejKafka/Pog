@@ -68,7 +68,8 @@ Export function Get-ManifestPath {
 
 Export function Import-PackageManifestFile {
 	param(
-		[Parameter(Mandatory)]$ManifestPath
+		[Parameter(Mandatory)]$ManifestPath,
+		[switch]$NoUnwrap
 	)
 
 	if (-not (Test-Path -Type Leaf $ManifestPath)) {
@@ -76,7 +77,15 @@ Export function Import-PackageManifestFile {
 	}
 
 	try {
-		return Import-PowerShellDataFile $ManifestPath
+		# PowerShell has a bug where it double wraps script blocks in .psd1 files: https://github.com/PowerShell/PowerShell/issues/12789
+		# to avoid this issue, we first import the manifest using Import-PowerShellDataFile to check that it's valid,
+		# and then evaluate if using Invoke-Expression to get the actual manifest
+		$Manifest = Import-PowerShellDataFile $ManifestPath
+		if ($NoUnwrap) {
+			return $Manifest
+		} else {
+			return Invoke-Expression (Get-Content -Raw $ManifestPath)
+		}
 	} catch {
 		# TODO: better error messages (there's an open issue for that)
 		throw [Exception]::new("Could not load package manifest from '$ManifestPath', " +`
@@ -99,9 +108,8 @@ Export function Copy-ManifestParameters {
 			[Parameter(Mandatory, ParameterSetName = "ScriptBlock")]
 			[ScriptBlock]
 		$ScriptBlock,
-			[Parameter(Mandatory)]
 			[string]
-		$NamePrefix
+		$NamePrefix = ""
 	)
 
 	if ($PSCmdlet.ParameterSetName -eq "PackageName") {
@@ -122,16 +130,12 @@ Export function Copy-ManifestParameters {
 			}
 		}
 
-		# we execute the manifest script block, as powershell has a bug where it double wraps it for some reason
-		#  see https://github.com/PowerShell/PowerShell/issues/12789
-		# when this bug is fixed, this will break; it also needs to be fixed in container/container.ps1
-		$Sb = & $Manifest[$PropertyName]
+		$Sb = $Manifest[$PropertyName]
 	} else {
-		# see above
-		$Sb = & $ScriptBlock
+		$Sb = $ScriptBlock
 	}
 
-	# we cannot extract parameters directly from scriptblock
+	# we cannot extract parameters directly from a scriptblock
 	# instead, we'll turn it into a temporary function and use Get-Command to read the parameters
 	# see https://github.com/PowerShell/PowerShell/issues/13774
 
@@ -159,6 +163,41 @@ Export function Copy-ManifestParameters {
 }
 
 
+function Confirm-ManifestInstallHashtable($InstallBlock) {
+	$I = $InstallBlock
+	$Issues = @()
+	# TODO: better checking (currently, only SourceUrl/Url and ExpectedHash/Hash are checked, and other keys are ignored)
+
+	# SOURCE URL
+	if (-not $I.ContainsKey("SourceUrl") -and -not $I.ContainsKey("Url")) {
+		$Issues += "Missing 'Url'/'SourceUrl' key in 'Install' hashtable - it should contain URL of the archive which is downloaded during installation."
+	} elseif ($I.ContainsKey("SourceUrl") -and $I.ContainsKey("Url")) {
+		$Issues += "'Install.SourceUrl' and 'Install.Url' are aliases for the same argument, only one must be defined."
+	}
+	foreach ($Prop in @("SourceUrl", "Url")) {
+		if ($I.ContainsKey($Prop) -and $I[$Prop].GetType() -notin @([string], [ScriptBlock])) {
+			$Issues += "'Install.$Prop' must be either string URL, or a ScriptBlock that returns the URL string, got '$($I[$Prop].GetType())'."
+		}
+	}
+
+	# EXPECTED HASH
+	if ($I.ContainsKey("Hash") -and $I.ContainsKey("ExpectedHash")) {
+		$Issues += "'Install.Hash' and 'Install.ExpectedHash' are aliases for the same argument, at most one may be defined."
+	}
+	foreach ($Prop in @("Hash", "ExpectedHash")) {
+		if ($I.ContainsKey($Prop)) {
+			if ($I[$Prop] -isnot [string]) {
+				$Issues += "'Install.$Prop' must be a string (SHA-256 hash), if present - got '$($I[$Prop].GetType())'."
+			} elseif ($I[$Prop] -ne "" -and $I[$Prop] -notmatch '^[a-fA-F0-9]{64}$') {
+				$Issues += "'Install.$Prop' must be a SHA-256 hash (64 character hex string), got '$($I[$Prop])'."
+			}
+		}
+	}
+
+	return $Issues
+}
+
+
 Export function Confirm-Manifest {
 	param(
 			[Parameter(Mandatory)]
@@ -167,13 +206,10 @@ Export function Confirm-Manifest {
 			[string]
 		$ExpectedName,
 			[string]
-		$ExpectedVersion
+		$ExpectedVersion,
+			[switch]
+		$IsRepositoryManifest
 	)
-
-	if ("Private" -in $Manifest.Keys -and $Manifest.Private) {
-		Write-Verbose "Skipped validation of private package manifest '$Manifest.Name'."
-		return
-	}
 
 	$RequiredKeys = @{
 		Name = [string]; Version = [string]; Architecture = @([string], [Object[]]);
@@ -181,11 +217,20 @@ Export function Confirm-Manifest {
 	}
 
 	$OptionalKeys = @{
-		Description = [string]; Website = [string]; Channel = [string]
+		Private = [bool]; Description = [string]; Website = [string]; Channel = [string]
 	}
 
-
 	$Issues = @()
+
+
+	if ("Private" -in $Manifest.Keys -and $Manifest.Private) {
+		if ($IsRepositoryManifest) {
+			$Issues += "Property 'Private' is not allowed in manifests in a package repository."
+		} else {
+			Write-Verbose "Skipped validation of private package manifest '$($Manifest.Name)'."
+			return
+		}
+	}
 
 	$RequiredKeys.GetEnumerator() | % {
 		$StrTypes = $_.Value -join " | "
@@ -232,21 +277,9 @@ Export function Confirm-Manifest {
 		}
 	}
 
-	# TODO: better checking (currently, only Url and Hash are checked, and other keys are ignored)
 	if ($Manifest.ContainsKey("Install") -and $Manifest.Install -is [hashtable]) {
 		# check Install key structure
-		if (-not $Manifest.Install.ContainsKey("Url")) {
-			$Issues += "Missing 'Url' key in 'Install' hashtable - it should contain URL of the archive which is downloaded during installation."
-		} elseif ($Manifest.Install.Url.GetType() -notin @([string], [ScriptBlock])) {
-			$Issues += "'Install.Url' must be either string URL, or a ScriptBlock that returns the URL string, got '$($Manifest.Install.Url.GetType())'."
-		}
-		if ($Manifest.Install.ContainsKey("Hash")) {
-			if ($Manifest.Install.Hash -isnot [string]) {
-				$Issues += "'Install.Hash' must be a string (SHA256 hash), if present - got '$($Manifest.Install.Hash.GetType())'."
-			} elseif ($Manifest.Install.Hash -ne "?" -and $Manifest.Install.Hash -notmatch '^(\-|[a-fA-F0-9]{64})$') {
-				$Issues += "'Install.Hash' must be a SHA256 hash (64 character hex string), or '?' - got '$($Manifest.Install.Hash)'."
-			}
-		}
+		$Issues += Confirm-ManifestInstallHashtable $Manifest.Install
 	}
 
 	if ($Issues.Count -gt 1) {
