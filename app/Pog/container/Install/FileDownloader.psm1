@@ -83,6 +83,16 @@ function GetFileHashWithProgressBar($File, $ProgressBarTitle = "Validating file 
 	} finally {ShowProgress 100}
 }
 
+function RemoveCacheEntry($CacheEntryDirectory) {
+	$MetadataFilePath = $CacheEntryDirectory + ".json"
+	if (Test-Path $CacheEntryDirectory) {
+		rm -Force -Recurse -LiteralPath $CacheEntryDirectory
+	}
+	if (Test-Path $MetadataFilePath) {
+		rm -Force -LiteralPath $MetadataFilePath
+	}
+}
+
 <#
 	Adds the current package to the cache entry metadata file, or creates it if it doesn't exist.
 
@@ -92,7 +102,7 @@ function GetFileHashWithProgressBar($File, $ProgressBarTitle = "Validating file 
 
 	LastWriteTime of the metadata file reflects the last time the cache entry was used.
 
-	FIXME: The metadata file is currently update on a best-effort basis, and it's possible that if some operation
+	FIXME: The metadata file is currently updated on a best-effort basis, and it's possible that if some operation
 	 fails, the content will not be up-to-date. Go through all code paths and figure out how to make it robust.
  #>
 function SetCacheEntryMetadataFile($CacheEntryDirectory) {
@@ -126,14 +136,13 @@ function SetCacheEntryMetadataFile($CacheEntryDirectory) {
 			$File = Get-Item $MetadataFilePath
 			# we used this cache entry, refresh last write time, even through the file did not change
 			$File.LastWriteTime = Get-Date
-			return $File
+			return
 		}
 	}
 	# add the new entry
 	Write-Debug "Updating download cache entry metadata file..."
 	$Sources += $NewEntry
 	$Sources | ConvertTo-Json -Depth 100 | Set-Content -Path $MetadataFilePath
-	return Get-Item $MetadataFilePath
 }
 
 function GetDownloadCacheEntry($Hash) {
@@ -151,7 +160,7 @@ function GetDownloadCacheEntry($Hash) {
 	$File = ls -File $DirPath
 	if (@($File).Count -ne 1) {
 		Write-Warning "Invalid download cache entry - contains multiple, or no items, erasing...: $Hash"
-		rm -Recurse -LiteralPath $DirPath
+		RemoveCacheEntry $DirPath
 		return $null
 	}
 
@@ -160,13 +169,13 @@ function GetDownloadCacheEntry($Hash) {
 	$FileHash = GetFileHashWithProgressBar $File
 	if ($Hash -ne $FileHash) {
 		Write-Warning "Invalid download cache entry - content hash does not match, erasing...: $Hash"
-		rm -Recurse -LiteralPath $DirPath
+		RemoveCacheEntry $DirPath
 		return $null
 	}
 	Write-Debug "Cache entry hash validated."
 
 	# update the metadata file
-	$null = SetCacheEntryMetadataFile $DirPath
+	SetCacheEntryMetadataFile $DirPath
 
 	return $File
 }
@@ -190,7 +199,7 @@ function DownloadFileToCache {
 		throw "Download cache already contains an entry for '$ExpectedHash' (from '$SrcUrl')."
 	}
 	# create the metadata file
-	$MetadataFile = SetCacheEntryMetadataFile $DirPath
+	SetCacheEntryMetadataFile $DirPath
 
 	try {
 		$null = New-Item -Type Directory $DirPath
@@ -205,8 +214,7 @@ function DownloadFileToCache {
 		# hash check passed, return file reference
 		return $File
 	} catch {
-		# not -ErrorAction Ignore, we want to have a log in $Error for debugging
-		rm -Recurse -Force -LiteralPath @($DirPath, $MetadataFile) -ErrorAction SilentlyContinue
+		RemoveCacheEntry $DirPath
 		throw
 	}
 }
@@ -217,7 +225,7 @@ function MoveFileToCache($File, $Hash) {
 	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $Hash
 
 	# create the metadata file
-	$null = SetCacheEntryMetadataFile $DirPath
+	SetCacheEntryMetadataFile $DirPath
 
 	if (Test-Path $DirPath) {
 		# already populated, just delete the new file
