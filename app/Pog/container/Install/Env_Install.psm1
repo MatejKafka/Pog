@@ -30,10 +30,15 @@ Export function __main {
 		# run the installer scriptblock
 		& $Installer @PackageArguments
 	} else {
-		if ($Installer.Url -is [scriptblock]) {
-			$Installer.Url = & $Installer.Url
-		}
 		# Install block is a hashtable of arguments to Install-FromUrl
+
+		# resolve SourceUrl/Url scriptblocks
+		foreach ($Prop in @("SourceUrl", "Url")) {
+			if ($Installer.ContainsKey($Prop) -and $Installer[$Prop] -is [scriptblock]) {
+				$Installer[$Prop] = & $Installer[$Prop]
+			}
+		}
+
 		Install-FromUrl @Installer
 	}
 }
@@ -171,48 +176,41 @@ function WaitForNoLockedFilesInAppDirectory {
 Export function Install-FromUrl {
 	[CmdletBinding(PositionalBinding=$false)]
 	param(
+			### Source URL, from which the archive is downloaded. Redirects are supported.
 			[Parameter(Mandatory, Position=0)]
-			[Alias("Url")]
 			[string]
-		$SrcUrl,
-			<#
-			SHA-256 hash that the downloaded archive should match.
-			Validation is skipped if null, but warning is printed.
-
-			If '?' is passed, nothing will be installed, we will download the file, compute the SHA-256 hash and print it out.
-			This is intended to be used when writing a new manifest and trying to figure out the hash of the file.
-			#>
-			[Alias("Hash")]
+			[Alias("Url")]
+		$SourceUrl,
+			### SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but warning is printed.
 			[string]
 			[ValidateScript({
-				if ($_ -ne "?" -and $_ -notmatch '^(\-|[a-fA-F0-9]{64})$') {
-					throw "Parameter must be hex string (SHA-256 hash), 64 characters long (or '?'), got '$_'."
+				if ($_ -ne "" -and $_ -notmatch '^[a-fA-F0-9]{64}$') {
+					throw "Parameter must be a SHA-256 hash (64 character hex string), got '$_'."
 				}
 				return $true
 			})]
+			[Alias("Hash")]
 		$ExpectedHash,
-			<# If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored. #>
+			### If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored.
 			[string]
 		$Subdirectory = "",
-			<# Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
-			   Set this to `Browser` to use a browser user agent string (currently Firefox).
-			   Set this to `Wget` to use wget user agent string. #>
+			### Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
+			### Set this to `Browser` to use a browser user agent string (currently Firefox).
+			### Set this to `Wget` to use wget user agent string.
 			[UserAgentType]
 		$UserAgent = [UserAgentType]::PowerShell,
-			<#
-			If you need to modify the extracted archive (e.g. remove some files), pass a scriptblock, which receives
-			a path to the extracted directory as its only argument. All modifications to the extracted files should be
-			done in this scriptblock – this ensures that the ./app directory is not left in an inconsistent state
-			in case of a crash during installation.
-			#>
+			### If you need to modify the extracted archive (e.g. remove some files), pass a scriptblock, which receives
+			### a path to the extracted directory as its only argument. All modifications to the extracted files should be
+			### done in this scriptblock – this ensures that the ./app directory is not left in an inconsistent state
+			### in case of a crash during installation.
 			[ScriptBlock]
 		$SetupScript,
-			<# Pass this if the retrieved file is an NSIS installer
-			   Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
-			   NOTE: NSIS installers may do some initial config, which is skipped when extracted directly. #>
+			### Pass this if the retrieved file is an NSIS installer
+			### Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
+			### NOTE: NSIS installers may do some initial config, which is not ran when extracted directly.
 			[switch]
 		$NsisInstaller,
-			<# If passed, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted. #>
+			### If passed, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted.
 			[switch]
 		$NoArchive
 	)
@@ -232,20 +230,6 @@ Export function Install-FromUrl {
 	}
 
 
-	# do not continue installation if manifest writer just wants to get the file hash
-	if ($ExpectedHash -eq "?") {
-		Write-Host ""
-		Write-Host "    NOTE: Not installing, only retrieving the file hash." -ForegroundColor Magenta
-		$Hash = Get-UrlFileHash $SrcUrl -DownloadParams $DownloadParams -ShouldCache
-		Write-Host ""
-		Write-Host "    Hash for the file at '$SrcUrl' (copied to clipboard):" -ForegroundColor Magenta
-		Write-Host "    $Hash" -ForegroundColor Magenta
-		Write-Host ""
-		$Hash | Set-Clipboard
-		# it seems more ergonomic to exit than return (so that no further installation steps are executed)
-		exit
-	}
-
 	if (Test-Path .\app) {
 		$ShouldContinue = ConfirmOverwrite "Overwrite existing package installation?" `
 			("Package seems to be already installed. Do you want to overwrite " +`
@@ -254,7 +238,7 @@ Export function Install-FromUrl {
 
 		if (-not $ShouldContinue) {
 			throw "Not installing, user refused to overwrite existing package installation." +`
-					" Pass -AllowOverwrite to overwrite the existing installation without confirmation."
+					" Do not pass -Confirm to overwrite the existing installation without confirmation."
 		}
 
 		# next, we check if we can move/delete the ./app directory
@@ -271,10 +255,10 @@ Export function Install-FromUrl {
 
 
 	# 1. Download and expand (move/copy) the archive (file) to the temporary directory at $TMP_EXPAND_PATH
-	Write-Information "Retrieving file from '$SrcUrl' (or local cache)..."
+	Write-Information "Retrieving file from '$SourceUrl' (or local cache)..."
 	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
 		# we have fixed hash, we can use download cache
-		$DownloadedFile = Invoke-CachedFileDownload $SrcUrl `
+		$DownloadedFile = Invoke-CachedFileDownload $SourceUrl `
 				-ExpectedHash $ExpectedHash.ToUpper() -DownloadParams $DownloadParams
 		Write-Debug "File correctly retrieved, expanding to '$TMP_EXPAND_PATH'..."
 		if (-not $NoArchive) {
@@ -284,12 +268,12 @@ Export function Install-FromUrl {
 			Copy-Item $DownloadedFile $TMP_EXPAND_PATH
 		}
 	} else {
-		Write-Warning ("Downloading a file from '${SrcUrl}', but no checksum was provided in the package " +`
+		Write-Warning ("Downloading a file from '$SourceUrl', but no checksum was provided in the package " +`
 				"(passed to 'Install-FromUrl'). This means that we cannot be sure if the download file is the " +`
 				"same one package author intended. This may or may not be a problem on its own, " +`
-				"but it's better style to include a checksum, and improves security and reproducibility.")
+				"but it's better style to include a checksum, and it improves security and reproducibility.")
 		# the hash is not set, cannot safely cache the file
-		$TmpDir, $DownloadedFile = Invoke-TmpFileDownload $SrcUrl -DownloadParams $DownloadParams
+		$TmpDir, $DownloadedFile = Invoke-TmpFileDownload $SourceUrl -DownloadParams $DownloadParams
 		if (-not $NoArchive) {
 			try {
 				ExtractArchive $DownloadedFile $TMP_EXPAND_PATH

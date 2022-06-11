@@ -7,6 +7,7 @@ Import-Module $PSScriptRoot"\..\lib\Utils"
 
 enum ContainerType {
 	Install
+	GetInstallHash
 	Enable
 }
 

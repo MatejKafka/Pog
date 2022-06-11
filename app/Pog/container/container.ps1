@@ -36,6 +36,7 @@ Import-Module Microsoft.PowerShell.Management
 switch ($ContainerType) {
 	Enable {Import-Module $PSScriptRoot\Enable\Env_Enable}
 	Install {Import-Module $PSScriptRoot\Install\Env_Install}
+	GetInstallHash {Import-Module $PSScriptRoot\Install\Env_GetInstallHash}
 	default {throw "Unknown container environment type: " + $_}
 }
 

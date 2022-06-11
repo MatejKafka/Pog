@@ -396,7 +396,6 @@ class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter
 			[System.Collections.IDictionary]$BoundParameters
 	) {
 		$ResultList = [System.Collections.Generic.List[System.Management.Automation.CompletionResult]]::new()
-		$ResultList.Add("latest")
 		try {
 			$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $BoundParameters.PackageName)
 		} catch {
@@ -406,6 +405,14 @@ class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter
 				% {New-PackageVersion $_} | sort -Descending | % {$ResultList.Add($_.ToString())}
 		return $ResultList
 	}
+}
+
+$ManifestVersionValidatorSb = {
+	if (-not $_) {return $true}
+	$InvalidI = $_.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars())
+	if ($InvalidI -ge 0) {throw "Must be a valid directory name, cannot contain invalid characters like '$($_[$InvalidI])': $_"}
+	if ($_ -eq "." -or $_ -eq "..") {throw "Must be a valid directory name, not '.' or '..': $_"}
+	return $true
 }
 
 Export function Import- {
@@ -419,8 +426,9 @@ Export function Import- {
 		$PackageName,
 			[Parameter(Position = 1)]
 			[ArgumentCompleter([ManifestVersionCompleter])]
+			[ValidateScript({& $ManifestVersionValidatorSb})]
 			[string]
-		$Version = "latest",
+		$Version,
 			[string]
 		$TargetName,
 			[ValidateSet([PackageRoot])]
@@ -428,28 +436,26 @@ Export function Import- {
 		$TargetPackageRoot = $script:PACKAGE_ROOTS[0],
 			<# Overwrite an existing package without prompting for confirmation. #>
 			[switch]
-		$Force
+		$Force,
+			<# Return the created package directory. #>
+			[switch]
+		$PassThru
 	)
 
 	$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $PackageName)
 	# get the name from the repository, so that the casing is correct
-	$PackageName = $RepoPackageDir.Name	
+	$PackageName = $RepoPackageDir.Name
 
 	if (-not $TargetName) {
 		# this must be done after the $PackageName update above
 		$TargetName = $PackageName
 	}
 
-	if ($Version -eq "latest" -or $Version -eq "") {
+	if (-not $Version) {
 		# find latest version
 		$Version = Get-LatestPackageVersion $RepoPackageDir
-	} else {
-		if ($Version.Contains("/") -or $Version.Contains("/") -or $Version -eq "." -or $Version -eq "..") {
-			throw "Invalid package version, must be a valid directory name: $Version"
-		}
-		if (-not (Test-Path (Join-Path $RepoPackageDir $Version))) {
-			throw "Unknown version of package '$PackageName': $Version"
-		}
+	} elseif (-not (Test-Path (Join-Path $RepoPackageDir $Version))) {
+		throw "Unknown version of package '$PackageName': $Version"
 	}
 
 	Write-Verbose "Validating the manifest before importing..."
@@ -493,6 +499,49 @@ Export function Import- {
 
 	ls $SrcPath | Copy-Item -Destination $TargetPath -Recurse
 	Write-Information "Initialized '$TargetPath' with package manifest '$PackageName' (version $Version)."
+	if ($PassThru) {
+		return Get-Item $TargetPath
+	}
+}
+
+Export function Get-ManifestHash {
+	[CmdletBinding()]
+	param(
+			[Parameter(Mandatory)]
+			[ValidateSet([RepoPackageName])]
+			[string]
+		$PackageName,
+			[ArgumentCompleter([ManifestVersionCompleter])]
+			[ValidateScript({& $ManifestVersionValidatorSb})]
+			[string]
+		$Version,
+			### If set, files are downloaded with low priority, which results in better network responsiveness
+			### for other programs, but possibly slower download speed.
+			[switch]
+		$LowPriority
+	)
+
+	begin {
+		if (-not $Version) {
+			# find latest version
+			$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
+		} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
+			throw "Unknown version of package '$PackageName': $Version"
+		}
+		$ManifestDir = Join-Path $script:MANIFEST_REPO $PackageName $Version
+		$ManifestPath = Get-ManifestPath $ManifestDir
+
+		if (-not (Confirm-RepositoryPackage $PackageName $Version)) {
+			throw "Validation of the repository manifest failed (see warnings above)."
+		}
+
+		$InternalArgs = @{
+			AllowOverwrite = $true # not used
+			DownloadLowPriority = [bool]$LowPriority
+		}
+
+		Invoke-Container GetInstallHash $ManifestPath $ManifestDir $InternalArgs @{}
+	}
 }
 
 Export function Get-Manifest {
@@ -502,12 +551,13 @@ Export function Get-Manifest {
 			[ValidateSet([RepoPackageName])]
 			[string]
 		$PackageName,
-			[string]
 			[ArgumentCompleter([ManifestVersionCompleter])]
-		$Version = "latest"
+			[ValidateScript({& $ManifestVersionValidatorSb})]
+			[string]
+		$Version
 	)
 
-	if ($Version -eq "latest") {
+	if (-not $Version) {
 		# find latest version
 		$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
 	} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
@@ -598,7 +648,7 @@ function RetrievePackageVersions($PackageName, $GenDir) {
 						" map container (hashtable, psobject, pscustomobject) with a Version property.)"}
 			}
 
-			if ([string]::IsNullOrEmpty($_)) {
+			if ([string]::IsNullOrEmpty($VersionStr)) {
 				throw "Empty package version generated by the version generator for package '$PackageName' (either `$null or empty string)."
 			}
 
@@ -730,6 +780,8 @@ Export function Confirm-RepositoryPackage {
 			[string]
 		$PackageName,
 			[Parameter(ValueFromPipelineByPropertyName)]
+			[ArgumentCompleter([ManifestVersionCompleter])]
+			[ValidateScript({& $ManifestVersionValidatorSb})]
 			[string]
 		$Version
 	)

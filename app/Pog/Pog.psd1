@@ -5,47 +5,47 @@
 
 	DefaultCommandPrefix = 'Pog'
 
+	# https://github.com/PowerShell/PowerShell/issues/12858
+	#  as a workaround, we "export" both versions, so that the commands are correctly auto-loaded
 	FunctionsToExport = @(
+		"Import-"
+		"Import-Pog"
+		"Enable-"
+		"Enable-Pog"
+		"Install-"
+		"Install-Pog"
+
 		"Export-ShortcutsToStartMenu"
+		"Export-PogShortcutsToStartMenu"
 
 		"Get-Manifest"
+		"Get-PogManifest"
+		"Get-ManifestHash"
+		"Get-PogManifestHash"
 		"New-Manifest"
+		"New-PogManifest"
 		"New-DirectManifest"
+		"New-PogDirectManifest"
 		"Update-Manifest"
+		"Update-PogManifest"
 
 		"Confirm-RepositoryPackage"
+		"Confirm-PogRepositoryPackage"
 		"Confirm-Package"
+		"Confirm-PogPackage"
 		"Get-RepositoryPackage"
+		"Get-PogRepositoryPackage"
 		"Get-Package"
+		"Get-PogPackage"
 
 		"Clear-DownloadCache"
+		"Clear-PogDownloadCache"
 
 		"Get-Root"
-		"New-Root"
-		"Remove-Root"
-
-		"Import-"
-		"Enable-"
-		"Install-"
-
-
-		# https://github.com/PowerShell/PowerShell/issues/12858
-		#  as a workaround, we "export" both versions, so that the commands are correctly auto-loaded
-		"Export-PogShortcutsToStartMenu"
-		"Get-PogManifest"
-		"New-PogManifest"
-		"New-PogDirectManifest"
-		"Update-PogManifest"
-		"Confirm-PogRepositoryPackage"
-		"Confirm-PogPackage"
-		"Get-PogRepositoryPackage"
-		"Get-PogPackage"
-		"Clear-PogDownloadCache"
 		"Get-PogRoot"
+		"New-Root"
 		"New-PogRoot"
+		"Remove-Root"
 		"Remove-PogRoot"
-		"Import-Pog"
-		"Enable-Pog"
-		"Install-Pog"
 	)
 }
