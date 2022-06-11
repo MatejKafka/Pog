@@ -80,7 +80,7 @@ Remove-Variable PreferenceVariables
 
 try {
 	# invoke the container module entry point, which invokes the manifest script itself
-	__main $this[$ContainerType] $PackageArguments
+	__main $this $PackageArguments
 } finally {
 	# this is called even on `exit`, which is nice
 	Write-Debug "Cleaning up..."

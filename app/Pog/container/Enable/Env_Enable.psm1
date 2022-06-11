@@ -18,19 +18,19 @@ Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 
 
 
-<# This function is called after the container setup is finished to run the passed script. #>
+<# This function is called after the container setup is finished to run the Enable script. #>
 Export function __main {
-	param($EnableSb, $PackageArguments)
+	param($Manifest, $PackageArguments)
 
 	# set of all shortcuts that were not "refreshed" during this Enable call
 	# starts with all shortcuts found in package, and each time Export-Shortcut is called, it is removed
 	# before end of Enable, all shortcuts still in this set are deleted
-	$script:StaleShortcuts = New-Object System.Collections.Generic.HashSet[string]
+	$script:StaleShortcuts = [System.Collections.Generic.HashSet[string]]::new()
 	ls -File -Filter "./*.lnk" | % {[void]$script:StaleShortcuts.Add($_.BaseName)}
 	Write-Debug "Listed original shortcuts."
 
 	# invoke the scriptblock
-	& $EnableSb @PackageArguments
+	& $Manifest.Enable @PackageArguments
 }
 
 <# This function is called after the Enable script finishes. #>

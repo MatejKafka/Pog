@@ -21,11 +21,13 @@ if ($null -eq $OpenedFilesViewCmd) {
 
 
 
-<# This function is called after the container setup is finished to run the passed script. #>
+<# This function is called after the container setup is finished to run the passed manifest. #>
 Export function __main {
-	param($Installer, $PackageArguments)
+	param($Manifest, $PackageArguments)
 
+	$Installer = $Manifest.Install
 	if ($Installer -is [scriptblock]) {
+		# run the installer scriptblock
 		& $Installer @PackageArguments
 	} else {
 		if ($Installer.Url -is [scriptblock]) {
@@ -36,7 +38,7 @@ Export function __main {
 	}
 }
 
-<# This function is called after the Install script finishes. #>
+<# This function is called after __main finishes. #>
 Export function __cleanup {
 	# nothing for now
 }
