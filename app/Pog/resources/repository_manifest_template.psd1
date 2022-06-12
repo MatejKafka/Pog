@@ -2,13 +2,13 @@
 	Name = '{{NAME}}'
 	Architecture = 'x64'
 	Version = '{{VERSION}}'
-	
+
 	Install = @{
-		Url = ""
-		Hash = "?"
+		Url = {$V = $this.Version; ""}
+		Hash = ""
 	}
-	
+
 	Enable = {
-		
+
 	}
 }

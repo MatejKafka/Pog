@@ -156,12 +156,13 @@ Export function New-PackageVersion {
 }
 
 Export function Get-LatestVersion {
+	[OutputType([string])]
 	param(
 			[Parameter(Mandatory)]
 			[string[]]
 		$Versions
 	)
-	
+
 	if ($Versions.Count -eq 0) {
 		throw "Passed version list is empty."
 	}

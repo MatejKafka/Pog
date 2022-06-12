@@ -407,7 +407,7 @@ class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter
 	}
 }
 
-$ManifestVersionValidatorSb = {
+function ValidateManifestVersionArgument {
 	if (-not $_) {return $true}
 	$InvalidI = $_.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars())
 	if ($InvalidI -ge 0) {throw "Must be a valid directory name, cannot contain invalid characters like '$($_[$InvalidI])': $_"}
@@ -426,7 +426,7 @@ Export function Import- {
 		$PackageName,
 			[Parameter(Position = 1)]
 			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({& $ManifestVersionValidatorSb})]
+			[ValidateScript({ValidateManifestVersionArgument})]
 			[string]
 		$Version,
 			[string]
@@ -512,7 +512,7 @@ Export function Get-ManifestHash {
 			[string]
 		$PackageName,
 			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({& $ManifestVersionValidatorSb})]
+			[ValidateScript({ValidateManifestVersionArgument})]
 			[string]
 		$Version,
 			### If set, files are downloaded with low priority, which results in better network responsiveness
@@ -552,7 +552,7 @@ Export function Get-Manifest {
 			[string]
 		$PackageName,
 			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({& $ManifestVersionValidatorSb})]
+			[ValidateScript({ValidateManifestVersionArgument})]
 			[string]
 		$Version
 	)
@@ -781,7 +781,7 @@ Export function Confirm-RepositoryPackage {
 		$PackageName,
 			[Parameter(ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({& $ManifestVersionValidatorSb})]
+			[ValidateScript({ValidateManifestVersionArgument})]
 			[string]
 		$Version
 	)

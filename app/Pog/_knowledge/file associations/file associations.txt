@@ -1,7 +1,30 @@
+priorities
+	1. `HKCU\Software\Classes\.testfile\shell\open\command` is the default, apparently lowest-priority
+	2. when a (Default) in the previous key is set to `testfile_auto` and `HKCU\Software\Classes\testfile_auto\shell\open\command` is created,
+		it completely overrides the previous value 
+	3. when a value is added to the list in `HKCU\Software\Classes\.testfile\OpenWithProgids`, it overrides the shell\open\command path from 1.,
+		but 2. is kept as a default and has higher priority; however, after a key is added here, the Open With popup is shown next time the user
+		tries to open a file with the `.testfile` extension
+	4. OpenWithProgids subkey in `...\testfile_auto` is completely ignored
+	5. whenever a file is opened, an entry for the extension is created in `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.testfile`
+		- `OpenWithProgids` subkey initially only contains the original shell association from 2. as property (not Default!)
+		- `OpenWithList` is initially empty; when user manually selects app in the Open With popup without checking the "Always use this..." checkbox,
+			it is added here with letter-based indexing of entries
+	6. when user explicitly selects a new default application, a new `UserChoice` is created under 5.
+		- `ProgId` contains an application name from HKCR\Applications (but without the usual `Applications` prefix)
+		- `Hash` is an automatically computed checksum value that lets the shell validate that no one changed the entry
+		- if `UserChoice` is set, and the ProgId is valid, this overrides previously listed entries
+
+
+TODO: DefaultIcon in HKCR\Applications doesn't seem to work; figure out how should we override app icon
+
+
 in code, use HKEY_CURRENT_USER\Software\Classes, not HKEY_CLASSES_ROOT
+%1 should be quoted in all commands (apparently, there are never quotes by default)
 
 
 https://docs.microsoft.com/en-us/windows/win32/shell/fa-how-work
+https://answers.microsoft.com/en-us/windows/forum/all/windows-file-association-explained-for-desktop/cfa62c00-82e0-4d05-b302-3444ab930bb7
 
 
 
@@ -45,6 +68,7 @@ HKEY_CLASSES_ROOT\SystemFileAssociations
 	verbs and other context menu configuration that are not dependent on the current file associations
 	(config in the root is ignored when user manually picks a different associated application)
 	has lower priority than the config in root
+	UPDATE: ^ this doesn't seem correct
 
 HKEY_CLASSES_ROOT\ <extension> \shell\runas\ProgrammaticAccessOnly
 	hides the verb from context menu

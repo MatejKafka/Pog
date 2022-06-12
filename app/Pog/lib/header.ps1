@@ -20,7 +20,7 @@ function Export {
 
 	switch ($Type) {
 		"function" {
-			Set-item "function:script:$Name" $Value
+			Set-Item "function:script:$Name" $Value
 			Export-ModuleMember $Name
 		}
 		"variable" {

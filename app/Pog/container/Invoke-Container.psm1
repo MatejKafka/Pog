@@ -37,7 +37,7 @@ $PreferenceVariableNames = @(
 )
 
 
-function Get-SetPreferenceVariables {
+function Get-SetPreferenceVariable {
 	# create copy, otherwise the values would dynamically change,
 	#  as Get-Variable returns live reference
 	$Out = @{}
@@ -73,7 +73,7 @@ Export function Invoke-Container {
 	)
 
 	Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState
-	$PrefVars = Get-SetPreferenceVariables
+	$PrefVars = Get-SetPreferenceVariable
 
 	if ($PrefVars.DebugPreference -eq "Continue") {
 		# see below
