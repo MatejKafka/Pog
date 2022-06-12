@@ -141,9 +141,9 @@ Export function Copy-ManifestParameters {
 
 	# this is only set in local scope, no need to clean up
 	$function:TmpFn = $Sb
-	$Params = (Get-Command -Type Function TmpFn).Parameters
+	$FnInfo = Get-Command -Type Function TmpFn
 
-	$RuntimeDict = Convert-CommandParametersToDynamic $Params -AllowAliases -NamePrefix $NamePrefix
+	$RuntimeDict = Convert-CommandParametersToDynamic $FnInfo -NoPositionAttribute -NamePrefix $NamePrefix
 
 	$ExtractAddedParameters = {
 		param([Parameter(Mandatory)]$_PSBoundParameters)
@@ -172,7 +172,7 @@ function Confirm-ManifestInstallHashtable($InstallBlock) {
 	if (-not $I.ContainsKey("SourceUrl") -and -not $I.ContainsKey("Url")) {
 		$Issues += "Missing 'Url'/'SourceUrl' key in 'Install' hashtable - it should contain URL of the archive which is downloaded during installation."
 	} elseif ($I.ContainsKey("SourceUrl") -and $I.ContainsKey("Url")) {
-		$Issues += "'Install.SourceUrl' and 'Install.Url' are aliases for the same argument, only one must be defined."
+		$Issues += "'Install.SourceUrl' and 'Install.Url' are aliases for the same parameter, only one must be defined."
 	}
 	foreach ($Prop in @("SourceUrl", "Url")) {
 		if ($I.ContainsKey($Prop) -and $I[$Prop].GetType() -notin @([string], [ScriptBlock])) {
@@ -182,7 +182,7 @@ function Confirm-ManifestInstallHashtable($InstallBlock) {
 
 	# EXPECTED HASH
 	if ($I.ContainsKey("Hash") -and $I.ContainsKey("ExpectedHash")) {
-		$Issues += "'Install.Hash' and 'Install.ExpectedHash' are aliases for the same argument, at most one may be defined."
+		$Issues += "'Install.Hash' and 'Install.ExpectedHash' are aliases for the same parameter, at most one may be defined."
 	}
 	foreach ($Prop in @("Hash", "ExpectedHash")) {
 		if ($I.ContainsKey($Prop)) {

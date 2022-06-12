@@ -1,6 +1,21 @@
 # Requires -Version 7
-# source: https://social.technet.microsoft.com/Forums/en-US/21fb4dd5-360d-4c76-8afc-1ad0bd3ff71a/reuse-function-parameters
-# with slight modifications (added -NamePrefix parameter)
+. $PSScriptRoot\header.ps1
+
+# source: Pester (InModuleScope and Pester.Scoping) and https://gist.github.com/nohwnd/0f615f897b1f510beb08ce0cefe48342
+function Set-ScriptBlockScope {
+    [CmdletBinding()]
+    param (
+			[Parameter(Mandatory)]
+			[scriptblock]
+        $ScriptBlock,
+        	[Parameter(Mandatory)]
+        	[System.Management.Automation.SessionState]
+        $SessionState
+    )
+    $flags = [System.Reflection.BindingFlags]'Instance,NonPublic'
+	$SessionStateInternal = $SessionState.GetType().GetProperty('Internal', $flags).GetValue($SessionState, $null)
+    [scriptblock].GetProperty('SessionStateInternal', $flags).SetValue($ScriptBlock, $SessionStateInternal, $null)
+}
 
 $CommonParameterNames = [System.Runtime.Serialization.FormatterServices]::GetUninitializedObject([type] [System.Management.Automation.Internal.CommonParameters]) `
 	| Get-Member -MemberType Properties `
@@ -8,41 +23,65 @@ $CommonParameterNames = [System.Runtime.Serialization.FormatterServices]::GetUni
 
 # Param attributes will be copied later. You basically have to create a blank attrib, then change the
 # properties. Knowing the writable ones up front helps:
-$WritableParamAttributePropertyNames = New-Object System.Management.Automation.ParameterAttribute `
+$WritableParamAttributePropertyNames = [System.Management.Automation.ParameterAttribute]::new() `
 	| Get-Member -MemberType Property `
 	| Where-Object { $_.Definition -match "{.*set;.*}$" } `
 	| Select-Object -ExpandProperty Name
 
 
-function Convert-CommandParametersToDynamic {
+# source: https://social.technet.microsoft.com/Forums/en-US/21fb4dd5-360d-4c76-8afc-1ad0bd3ff71a/reuse-function-parameters
+# I made some modifications and extensions.
+Export function Convert-CommandParametersToDynamic {
 	[CmdletBinding()]
 	param(
-		[Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-		$ParameterDictionary,
-		[string] $NamePrefix = "",
-		[switch] $AllowAliases,
-		[switch] $AllowPositionAttributes
+			[Parameter(Mandatory, ValueFromPipeline)]
+			[System.Management.Automation.CommandInfo]
+		$CommandInfo,
+			[string]
+		$NamePrefix = "",
+			[switch]
+		$NoAlias,
+			[switch]
+		$NoPositionAttribute,
+			[switch]
+		$NoMandatoryAttribute
 	)
 
 	begin {
-		$__WritableParamAttributePropertyNames = if (-not $AllowPositionAttributes) {
-			# If you don't want to allow Position attributes, tell the function that it's not a writable attribute
-			$script:WritableParamAttributePropertyNames | where { $_ -ne "Position" }
+		$__WritableParamAttributePropertyNames = if ($NoPositionAttribute) {
+			# remove Position from the list of allowed properties for Parameter()
+			$script:WritableParamAttributePropertyNames | ? {$_ -ne "Position"}
 		} else {
 			$script:WritableParamAttributePropertyNames
 		}
 	}
 
 	process {
+		while ($CommandInfo.CommandType -eq "Alias") {
+			# resolve alias
+			$CommandInfo = $CommandInfo.ResolvedCommand
+		}
+
+		if ($null -eq $CommandInfo.Parameters) {
+			throw "Cannot copy parameters from command '$($CommandInfo.Name)', no parameters are accessible (this may happen e.g. for native executables)."
+		}
+		$ParameterDictionary = $CommandInfo.Parameters
+		# module context is used to set correct scope for attributes taking a scriptblock like ValidateScript and ArgumentCompleter
+		# this is only really relevant for functions (cmdlets shouldn't have problems with scope, attributes in script param() block
+		#  cannot refer to things inside the script, native executables don't have visible parameters)
+		$ModuleContext = if ($CommandInfo | Get-Member ScriptBlock) {
+			$CommandInfo.ScriptBlock.Module
+		} else {$null}
+
 		# Convert to object array and get rid of Common params:
 		$Parameters = $ParameterDictionary.GetEnumerator() | Where-Object { $CommonParameterNames -notcontains $_.Key }
 		$ParameterNameSet = [System.Collections.Generic.HashSet[string]]($Parameters | % Key)
 
 		# Create the dictionary that this scriptblock will return:
-		$DynParamDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+		$DynParamDictionary = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
 
 		foreach ($Parameter in $Parameters) {
-			$AttribColl = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+			$AttribColl = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
 
 			$Parameter.Value.Attributes | ForEach-Object {
 				$CurrentAttribute = $_
@@ -55,7 +94,7 @@ function Convert-CommandParametersToDynamic {
 					}
 
 					System.Management.Automation.AliasAttribute {
-						if (-not $AllowAliases) {
+						if ($NoAlias) {
 							break
 						}
 						if ([string]::IsNullOrEmpty($NamePrefix)) {
@@ -63,7 +102,7 @@ function Convert-CommandParametersToDynamic {
 						} else {
 							# add NamePrefix to all aliases
 							$Prefixed = $CurrentAttribute.AliasNames | % {$NamePrefix + $_}
-							$Attr = New-Object System.Management.Automation.AliasAttribute $Prefixed
+							$Attr = [System.Management.Automation.AliasAttribute]::new($Prefixed)
 							$AttribColl.Add($Attr)
 						}
 						break
@@ -100,6 +139,18 @@ function Convert-CommandParametersToDynamic {
 						break
 					}
 
+					System.Management.Automation.ValidateScriptAttribute {
+						if (-not $ModuleContext) {
+							# just copy
+							$AttribColl.Add($CurrentAttribute)
+						} else {
+							$Sb = $CurrentAttribute.ScriptBlock
+							Set-ScriptBlockScope $Sb -SessionState $ModuleContext.SessionState
+							$AttribColl.Add([ValidateScript]::new($Sb))
+						}
+						break
+					}
+
 					System.Management.Automation.Validate*Attribute {
 						# just copy
 						$AttribColl.Add($CurrentAttribute)
@@ -107,7 +158,7 @@ function Convert-CommandParametersToDynamic {
 					}
 
 					System.Management.Automation.ParameterAttribute {
-						$NewParamAttribute = New-Object System.Management.Automation.ParameterAttribute
+						$NewParamAttribute = [System.Management.Automation.ParameterAttribute]::new()
 
 						foreach ($PropName in $__WritableParamAttributePropertyNames) {
 							if ($NewParamAttribute.$PropName -ne $CurrentAttribute.$PropName) {
@@ -116,7 +167,7 @@ function Convert-CommandParametersToDynamic {
 							}
 						}
 
-						if ($RemoveMandatoryAttribute) {
+						if ($NoMandatoryAttribute) {
 							$NewParamAttribute.Mandatory = $false
 						}
 						$NewParamAttribute.ParameterSetName = $CurrentAttribute.ParameterSetName
@@ -137,7 +188,7 @@ function Convert-CommandParametersToDynamic {
 
 			$ParameterType = $Parameter.Value.ParameterType
 
-			$DynamicParameter = New-Object System.Management.Automation.RuntimeDefinedParameter(
+			$DynamicParameter = [System.Management.Automation.RuntimeDefinedParameter]::new(
 				($NamePrefix + $Parameter.Key),
 				$ParameterType,
 				$AttribColl
