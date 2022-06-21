@@ -14,7 +14,7 @@ $DOWNLOAD_CACHE_DIR = Resolve-Path $ROOT"\cache\download_cache"
 $DOWNLOAD_TMP_DIR = Resolve-Path $ROOT"\cache\download_tmp"
 $MANIFEST_REPO = Resolve-Path $ROOT"\data\manifests\"
 $MANIFEST_GENERATOR_REPO = Resolve-Path $ROOT"\data\manifest_generators\"
-$PACKAGE_ROOT_FILE = Resolve-Path $ROOT"\data\roots.txt"
+$PACKAGE_ROOT_FILE = Resolve-Path $ROOT"\data\package_roots.txt"
 
 $UNRESOLVED_PACKAGE_ROOTS = [Collections.ArrayList]::new()
 # cast through [array] is needed, otherwise if there is only single root, ArrayList would throw type error
@@ -28,11 +28,8 @@ $PACKAGE_ROOTS = [Collections.ArrayList][array](Get-Content $PACKAGE_ROOT_FILE |
 })
 
 
-$MANIFEST_PATHS = @(".\pog.psd1", ".\.pog\pog.psd1")
-# keep the old names for backwards compatibility
-$MANIFEST_CLEANUP_PATHS = @(".\pog.psd1", ".\.pog\", ".\manifest.psd1", ".\.manifest\")
-
-$RESOURCE_DIR = Resolve-Path $PSScriptRoot"\resources\"
+$MANIFEST_REL_PATH = ".\pog.psd1"
+$MANIFEST_CLEANUP_PATHS = @(".\pog.psd1", ".\.pog")
 
 
 $SYSTEM_START_MENU = Resolve-Path (Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\")

@@ -3,14 +3,11 @@
 Module with opinionated, package-related support functions.
 #>
 
+using module ./Paths.psm1
+using module ./lib/Utils.psm1
+using module ./lib/VersionParser.psm1
+using module ./lib/Convert-CommandParametersToDynamic.psm1
 . $PSScriptRoot\lib\header.ps1
-
-Import-Module $PSScriptRoot"\Paths"
-Import-Module $PSScriptRoot"\lib\Utils"
-Import-Module $PSScriptRoot"\lib\VersionParser"
-Import-Module $PSScriptRoot"\lib\Convert-CommandParametersToDynamic"
-
-Export-ModuleMember -Function New-PackageVersion
 
 
 Export function Get-LatestPackageVersion {
@@ -22,7 +19,7 @@ Export function Get-LatestPackageVersion {
 	return Get-LatestVersion (ls $PackagePath -Directory).Name
 }
 
-Export function Get-PackagePath {
+Export function Get-PackageDirectory {
 	param(
 		[Parameter(Mandatory)]$PackageName,
 		[switch]$NoError
@@ -33,7 +30,7 @@ Export function Get-PackagePath {
 		$PackagePath = Resolve-VirtualPath (Join-Path $Root $PackageName)
 		$SearchedPaths += $PackagePath
 		if (Test-Path -Type Container $PackagePath) {
-			return $PackagePath
+			return Get-Item $PackagePath
 		}
 	}
 
@@ -41,7 +38,7 @@ Export function Get-PackagePath {
 		return $null
 	}
 	throw ("Could not find package '$PackageName' in known package directories. " `
-			+ "Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
+			+ "Searched paths:`n" + [string]::Join("`n", $SearchedPaths))
 }
 
 Export function Get-ManifestPath {
@@ -49,21 +46,16 @@ Export function Get-ManifestPath {
 		[Parameter(Mandatory)]$PackagePath,
 		[switch]$NoError
 	)
-
-	$SearchedPaths = @()
-	foreach ($ManifestRelPath in $MANIFEST_PATHS) {
-		$ManifestPath = Resolve-VirtualPath (Join-Path $PackagePath $ManifestRelPath)
-		if (Test-Path -Type Leaf $ManifestPath) {
-			return Get-Item $ManifestPath
-		}
-		$SearchedPaths += $ManifestPath
+	$ManifestPath = Resolve-VirtualPath (Join-Path $PackagePath $script:MANIFEST_REL_PATH)
+	if (Test-Path -Type Leaf $ManifestPath) {
+		return Get-Item $ManifestPath
 	}
 
 	if ($NoError) {
 		return $null
+	} else {
+		throw "Package manifest is missing, expected path: $ManifestPath"
 	}
-	$PackageName = Split-Path $PackagePath -Leaf
-	throw ("Could not find manifest file. Searched paths:`n" + [String]::Join("`n", $SearchedPaths))
 }
 
 Export function Import-PackageManifestFile {
@@ -114,7 +106,7 @@ Export function Copy-ManifestParameters {
 
 	if ($PSCmdlet.ParameterSetName -eq "PackageName") {
 		try {
-			$PackagePath = Get-PackagePath $PackageName
+			$PackagePath = Get-PackageDirectory $PackageName
 			$ManifestPath = Get-ManifestPath $PackagePath
 			$Manifest = Import-PackageManifestFile $ManifestPath
 		} catch {
@@ -227,7 +219,7 @@ Export function Confirm-Manifest {
 		if ($IsRepositoryManifest) {
 			$Issues += "Property 'Private' is not allowed in manifests in a package repository."
 		} else {
-			Write-Verbose "Skipped validation of private package manifest '$($Manifest.Name)'."
+			Write-Verbose "Skipped validation of private package manifest '$ExpectedName'."
 			return
 		}
 	}

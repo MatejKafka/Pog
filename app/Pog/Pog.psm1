@@ -1,11 +1,64 @@
 # Requires -Version 7
+using module .\Paths.psm1
+using module .\lib\Utils.psm1
+using module .\lib\VersionParser.psm1
+using module .\Common.psm1
+using module .\Confirmations.psm1
+using module .\container\Invoke-Container.psm1
 . $PSScriptRoot\lib\header.ps1
 
-Import-Module $PSScriptRoot"\Paths"
-Import-Module $PSScriptRoot"\lib\Utils"
-Import-Module $PSScriptRoot"\Common"
-Import-Module $PSScriptRoot"\Confirmations"
-Import-Module $PSScriptRoot"\container\Invoke-Container"
+# TODO: allow wildcards in PackageName and Version arguments where it makes sense
+# TODO: allow pipelining for Import-, Install- and Enable-
+#  (careful about overwriting parameters based on values of other parameters,
+#   e.g. `Get-PogRepositoryPackage git, 7zip -LatestVersion | Import-Pog` will attempt to write 7zip manifest to `git` target)
+
+# FIXME: this should be namespaced (and probably moved to a C# module and .Path and .Directory should be lazy getters)
+class PogRepositoryPackage {
+	[string]$PackageName
+	[PogPackageVersion]$Version
+	hidden [string]$Path
+	hidden [string]$ManifestPath
+	#hidden [System.IO.DirectoryInfo]$Directory
+
+	PogRepositoryPackage([string]$PackageName, [PogPackageVersion]$Version) {
+		$this.PackageName = $PackageName
+		$this.Version = $Version
+		$this.Path = Join-Path $script:MANIFEST_REPO $PackageName $Version.ToString()
+		$this.ManifestPath = Get-ManifestPath $this.Path -NoError
+		#$this.Directory = Get-Item $this.Path
+	}
+
+	PogRepositoryPackage([string]$PackageName, [PogPackageVersion]$Version, [string]$Path, [string]$ManifestPath) {
+		$this.PackageName = $PackageName
+		$this.Version = $Version
+		$this.Path = $Path
+		$this.ManifestPath = $ManifestPath
+		#$this.Directory = Get-Item $this.Path
+	}
+
+	# TODO: change into a getter, update usages
+	hidden [bool]Exists() {
+		return Test-Path -Type Container $this.Path
+	}
+}
+
+class PogImportedPackage {
+	[string]$PackageName
+	[PogPackageVersion]$Version
+	[string]$Path
+	#hidden [System.IO.DirectoryInfo]$Directory
+	hidden [string]$ManifestName
+	hidden [string]$ManifestPath
+
+	PogImportedPackage([string]$PackageName, [string]$Path, [string]$ManifestPath, [string]$ManifestName, [PogPackageVersion]$ManifestVersion) {
+		$this.PackageName = $PackageName
+		$this.Path = $Path
+		#$this.Directory = Get-Item $this.Path
+		$this.ManifestPath = $ManifestPath
+		$this.ManifestName = $ManifestName
+		$this.Version = $ManifestVersion
+	}
+}
 
 
 class ImportedPackageName : System.Management.Automation.IValidateSetValuesGenerator {
@@ -32,6 +85,29 @@ class PackageRoot : System.Management.Automation.IValidateSetValuesGenerator {
 	}
 }
 
+# whew, that's a lot of types...
+class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter {
+	[System.Collections.Generic.IEnumerable[System.Management.Automation.CompletionResult]]
+	CompleteArgument(
+			[string]$CommandName, [string]$ParameterName, [string]$WordToComplete,
+			[System.Management.Automation.Language.CommandAst]$Ast,
+			[System.Collections.IDictionary]$BoundParameters
+	) {
+		$ResultList = [System.Collections.Generic.List[System.Management.Automation.CompletionResult]]::new()
+		try {
+			if (@($BoundParameters.PackageName).Count -gt 1) {
+				return $ResultList # cannot set version when multiple package names are specified
+			}
+			$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $BoundParameters.PackageName)
+		} catch {
+			return $ResultList
+		}
+		ls $RepoPackageDir | % Name | ? {$_.StartsWith($WordToComplete)} |
+				% {New-PackageVersion $_} | sort -Descending | % {$ResultList.Add($_.ToString())}
+		return $ResultList
+	}
+}
+
 
 function Export-AppShortcuts {
 	param(
@@ -52,9 +128,7 @@ Export function Export-ShortcutsToStartMenu {
 	[CmdletBinding()]
 	param(
 			[switch]
-		$UseSystemWideMenu,
-			[switch]
-		$ExcludeUnderscoredPackages
+		$UseSystemWideMenu
 	)
 
 	$TargetDir = if ($UseSystemWideMenu) {
@@ -72,7 +146,6 @@ Export function Export-ShortcutsToStartMenu {
 	$null = New-Item -ItemType Directory $TargetDir
 
 	$ShortcutCount = ls $PACKAGE_ROOTS -Directory `
-		| ? {-not ($ExcludeUnderscoredPackages -and $_.Name.StartsWith("_"))} `
 		| % {Export-AppShortcuts $_.FullName $TargetDir} `
 		| Measure-Object -Sum | % Sum
 	Write-Information "Exported $ShortcutCount shortcuts."
@@ -80,15 +153,77 @@ Export function Export-ShortcutsToStartMenu {
 
 
 Export function Get-RepositoryPackage {
-	[CmdletBinding()]
-	param()
-	return [RepoPackageName]::new().GetValidValues()
+	[CmdletBinding(DefaultParameterSetName="Version")]
+	[OutputType([PogRepositoryPackage])]
+	param(
+			[Parameter(Position=0)]
+			[ValidateSet([RepoPackageName])]
+			[string[]]
+		$PackageName,
+			# TODO: figure out how to remove this parameter when -PackageName is an array
+			[Parameter(Position=1, ParameterSetName="Version")]
+			[ArgumentCompleter([ManifestVersionCompleter])]
+			[ValidateScript({ValidateFileName})]
+			[string]
+		$Version,
+			[Parameter(ParameterSetName="LatestVersion")]
+			[switch]
+		$LatestVersion
+	)
+
+	if ($Version) {
+		if (-not $PackageName) {throw "-Version must not be passed without also passing -PackageName."}
+		if (@($PackageName).Count) {throw "-Version must not be passed when -PackageName contains multiple package names."}
+	}
+
+	if ($PackageName -and $Version) {
+		$p = [PogRepositoryPackage]::new($PackageName, $Version)
+		if (-not $p.Exists()) {
+			throw "Package '$PackageName' does not have version '$Version'."
+		}
+		return $p
+	}
+
+	if (-not $PackageName) {
+		[string[]]$PackageName = [RepoPackageName]::new().GetValidValues()
+	}
+	foreach ($p in $PackageName) {
+		# we have to parse the versions anyway, to find the latest ones
+		# TODO: do max instead of sort if -LatestVersion is set
+		$Versions = ls (Join-Path $script:MANIFEST_REPO $p) | % Name | % {New-PackageVersion $_} | sort
+		if ($LatestVersion) {
+			$Versions = $Versions | select -Last 1
+		}
+		foreach ($v in $Versions) {
+			[PogRepositoryPackage]::new($p, $v)
+		}
+	}
 }
 
 Export function Get-Package {
 	[CmdletBinding()]
-	param()
-	return [ImportedPackageName]::new().GetValidValues()
+	[OutputType([PogImportedPackage])]
+	param(
+			[ValidateSet([ImportedPackageName])]
+			[string[]]
+		$PackageName = [ImportedPackageName]::new().GetValidValues()
+	)
+
+	begin {
+		foreach ($p in $PackageName) {
+			# FIXME: duplicated between multiple functions
+			$PackagePath = Get-PackageDirectory $p
+			# get the name from the resolved directory, so that the casing is correct
+			$p = Split-Path -Leaf $PackagePath
+			$ManifestPath = Get-ManifestPath $PackagePath
+			$Manifest = Import-PackageManifestFile $ManifestPath
+
+			# FIXME: duplicated between multiple functions
+			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
+			$ManifestVersion = if ($Manifest.ContainsKey("Version")) {New-PackageVersion $Manifest.Version} else {$null}
+			[PogImportedPackage]::new($p, $PackagePath, $ManifestPath, $ManifestName, $ManifestVersion)
+		}
+	}
 }
 
 
@@ -111,12 +246,13 @@ Export function New-Root {
 
 	$Resolved = Resolve-Path $RootDir
 	if ($Resolved.Path -in $PACKAGE_ROOTS) {
-		return "Passed path is already a package root: $Resolved."
+		Write-Information "Passed path is already a package root: $Resolved."
+		return
 	}
 
 	[void]$PACKAGE_ROOTS.Add($Resolved.Path)
 	FlushPackageRootList
-	return "Added $Resolved as package root."
+	Write-Information "Added $Resolved as package root."
 }
 
 Export function Remove-Root {
@@ -133,22 +269,17 @@ Export function Remove-Root {
 	if ($UNRESOLVED_PACKAGE_ROOTS.Contains($Resolved)) {
 		$UNRESOLVED_PACKAGE_ROOTS.Remove($Resolved)
 		FlushPackageRootList
-		return "Removed unresolved package root $Resolved."
+		Write-Information "Removed unresolved package root $Resolved."
+		return
 	}
 
 	$PACKAGE_ROOTS.Remove($Resolved)
 	FlushPackageRootList
-	return "Removed $Resolved from package root list."
+	Write-Information "Removed $Resolved from package root list."
 }
 
 
-<#
-	Remove cached package archives older than the provided date.
-	TODO: Show actual package name and version here, not the file name (which may be quite random).
-	 Probably write a metadata file into the directory when creating the cache entry.
-	 Issue: In the improbable case of multiple packages using the same cache entry,
-	 we must append to the cache entry metadata file, not overwrite
- #>
+<# Remove cached package archives older than the provided date. #>
 Export function Clear-DownloadCache {
 	[CmdletBinding(DefaultParameterSetName = "Days")]
 	param(
@@ -157,7 +288,9 @@ Export function Clear-DownloadCache {
 		$DateBefore,
 			[Parameter(ParameterSetName = "Days", Position = 0)]
 			[int]
-		$DaysBefore = 0
+		$DaysBefore = 0,
+			[switch]
+		$Force
 	)
 
 	if ($PSCmdlet.ParameterSetName -eq "Days") {
@@ -191,8 +324,27 @@ Export function Clear-DownloadCache {
 		}
 	}
 
+	function RemoveEntries {
+		$CacheEntries | % {$_.EntryDirectory; $_.SourceFile} | ? {Test-Path $_} | Remove-Item -Recurse -Force
+	}
+
+
 	if (@($CacheEntries).Count -eq 0) {
+		if ($Force) {
+			Write-Information "No package archives older than '$($DateBefore.ToString())' found, nothing to remove."
+			return
+		} else {
 		throw "No cached package archives downloaded before '$($DateBefore.ToString())' found."
+	}
+	}
+
+	if ($Force) {
+		# do not check for confirmation
+		RemoveEntries
+		$C = @($CacheEntries).Count
+		Write-Information ("Removed $C package archive" + $(if ($C -eq 1) {""} else {"s"}) +`
+						   ", freeing ~{0:F} GB of space." -f ($SizeSum / 1GB))
+		return
 	}
 
 	# print the cache entry list
@@ -206,7 +358,7 @@ Export function Clear-DownloadCache {
 	$Message = "This will not affect installed applications. Reinstallation of an application may take longer," + `
 		" as it will have to be downloaded again."
 	if (Confirm-Action $Title $Message) {
-		$CacheEntries | % {$_.EntryDirectory; $_.SourceFile} | ? {Test-Path $_} | Remove-Item -Recurse -Force
+		RemoveEntries
 	} else {
 		Write-Host "No package archives were removed."
 	}
@@ -232,7 +384,10 @@ Export function Enable- {
 		$PackageParameters = @{},
 			# allows overriding existing commands without confirmation
 			[switch]
-		$Force
+		$Force,
+			<# Return a PogImportedPackage object with information about the enabled package. #>
+			[switch]
+		$PassThru
 	)
 
 	dynamicparam {
@@ -246,7 +401,9 @@ Export function Enable- {
 	}
 
 	begin {
-		$PackagePath = Get-PackagePath $PackageName
+		$PackagePath = Get-PackageDirectory $PackageName
+		# get the name from the resolved directory, so that the casing is correct
+		$PackageName = Split-Path -Leaf $PackagePath
 		$ManifestPath = Get-ManifestPath $PackagePath
 		$Manifest = Import-PackageManifestFile $ManifestPath
 
@@ -280,6 +437,11 @@ Export function Enable- {
 
 		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		Write-Information "Successfully enabled $PackageName."
+		if ($PassThru) {
+			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
+			$ManifestVersion = if ($Manifest.ContainsKey("Version")) {New-PackageVersion $Manifest.Version} else {$null}
+			return [PogImportedPackage]::new($PackageName, $PackagePath, $ManifestPath, $ManifestName, $ManifestVersion)
+		}
 	}
 }
 
@@ -290,6 +452,7 @@ Export function Install- {
 	#	Downloads and extracts package files, populating the ./app directory of the package. Downloaded files
 	#	are cached, so repeated installs only require internet connection for the initial download.
 	[CmdletBinding()]
+	[OutputType([PogImportedPackage])]
 	param(
 			### Name of the package to install. This is the install name, not necessarily the manifest app name.
 			[Parameter(Mandatory)]
@@ -311,7 +474,10 @@ Export function Install- {
 			### If set, files are downloaded with low priority, which results in better network responsiveness
 			### for other programs, but possibly slower download speed.
 			[switch]
-		$LowPriority
+		$LowPriority,
+			<# Return a PogImportedPackage object with information about the installed package. #>
+			[switch]
+		$PassThru
 	)
 
 	dynamicparam {
@@ -325,7 +491,9 @@ Export function Install- {
 
 	begin {
 		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
-		$PackagePath = Get-PackagePath $PackageName
+		$PackagePath = Get-PackageDirectory $PackageName
+		# get the name from the resolved directory, so that the casing is correct
+		$PackageName = Split-Path -Leaf $PackagePath
 		$ManifestPath = Get-ManifestPath $PackagePath
 		$Manifest = Import-PackageManifestFile $ManifestPath -NoUnwrap
 
@@ -341,7 +509,7 @@ Export function Install- {
 		Confirm-Manifest $Manifest
 
 		# Name is not required for private packages
-		if ("Name" -notin $Manifest.Keys) {
+		if (-not $Manifest.ContainsKey("Name")) {
 			if ($Manifest.ContainsKey("Install")) {
 				Write-Information "Installing private package '$PackageName'..."
 			} else {
@@ -361,6 +529,11 @@ Export function Install- {
 
 		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		Write-Information "Successfully installed $PackageName."
+		if ($PassThru) {
+			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
+			$ManifestVersion = if ($Manifest.ContainsKey("Version")) {New-PackageVersion $Manifest.Version} else {$null}
+			return [PogImportedPackage]::new($PackageName, $PackagePath, $ManifestPath, $ManifestName, $ManifestVersion)
+		}
 	}
 }
 
@@ -387,27 +560,7 @@ function ConfirmManifestOverwrite {
 	return Confirm-Action $Title $Message -ActionType "ManifestOverwrite"
 }
 
-# whew, that's a lot of types...
-class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter {
-	[System.Collections.Generic.IEnumerable[System.Management.Automation.CompletionResult]]
-	CompleteArgument(
-			[string]$CommandName, [string]$ParameterName, [string]$WordToComplete,
-			[System.Management.Automation.Language.CommandAst]$Ast,
-			[System.Collections.IDictionary]$BoundParameters
-	) {
-		$ResultList = [System.Collections.Generic.List[System.Management.Automation.CompletionResult]]::new()
-		try {
-			$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $BoundParameters.PackageName)
-		} catch {
-			return $ResultList
-		}
-		ls $RepoPackageDir | % Name | ? {$_.StartsWith($WordToComplete)} |
-				% {New-PackageVersion $_} | sort -Descending | % {$ResultList.Add($_.ToString())}
-		return $ResultList
-	}
-}
-
-function ValidateManifestVersionArgument {
+function ValidateFileName {
 	if (-not $_) {return $true}
 	$InvalidI = $_.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars())
 	if ($InvalidI -ge 0) {throw "Must be a valid directory name, cannot contain invalid characters like '$($_[$InvalidI])': $_"}
@@ -419,6 +572,7 @@ Export function Import- {
 	# .SYNOPSIS
 	#	Imports a package manifest from the repository.
 	[CmdletBinding(PositionalBinding = $false)]
+	[OutputType([PogImportedPackage])]
 	Param(
 			[Parameter(Mandatory, Position = 0)]
 			[ValidateSet([RepoPackageName])]
@@ -426,7 +580,7 @@ Export function Import- {
 		$PackageName,
 			[Parameter(Position = 1)]
 			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({ValidateManifestVersionArgument})]
+			[ValidateScript({ValidateFileName})]
 			[string]
 		$Version,
 			[string]
@@ -437,7 +591,7 @@ Export function Import- {
 			<# Overwrite an existing package without prompting for confirmation. #>
 			[switch]
 		$Force,
-			<# Return the created package directory. #>
+			<# Return a PogImportedPackage object with information about the imported package. #>
 			[switch]
 		$PassThru
 	)
@@ -498,21 +652,22 @@ Export function Import- {
 	}
 
 	ls $SrcPath | Copy-Item -Destination $TargetPath -Recurse
-	Write-Information "Initialized '$TargetPath' with package manifest '$PackageName' (version $Version)."
+	Write-Information "Initialized '$TargetPath' with package manifest '$PackageName' (version '$Version')."
 	if ($PassThru) {
-		return Get-Item $TargetPath
+		return [PogImportedPackage]::new($TargetName, $TargetPath, (Get-ManifestPath $TargetPath), $PackageName, (New-PackageVersion $Version))
 	}
 }
 
 Export function Get-ManifestHash {
 	[CmdletBinding()]
 	param(
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ValidateSet([RepoPackageName])]
 			[string]
 		$PackageName,
+			[Parameter(ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({ValidateManifestVersionArgument})]
+			[ValidateScript({ValidateFileName})]
 			[string]
 		$Version,
 			### If set, files are downloaded with low priority, which results in better network responsiveness
@@ -521,14 +676,18 @@ Export function Get-ManifestHash {
 		$LowPriority
 	)
 
-	begin {
+	process {
+		$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $PackageName)
+		# get the name from the repository, so that the casing is correct
+		$PackageName = $RepoPackageDir.Name
+
 		if (-not $Version) {
 			# find latest version
 			$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
-		} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
+		} elseif (-not (Test-Path (Join-Path $RepoPackageDir $Version))) {
 			throw "Unknown version of package '$PackageName': $Version"
 		}
-		$ManifestDir = Join-Path $script:MANIFEST_REPO $PackageName $Version
+		$ManifestDir = Join-Path $RepoPackageDir $Version
 		$ManifestPath = Get-ManifestPath $ManifestDir
 
 		if (-not (Confirm-RepositoryPackage $PackageName $Version)) {
@@ -544,28 +703,6 @@ Export function Get-ManifestHash {
 	}
 }
 
-Export function Get-Manifest {
-	[CmdletBinding()]
-	Param(
-			[Parameter(Mandatory)]
-			[ValidateSet([RepoPackageName])]
-			[string]
-		$PackageName,
-			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({ValidateManifestVersionArgument})]
-			[string]
-		$Version
-	)
-
-	if (-not $Version) {
-		# find latest version
-		$Version = Get-LatestPackageVersion (Join-Path $script:MANIFEST_REPO $PackageName)
-	} elseif (-not (Test-Path (Join-Path $script:MANIFEST_REPO $PackageName $Version))) {
-		throw "Unknown version of package '$PackageName': $Version"
-	}
-	return Get-ManifestPath (Join-Path $script:MANIFEST_REPO $PackageName $Version)
-}
-
 function FillManifestTemplate($PackageName, $Version, $ManifestTemplatePath) {
 	$Manifest = Get-Content -Raw $ManifestTemplatePath
 	$Manifest = $Manifest.Replace("'{{NAME}}'", "'" + $PackageName.Replace("'", "''") + "'")
@@ -575,17 +712,22 @@ function FillManifestTemplate($PackageName, $Version, $ManifestTemplatePath) {
 
 Export function New-Manifest {
 	[CmdletBinding()]
+	[OutputType([PogRepositoryPackage])]
 	param(
 			[Parameter(Mandatory)]
+			[ValidateScript({ValidateFileName})]
 			[string]
 		$PackageName,
 			[Parameter(Mandatory)]
+			[ValidateScript({ValidateFileName})]
 			[string]
 		$Version
 	)
 
 	# TODO: validate state of the package directory (check if it's not empty after error,...)
 	begin {
+		# parse to check validity
+		$ParsedVersion = New-PackageVersion $Version
 		$PackagePath = Join-Path $script:MANIFEST_REPO $PackageName
 		$VersionDirPath = Join-Path $PackagePath $Version
 
@@ -600,14 +742,17 @@ Export function New-Manifest {
 			$ManifestDir = Get-Item $VersionDirPath
 		}
 
-		$ManifestPath = Join-Path $ManifestDir $MANIFEST_PATHS[0]
-		$TemplatePath = "$RESOURCE_DIR\repository_manifest_template.psd1"
-		return New-Item -Path $ManifestPath -Value (FillManifestTemplate $PackageName $Version $TemplatePath)
+		$ManifestPath = Join-Path $ManifestDir $script:MANIFEST_REL_PATH
+		$TemplatePath = "$PSScriptRoot\resources\repository_manifest_template.psd1"
+		$null = New-Item -Path $ManifestPath -Value (FillManifestTemplate $PackageName $Version $TemplatePath)
+
+		return [PogRepositoryPackage]::new($PackageName, $ParsedVersion, $ManifestDir, $ManifestPath)
 	}
 }
 
 Export function New-DirectManifest {
 	[CmdletBinding()]
+	[OutputType([PogImportedPackage])]
 	param(
 			[Parameter(Mandatory)]
 			[ValidateSet([ImportedPackageName])]
@@ -616,19 +761,20 @@ Export function New-DirectManifest {
 	)
 
 	begin {
-		$PackagePath = Get-PackagePath $PackageName
+		$PackagePath = Get-PackageDirectory $PackageName
 
 		$ManifestPath = try {
 			Get-ManifestPath $PackagePath
 		} catch {
-			Resolve-VirtualPath (Join-Path $PackagePath $MANIFEST_PATHS[0])
+			Resolve-VirtualPath (Join-Path $PackagePath $script:MANIFEST_REL_PATH)
 		}
 
 		if (Test-Path $ManifestPath) {
 			throw "Package $PackageName already has a manifest at '$ManifestPath'."
 		}
 
-		return Copy-Item $RESOURCE_DIR\direct_manifest_template.psd1 $ManifestPath -PassThru
+		$null = Copy-Item $PSScriptRoot\resources\direct_manifest_template.psd1 $ManifestPath -PassThru
+		return [PogImportedPackage]::new($PackageName, $PackagePath, $ManifestPath, $null, $null)
 	}
 }
 
@@ -666,6 +812,7 @@ function RetrievePackageVersions($PackageName, $GenDir) {
    then calls the manifest generator for each version. #>
 Export function Update-Manifest {
 	[CmdletBinding()]
+	[OutputType([PogRepositoryPackage])]
 	param(
 			[Parameter(ValueFromPipeline)]
 			[ValidateSet([RepoManifestGeneratorName])]
@@ -693,12 +840,12 @@ Export function Update-Manifest {
 			return
 		}
 
-		if ($null -ne $Version -and $MyInvocation.ExpectingInput) {
+		if ($Version -and $MyInvocation.ExpectingInput) {
 			throw "$($MyInvocation.InvocationName): `$Version must not be passed when `$PackageName is passed through pipeline" +`
 					" (it does not make much sense to select the same version from multiple packages)."
 		}
 
-		if ($null -ne $Version) {
+		if ($Version) {
 			# if $Version was passed, overwrite even existing manifests
 			$Force = $true
 		}
@@ -721,27 +868,26 @@ Export function Update-Manifest {
 			# only generate manifests for versions that don't already exist, unless -Force is passed
 			$ExistingVersions = ls -Directory $ManifestDir | % {$_.Name}
 
-			$GeneratedVersions = RetrievePackageVersions $PackageName $GenDir |
+			$GeneratedVersions = RetrievePackageVersions $PackageName $GenDir `
 				# if -Force was not passed, filter out versions with already existing manifest
-				? {$Force -or $_.Version -notin $ExistingVersions} `
+				| ? {$Force -or $_.Version -notin $ExistingVersions} `
 				# if $Version was passed, filter out the versions; as the versions generated
 				#  by the script may have other metadata, we cannot use the versions passed in $Version directly
-				? {$null -eq $Version -or $_.Version -in $Version}
+				| ? {-not $Version -or $_.Version -in $Version}
 
-
-			if ($null -ne $Version -and @($Version).Count -ne @($GeneratedVersions).Count) {
+			if ($Version -and @($Version).Count -ne @($GeneratedVersions).Count) {
 				$FoundVersions = $GeneratedVersions | % {$_.Version}
 				$MissingVersionsStr = $Version | ? {$_ -notin $FoundVersions} | Join-String -Separator ", "
-				throw "Some of the package versions passed in `$Version were not found for package '$PackageName': $MissingVersionsStr" +`
+				throw "Some of the package versions passed in -Version were not found for package '$PackageName': $MissingVersionsStr" +`
 						"  (Are you sure these versions exist?)"
 			}
 
 			if ($ListOnly) {
 				# useful for testing if all expected versions are retrieved
-				return $GeneratedVersions | % {[pscustomobject]@{
-					PackageName = $PackageName
-					Version = $_.Version
-				}}
+				foreach ($v in $GeneratedVersions) {
+					[PogRepositoryPackage]::new($PackageName, (New-PackageVersion $v.Version))
+				}
+				return
 			}
 
 			# generate manifest for each version
@@ -749,13 +895,14 @@ Export function Update-Manifest {
 				$TargetDir = Join-Path $ManifestDir $_.Version
 				if (-not (Test-Path $TargetDir)) {$null = mkdir $TargetDir}
 				try {
-					Write-Information "Generating manifest '$PackageName', version '$($_.Version)'..."
 					$null = & "$GenDir\generator.ps1" $_.OriginalValue $TargetDir
 					if (-not (ls $TargetDir | select -First 1)) {
 						# target dir is empty, nothing was generated
 						rm $TargetDir
 						# TODO: also check if the manifest file itself is generated, or possibly run full validation (Confirm-RepositoryPackage)
 						throw "Manifest generator for package '$PackageName', version '$($_.Version) did not generate any files."
+					} else {
+						[PogRepositoryPackage]::new($PackageName, (New-PackageVersion $_.Version))
 					}
 				} catch {
 					# generator failed
@@ -781,7 +928,7 @@ Export function Confirm-RepositoryPackage {
 		$PackageName,
 			[Parameter(ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([ManifestVersionCompleter])]
-			[ValidateScript({ValidateManifestVersionArgument})]
+			[ValidateScript({ValidateFileName})]
 			[string]
 		$Version
 	)
@@ -819,10 +966,16 @@ Export function Confirm-RepositoryPackage {
 		$VersionDirs | % {
 			$Version = $_.Name
 
-			if (@(ls $_).Count -gt 1) {
-				AddIssue ("In the root of each package manifest directory should be either a single 'pog.psd1' file, " `
-						+ "or a '.pog' directory containing a 'pog.psd1' file and other support files or directories. " `
-						+ "Instead, multiple files or directories were found for version '$Version' of package '$PackageName'.")
+			foreach ($f in ls $_) {
+				if ($f.Name -notin "pog.psd1", ".pog") {
+					AddIssue ("Manifest directory for '$PackageName', version '$Version' contains extra file/directory '$($f.Name)' at '$f'." `
+							+ " Each manifest directory must only contain a pog.psd1 manifest file and an optional .pog directory for extra files.")
+				}
+			}
+
+			$ExtraFileDir = Get-Item "$_\.pog" -ErrorAction Ignore
+			if ($ExtraFileDir -and $ExtraFileDir -isnot [System.IO.DirectoryInfo]) {
+				AddIssue ("'$ExtraFileDir' should be a directory, not a file, in manifest directory for '$PackageName', version '$Version'.")
 			}
 
 			try {
@@ -867,7 +1020,7 @@ Export function Confirm-Package {
 	)
 
 	process {
-		$PackagePath = Get-PackagePath $PackageName
+		$PackagePath = Get-PackageDirectory $PackageName
 		$ManifestPath = Get-ManifestPath $PackagePath
 
 		try {
