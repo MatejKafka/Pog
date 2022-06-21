@@ -334,8 +334,8 @@ Export function Clear-DownloadCache {
 			Write-Information "No package archives older than '$($DateBefore.ToString())' found, nothing to remove."
 			return
 		} else {
-		throw "No cached package archives downloaded before '$($DateBefore.ToString())' found."
-	}
+			throw "No cached package archives downloaded before '$($DateBefore.ToString())' found."
+		}
 	}
 
 	if ($Force) {
@@ -435,7 +435,7 @@ Export function Enable- {
 			AllowOverwrite = [bool]$Force
 		}
 
-		Invoke-Container Enable $ManifestPath $PackagePath $InternalArgs $PackageParameters
+		Invoke-Container Enable $PackageName $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		Write-Information "Successfully enabled $PackageName."
 		if ($PassThru) {
 			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
@@ -527,7 +527,7 @@ Export function Install- {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Invoke-Container Install $ManifestPath $PackagePath $InternalArgs $PackageParameters
+		Invoke-Container Install $PackageName $ManifestPath $PackagePath $InternalArgs $PackageParameters
 		Write-Information "Successfully installed $PackageName."
 		if ($PassThru) {
 			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
@@ -675,6 +675,7 @@ Export function Get-ManifestHash {
 			[switch]
 		$LowPriority
 	)
+	# TODO: -PassThru to return structured object instead of Write-Host pretty-print
 
 	process {
 		$RepoPackageDir = Get-Item (Join-Path $script:MANIFEST_REPO $PackageName)
@@ -699,7 +700,7 @@ Export function Get-ManifestHash {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Invoke-Container GetInstallHash $ManifestPath $ManifestDir $InternalArgs @{}
+		Invoke-Container GetInstallHash $PackageName $ManifestPath $ManifestDir $InternalArgs @{}
 	}
 }
 

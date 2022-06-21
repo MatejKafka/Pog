@@ -5,6 +5,9 @@ param(
 	$ContainerType,
 		[Parameter(Mandatory)]
 		[string]
+	$PackageName,
+		[Parameter(Mandatory)]
+		[string]
 	$ManifestPath,
 		[Parameter(Mandatory)]
 		[Hashtable]
@@ -60,8 +63,7 @@ $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
 
 # create an internal global constant from package data and internal arguments
 Set-Variable -Scope Global -Option Constant -Name "_Pog" -Value @{
-	# FIXME: it would be cleaner to pass this as an argument instead of recovering it from the working directory
-	PackageName = Split-Path -Leaf .
+	PackageName = $PackageName
 	PackageDirectory = Get-Location
 	Manifest = $Manifest
 	InternalArgs = $InternalArguments
@@ -73,6 +75,7 @@ Set-Variable -Name this -Value $Manifest
 Set-Variable -Name ManifestRoot -Value (Resolve-Path -Relative (Split-Path $ManifestPath))
 
 # cleanup variables
+Remove-Variable PackageName
 Remove-Variable Manifest
 Remove-Variable ManifestPath
 Remove-Variable InternalArguments

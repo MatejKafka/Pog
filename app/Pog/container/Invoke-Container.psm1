@@ -53,15 +53,18 @@ Export function Invoke-Container {
 			[Parameter(Mandatory)]
 			[ContainerType]
 		$ContainerType,
+			[Parameter(Mandatory)]
+			[string]
+		$PackageName,
 			# FIXME: TOCTOU (Import-PowerShellDataFile vs Invoke-Expression),
 			#  but it's not that serious, as we are executing the content anyway,
 			#  so it doesn't really open up a security vulnerability
 			[Parameter(Mandatory)]
-			[ValidateScript({Test-Path $_})]
+			[ValidateScript({Test-Path -Type Leaf $_})]
 			[string]
 		$ManifestPath,
 			[Parameter(Mandatory)]
-			[ValidateScript({Test-Path $_})]
+			[ValidateScript({Test-Path -Type Container $_})]
 			[string]
 		$WorkingDirectory,
 			[Parameter(Mandatory)]
@@ -87,10 +90,11 @@ Export function Invoke-Container {
 		$PrefVars.InformationPreference = "Continue"
 	}
 
-	$ContainerArgs = @($ContainerType, $ManifestPath, $InternalArguments, $ScriptArguments, $PrefVars)
-
 	# Start-ThreadJob is only supported in PowerShell Core (pwsh)
-	$ContainerJob = if (Get-Command Start-ThreadJob -ErrorAction Ignore) {
+	$UseThreadJob = [bool](Get-Command Start-ThreadJob -ErrorAction Ignore)
+	$ContainerArgs = @($ContainerType, $PackageName, $ManifestPath, $InternalArguments, $ScriptArguments, $PrefVars)
+
+	$ContainerJob = if ($UseThreadJob) {
 		# the indirect scriptblock creation is used to avoid https://github.com/PowerShell/PowerShell/issues/15096
 		#  and have a correct $PSScriptRoot inside the container
 		Start-ThreadJob {
@@ -99,6 +103,7 @@ Export function Invoke-Container {
 			. "$using:PSScriptRoot\container.ps1" @using:ContainerArgs
 		}
 	} else {
+		Write-Debug "Using 'Start-Job' to run the Pog container, 'Start-ThreadJob' is not supported."
 		Start-Job -WorkingDirectory $WorkingDirectory {
 			. "$using:PSScriptRoot\container.ps1" @using:ContainerArgs
 		}
