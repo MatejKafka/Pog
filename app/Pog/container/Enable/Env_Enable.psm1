@@ -1,10 +1,10 @@
 # Requires -Version 7
+using module ..\..\Paths.psm1
+using module ..\..\lib\Utils.psm1
+using module ..\container_lib\Environment.psm1
+using module ..\container_lib\Confirmations.psm1
+using module .\command_generator\SubstituteExe.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
-Import-Module $PSScriptRoot\..\..\Paths
-Import-Module $PSScriptRoot\..\..\lib\Utils
-Import-Module $PSScriptRoot\..\container_lib\Environment
-Import-Module $PSScriptRoot\..\container_lib\Confirmations
-Import-Module $PSScriptRoot\command_generator\SubstituteExe
 
 
 Export-ModuleMember -Function Confirm-Action

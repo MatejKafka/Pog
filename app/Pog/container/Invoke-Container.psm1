@@ -1,8 +1,7 @@
 # Requires -Version 7
+using module ..\Paths.psm1
+using module ..\lib\Utils.psm1
 . $PSScriptRoot\..\lib\header.ps1
-
-Import-Module $PSScriptRoot"\..\Paths"
-Import-Module $PSScriptRoot"\..\lib\Utils"
 
 
 enum ContainerType {
