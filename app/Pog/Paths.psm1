@@ -1,41 +1,14 @@
 # Requires -Version 7
-Import-Module $PSScriptRoot\lib\header.ps1
+using module .\lib_compiled\Pog.dll
+. $PSScriptRoot\lib\header.ps1
 
+$PATH_CONFIG = [Pog.PathConfig]::new((Resolve-Path "$PSScriptRoot\..\.."))
+$REPOSITORY = [Pog.Repository]::new($PATH_CONFIG.ManifestRepositoryDir)
+Export-ModuleMember -Variable PATH_CONFIG, REPOSITORY
 
-$ROOT = Resolve-Path $PSScriptRoot"\..\.."
-
-$BIN_DIR = Resolve-Path $ROOT"\data\package_bin"
-# directory where package files with known hash are cached
-$DOWNLOAD_CACHE_DIR = Resolve-Path $ROOT"\cache\download_cache"
-# directory where package files without known hash are downloaded
-# a custom directory is used over system $env:TMP directory, because sometimes we move files
-#  from this dir to download cache, and if the system directory was on a different partition,
-#  this move could be needlessly expensive
-$DOWNLOAD_TMP_DIR = Resolve-Path $ROOT"\cache\download_tmp"
-$MANIFEST_REPO = Resolve-Path $ROOT"\data\manifests\"
-$MANIFEST_GENERATOR_REPO = Resolve-Path $ROOT"\data\manifest_generators\"
-$PACKAGE_ROOT_FILE = Resolve-Path $ROOT"\data\package_roots.txt"
-
-$UNRESOLVED_PACKAGE_ROOTS = [Collections.ArrayList]::new()
-# cast through [array] is needed, otherwise if there is only single root, ArrayList would throw type error
-$PACKAGE_ROOTS = [Collections.ArrayList][array](Get-Content $PACKAGE_ROOT_FILE | % {
-	if (Test-Path $_) {
-		return (Resolve-Path $_).Path
-	}
-	# TODO: figure out how to dynamically get the name of Remove-PogRoot including current command prefix
-	Write-Warning "Could not find package root '$_'. Remove it using Remove-PogRoot or create the directory."
-	[void]$UNRESOLVED_PACKAGE_ROOTS.Add($_)
-})
-
-
-$MANIFEST_REL_PATH = ".\pog.psd1"
-$MANIFEST_CLEANUP_PATHS = @(".\pog.psd1", ".\.pog")
-
-
-$SYSTEM_START_MENU = Resolve-Path (Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\")
-$USER_START_MENU = Resolve-Path (Join-Path $env:AppData "Microsoft\Windows\Start Menu\")
-
-$APP_COMPAT_REGISTRY_DIR = "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers\"
-
-
-Export-ModuleMember -Variable *
+# warn about missing package roots
+foreach ($r in $PATH_CONFIG.PackageRoots.MissingPackageRoots) {
+	# TODO: figure out how to dynamically get the name of Edit-PogRootList including current command prefix
+	Write-Warning ("Could not find package root '$_'. Create the directory, or remove it" `
+			+ " from the package root list using the 'Edit-PogRootList' command.")
+}

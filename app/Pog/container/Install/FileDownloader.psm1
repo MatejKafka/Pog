@@ -7,8 +7,9 @@ using module ..\..\lib\Utils.psm1
 Import-Module BitsTransfer
 
 
-# use Add-type instead of direct enum definition, because those
+# use Add-Type instead of direct enum definition, because those
 #  are not visible when the module is imported
+# FIXME: for some reason, this is very slow to evaluate
 Add-Type @'
 public enum UserAgentType {
 	PowerShell,
@@ -145,12 +146,15 @@ function SetCacheEntryMetadataFile($CacheEntryDirectory) {
 	$Sources | ConvertTo-Json -Depth 100 | Set-Content -Path $MetadataFilePath
 }
 
-function GetDownloadCacheEntry($Hash) {
+function GetDownloadCacheEntryPath($Hash) {
 	# each cache entry is a directory named with the SHA256 hash of target file,
 	#  containing a single file with original name
-	#  e.g. $script:DOWNLOAD_CACHE_DIR/<sha-256>/app-v1.2.0.zip
+	#  e.g. <DownloadCacheDir>/<sha-256>/app-v1.2.0.zip
+	return Join-Path $PATH_CONFIG.DownloadCacheDir $Hash
+}
 
-	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $Hash
+function GetDownloadCacheEntry($Hash) {
+	$DirPath = GetDownloadCacheEntryPath $Hash
 	if (-not (Test-Path $DirPath)) {
 		return $null
 	}
@@ -193,8 +197,7 @@ function DownloadFileToCache {
 		$DownloadParams = {}
 	)
 
-	# if this is changed, also modify MoveFileToCache
-	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $ExpectedHash.ToUpper()
+	$DirPath = GetDownloadCacheEntryPath $ExpectedHash.ToUpper()
 	if (Test-Path $DirPath) {
 		throw "Download cache already contains an entry for '$ExpectedHash' (from '$SrcUrl')."
 	}
@@ -222,7 +225,7 @@ function DownloadFileToCache {
 <# Assumes the hash is correct. #>
 function MoveFileToCache($File, $Hash) {
 	$Hash = $Hash.ToUpper()
-	$DirPath = Join-Path $script:DOWNLOAD_CACHE_DIR $Hash
+	$DirPath = GetDownloadCacheEntryPath $Hash
 
 	# create the metadata file
 	SetCacheEntryMetadataFile $DirPath
@@ -274,7 +277,7 @@ Export function Invoke-TmpFileDownload {
 
 	# create unused tmp dir
 	do {
-		$TmpDirPath = Join-Path $script:DOWNLOAD_TMP_DIR (New-Guid).Guid
+		$TmpDirPath = Join-Path $PATH_CONFIG.DownloadTmpDir (New-Guid).Guid
 		$TmpDir = New-Item -Type Directory $TmpDirPath -ErrorAction Ignore
 	} while ($null -eq $TmpDir)
 

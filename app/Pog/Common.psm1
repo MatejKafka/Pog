@@ -1,23 +1,11 @@
 # Requires -Version 7
-<#
-Module with opinionated, package-related support functions.
-#>
-
+<# Module with opinionated, package-related support functions. #>
 using module ./Paths.psm1
+using module ./lib_compiled/Pog.dll
 using module ./lib/Utils.psm1
-using module ./lib/VersionParser.psm1
 using module ./lib/Convert-CommandParametersToDynamic.psm1
 . $PSScriptRoot\lib\header.ps1
 
-
-Export function Get-LatestPackageVersion {
-	param (
-			[Parameter(Mandatory)]
-			[ValidateScript({Test-Path $_})]
-		$PackagePath
-	)
-	return Get-LatestVersion (ls $PackagePath -Directory).Name
-}
 
 Export function Get-PackageDirectory {
 	param(
@@ -26,7 +14,7 @@ Export function Get-PackageDirectory {
 	)
 
 	$SearchedPaths = @()
-	foreach ($Root in $PACKAGE_ROOTS) {
+	foreach ($Root in $PATH_CONFIG.PackageRoots.ValidPackageRoots) {
 		$PackagePath = Resolve-VirtualPath (Join-Path $Root $PackageName)
 		$SearchedPaths += $PackagePath
 		if (Test-Path -Type Container $PackagePath) {
@@ -41,46 +29,32 @@ Export function Get-PackageDirectory {
 			+ "Searched paths:`n" + [string]::Join("`n", $SearchedPaths))
 }
 
-Export function Get-ManifestPath {
-	param(
-		[Parameter(Mandatory)]$PackagePath,
-		[switch]$NoError
-	)
-	$ManifestPath = Resolve-VirtualPath (Join-Path $PackagePath $script:MANIFEST_REL_PATH)
-	if (Test-Path -Type Leaf $ManifestPath) {
-		return Get-Item $ManifestPath
-	}
-
-	if ($NoError) {
-		return $null
-	} else {
-		throw "Package manifest is missing, expected path: $ManifestPath"
-	}
-}
-
 Export function Import-PackageManifestFile {
 	param(
-		[Parameter(Mandatory)]$ManifestPath,
-		[switch]$NoUnwrap
+			[Parameter(Mandatory)]
+			[Pog.Package]
+		$Package,
+			[switch]
+		$NoUnwrap
 	)
 
-	if (-not (Test-Path -Type Leaf $ManifestPath)) {
-		throw "Requested manifest file does not exist: '$ManifestPath'."
+	if (-not $Package.ManifestExists) {
+		throw "Manifest file is missing for package '$($Package.PackageName)'. Searched path: $($Package.ManifestPath)"
 	}
 
 	try {
 		# PowerShell has a bug where it double wraps script blocks in .psd1 files: https://github.com/PowerShell/PowerShell/issues/12789
 		# to avoid this issue, we first import the manifest using Import-PowerShellDataFile to check that it's valid,
 		# and then evaluate if using Invoke-Expression to get the actual manifest
-		$Manifest = Import-PowerShellDataFile $ManifestPath
+		$Manifest = Import-PowerShellDataFile $Package.ManifestPath
 		if ($NoUnwrap) {
 			return $Manifest
 		} else {
-			return Invoke-Expression (Get-Content -Raw $ManifestPath)
+			return Invoke-Expression (Get-Content -Raw $Package.ManifestPath)
 		}
 	} catch {
 		# TODO: better error messages (there's an open issue for that)
-		throw [Exception]::new("Could not load package manifest from '$ManifestPath', " +`
+		throw [Exception]::new("Could not load package manifest from '$($p.ManifestPath)', " +`
 				"it is not a valid PowerShell data file.", $_.Exception)
 	}
 }
@@ -106,9 +80,8 @@ Export function Copy-ManifestParameters {
 
 	if ($PSCmdlet.ParameterSetName -eq "PackageName") {
 		try {
-			$PackagePath = Get-PackageDirectory $PackageName
-			$ManifestPath = Get-ManifestPath $PackagePath
-			$Manifest = Import-PackageManifestFile $ManifestPath
+			$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
+			$Manifest = Import-PackageManifestFile $p
 		} catch {
 			# probably incorrect package name, ignore it here
 			return $null

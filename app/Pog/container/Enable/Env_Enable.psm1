@@ -423,7 +423,7 @@ Export function Export-Command {
 		$NoSymlink
 	)
 
-	# TODO: check if BIN_DIR is in PATH, and warn the user if it's not
+	# TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and warn the user if it's not
 	#  this TODO might be obsolete if we move to a per-package store of exported commands with separate copy mechanism
 
 	if (-not (Test-Path $ExePath)) {
@@ -438,7 +438,7 @@ Export function Export-Command {
 
 	$UseSymlink = -not ($SetWorkingDirectory -or $NoSymlink)
 	$LinkExt = if ($UseSymlink) {Split-Path -Extension $ExePath} else {".exe"}
-	$LinkPath = Join-Path $script:BIN_DIR ($CmdName + $LinkExt)
+	$LinkPath = Join-Path $PATH_CONFIG.ExportedCommandDir ($CmdName + $LinkExt)
 
 	if (Test-Path -Type Leaf $LinkPath) {
 		$Item = Get-Item $LinkPath
@@ -458,7 +458,7 @@ Export function Export-Command {
 		}
 	}
 
-	$MatchingCommands = ls $script:BIN_DIR -File -Filter ($CmdName + ".*")
+	$MatchingCommands = ls $PATH_CONFIG.ExportedCommandDir -File -Filter ($CmdName + ".*")
 
 	# there should not be more than 1, if we've done this checking correctly
 	if (@($MatchingCommands).Count -gt 1) {
@@ -510,8 +510,7 @@ Export function Disable-DisplayScaling {
 
 	# converted back to string, as registry works with strings
 	$ExePath = [string](Resolve-Path $ExePath)
-
-	$RegPath = $APP_COMPAT_REGISTRY_DIR
+	$RegPath = "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers\"
 
 	if (-not (Test-Path $RegPath)) {
 		$null = New-Item $RegPath

@@ -41,9 +41,7 @@
 
 		"Get-Root"
 		"Get-PogRoot"
-		"New-Root"
-		"New-PogRoot"
-		"Remove-Root"
-		"Remove-PogRoot"
+		"Edit-RootList"
+		"Edit-PogRootList"
 	)
 }

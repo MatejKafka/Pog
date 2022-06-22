@@ -1,10 +1,9 @@
+# Requires -Version 7
 <#
 	.SYNOPSIS
 	A utility module for displaying confirmation dialogs to user and tracking
 	"Yes/No to All" responses. Used both inside the manifest container and outside (in Pog.psm1).
 #>
-
-# Requires -Version 7
 . $PSScriptRoot\lib\header.ps1
 
 # if this module is used inside the container, it runs in a separate runspace with a possibly
