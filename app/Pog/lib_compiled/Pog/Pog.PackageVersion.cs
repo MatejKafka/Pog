@@ -55,7 +55,7 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         }
 
         // the regex should ensure this always works
-        this.Main = match.Groups["Main"].Value.Split(".").Select(int.Parse).ToArray();
+        this.Main = match.Groups["Main"].Value.Split('.').Select(int.Parse).ToArray();
 
         var devVersion = new List<IComparable>();
         bool? isNumericToken = null;
