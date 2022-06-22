@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <LangVersion>default</LangVersion>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Pog.Types</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" />
+  </ItemGroup>
+
+  <Target Name="ExportDLL" AfterTargets="Build" Condition=" '$(Configuration)' == 'Release' ">
+    <Message Text="Exporting '$(ProjectName).dll' to parent directory..." Importance="High" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(ProjectDir)..\$(ProjectName).dll" />
+  </Target>
+
+</Project>
