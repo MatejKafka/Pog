@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -41,7 +42,9 @@ public readonly struct Repository {
 
     public RepositoryContainer GetContainer(string packageName, bool resolveName = false) {
         if (resolveName) {
-            packageName = Utils.EnumerateNonHiddenDirectoryNames(Path, packageName).First();
+            try {
+                packageName = Utils.EnumerateNonHiddenDirectoryNames(Path, packageName).First();
+            } catch (InvalidOperationException) {} // the container does not exist yet, use the passed package name
         }
         return new RepositoryContainer(packageName, this);
     }
@@ -137,8 +140,11 @@ public class ImportedPackageRaw : Package {
     // TODO: temporary; when a class representing the package roots is created, move this method there
     public static ImportedPackageRaw CreateResolved(string packagePath) {
         var parentPath = Directory.GetParent(packagePath)!.FullName;
-        var resolvedName = Utils.EnumerateNonHiddenDirectoryNames(parentPath, IOPath.GetFileName(packagePath)).First();
-        return new ImportedPackageRaw(resolvedName, IOPath.Combine(parentPath, resolvedName));
+        var packageName = IOPath.GetFileName(packagePath);
+        try {
+            packageName = Utils.EnumerateNonHiddenDirectoryNames(parentPath, packageName).First();
+        } catch (InvalidOperationException) {} // the package does not exist yet, use the passed package name
+        return new ImportedPackageRaw(packageName, IOPath.Combine(parentPath, packageName));
     }
 }
 
