@@ -5,7 +5,6 @@ using System.Text;
 using JetBrains.Annotations;
 using static System.Environment;
 
-// ReSharper disable once CheckNamespace
 namespace Pog;
 
 // TODO: add support for adding and removing package roots, and cache the loaded package root list

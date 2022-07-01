@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using IOPath = System.IO.Path;
 
-// ReSharper disable once CheckNamespace
 namespace Pog;
 
 /// <summary>

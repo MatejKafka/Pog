@@ -6,7 +6,6 @@ using IOPath = System.IO.Path;
 using System.Management.Automation;
 using JetBrains.Annotations;
 
-// ReSharper disable once CheckNamespace
 namespace Pog;
 
 internal static class Utils {

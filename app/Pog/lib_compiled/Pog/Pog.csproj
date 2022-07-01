@@ -4,7 +4,6 @@
     <LangVersion>default</LangVersion>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <RootNamespace>Pog.Types</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -12,13 +11,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="IsExternalInit" Version="1.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
     <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" />
   </ItemGroup>
 
-  <Target Name="ExportDLL" AfterTargets="Build" Condition=" '$(Configuration)' == 'Release' ">
+  <Target Name="ExportDLL-Release" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Message Text="Exporting '$(ProjectName).dll' to parent directory..." Importance="High" />
     <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(ProjectDir)..\$(ProjectName).dll" />
+  </Target>
+  <Target Name="ExportDLL-Debug" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+    <Message Text="Exporting '$(ProjectName).dll' (Debug) to parent directory..." Importance="High" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(ProjectDir)..\$(ProjectName)_Debug.dll" />
   </Target>
 
 </Project>
