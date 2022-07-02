@@ -67,7 +67,7 @@ class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter
 }
 
 
-function Export-AppShortcuts {
+function Export-AppShortcut {
 	param(
 		[Parameter(Mandatory)]$AppPath,
 		[Parameter(Mandatory)]$ExportPath
@@ -104,7 +104,7 @@ Export function Export-ShortcutsToStartMenu {
 	$null = New-Item -ItemType Directory $TargetDir
 
 	$ShortcutCount = ls $PATH_CONFIG.PackageRoots.ValidPackageRoots -Directory `
-		| % {Export-AppShortcuts $_.FullName $TargetDir} `
+		| % {Export-AppShortcut $_.FullName $TargetDir} `
 		| Measure-Object -Sum | % Sum
 	Write-Information "Exported $ShortcutCount shortcuts."
 }
@@ -317,7 +317,7 @@ Export function Enable- {
 	dynamicparam {
 		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
 
-		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "-"
+		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "_"
 		# could not copy parameters (probably -PackageName not set yet)
 		if ($null -eq $CopiedParams) {return}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
@@ -398,7 +398,7 @@ Export function Install- {
 	dynamicparam {
 		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
 
-		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "-"
+		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "_"
 		# could not copy parameters (probably -PackageName not set yet)
 		if ($null -eq $CopiedParams) {return}
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
@@ -718,9 +718,16 @@ Export function Update-Manifest {
 				throw "$($MyInvocation.InvocationName): `$Version must not be passed when `$PackageName is not set" +`
 						" (it does not make much sense to select the same version for all generated packages)."
 			}
-			Write-Information "Updating manifest repository for all packages..."
-			# call itself with all existing manifest generators
-			[RepoManifestGeneratorName]::new().GetValidValues() | & $MyInvocation.MyCommand @PSBoundParameters
+			$GeneratorNames = [RepoManifestGeneratorName]::new().GetValidValues()
+			$i = 0
+			$c = @($GeneratorNames).Count
+			$GeneratorNames | % {
+				Write-Progress -Activity "Updating manifests" -PercentComplete (100 * ($i/$c)) -Status "$($i+1)/${c} Updating '$_'..."
+				$i++
+				return $_
+				# call itself with all existing manifest generators
+			} | & $MyInvocation.MyCommand @PSBoundParameters
+			Write-Progress -Activity "Updating manifests" -Completed
 			return
 		}
 

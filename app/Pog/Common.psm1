@@ -113,10 +113,11 @@ Export function Copy-ManifestParameters {
 		param([Parameter(Mandatory)]$_PSBoundParameters)
 
 		$Extracted = @{}
-		$RuntimeDict.Keys `
-			| ? {$_PSBoundParameters.ContainsKey($_)} `
-			| % {$Extracted[$_.Substring($NamePrefix.Length)] = $_PSBoundParameters[$_]}
-
+		foreach ($ParamName in $RuntimeDict.Keys) {
+			if ($_PSBoundParameters.ContainsKey($ParamName)) {
+				$Extracted[$ParamName.Substring($NamePrefix.Length)] = $_PSBoundParameters[$ParamName]
+			}
+		}
 		return $Extracted
 	}.GetNewClosure()
 
