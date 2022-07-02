@@ -15,10 +15,14 @@ internal static class Utils {
                 .Select(d => d.Name);
     }
 
-    public static IEnumerable<string> EnumerateNonHiddenDirectoryNames(string path, string searchPattern) {
-        return new DirectoryInfo(path).EnumerateDirectories(searchPattern)
-                .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden))
-                .Select(d => d.Name);
+    /// Return `childName`, but with casing matching the name as stored in the filesystem, if it already exists.
+    public static string GetResolvedChildName(string parent, string childName) {
+        try {
+            return new DirectoryInfo(parent).EnumerateDirectories(childName).Single().Name;
+        } catch (InvalidOperationException) {
+            // the child does not exist yet, return the name as-is
+            return childName;
+        }
     }
 }
 
@@ -41,9 +45,7 @@ public readonly struct Repository {
 
     public RepositoryContainer GetContainer(string packageName, bool resolveName = false) {
         if (resolveName) {
-            try {
-                packageName = Utils.EnumerateNonHiddenDirectoryNames(Path, packageName).First();
-            } catch (InvalidOperationException) {} // the container does not exist yet, use the passed package name
+            packageName = Utils.GetResolvedChildName(Path, packageName);
         }
         return new RepositoryContainer(packageName, this);
     }
@@ -148,10 +150,7 @@ public class ImportedPackageRaw : Package {
     // TODO: temporary; when a class representing the package roots is created, move this method there
     public static ImportedPackageRaw CreateResolved(string packagePath) {
         var parentPath = Directory.GetParent(packagePath)!.FullName;
-        var packageName = IOPath.GetFileName(packagePath);
-        try {
-            packageName = Utils.EnumerateNonHiddenDirectoryNames(parentPath, packageName).First();
-        } catch (InvalidOperationException) {} // the package does not exist yet, use the passed package name
+        var packageName = Utils.GetResolvedChildName(parentPath, IOPath.GetFileName(packagePath));
         return new ImportedPackageRaw(packageName, IOPath.Combine(parentPath, packageName));
     }
 }
