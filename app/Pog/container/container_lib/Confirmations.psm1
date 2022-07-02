@@ -16,7 +16,7 @@ Export function ConfirmOverwrite {
 	)
 
 	# user passed -AllowOverwrite
-	if ($global:_Pog.InternalArgs.AllowOverwrite) {
+	if ($global:_Pog.InternalArguments.AllowOverwrite) {
 		return $true
 	}
 	return Confirm-Action $Title $Message "_AllowOverwrite"

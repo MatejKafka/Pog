@@ -65,8 +65,8 @@ $Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
 Set-Variable -Scope Global -Option Constant -Name "_Pog" -Value @{
 	PackageName = $PackageName
 	PackageDirectory = Get-Location
-	Manifest = $Manifest
-	InternalArgs = $InternalArguments
+	Manifest = $Manifest # TODO: this shouldn't probably be passed directly, just parse/extract relevant fields
+	InternalArguments = $InternalArguments
 }
 
 # $this probably cannot be constant, as it would break internal behavior
