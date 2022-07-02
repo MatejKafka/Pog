@@ -23,7 +23,7 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
 
     [Parameter(Mandatory = true, Position = 0)] public ContainerType ContainerType;
     [Parameter(Mandatory = true, Position = 1)] public Package Package = null!;
-    [Parameter(Mandatory = true)] public Hashtable Manifest = null!;
+    [Parameter(Mandatory = true)] public PackageManifest Manifest = null!;
     [Parameter(Mandatory = true)] public Hashtable InternalArguments = null!;
     [Parameter(Mandatory = true)] public Hashtable PackageArguments = null!;
 
@@ -32,8 +32,6 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        // Manifest["Enable"] = (Manifest["Enable"] as ScriptBlock)!.GetNewClosure();
-
         var outputCollection = new PSDataCollection<PSObject>();
         outputCollection.DataAdded += delegate {
             foreach (var o in outputCollection.ReadAll()) {
@@ -41,7 +39,8 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
             }
         };
 
-        var runspace = RunspaceFactory.CreateRunspace(Host, CreateInitialSessionState()); // reuse our Host
+        // reuse our Host ---------------------------\/
+        var runspace = RunspaceFactory.CreateRunspace(Host, CreateInitialSessionState());
         // set the working directory
         // this is a hack, but unfortunately a necessary one: https://github.com/PowerShell/PowerShell/issues/17603
         var originalWorkingDirectory = Environment.CurrentDirectory;
@@ -78,21 +77,9 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
                 __cleanup
                 Write-Debug 'Cleanup finished.'
             }
-        ").AddArgument(Manifest).AddArgument(PackageArguments);
+        ").AddArgument(Manifest.Raw).AddArgument(PackageArguments);
         // don't accept any input, write output to `outputCollection`
         _ps.Invoke(null, outputCollection, new PSInvocationSettings());
-
-        // _ps.AddCommand("__main").AddArgument(Manifest).AddArgument(PackageArguments);
-        // try {
-        //     // don't accept any input, write output to `outputCollection`
-        //     _ps.Invoke(null, outputCollection, new PSInvocationSettings());
-        // } finally {
-        //     WriteDebug("Cleaning up...");
-        //     _ps.Commands.Clear();
-        //     _ps.AddCommand("__cleanup");
-        //     _ps.Invoke(null, outputCollection, new PSInvocationSettings());
-        //     WriteDebug("Cleanup finished.");
-        // }
     }
 
     // relevant preference variables, which are copied to the container (see `man about_Preference_Variables`)
@@ -121,19 +108,6 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
         }
     }
 
-    // private void CopyPreferenceVariablesToIss(InitialSessionState iss) {
-    //     // TODO: consider re-adding automatic enable for -Verbose when -Debug is set
-    //     //  and for InformationPreference when -Verbose is set
-    //     iss.Variables.Add(_copiedPreferenceVariables.Select(variable => {
-    //         var p = SessionState.PSVariable.Get(variable.name); // get var from parent scope
-    //         var value = variable.paramName != null && variable.mapParam != null &&
-    //                     MyInvocation.BoundParameters.TryGetValue(variable.paramName, out var obj)
-    //                 ? variable.mapParam(obj) // map the passed parameter
-    //                 : p.Value; // use the preference variable value from the parent scope
-    //         return new SessionStateVariableEntry(p.Name, value, p.Description, p.Options, p.Attributes);
-    //     }));
-    // }
-
     private InitialSessionState CreateInitialSessionState() {
         var iss = InitialSessionState.CreateDefault2();
         iss.ThreadOptions = PSThreadOptions.UseCurrentThread;
@@ -150,7 +124,9 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
             // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
             new("this", Manifest, "Loaded manifest of the processed package"),
             // store internal Pog data in the _Pog variable inside the container, used by the environments imported below
-            new("_Pog", new ContainerInternalInfo(Package.PackageName, Package.Path, Manifest, InternalArguments),
+            // TODO: update all places where $_Pog.Manifest is accessed and then switch to storing the parsed manifest,
+            //  instead of the .Raw Hashtable
+            new("_Pog", new ContainerInternalInfo(Package.PackageName, Package.Path, Manifest.Raw, InternalArguments),
                     "Internal data used by the Pog container environment", ScopedItemOptions.Constant),
         });
 
