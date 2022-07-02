@@ -1,10 +1,9 @@
 # Requires -Version 7
 using module ..\..\Paths.psm1
 using module ..\..\lib\Utils.psm1
-. $PSScriptRoot\..\..\lib\header.ps1
-
 # allows downloading files using BITS
-Import-Module BitsTransfer
+using module BitsTransfer
+. $PSScriptRoot\..\..\lib\header.ps1
 
 
 # use Add-Type instead of direct enum definition, because those

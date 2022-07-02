@@ -1,7 +1,6 @@
 # Requires -Version 7
 <# Module with opinionated, package-related support functions. #>
 using module ./Paths.psm1
-using module ./lib_compiled/Pog.dll
 using module ./lib/Utils.psm1
 using module ./lib/Convert-CommandParametersToDynamic.psm1
 . $PSScriptRoot\lib\header.ps1

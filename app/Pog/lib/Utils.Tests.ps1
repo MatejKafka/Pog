@@ -1,13 +1,5 @@
 # Requires -Version 7
-
-BeforeAll {
-	$Module = Import-Module -Force $PSScriptRoot\Utils.psm1 -PassThru
-}
-
-AfterAll {
-	Remove-Module $Module
-	Remove-Variable Module
-}
+using module .\Utils.psm1
 
 Describe "DynamicParams" {
 	BeforeAll {
@@ -21,11 +13,11 @@ Describe "DynamicParams" {
 					[Parameter(Mandatory)]
 				$Param3
 			)
-			
+
 			dynamicparam {
 				return New-DynamicSwitchParam "SwitchParam"
 			}
-			
+
 			begin {
 				echo $PSBoundParameters
 			}

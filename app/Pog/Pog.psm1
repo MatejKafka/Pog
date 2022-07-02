@@ -1,6 +1,5 @@
 # Requires -Version 7
 using module .\Paths.psm1
-using module .\lib_compiled\Pog.dll
 using module .\lib\Utils.psm1
 using module .\Common.psm1
 using module .\Confirmations.psm1

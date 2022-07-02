@@ -1,8 +1,8 @@
 # Requires -Version 7
+using module .\..\container_lib\Confirmations.psm1
+using module .\ExtractArchive.psm1
+using module .\FileDownloader.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
-Import-Module $PSScriptRoot\..\container_lib\Confirmations
-Import-Module $PSScriptRoot\ExtractArchive
-Import-Module $PSScriptRoot\FileDownloader
 
 Export-ModuleMember -Function Confirm-Action
 

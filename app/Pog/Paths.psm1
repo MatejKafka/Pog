@@ -1,5 +1,4 @@
 # Requires -Version 7
-using module .\lib_compiled\Pog.dll
 . $PSScriptRoot\lib\header.ps1
 
 $PATH_CONFIG = [Pog.PathConfig]::new((Resolve-Path "$PSScriptRoot\..\.."))

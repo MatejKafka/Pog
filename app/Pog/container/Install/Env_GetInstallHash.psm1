@@ -1,7 +1,7 @@
 # Requires -Version 7
+using module .\FileDownloader.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 
-Import-Module $PSScriptRoot\FileDownloader
 
 <# This function is called after the container setup is finished to run the passed manifest. #>
 Export function __main {

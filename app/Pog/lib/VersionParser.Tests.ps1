@@ -1,5 +1,5 @@
 # Requires -Version 7
-using module ..\lib_compiled\Pog.dll
+. $PSScriptRoot\header.ps1
 
 Describe "Version parsing" {
 	BeforeAll {
