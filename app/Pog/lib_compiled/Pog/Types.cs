@@ -38,43 +38,43 @@ public readonly struct Repository {
         return Utils.EnumerateNonHiddenDirectoryNames(Path);
     }
 
-    public IEnumerable<RepositoryContainer> Enumerate() {
+    public IEnumerable<RepositoryVersionedPackage> Enumerate() {
         var repo = this;
-        return EnumeratePackageNames().Select(p => new RepositoryContainer(p, repo));
+        return EnumeratePackageNames().Select(p => new RepositoryVersionedPackage(p, repo));
     }
 
-    public RepositoryContainer GetContainer(string packageName, bool resolveName = false) {
+    public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName = false) {
         if (resolveName) {
             packageName = Utils.GetResolvedChildName(Path, packageName);
         }
-        return new RepositoryContainer(packageName, this);
+        return new RepositoryVersionedPackage(packageName, this);
     }
 }
 
 /// <summary>
-/// Class representing the repository directory containing package directories for different versions.
+/// Class representing a repository directory containing different versions of a RepositoryPackage.
 /// </summary>
 /// The backing directory may not exist, in which case the enumeration methods behave as if it was empty. 
 [PublicAPI]
-public class RepositoryContainer {
+public class RepositoryVersionedPackage {
     public readonly string PackageName;
     [Hidden] public readonly Repository Repository;
     public readonly string Path;
     [Hidden] public bool Exists => Directory.Exists(this.Path);
 
-    public RepositoryContainer(string packageName, Repository repository) {
+    internal RepositoryVersionedPackage(string packageName, Repository repository) {
         PackageName = packageName;
         Repository = repository;
         Path = IOPath.Combine(repository.Path, packageName);
     }
 
     public IEnumerable<RepositoryPackage> EnumerateSorted() {
-        return EnumerateVersions()
+        return EnumerateVersionStrings()
                 .Select(v => new RepositoryPackage(this, new PackageVersion(v)))
                 .OrderBy(p => p.Version);
     }
 
-    public IEnumerable<string> EnumerateVersions() {
+    public IEnumerable<string> EnumerateVersionStrings() {
         try {
             return Utils.EnumerateNonHiddenDirectoryNames(Path);
         } catch (DirectoryNotFoundException) {
@@ -82,20 +82,17 @@ public class RepositoryContainer {
         }
     }
 
-    public RepositoryPackage GetPackage(string version) {
-        return GetPackage(new PackageVersion(version));
+    public RepositoryPackage GetVersion(string version) {
+        return GetVersion(new PackageVersion(version));
     }
 
-    public RepositoryPackage GetPackage(PackageVersion version) {
+    public RepositoryPackage GetVersion(PackageVersion version) {
         return new RepositoryPackage(this, version);
     }
 
-    public PackageVersion GetLatestVersion() {
-        return EnumerateVersions().Select(v => new PackageVersion(v)).Max();
-    }
-
     public RepositoryPackage GetLatestPackage() {
-        return new RepositoryPackage(this, GetLatestVersion());
+        var latestVersion = EnumerateVersionStrings().Select(v => new PackageVersion(v)).Max();
+        return new RepositoryPackage(this, latestVersion);
     }
 }
 
@@ -127,12 +124,9 @@ public class Package {
 [PublicAPI]
 public class RepositoryPackage : Package {
     public readonly PackageVersion Version;
-    [Hidden] public readonly RepositoryContainer Container;
+    [Hidden] public readonly RepositoryVersionedPackage Container;
 
-    public RepositoryPackage(string packageName, PackageVersion version, Repository repository)
-            : this(new RepositoryContainer(packageName, repository), version) {}
-
-    public RepositoryPackage(RepositoryContainer parent, PackageVersion version)
+    internal RepositoryPackage(RepositoryVersionedPackage parent, PackageVersion version)
             : base(parent.PackageName, IOPath.Combine(parent.Path, version.ToString())) {
         Version = version;
         Container = parent;

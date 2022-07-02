@@ -56,12 +56,12 @@ class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter
 			return $ResultList # cannot set version when multiple package names are specified
 		}
 
-		$c = $script:REPOSITORY.GetContainer($BoundParameters.PackageName)
+		$c = $script:REPOSITORY.GetPackage($BoundParameters.PackageName)
 		if (-not $c.Exists) {
 			return $ResultList # no such package
 		}
 
-		$c.EnumerateVersions() | ? {$_.StartsWith($WordToComplete)} |
+		$c.EnumerateVersionStrings() | ? {$_.StartsWith($WordToComplete)} |
 				% {NewPackageVersion $_} | sort -Descending | % {$ResultList.Add($_.ToString())}
 		return $ResultList
 	}
@@ -135,7 +135,7 @@ Export function Get-RepositoryPackage {
 	}
 
 	if ($PackageName -and $Version) {
-		$p = [Pog.RepositoryPackage]::new($PackageName, $Version, $REPOSITORY)
+		$p = $REPOSITORY.GetPackage($PackageName, $true).GetVersion($Version)
 		if (-not $p.Exists) {
 			throw "Package '$PackageName' does not have version '$($p.Version)'."
 		}
@@ -146,7 +146,7 @@ Export function Get-RepositoryPackage {
 		[string[]]$PackageName = $REPOSITORY.EnumeratePackageNames()
 	}
 	foreach ($p in $PackageName) {
-		$c = [Pog.RepositoryContainer]::new($p, $REPOSITORY)
+		$c = $REPOSITORY.GetPackage($p, $true)
 		if ($LatestVersion) {
 			echo $c.GetLatestPackage()
 		} else {
@@ -326,10 +326,6 @@ Export function Enable- {
 	}
 
 	begin {
-		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
-		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
-		$Manifest = Import-PackageManifestFile $p -NoUnwrap
-
 		$ForwardedParams = ExtractParamsFn $PSBoundParameters
 		try {
 			$PackageParameters += $ForwardedParams
@@ -338,6 +334,10 @@ Export function Enable- {
 			throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
 					"Each parameter must be present in at most one of these: " + $_
 		}
+
+		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
+		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
+		$Manifest = Import-PackageManifestFile $p
 
 		Confirm-Manifest $Manifest
 
@@ -407,10 +407,6 @@ Export function Install- {
 	}
 
 	begin {
-		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
-		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
-		$Manifest = Import-PackageManifestFile $p -NoUnwrap
-
 		$ForwardedParams = ExtractParamsFn $PSBoundParameters
 		try {
 			$PackageParameters += $ForwardedParams
@@ -419,6 +415,10 @@ Export function Install- {
 			throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
 					"Each parameter must be present in at most one of these: " + $_
 		}
+
+		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
+		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
+		$Manifest = Import-PackageManifestFile $p -NoUnwrap
 
 		Confirm-Manifest $Manifest
 
@@ -494,7 +494,7 @@ Export function Import- {
 	)
 
 	begin {
-		$c = $REPOSITORY.GetContainer($PackageName, $true)
+		$c = $REPOSITORY.GetPackage($PackageName, $true)
 		# get the resolved name, so that the casing is correct
 		$PackageName = $c.PackageName
 
@@ -507,7 +507,7 @@ Export function Import- {
 			# find latest version
 			$SrcPackage = $c.GetLatestPackage()
 		} else {
-			$SrcPackage = $c.GetPackage($Version)
+			$SrcPackage = $c.GetVersion($Version)
 			if (-not $SrcPackage.Exists) {
 				throw "Unknown version of package '$PackageName': $Version"
 			}
@@ -574,7 +574,7 @@ Export function Get-ManifestHash {
 	# TODO: -PassThru to return structured object instead of Write-Host pretty-print
 
 	process {
-		$c = $REPOSITORY.GetContainer($PackageName, $true)
+		$c = $REPOSITORY.GetPackage($PackageName, $true)
 		# get the resolved name, so that the casing is correct
 		$PackageName = $c.PackageName
 
@@ -582,7 +582,7 @@ Export function Get-ManifestHash {
 			# find latest version
 			$p = $c.GetLatestPackage()
 		} else {
-			$p = $c.GetPackage($Version)
+			$p = $c.GetVersion($Version)
 			if (-not $p.Exists) {
 				throw "Unknown version of package '$($p.PackageName)': $($p.Version)"
 			}
@@ -620,7 +620,7 @@ Export function New-Manifest {
 	)
 
 	begin {
-		$p = [Pog.RepositoryPackage]::new($PackageName, $Version, $REPOSITORY)
+		$p = $REPOSITORY.GetPackage($PackageName, $true).GetVersion($Version)
 
 		if (-not (Test-Path $p.Path)) {
 			# create manifest dir for version
@@ -741,7 +741,7 @@ Export function Update-Manifest {
 			return # ignore, already processed in begin block
 		}
 
-		$c = $REPOSITORY.GetContainer($PackageName, $true)
+		$c = $REPOSITORY.GetPackage($PackageName, $true)
 		$PackageName = $c.PackageName
 		$GenDir = Join-Path $PATH_CONFIG.ManifestGeneratorDir $PackageName
 
@@ -752,7 +752,7 @@ Export function Update-Manifest {
 		try {
 			# list available versions without existing manifest (unless -Force is set, then all versions are listed)
 			# only generate manifests for versions that don't already exist, unless -Force is passed
-			$ExistingVersions = $c.EnumerateVersions()
+			$ExistingVersions = $c.EnumerateVersionStrings()
 			$GeneratedVersions = RetrievePackageVersions $PackageName $GenDir `
 				# if -Force was not passed, filter out versions with already existing manifest
 				| ? {$Force -or $_.Version -notin $ExistingVersions} `
@@ -769,12 +769,12 @@ Export function Update-Manifest {
 
 			if ($ListOnly) {
 				# useful for testing if all expected versions are retrieved
-				return $GeneratedVersions | % {$c.GetPackage($_.Version)}
+				return $GeneratedVersions | % {$c.GetVersion($_.Version)}
 			}
 
 			# generate manifest for each version
 			$GeneratedVersions | % {
-				$p = $c.GetPackage($_.Version)
+				$p = $c.GetVersion($_.Version)
 				if (-not $p.Exists) {
 					$null = New-Item -Type Directory $p.Path
 				}
@@ -834,7 +834,7 @@ Export function Confirm-RepositoryPackage {
 		if ($Package) {
 			$VersionPackages = $Package
 		} else {
-			$c = $REPOSITORY.GetContainer($PackageName, $true)
+			$c = $REPOSITORY.GetPackage($PackageName, $true)
 			$VersionStr = if ($VersionParam) {", version '$VersionParam'"} else {" (all versions)"}
 			Write-Verbose "Validating package '$PackageName'$VersionStr from local repository..."
 
@@ -846,7 +846,7 @@ Export function Confirm-RepositoryPackage {
 				}
 				$c.EnumerateSorted()
 			} else {
-				$p = $c.GetPackage($VersionParam)
+				$p = $c.GetVersion($VersionParam)
 				if (-not $p.Exists) {
 					throw "Could not find version '$VersionParam' of package '$PackageName' in the local repository. Tested path: '$($p.Path)'"
 				}
