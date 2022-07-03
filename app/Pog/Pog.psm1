@@ -350,7 +350,7 @@ Export function Enable- {
 		}
 
 		Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $Manifest)..."
-		Invoke-CompiledContainer Enable $p -Manifest $Manifest -InternalArguments $InternalArgs -PackageArguments $PackageParameters
+		Invoke-Container Enable $p -Manifest $Manifest -InternalArguments $InternalArgs -PackageArguments $PackageParameters
 		Write-Information "Successfully enabled $($p.PackageName)."
 		if ($PassThru) {
 			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
@@ -402,7 +402,7 @@ Export function Install- {
 		}
 
 		Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $Manifest)..."
-		Invoke-CompiledContainer Install $p -Manifest $Manifest -InternalArguments $InternalArgs
+		Invoke-Container Install $p -Manifest $Manifest -InternalArguments $InternalArgs
 		Write-Information "Successfully installed $($p.PackageName)."
 		if ($PassThru) {
 			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
@@ -564,7 +564,7 @@ Export function Get-ManifestHash {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Invoke-CompiledContainer GetInstallHash $p -Manifest $p.ReadManifest() -InternalArguments $InternalArgs
+		Invoke-Container GetInstallHash $p -Manifest $p.ReadManifest() -InternalArguments $InternalArgs
 	}
 }
 

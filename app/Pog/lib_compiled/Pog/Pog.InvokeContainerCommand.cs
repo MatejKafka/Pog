@@ -16,7 +16,7 @@ public record ContainerInternalInfo(
         string PackageName, string PackageDirectory, PackageManifest Manifest, Hashtable InternalArguments);
 
 [PublicAPI]
-[Cmdlet(VerbsLifecycle.Invoke, "CompiledContainer")]
+[Cmdlet(VerbsLifecycle.Invoke, "Container")]
 public class InvokeContainerCommand : PSCmdlet, IDisposable {
     private static readonly string ContainerDir = Path.GetFullPath(Path.Combine(
             Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, @"..\container"));
