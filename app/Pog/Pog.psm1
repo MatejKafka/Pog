@@ -3,7 +3,6 @@ using module .\Paths.psm1
 using module .\lib\Utils.psm1
 using module .\Common.psm1
 using module .\Confirmations.psm1
-using module .\container\Invoke-Container.psm1
 . $PSScriptRoot\lib\header.ps1
 
 # TODO: allow wildcards in PackageName and Version arguments where it makes sense
@@ -325,17 +324,17 @@ Export function Enable- {
 	begin {
 		if (Test-Path Function:ExtractParamsFn) {
 			# $p and $Manifest are already loaded
-		$ForwardedParams = ExtractParamsFn $PSBoundParameters
-		try {
-			$PackageParameters += $ForwardedParams
-		} catch {
-			$CmdName = $MyInvocation.MyCommand.Name
-			throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
-					"Each parameter must be present in at most one of these: " + $_
-		}
+			$ForwardedParams = ExtractParamsFn $PSBoundParameters
+			try {
+				$PackageParameters += $ForwardedParams
+			} catch {
+				$CmdName = $MyInvocation.MyCommand.Name
+				throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
+						"Each parameter must be present in at most one of these: " + $_
+			}
 		} else {
 			Write-Debug "Loading manifest inside the begin{} block, dynamicparam failed"
-		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
+			$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
 			$Manifest = $p.ReadManifest()
 		}
 
@@ -351,7 +350,7 @@ Export function Enable- {
 		}
 
 		Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $Manifest)..."
-		Invoke-Container Enable $p.PackageName $p.ManifestPath $p.Path $InternalArgs $PackageParameters
+		Invoke-CompiledContainer Enable $p -Manifest $Manifest -InternalArguments $InternalArgs -PackageArguments $PackageParameters
 		Write-Information "Successfully enabled $($p.PackageName)."
 		if ($PassThru) {
 			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
@@ -403,7 +402,7 @@ Export function Install- {
 		}
 
 		Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $Manifest)..."
-		Invoke-Container Install $p.PackageName $p.ManifestPath $p.Path $InternalArgs $PackageParameters
+		Invoke-CompiledContainer Install $p -Manifest $Manifest -InternalArguments $InternalArgs
 		Write-Information "Successfully installed $($p.PackageName)."
 		if ($PassThru) {
 			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
@@ -565,7 +564,7 @@ Export function Get-ManifestHash {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Invoke-Container GetInstallHash $PackageName $p.ManifestPath $p.Path $InternalArgs @{}
+		Invoke-CompiledContainer GetInstallHash $p -Manifest $p.ReadManifest() -InternalArguments $InternalArgs
 	}
 }
 
