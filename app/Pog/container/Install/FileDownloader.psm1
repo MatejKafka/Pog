@@ -120,12 +120,11 @@ function SetCacheEntryMetadataFile($CacheEntryDirectory) {
 		}
 	}
 
-	$Manifest = $global:_Pog.Manifest
 	$NewEntry = @{
 		PackageName = $global:_Pog.PackageName
 		PackageDirectory = [string]$global:_Pog.PackageDirectory
-		ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
-		ManifestVersion = if ($Manifest.ContainsKey("Version")) {$Manifest.Version} else {$null}
+		ManifestName = $global:_Pog.Manifest.Name
+		ManifestVersion = $global:_Pog.Manifest.Version.ToString()
 	}
 
 	# check if the entry is already contained

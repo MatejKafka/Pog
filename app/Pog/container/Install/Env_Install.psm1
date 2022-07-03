@@ -25,12 +25,13 @@ if ($null -eq $OpenedFilesViewCmd) {
 Export function __main {
 	param($Manifest, $PackageArguments)
 
-	$Installer = $Manifest.Install
-	if ($Installer -is [scriptblock]) {
+	if ($Manifest.Install -is [scriptblock]) {
 		# run the installer scriptblock
-		& $Installer @PackageArguments
+		& $Manifest.Install @PackageArguments
 	} else {
 		# Install block is a hashtable of arguments to Install-FromUrl
+		# create a copy, do not modify the main manifest
+		$Installer = $Manifest.Install.Clone()
 
 		# resolve SourceUrl/Url scriptblocks
 		foreach ($Prop in @("SourceUrl", "Url")) {

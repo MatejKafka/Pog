@@ -59,19 +59,19 @@ $PreferenceVariables.GetEnumerator() | % {
 }
 
 # TOCTOU issue, check Invoke-Container for details
-$Manifest = Invoke-Expression (Get-Content -Raw $ManifestPath)
+$Manifest = [Pog.PackageManifest]::new($ManifestPath)
 
 # create an internal global constant from package data and internal arguments
 Set-Variable -Scope Global -Option Constant -Name "_Pog" -Value @{
 	PackageName = $PackageName
 	PackageDirectory = Get-Location
-	Manifest = $Manifest # TODO: this shouldn't probably be passed directly, just parse/extract relevant fields
+	Manifest = $Manifest
 	InternalArguments = $InternalArguments
 }
 
 # $this probably cannot be constant, as it would break internal behavior
 # it is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
-Set-Variable -Name this -Value $Manifest
+Set-Variable -Name this -Value $Manifest.Raw
 
 # cleanup variables
 Remove-Variable PackageName
