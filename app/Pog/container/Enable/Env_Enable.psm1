@@ -218,7 +218,11 @@ Export function Set-SymlinkedPath {
 
 <# Ensures that given directory path exists. #>
 Export function Assert-Directory {
-	param([Parameter(Mandatory)]$Path)
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory)]$Path,
+		[scriptblock]$DefaultContent = {param($Dir)}
+	)
 
 	if (Test-Path -Type Container $Path) {
 		Write-Verbose "Directory '$Path' already exists."
@@ -227,25 +231,33 @@ Export function Assert-Directory {
 	if (Test-Path $Path) {
 		throw "Path '$Path' already exists, but it's not a directory."
 	}
-	$null = New-Item -ItemType Directory $Path
+	$Dir = New-Item -ItemType Directory $Path
+	try {
+		& $DefaultContent $Dir
+	} catch {
+		Remove-Item -Recurse -Force $Dir
+	}
 	Write-Information "Created directory '$Path'."
 }
 
 
 <# Ensures that given file exists. #>
 Export function Assert-File {
+	[CmdletBinding(DefaultParameterSetName="ScriptBlocks")]
 	param(
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, Position=0)]
 			[string]
 		$Path,
 			# if file does not exist, use output of this script block to populate it
 			# file is left empty if this is not passed
-			[ScriptBlock]
+			[Parameter(Position=1, ParameterSetName="ScriptBlocks")]
+			[scriptblock]
 		$DefaultContent = {param($File)},
 			# if file does exist and this is passed, the script block is ran with reference to the file
 			# NOTE: you have to save the output yourself (this was deemed more
 			#  robust and often more efficient solution than just returning the desired new content)
 			# return $true if something was changed, $false if original content was kept
+			[Parameter(Position=2, ParameterSetName="ScriptBlocks")]
 			[ValidateScript({
 				if ($_.GetType() -eq [scriptblock]) {return $true}
 				if ($_.GetType() -eq [string]) {
@@ -254,10 +266,26 @@ Export function Assert-File {
 				}
 				throw "-ContentUpdater must be either script block, or path to a PowerShell script file, got '$($_.GetType())'."
 			})]
-		$ContentUpdater = $null
+		$ContentUpdater = $null,
+			# this would work better as a [string], but it's a [scriptblock] for consistency with the other parameters
+			[Parameter(ParameterSetName="FixedContent")]
+			[scriptblock]
+		$FixedContent = $null
 	)
 
+	$FixedContentStr = if ($FixedContent) {& $FixedContent (Resolve-VirtualPath $Path)} else {$null}
+
 	if (Test-Path -Type Leaf $Path) {
+		if ($FixedContentStr) {
+			if ((Get-Content -Raw $Path) -eq $FixedContentStr) {
+				Write-Verbose "File '$Path' exists with already correct content."
+			} else {
+				Set-Content -Path $Path -Value $FixedContentStr -NoNewline
+				Write-Information "File '$Path' updated."
+			}
+			return
+		}
+
 		if ($null -eq $ContentUpdater) {
 			Write-Verbose "File '$Path' already exists."
 			return
@@ -285,17 +313,19 @@ Export function Assert-File {
 	}
 
 	Assert-ParentDirectory $Path
+
 	# create new file with default content
 	# the generator script $DefaultContent can either create and populate the file directly,
 	#  or just return the desired content and we'll create it ourselves
 	# the first option is supported, because some apps have a builtin way to generate a default config directly
-	$NewContent = & $DefaultContent (Resolve-VirtualPath $Path)
+	$NewContent = if ($FixedContentStr) {$FixedContentStr}
+		else {& $DefaultContent (Resolve-VirtualPath $Path)}
+
 	if (-not (Test-Path $Path)) {
 		# -NoNewline doesn't skip just the trailing newline, but all newlines;
 		#  so we add the newlines between manually and use -NoNewline to avoid the trailing newline
 		$NewContent | Join-String -Separator "`n" | Set-Content $Path -NoNewline
 	}
-
 	Write-Information "Created file '$Path'."
 }
 
