@@ -28,6 +28,8 @@ public class PackageManifest {
             throw new FileNotFoundException($"Package manifest file at '${manifestPath}' does not exist.");
         }
 
+        // NOTE: how this is loaded is important; the resulting scriptblocks must NOT be bound to a single runspace;
+        //  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
         var ast = Parser.ParseFile(manifestPath, out _, out var errors);
         if (errors.Length > 0) {
             throw new ParseException(errors);

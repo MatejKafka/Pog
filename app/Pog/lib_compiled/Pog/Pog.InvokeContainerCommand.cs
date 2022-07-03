@@ -13,7 +13,7 @@ public enum ContainerType { Install, GetInstallHash, Enable }
 
 [PublicAPI]
 public record ContainerInternalInfo(
-        string PackageName, string PackageDirectory, Hashtable Manifest, Hashtable InternalArguments);
+        string PackageName, string PackageDirectory, PackageManifest Manifest, Hashtable InternalArguments);
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "CompiledContainer")]
@@ -25,7 +25,7 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
     [Parameter(Mandatory = true, Position = 1)] public Package Package = null!;
     [Parameter(Mandatory = true)] public PackageManifest Manifest = null!;
     [Parameter(Mandatory = true)] public Hashtable InternalArguments = null!;
-    [Parameter(Mandatory = true)] public Hashtable PackageArguments = null!;
+    [Parameter] public Hashtable PackageArguments = new();
 
     private readonly PowerShell _ps = PowerShell.Create();
 
@@ -38,6 +38,8 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
                 WriteObject(o);
             }
         };
+
+        // FIXME: mandatory parameter prompt gets stuck on Ctrl-C
 
         // reuse our Host ---------------------------\/
         var runspace = RunspaceFactory.CreateRunspace(Host, CreateInitialSessionState());
@@ -68,8 +70,11 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
         }
 
         _ps.Runspace = runspace;
-        // __main should be exported by each container environment
+
+        // __main and __cleanup should be exported by each container environment
+        // the `finally` block is called even on exit
         _ps.AddScript(@"
+            Set-StrictMode -Version Latest
             try {
                 __main @Args
             } finally {
@@ -122,11 +127,9 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
             new("ErrorActionPreference", "Stop", ""),
 
             // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
-            new("this", Manifest, "Loaded manifest of the processed package"),
+            new("this", Manifest.Raw, "Loaded manifest of the processed package"),
             // store internal Pog data in the _Pog variable inside the container, used by the environments imported below
-            // TODO: update all places where $_Pog.Manifest is accessed and then switch to storing the parsed manifest,
-            //  instead of the .Raw Hashtable
-            new("_Pog", new ContainerInternalInfo(Package.PackageName, Package.Path, Manifest.Raw, InternalArguments),
+            new("_Pog", new ContainerInternalInfo(Package.PackageName, Package.Path, Manifest, InternalArguments),
                     "Internal data used by the Pog container environment", ScopedItemOptions.Constant),
         });
 
