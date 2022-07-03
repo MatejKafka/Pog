@@ -28,46 +28,16 @@ Export function Get-PackageDirectory {
 			+ "Searched paths:`n" + [string]::Join("`n", $SearchedPaths))
 }
 
-Export function Import-PackageManifestFile {
-	param(
-			[Parameter(Mandatory)]
-			[Pog.Package]
-		$Package,
-			[switch]
-		$NoUnwrap
-	)
-
-	if (-not $Package.ManifestExists) {
-		throw "Manifest file is missing for package '$($Package.PackageName)'. Searched path: $($Package.ManifestPath)"
-	}
-
-	try {
-		# PowerShell has a bug where it double wraps script blocks in .psd1 files: https://github.com/PowerShell/PowerShell/issues/12789
-		# to avoid this issue, we first import the manifest using Import-PowerShellDataFile to check that it's valid,
-		# and then evaluate if using Invoke-Expression to get the actual manifest
-		$Manifest = Import-PowerShellDataFile $Package.ManifestPath
-		if ($NoUnwrap) {
-			return $Manifest
-		} else {
-			return Invoke-Expression (Get-Content -Raw $Package.ManifestPath)
-		}
-	} catch {
-		# TODO: better error messages (there's an open issue for that)
-		throw [Exception]::new("Could not load package manifest from '$($p.ManifestPath)', " +`
-				"it is not a valid PowerShell data file.", $_.Exception)
-	}
-}
-
 # takes a package name, and returns all static parameters of a selected setup script as a runtime parameter dictionary
 # keyword-only, no positional arguments; aliases are supported
 Export function Copy-ManifestParameters {
-	[CmdletBinding(DefaultParameterSetName = "PackageName")]
+	[CmdletBinding(DefaultParameterSetName = "Manifest")]
 	param(
-			[Parameter(Mandatory, ParameterSetName = "PackageName", Position = 0)]
-			[string]
-		$PackageName,
+			[Parameter(Mandatory, ParameterSetName = "Manifest", Position = 0)]
+			[Pog.PackageManifest]
+		$Manifest,
 			# either Install or Enable
-			[Parameter(Mandatory, ParameterSetName = "PackageName", Position = 1)]
+			[Parameter(Mandatory, ParameterSetName = "Manifest", Position = 1)]
 			[string]
 		$PropertyName,
 			[Parameter(Mandatory, ParameterSetName = "ScriptBlock")]
@@ -77,16 +47,8 @@ Export function Copy-ManifestParameters {
 		$NamePrefix = ""
 	)
 
-	if ($PSCmdlet.ParameterSetName -eq "PackageName") {
-		try {
-			$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
-			$Manifest = Import-PackageManifestFile $p
-		} catch {
-			# probably incorrect package name, ignore it here
-			return $null
-		}
-
-		if ($Manifest[$PropertyName] -isnot [scriptblock]) {
+	if ($PSCmdlet.ParameterSetName -eq "Manifest") {
+		if (-not $Manifest.Raw.ContainsKey($PropertyName) -or $Manifest.Raw[$PropertyName] -isnot [scriptblock]) {
 			# not a script block, doesn't have parameters
 			return @{
 				Parameters = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
@@ -94,7 +56,7 @@ Export function Copy-ManifestParameters {
 			}
 		}
 
-		$Sb = $Manifest[$PropertyName]
+		$Sb = $Manifest.Raw[$PropertyName]
 	} else {
 		$Sb = $ScriptBlock
 	}
@@ -166,8 +128,8 @@ function Confirm-ManifestInstallHashtable($InstallBlock) {
 Export function Confirm-Manifest {
 	param(
 			[Parameter(Mandatory)]
-			[Hashtable]
-		$Manifest,
+			[Pog.PackageManifest]
+		$ParsedManifest,
 			[string]
 		$ExpectedName,
 			[string]
@@ -175,6 +137,8 @@ Export function Confirm-Manifest {
 			[switch]
 		$IsRepositoryManifest
 	)
+
+	$Manifest = $ParsedManifest.Raw
 
 	$RequiredKeys = @{
 		Name = [string]; Version = [string]; Architecture = @([string], [Object[]]);

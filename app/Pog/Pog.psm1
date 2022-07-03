@@ -166,12 +166,8 @@ Export function Get-Package {
 	begin {
 		foreach ($p in $PackageName) {
 			$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $p))
-			$Manifest = Import-PackageManifestFile $p
-
-			# FIXME: duplicated between multiple functions
-			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
-			$ManifestVersion = if ($Manifest.ContainsKey("Version")) {$Manifest.Version} else {$null}
-			[Pog.ImportedPackage]::new($p, $ManifestName, $ManifestVersion)
+			$Manifest = $p.ReadManifest()
+			[Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
 		}
 	}
 }
@@ -278,13 +274,13 @@ Export function Clear-DownloadCache {
 
 
 function GetPackageDescriptionStr($PackageName, $Manifest) {
-	$VersionStr = if ($Manifest.ContainsKey("Version")) {", version '$($Manifest.Version)'"} else {""}
-	if ($Manifest.ContainsKey("Private") -and $Manifest.Private) {
+	$VersionStr = if ($Manifest.Version) {", version '$($Manifest.Version)'"} else {""}
+	if ($Manifest.IsPrivate) {
 		return "private package '$PackageName'$VersionStr"
 	} elseif ($Manifest.Name -eq $PackageName) {
 		return "package '$($Manifest.Name)'$VersionStr"
 	} else {
-		return "package '$($Manifest.Name)' (installed as '$PackageName')$VersionStr..."
+		return "package '$($Manifest.Name)' (installed as '$PackageName')$VersionStr"
 	}
 }
 
@@ -302,7 +298,7 @@ Export function Enable- {
 		$PackageName,
 			### Extra parameters to pass to the Enable script in the package manifest. For interactive usage,
 			### prefer to use the automatically generated parameters on this command (e.g. instead of passing
-			### `@{Arg = Value}` to this parameter, pass `--Arg Value` as a standard parameter to this cmdlet),
+			### `@{Arg = Value}` to this parameter, pass `-_Arg Value` as a standard parameter to this cmdlet),
 			### which gives you autocomplete and name/type checking.
 			[Hashtable]
 		$PackageParameters = @{},
@@ -316,15 +312,19 @@ Export function Enable- {
 
 	dynamicparam {
 		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
+		# PackageName must be valid, this should not throw
+		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
+		# this may fail in case the manifest is invalid, don't throw here, just return, will be handled in the begin{} block
+		$Manifest = try {$p.ReadManifest()} catch {return}
 
-		$CopiedParams = Copy-ManifestParameters $PackageName Enable -NamePrefix "_"
-		# could not copy parameters (probably -PackageName not set yet)
-		if ($null -eq $CopiedParams) {return}
+		$CopiedParams = Copy-ManifestParameters $Manifest Enable -NamePrefix "_"
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}
 
 	begin {
+		if (Test-Path Function:ExtractParamsFn) {
+			# $p and $Manifest are already loaded
 		$ForwardedParams = ExtractParamsFn $PSBoundParameters
 		try {
 			$PackageParameters += $ForwardedParams
@@ -333,14 +333,15 @@ Export function Enable- {
 			throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
 					"Each parameter must be present in at most one of these: " + $_
 		}
-
+		} else {
+			Write-Debug "Loading manifest inside the begin{} block, dynamicparam failed"
 		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
-		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
-		$Manifest = Import-PackageManifestFile $p
+			$Manifest = $p.ReadManifest()
+		}
 
 		Confirm-Manifest $Manifest
 
-		if (-not $Manifest.ContainsKey("Enable")) {
+		if (-not $Manifest.Raw.ContainsKey("Enable")) {
 			Write-Information "Package '$($p.PackageName)' does not have an Enable block."
 			return
 		}
@@ -353,9 +354,7 @@ Export function Enable- {
 		Invoke-Container Enable $p.PackageName $p.ManifestPath $p.Path $InternalArgs $PackageParameters
 		Write-Information "Successfully enabled $($p.PackageName)."
 		if ($PassThru) {
-			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
-			$ManifestVersion = if ($Manifest.ContainsKey("Version")) {$Manifest.Version} else {$null}
-			return [Pog.ImportedPackage]::new($p, $ManifestName, $ManifestVersion)
+			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
 		}
 	}
 }
@@ -374,14 +373,6 @@ Export function Install- {
 			[ValidateSet([ImportedPackageName])]
 			[string]
 		$PackageName,
-			# TODO: remove this when removing the option to use scriptblock for the Install block
-
-			### Extra parameters to pass to the Install script in the package manifest. For interactive usage,
-			### prefer to use the automatically generated parameters on this command (e.g. instead of passing
-			### `@{Arg = Value}` to this parameter, pass `--Arg Value` as a standard parameter to this cmdlet),
-			### which gives you autocomplete and name/type checking.
-			[Hashtable]
-		$PackageParameters = @{},
 			### If set, and some version of the package is already installed, prompt before overwriting
 			### with the current version according to the manifest.
 			[switch]
@@ -395,33 +386,13 @@ Export function Install- {
 		$PassThru
 	)
 
-	dynamicparam {
-		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
-
-		$CopiedParams = Copy-ManifestParameters $PackageName Install -NamePrefix "_"
-		# could not copy parameters (probably -PackageName not set yet)
-		if ($null -eq $CopiedParams) {return}
-		$function:ExtractParamsFn = $CopiedParams.ExtractFn
-		return $CopiedParams.Parameters
-	}
-
 	begin {
-		$ForwardedParams = ExtractParamsFn $PSBoundParameters
-		try {
-			$PackageParameters += $ForwardedParams
-		} catch {
-			$CmdName = $MyInvocation.MyCommand.Name
-			throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
-					"Each parameter must be present in at most one of these: " + $_
-		}
-
 		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
-		# FIXME: currently, we load the manifest 3 times before it's actually executed (once for dynamicparam, second here, third inside the container)
-		$Manifest = Import-PackageManifestFile $p -NoUnwrap
+		$Manifest = $p.ReadManifest()
 
 		Confirm-Manifest $Manifest
 
-		if (-not $Manifest.ContainsKey("Install")) {
+		if (-not $Manifest.Raw.ContainsKey("Install")) {
 			Write-Information "Package '$($p.PackageName)' does not have an Install block."
 			return
 		}
@@ -435,9 +406,7 @@ Export function Install- {
 		Invoke-Container Install $p.PackageName $p.ManifestPath $p.Path $InternalArgs $PackageParameters
 		Write-Information "Successfully installed $($p.PackageName)."
 		if ($PassThru) {
-			$ManifestName = if ($Manifest.ContainsKey("Name")) {$Manifest.Name} else {$null}
-			$ManifestVersion = if ($Manifest.ContainsKey("Version")) {$Manifest.Version} else {$null}
-			return [Pog.ImportedPackage]::new($p, $ManifestName, $ManifestVersion)
+			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
 		}
 	}
 }
@@ -453,7 +422,7 @@ function ConfirmManifestOverwrite {
 			[Parameter(Mandatory)]
 			[string]
 		$ImportedVersion,
-			[Hashtable]
+			[Pog.PackageManifest]
 		$Manifest
 	)
 
@@ -529,7 +498,7 @@ Export function Import- {
 				$null
 			} else {
 				try {
-					Import-PackageManifestFile $p
+					$p.ReadManifest()
 				} catch {
 					# package has a manifest, but it's invalid (probably corrupted)
 					Write-Warning "Found an existing manifest in '$TargetName' at '$TargetPackageRoot', but it's syntactically invalid."
@@ -879,7 +848,7 @@ Export function Confirm-RepositoryPackage {
 			}
 
 			try {
-				$Manifest = Import-PackageManifestFile $p
+				$Manifest = $p.ReadManifest()
 			} catch {
 				AddIssue $_
 				return
@@ -926,7 +895,7 @@ Export function Confirm-Package {
 		$p = if ($Package) {$Package}
 			else {[Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))}
 		try {
-			$Manifest = Import-PackageManifestFile $p
+			$Manifest = $p.ReadManifest()
 		} catch {
 			Write-Warning $_
 			return
