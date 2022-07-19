@@ -1,3 +1,5 @@
+/RandomTests/*
+!/RandomTests/RandomTests.csproj
 /Pog/bin/
 /Pog/obj/
 /.idea/
