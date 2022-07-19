@@ -18,14 +18,14 @@ public record ContainerInternalInfo(
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "Container")]
 public class InvokeContainerCommand : PSCmdlet, IDisposable {
-    private static readonly string ContainerDir = Path.GetFullPath(Path.Combine(
-            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, @"..\container"));
-
     [Parameter(Mandatory = true, Position = 0)] public ContainerType ContainerType;
     [Parameter(Mandatory = true, Position = 1)] public Package Package = null!;
     [Parameter(Mandatory = true)] public PackageManifest Manifest = null!;
     [Parameter(Mandatory = true)] public Hashtable InternalArguments = null!;
     [Parameter] public Hashtable PackageArguments = new();
+
+    private static readonly string ContainerDir = Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, @"..\container"));
 
     private readonly PowerShell _ps = PowerShell.Create();
 
@@ -87,23 +87,8 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
         _ps.Invoke(null, outputCollection, new PSInvocationSettings());
     }
 
-    // relevant preference variables, which are copied to the container (see `man about_Preference_Variables`)
-    private readonly (string name, string? paramName, Func<object, object>? mapParam)[] _copiedPreferenceVariables = {
-        // ErrorAction is skipped, as we always set it to "Stop"
-        // ("ErrorActionPreference", "ErrorAction", param => param),
-        ("ProgressPreference", null, null),
-        ("ConfirmPreference", "Confirm", param => ((SwitchParameter) param) ? ConfirmImpact.Low : ConfirmImpact.High),
-        // keep Debug, Verbose and Information in this order, to allow overriding in CopyPreferenceVariablesToIss
-        ("DebugPreference", "Debug",
-                param => ((SwitchParameter) param) ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
-        ("VerbosePreference", "Verbose",
-                param => ((SwitchParameter) param) ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
-        ("InformationPreference", "InformationAction", param => param),
-        ("WarningPreference", "WarningAction", param => param),
-    };
-
     private void CopyPreferenceVariablesToRunspace(Runspace rs) {
-        foreach (var (varName, paramName, mapParam) in _copiedPreferenceVariables) {
+        foreach (var (varName, paramName, mapParam) in CopiedPreferenceVariables) {
             var parentVar = SessionState.PSVariable.Get(varName); // get var from parent scope
             var value = paramName != null && mapParam != null &&
                         MyInvocation.BoundParameters.TryGetValue(paramName, out var obj)
@@ -169,4 +154,19 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
         _ps.Runspace?.Dispose();
         _ps.Dispose();
     }
+
+    /// Relevant preference variables, which are copied to the container. See `man about_Preference_Variables`.
+    private static readonly (string name, string? paramName, Func<object, object>? mapParam)[] CopiedPreferenceVariables = {
+        // ErrorAction is skipped, as we always set it to "Stop"
+        // ("ErrorActionPreference", "ErrorAction", param => param),
+        ("ProgressPreference", null, null),
+        ("ConfirmPreference", "Confirm", param => ((SwitchParameter) param) ? ConfirmImpact.Low : ConfirmImpact.High),
+        // keep Debug, Verbose and Information in this order, to allow overriding in CopyPreferenceVariablesToIss
+        ("DebugPreference", "Debug",
+                param => ((SwitchParameter) param) ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
+        ("VerbosePreference", "Verbose",
+                param => ((SwitchParameter) param) ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
+        ("InformationPreference", "InformationAction", param => param),
+        ("WarningPreference", "WarningAction", param => param),
+    };
 }
