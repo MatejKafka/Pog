@@ -15,6 +15,12 @@ public enum ContainerType { Install, GetInstallHash, Enable }
 public record ContainerInternalInfo(
         string PackageName, string PackageDirectory, PackageManifest Manifest, Hashtable InternalArguments);
 
+// Some notes
+//  - according to https://github.com/PowerShell/PowerShell/issues/17617#issuecomment-1173169928,
+//    it's not possible to run the container in the same thread as this cmdlet was ran in
+//  - architecturally, it's not possible to accept pipeline input and do live output at the same time (for live output,
+//    the main thread must be blocked waiting for output from the container, therefore any previous cmdlets cannot run,
+//    so no input can be supplied); fortunately, we don't need any pipeline input to the container, so it works ok
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "Container")]
 public class InvokeContainerCommand : PSCmdlet, IDisposable {
@@ -32,15 +38,33 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        var outputCollection = new PSDataCollection<PSObject>();
-        outputCollection.DataAdded += delegate {
-            foreach (var o in outputCollection.ReadAll()) {
-                WriteObject(o);
+        _ps.Runspace = GetInitializedRunspace();
+
+        // __main and __cleanup should be exported by each container environment
+        // the `finally` block is called even on exit
+        _ps.AddScript(@"
+            Set-StrictMode -Version Latest
+            try {
+                __main @Args
+            } finally {
+                Write-Debug 'Cleaning up...'
+                __cleanup
+                Write-Debug 'Cleanup finished.'
             }
-        };
+        ").AddArgument(Manifest.Raw).AddArgument(PackageArguments);
 
+        var outputCollection = new PSDataCollection<PSObject>();
+        // don't accept any input, write output to `outputCollection`
         // FIXME: mandatory parameter prompt gets stuck on Ctrl-C
+        var async = _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);
+        foreach (var o in outputCollection) {
+            WriteObject(o);
+        }
+        _ps.EndInvoke(async);
+    }
 
+    /// Create a new runspace for the container, configure it and open it.
+    private Runspace GetInitializedRunspace() {
         // reuse our Host ---------------------------\/
         var runspace = RunspaceFactory.CreateRunspace(Host, CreateInitialSessionState());
         // set the working directory
@@ -68,23 +92,7 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
         if ((ActionPreference) runspace.SessionStateProxy.GetVariable("VerbosePreference") == ActionPreference.Continue) {
             runspace.SessionStateProxy.SetVariable("InformationPreference", "Continue");
         }
-
-        _ps.Runspace = runspace;
-
-        // __main and __cleanup should be exported by each container environment
-        // the `finally` block is called even on exit
-        _ps.AddScript(@"
-            Set-StrictMode -Version Latest
-            try {
-                __main @Args
-            } finally {
-                Write-Debug 'Cleaning up...'
-                __cleanup
-                Write-Debug 'Cleanup finished.'
-            }
-        ").AddArgument(Manifest.Raw).AddArgument(PackageArguments);
-        // don't accept any input, write output to `outputCollection`
-        _ps.Invoke(null, outputCollection, new PSInvocationSettings());
+        return runspace;
     }
 
     private void CopyPreferenceVariablesToRunspace(Runspace rs) {
@@ -100,7 +108,7 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
 
     private InitialSessionState CreateInitialSessionState() {
         var iss = InitialSessionState.CreateDefault2();
-        iss.ThreadOptions = PSThreadOptions.UseCurrentThread;
+        iss.ThreadOptions = PSThreadOptions.UseNewThread;
         iss.ThrowOnRunspaceOpenError = true;
         iss.ExecutionPolicy = ExecutionPolicy.Bypass;
 
