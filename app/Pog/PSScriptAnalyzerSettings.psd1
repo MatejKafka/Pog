@@ -5,5 +5,5 @@
         }
     }
 
-    ExcludeRules = 'PSAvoidUsingWriteHost'
+    ExcludeRules = @('PSAvoidUsingWriteHost', 'PSAvoidUsingPositionalParameters')
 }
