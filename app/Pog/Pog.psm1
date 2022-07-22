@@ -54,7 +54,7 @@ class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter
 			return $ResultList # cannot set version when multiple package names are specified
 		}
 
-		$c = $script:REPOSITORY.GetPackage($BoundParameters.PackageName)
+		$c = $script:REPOSITORY.GetPackage($BoundParameters.PackageName, $false)
 		if (-not $c.Exists) {
 			return $ResultList # no such package
 		}
@@ -164,9 +164,8 @@ Export function Get-Package {
 
 	begin {
 		foreach ($p in $PackageName) {
-			$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $p))
-			$Manifest = $p.ReadManifest()
-			[Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
+			# do not eagerly load the manifest ---\/
+			$PACKAGE_ROOTS.GetPackage($p, $true, $false)
 		}
 	}
 }
@@ -311,12 +310,10 @@ Export function Enable- {
 
 	dynamicparam {
 		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
-		# PackageName must be valid, this should not throw
-		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
 		# this may fail in case the manifest is invalid, don't throw here, just return, will be handled in the begin{} block
-		$Manifest = try {$p.ReadManifest()} catch {return}
+		$p = try {$PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)} catch {return}
 
-		$CopiedParams = Copy-ManifestParameters $Manifest Enable -NamePrefix "_"
+		$CopiedParams = Copy-ManifestParameters $p.Manifest Enable -NamePrefix "_"
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}
@@ -334,13 +331,13 @@ Export function Enable- {
 			}
 		} else {
 			Write-Debug "Loading manifest inside the begin{} block, dynamicparam failed"
-			$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
-			$Manifest = $p.ReadManifest()
+			# this will throw in case the package or the manifest are not valid
+			$p = $PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)
 		}
 
-		Confirm-Manifest $Manifest
+		Confirm-Manifest $p.Manifest
 
-		if (-not $Manifest.Raw.ContainsKey("Enable")) {
+		if (-not $p.Manifest.Raw.ContainsKey("Enable")) {
 			Write-Information "Package '$($p.PackageName)' does not have an Enable block."
 			return
 		}
@@ -349,11 +346,11 @@ Export function Enable- {
 			AllowOverwrite = [bool]$Force
 		}
 
-		Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $Manifest)..."
-		Invoke-Container Enable $p -Manifest $Manifest -InternalArguments $InternalArgs -PackageArguments $PackageParameters
+		Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
+		Invoke-Container Enable $p -Manifest $p.Manifest -InternalArguments $InternalArgs -PackageArguments $PackageParameters
 		Write-Information "Successfully enabled $($p.PackageName)."
 		if ($PassThru) {
-			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
+			return $p
 		}
 	}
 }
@@ -386,12 +383,11 @@ Export function Install- {
 	)
 
 	begin {
-		$p = [Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))
-		$Manifest = $p.ReadManifest()
+		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)
 
-		Confirm-Manifest $Manifest
+		Confirm-Manifest $p.Manifest
 
-		if (-not $Manifest.Raw.ContainsKey("Install")) {
+		if (-not $p.Manifest.Raw.ContainsKey("Install")) {
 			Write-Information "Package '$($p.PackageName)' does not have an Install block."
 			return
 		}
@@ -401,36 +397,51 @@ Export function Install- {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $Manifest)..."
-		Invoke-Container Install $p -Manifest $Manifest -InternalArguments $InternalArgs
+		Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
+		Invoke-Container Install $p -Manifest $p.Manifest -InternalArguments $InternalArgs
 		Write-Information "Successfully installed $($p.PackageName)."
 		if ($PassThru) {
-			return [Pog.ImportedPackage]::new($p, $Manifest.Name, $Manifest.Version)
+			return $p
 		}
 	}
 }
 
-function ConfirmManifestOverwrite {
-	param(
-			[Parameter(Mandatory)]
-			[string]
-		$TargetName,
-			[Parameter(Mandatory)]
-			[string]
-		$TargetPackageRoot,
-			[Parameter(Mandatory)]
-			[string]
-		$ImportedVersion,
-			[Pog.PackageManifest]
-		$Manifest
-	)
+function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$Force) {
+	$OrigManifest = $null
+	try {
+		# try to load the (possibly) existing manifest
+		$p.ReloadManifest()
+		$OrigManifest = $p.Manifest
+	} catch [System.IO.DirectoryNotFoundException] {
+		# the package does not exist, create the directory and return
+		$null = New-Item -Type Directory $p.Path
+		return
+	} catch [Pog.PackageManifestNotFoundException] {
+		# the package exists, but the manifest is missing
+		# either a random folder was erronously created, or this is a package, but corrupted
+		Write-Warning ("A directory with name '$($p.PackageName)' already exists in '$TargetPackageRoot'," `
+				+ " but it doesn't seem to contain a package manifest." `
+				+ " All directories in a package root should be packages with a valid manifest.")
+	} catch [Pog.PackageManifestParseException] {
+		# the package has a manifest, but it's invalid (probably corrupted)
+		Write-Warning "Found an existing manifest in '$($p.PackageName)' at '$TargetPackageRoot', but it's syntactically invalid."
+	}
 
-	$Title = "Overwrite existing package manifest?"
-	$ManifestDescription = if ($null -eq $Manifest) {""}
-			else {" (manifest '$($Manifest.Name)', version '$($Manifest.Version)')"}
-	$Message = "There is already an imported package with name '$TargetName' " +`
-			"in '$TargetPackageRoot'$ManifestDescription. Overwrite its manifest with version '$ImportedVersion'?"
-	return Confirm-Action $Title $Message -ActionType "ManifestOverwrite"
+	if (-not $Force) {
+		# prompt for confirmation
+		$Title = "Overwrite existing package manifest?"
+		$ManifestDescription = if ($null -eq $OrigManifest) {""}
+				else {" (manifest '$($OrigManifest.Name)', version '$($OrigManifest.Version)')"}
+		$Message = "There is already an imported package with name '$($p.PackageName)'" `
+				+ " in '$TargetPackageRoot'$ManifestDescription. Overwrite its manifest with version '$($SrcPackage.Version)'?"
+		if (-not (Confirm-Action $Title $Message -ActionType "ManifestOverwrite")) {
+			throw "There is already a package with name '$($p.PackageName)' in '$TargetPackageRoot'." `
+				+ " Pass -Force to overwrite the current manifest without confirmation."
+		}
+	}
+
+	Write-Information "Overwriting previous package manifest..."
+	[Pog.PathConfig]::PackageManifestCleanupPaths | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | Remove-Item -Recurse
 }
 
 Export function Import- {
@@ -451,6 +462,7 @@ Export function Import- {
 		$TargetName,
 			[ValidateSet([PackageRoot])]
 			[string]
+			# FIXME: we should resolve the package root path to the correct casing
 		$TargetPackageRoot = $PATH_CONFIG.PackageRoots.ValidPackageRoots[0],
 			<# Overwrite an existing package without prompting for confirmation. #>
 			[switch]
@@ -480,44 +492,25 @@ Export function Import- {
 			}
 		}
 
-		Write-Verbose "Validating the manifest before importing..."
+		Write-Verbose "Validating the repository package before importing..."
+		# this forces a manifest load on $SrcPackage
 		if (-not (Confirm-RepositoryPackage $SrcPackage)) {
-			throw "Validation of the repository manifest failed (see warnings above), refusing to import."
+			throw "Validation of the repository package failed (see warnings above), not importing."
 		}
 
-		$p = [Pog.ImportedPackageRaw]::CreateResolved((Join-Path $TargetPackageRoot $TargetName))
-		if ($p.Exists) {
-			# let's figure out what the target directory contains
-			$OrigManifest = if (-not $p.ManifestExists) {
-				# it seems that there is no package manifest present
-				# either a random folder was erronously created, or this is a package, but corrupted
-				Write-Warning ("A directory with name '$TargetName' already exists in '$TargetPackageRoot', " +`
-						"but it doesn't seem to contain a package manifest. " +`
-						"All directories in a package root should be packages with a valid manifest.")
-				$null
-			} else {
-				try {
-					$p.ReadManifest()
-				} catch {
-					# package has a manifest, but it's invalid (probably corrupted)
-					Write-Warning "Found an existing manifest in '$TargetName' at '$TargetPackageRoot', but it's syntactically invalid."
-					$null
-				}
-			}
+		# don't load the manifest yet (may not be valid, will be loaded in ClearPreviousPackageDir)
+		$p = $PACKAGE_ROOTS.GetPackage($TargetName, $TargetPackageRoot, $true, $false)
 
-			if (-not $Force -and -not (ConfirmManifestOverwrite $TargetName $TargetPackageRoot $SrcPackage.Version $OrigManifest)) {
-				throw "There is already a package with name '$TargetName' in '$TargetPackageRoot'. Pass -Force to overwrite the current manifest without confirmation."
-			}
-			Write-Information "Overwriting previous package manifest..."
-			[Pog.PathConfig]::PackageManifestCleanupPaths | % {Join-Path $p.Path $_} | ? {Test-Path $_} | Remove-Item -Recurse
-		} else {
-			$null = New-Item -Type Directory $p.Path
-		}
+		# ensure $TargetPath exists and there's no package manifest
+		ClearPreviousPackageDir $p $TargetPackageRoot $SrcPackage -Force:$Force
 
 		ls $SrcPackage.Path | Copy-Item -Destination $p.Path -Recurse
 		Write-Information "Initialized '$($p.Path)' with package manifest '$PackageName' (version '$($SrcPackage.Version)')."
 		if ($PassThru) {
-			return [Pog.ImportedPackage]::new($p, $SrcPackage.PackageName, $SrcPackage.Version)
+			# reload to remove the previous cached manifest
+			# the imported manifest was validated, this should not throw
+			$p.ReloadManifest()
+			return $p
 		}
 	}
 }
@@ -555,8 +548,9 @@ Export function Get-ManifestHash {
 			}
 		}
 
+        # this forces a manifest load on $p
 		if (-not (Confirm-RepositoryPackage $p)) {
-			throw "Validation of the repository manifest failed (see warnings above)."
+			throw "Validation of the repository package failed (see warnings above)."
 		}
 
 		$InternalArgs = @{
@@ -564,7 +558,7 @@ Export function Get-ManifestHash {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Invoke-Container GetInstallHash $p -Manifest $p.ReadManifest() -InternalArguments $InternalArgs
+		Invoke-Container GetInstallHash $p -Manifest $p.Manifest -InternalArguments $InternalArgs
 	}
 }
 
@@ -589,7 +583,7 @@ Export function New-Manifest {
 	begin {
 		$p = $REPOSITORY.GetPackage($PackageName, $true).GetVersion($Version)
 
-		if (-not (Test-Path $p.Path)) {
+		if (-not $p.Exists) {
 			# create manifest dir for version
 			$null = New-Item -Type Directory $p.Path
 		} elseif (@(ls $p.Path).Count -ne 0) {
@@ -617,8 +611,7 @@ Export function New-DirectManifest {
 	)
 
 	begin {
-		$PackagePath = Get-PackageDirectory $PackageName
-		$p = [Pog.ImportedPackage]::new($PackageName, $PackagePath, $null, $null)
+		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $true, $false)
 
 		if (Test-Path $p.ManifestPath) {
 			throw "Package $($p.PackageName) already has a manifest at '$($p.ManifestPath)'."
@@ -847,14 +840,14 @@ Export function Confirm-RepositoryPackage {
 			}
 
 			try {
-				$Manifest = $p.ReadManifest()
+				$p.ReloadManifest()
 			} catch {
 				AddIssue $_
 				return
 			}
 
 			try {
-				Confirm-Manifest $Manifest $PackageName $p.Version -IsRepositoryManifest
+				Confirm-Manifest $p.Manifest $PackageName $p.Version -IsRepositoryManifest
 			} catch {
 				AddIssue ("Validation of package manifest '$PackageName', version '$($p.Version)' from local repository failed." +`
 						"`n    Path: $ManifestPath" +`
@@ -870,6 +863,7 @@ Export function Confirm-RepositoryPackage {
 }
 
 # TODO: expand to really check whole package, not just manifest, then update Install- and Enable- to use this instead of Confirm-Manifest
+#  when switched, figure out what to do about the forced manifest reload (we do not want to load the manifest multiple times)
 Export function Confirm-Package {
 	[CmdletBinding(DefaultParameterSetName="Name")]
 	param(
@@ -891,18 +885,27 @@ Export function Confirm-Package {
 	}
 
 	process {
-		$p = if ($Package) {$Package}
-			else {[Pog.ImportedPackageRaw]::CreateResolved((Get-PackageDirectory $PackageName))}
-		try {
-			$Manifest = $p.ReadManifest()
-		} catch {
-			Write-Warning $_
-			return
+		$p = if ($Package) {
+			try {
+				# re-read manifest to have it up-to-date and revalidated
+				$p.ReloadManifest()
+			} catch {
+				Write-Warning $_
+				return
+			}
+			$Package
+		} else {
+			try {
+				$PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)
+			} catch {
+				Write-Warning $_
+				return
+			}
 		}
 
 		Write-Verbose "Validating imported package manifest '$($p.PackageName)' at '$($p.ManifestPath)'..."
 		try {
-			Confirm-Manifest $Manifest
+			Confirm-Manifest $p.Manifest
 		} catch {
 			AddIssue "Validation of imported package manifest '$($p.PackageName)' at '$($p.ManifestPath)' failed: $_"
 			return

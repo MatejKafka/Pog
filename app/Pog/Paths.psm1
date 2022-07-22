@@ -3,7 +3,8 @@
 
 $PATH_CONFIG = [Pog.PathConfig]::new((Resolve-Path "$PSScriptRoot\..\.."))
 $REPOSITORY = [Pog.Repository]::new($PATH_CONFIG.ManifestRepositoryDir)
-Export-ModuleMember -Variable PATH_CONFIG, REPOSITORY
+$PACKAGE_ROOTS = [Pog.PackageRoots]::new($PATH_CONFIG.PackageRoots)
+Export-ModuleMember -Variable PATH_CONFIG, REPOSITORY, PACKAGE_ROOTS
 
 # warn about missing package roots
 foreach ($r in $PATH_CONFIG.PackageRoots.MissingPackageRoots) {

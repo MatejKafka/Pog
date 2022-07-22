@@ -6,28 +6,6 @@ using module ./lib/Convert-CommandParametersToDynamic.psm1
 . $PSScriptRoot\lib\header.ps1
 
 
-Export function Get-PackageDirectory {
-	param(
-		[Parameter(Mandatory)]$PackageName,
-		[switch]$NoError
-	)
-
-	$SearchedPaths = @()
-	foreach ($Root in $PATH_CONFIG.PackageRoots.ValidPackageRoots) {
-		$PackagePath = Resolve-VirtualPath (Join-Path $Root $PackageName)
-		$SearchedPaths += $PackagePath
-		if (Test-Path -Type Container $PackagePath) {
-			return Get-Item $PackagePath
-		}
-	}
-
-	if ($NoError) {
-		return $null
-	}
-	throw ("Could not find package '$PackageName' in known package directories. " `
-			+ "Searched paths:`n" + [string]::Join("`n", $SearchedPaths))
-}
-
 # takes a package name, and returns all static parameters of a selected setup script as a runtime parameter dictionary
 # keyword-only, no positional arguments; aliases are supported
 Export function Copy-ManifestParameters {
