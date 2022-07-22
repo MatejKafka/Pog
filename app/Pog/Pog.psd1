@@ -18,8 +18,8 @@
 		"Export-ShortcutsToStartMenu"
 		"Export-PogShortcutsToStartMenu"
 
-		"Get-ManifestHash"
-		"Get-PogManifestHash"
+		"Show-ManifestHash"
+		"Show-PogManifestHash"
 		"New-Manifest"
 		"New-PogManifest"
 		"New-DirectManifest"

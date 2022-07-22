@@ -516,7 +516,7 @@ Export function Import- {
 	}
 }
 
-Export function Get-ManifestHash {
+Export function Show-ManifestHash {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
