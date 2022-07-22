@@ -601,25 +601,34 @@ Export function New-Manifest {
 	}
 }
 
-Export function New-DirectManifest {
+Export function New-ImportedPackage {
 	[CmdletBinding()]
 	[OutputType([Pog.ImportedPackage])]
 	param(
 			[Parameter(Mandatory)]
-			[ValidateSet([ImportedPackageName])]
 			[string]
-		$PackageName
+		$PackageName,
+			[ValidateSet([PackageRoot])]
+			[string]
+			# FIXME: we should resolve the package root path to the correct casing
+		$PackageRoot = $PATH_CONFIG.PackageRoots.ValidPackageRoots[0]
 	)
 
 	begin {
-		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $true, $false)
-
-		if (Test-Path $p.ManifestPath) {
-			throw "Package $($p.PackageName) already has a manifest at '$($p.ManifestPath)'."
+		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $PackageRoot, $false, $false)
+		if ($p.Exists) {
+			throw "Package already exists: $($p.Path)"
 		}
 
-		Copy-Item $PSScriptRoot\resources\direct_manifest_template.psd1 $p.ManifestPath
-		return $p
+		$PackageDirectory = New-Item -Type Directory $p.Path
+		try {
+			Copy-Item $PSScriptRoot\resources\direct_manifest_template.psd1 $p.ManifestPath
+			$p.ReloadManifest()
+			return $p
+		} catch {
+			Remove-Item -Recurse -Force $PackageDirectory
+			throw
+		}
 	}
 }
 

@@ -22,8 +22,8 @@
 		"Show-PogManifestHash"
 		"New-Manifest"
 		"New-PogManifest"
-		"New-DirectManifest"
-		"New-PogDirectManifest"
+		"New-ImportedPackage"
+		"New-PogImportedPackage"
 		"Update-Manifest"
 		"Update-PogManifest"
 
