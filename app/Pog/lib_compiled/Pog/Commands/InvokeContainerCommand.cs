@@ -7,7 +7,7 @@ using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.PowerShell;
 
-namespace Pog;
+namespace Pog.Commands;
 
 public enum ContainerType { Install, GetInstallHash, Enable }
 
