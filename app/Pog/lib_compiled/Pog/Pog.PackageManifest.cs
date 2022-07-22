@@ -8,37 +8,51 @@ using JetBrains.Annotations;
 
 namespace Pog;
 
+public class PackageManifestNotFoundException : FileNotFoundException {
+    internal PackageManifestNotFoundException(string message, string fileName) : base(message, fileName) {}
+}
+
+public class PackageManifestParseException : ParseException {
+    internal PackageManifestParseException(string message) : base(message) {}
+    internal PackageManifestParseException(ParseError[] errors) : base(errors) {}
+}
+
 [PublicAPI]
 public class PackageManifest {
     public Hashtable Raw;
     public bool IsPrivate;
     public string? Name;
     public PackageVersion? Version;
+    public string Path;
 
+    /// <exception cref="PackageManifestNotFoundException">Thrown if the package manifest file does not exist.</exception>
+    /// <exception cref="PackageManifestParseException">Thrown if the package manifest file is not a valid PowerShell data file (.psd1).</exception>
     public PackageManifest(string manifestPath) {
+        Path = manifestPath;
         Raw = LoadManifest(manifestPath);
         IsPrivate = (bool) (Raw["Private"] ?? false);
         Name = (string?) Raw["Name"];
         var v = Raw["Version"];
-        Version = v == null ? null : new PackageVersion((string)v);
+        Version = v == null ? null : new PackageVersion((string) v);
     }
 
     private Hashtable LoadManifest(string manifestPath) {
         if (!File.Exists(manifestPath)) {
-            throw new FileNotFoundException($"Package manifest file at '${manifestPath}' does not exist.");
+            throw new PackageManifestNotFoundException($"Package manifest file at '${manifestPath}' does not exist.",
+                    manifestPath);
         }
 
         // NOTE: how this is loaded is important; the resulting scriptblocks must NOT be bound to a single runspace;
         //  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
         var ast = Parser.ParseFile(manifestPath, out _, out var errors);
         if (errors.Length > 0) {
-            throw new ParseException(errors);
+            throw new PackageManifestParseException(errors);
         }
 
         var data = ast.Find(static a => a is HashtableAst, false);
         if (data == null) {
-            throw new ParseException("Could not load package manifest, it is not a valid PowerShell data file," +
-                                     " must be a single Hashtable literal: " + manifestPath);
+            throw new PackageManifestParseException("Could not load package manifest, it is not a valid PowerShell" +
+                                                    " data file, must be a single Hashtable literal: " + manifestPath);
         }
 
         var manifest = (data.SafeGetValue() as Hashtable)!;
