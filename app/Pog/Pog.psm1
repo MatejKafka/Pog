@@ -13,13 +13,13 @@ using module .\Confirmations.psm1
 
 class ImportedPackageName : System.Management.Automation.IValidateSetValuesGenerator {
 	[String[]] GetValidValues() {
-		return ls $script:PATH_CONFIG.PackageRoots.ValidPackageRoots -Directory | select -ExpandProperty Name
+		return $script:PACKAGE_ROOTS.EnumeratePackageNames()
 	}
 }
 
 class RepoPackageName : System.Management.Automation.IValidateSetValuesGenerator {
 	[String[]] GetValidValues() {
-		return $script:REPOSITORY.EnumeratePackageNames();
+		return $script:REPOSITORY.EnumeratePackageNames()
 	}
 }
 
@@ -31,7 +31,7 @@ class RepoManifestGeneratorName : System.Management.Automation.IValidateSetValue
 
 class PackageRoot : System.Management.Automation.IValidateSetValuesGenerator {
 	[String[]] GetValidValues() {
-		return $script:PATH_CONFIG.PackageRoots.AllPackageRoots
+		return $script:PACKAGE_ROOTS.PackageRoots.AllPackageRoots
 	}
 }
 
@@ -102,8 +102,8 @@ Export function Export-ShortcutsToStartMenu {
 	Write-Information "Exporting shortcuts to '$TargetDir'."
 	$null = New-Item -ItemType Directory $TargetDir
 
-	$ShortcutCount = ls $PATH_CONFIG.PackageRoots.ValidPackageRoots -Directory `
-		| % {Export-AppShortcut $_.FullName $TargetDir} `
+	$ShortcutCount = $PACKAGE_ROOTS.EnumeratePackages($false) `
+		| % {Export-AppShortcut $_.Path $TargetDir} `
 		| Measure-Object -Sum | % Sum
 	Write-Information "Exported $ShortcutCount shortcuts."
 }
@@ -160,26 +160,34 @@ Export function Get-Package {
 			[Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ValidateSet([ImportedPackageName])]
 			[string[]]
-		$PackageName = [ImportedPackageName]::new().GetValidValues()
+		$PackageName
 	)
 
 	process {
-		foreach ($p in $PackageName) {
-			# do not eagerly load the manifest ---\/
-			$PACKAGE_ROOTS.GetPackage($p, $true, $false)
+		if (-not $PackageName) {
+			# do not eagerly load the manifest
+			echo $PACKAGE_ROOTS.EnumeratePackages($false)
+		} else {
+			foreach ($p in $PackageName) {
+				# do not eagerly load the manifest -------\/
+				echo $PACKAGE_ROOTS.GetPackage($p, $true, $false)
+			}
 		}
 	}
 }
 
 Export function Get-Root {
-	return $PATH_CONFIG.PackageRoots.AllPackageRoots
+	[CmdletBinding()]
+	[OutputType([string])]
+	param()
+	return $PACKAGE_ROOTS.PackageRoots.AllPackageRoots
 }
 
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
 #  to get the file updates right from a concurrency perspective
 # TODO: ^ figure out how to provide the functions safely
 Export function Edit-RootList {
-	$Path = $PATH_CONFIG.PackageRoots.PackageRootFile
+	$Path = $PACKAGE_ROOTS.PackageRoots.PackageRootFile
 	Write-Information "Opening the package root list at '$Path' for editing in a text editor..."
 	Write-Information "Each line should contain a single absolute path to the package root directory."
 	# this opens the file for editing in a text editor (it's a .txt file)
@@ -464,7 +472,7 @@ Export function Import- {
 			[ValidateSet([PackageRoot])]
 			[string]
 			# FIXME: we should resolve the package root path to the correct casing
-		$TargetPackageRoot = $PATH_CONFIG.PackageRoots.ValidPackageRoots[0],
+		$TargetPackageRoot = $PACKAGE_ROOTS.DefaultPackageRoot,
 			<# Overwrite an existing package without prompting for confirmation. #>
 			[switch]
 		$Force,
@@ -611,7 +619,7 @@ Export function New-ImportedPackage {
 			[ValidateSet([PackageRoot])]
 			[string]
 			# FIXME: we should resolve the package root path to the correct casing
-		$PackageRoot = $PATH_CONFIG.PackageRoots.ValidPackageRoots[0]
+		$PackageRoot = $PACKAGE_ROOTS.DefaultPackageRoot
 	)
 
 	begin {
