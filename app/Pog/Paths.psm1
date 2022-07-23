@@ -1,9 +1,9 @@
 # Requires -Version 7
 . $PSScriptRoot\lib\header.ps1
 
-$PATH_CONFIG = [Pog.PathConfig]::new((Resolve-Path "$PSScriptRoot\..\.."))
-$REPOSITORY = [Pog.Repository]::new($PATH_CONFIG.ManifestRepositoryDir)
-$PACKAGE_ROOTS = [Pog.PackageRoots]::new($PATH_CONFIG.PackageRoots)
+$PATH_CONFIG = [Pog.InternalState]::PathConfig
+$REPOSITORY = [Pog.InternalState]::Repository
+$PACKAGE_ROOTS = [Pog.InternalState]::PackageRootManager
 Export-ModuleMember -Variable PATH_CONFIG, REPOSITORY, PACKAGE_ROOTS
 
 # warn about missing package roots
