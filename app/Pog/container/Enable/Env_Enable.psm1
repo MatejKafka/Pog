@@ -500,7 +500,7 @@ Export function Export-Command {
 		# TODO: find which package registered the previous command
 		$ShouldContinue = ConfirmOverwrite "Overwrite existing command?" `
 			("There's already a command '$CmdName' registered by another package.`n" +`
-				"To suppress this prompt next time, pass -AllowOverwrite.")
+				"To suppress this prompt next time, pass -Force.")
 
 		if (-not $ShouldContinue) {
 			Write-Information "Skipped command '$CmdName' registration, user refused to override existing command."
