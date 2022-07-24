@@ -46,12 +46,12 @@ public class PackageRootManager {
     }
 
     // FIXME: this should probably return a set (or at least filter the packages to skip collisions)
-    public IEnumerable<string> EnumeratePackageNames() {
-        return PackageRoots.ValidPackageRoots.SelectMany(PathUtils.EnumerateNonHiddenDirectoryNames);
+    public IEnumerable<string> EnumeratePackageNames(string namePattern = "*") {
+        return PackageRoots.ValidPackageRoots.SelectMany(r => PathUtils.EnumerateNonHiddenDirectoryNames(r, namePattern));
     }
 
-    public IEnumerable<ImportedPackage> EnumeratePackages(bool loadManifest) {
-        return PackageRoots.ValidPackageRoots.SelectMany(r => PathUtils.EnumerateNonHiddenDirectoryNames(r)
+    public IEnumerable<ImportedPackage> EnumeratePackages(bool loadManifest, string namePattern = "*") {
+        return PackageRoots.ValidPackageRoots.SelectMany(r => PathUtils.EnumerateNonHiddenDirectoryNames(r, namePattern)
                 // do not resolve name, it already has the correct casing
                 .Select(p => GetPackage(p, r, false, loadManifest)));
     }

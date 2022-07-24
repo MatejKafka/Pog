@@ -15,13 +15,13 @@ public readonly struct Repository {
         Path = manifestRepositoryDirPath;
     }
 
-    public IEnumerable<string> EnumeratePackageNames() {
-        return PathUtils.EnumerateNonHiddenDirectoryNames(Path);
+    public IEnumerable<string> EnumeratePackageNames(string searchPattern = "*") {
+        return PathUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
     }
 
-    public IEnumerable<RepositoryVersionedPackage> Enumerate() {
+    public IEnumerable<RepositoryVersionedPackage> Enumerate(string searchPattern = "*") {
         var repo = this;
-        return EnumeratePackageNames().Select(p => new RepositoryVersionedPackage(p, repo));
+        return EnumeratePackageNames(searchPattern).Select(p => new RepositoryVersionedPackage(p, repo));
     }
 
     public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName) {
@@ -49,25 +49,33 @@ public class RepositoryVersionedPackage {
         Path = IOPath.Combine(repository.Path, packageName);
     }
 
-    public IEnumerable<RepositoryPackage> EnumerateSorted() {
-        return EnumerateVersionStrings()
-                .Select(v => new RepositoryPackage(this, new PackageVersion(v)))
-                .OrderBy(p => p.Version);
+    /// Enumerate package versions, ordered semantically by the version.
+    public IEnumerable<RepositoryPackage> Enumerate(string searchPattern = "*") {
+        return EnumerateVersions(searchPattern)
+                .Select(v => new RepositoryPackage(this, v));
     }
 
-    public IEnumerable<string> EnumerateVersionStrings() {
+    /// Enumerate parsed versions of the package, in a DESCENDING order.
+    public IEnumerable<PackageVersion> EnumerateVersions(string searchPattern = "*") {
+        return EnumerateVersionStrings(searchPattern)
+                .Select(v => new PackageVersion(v))
+                .OrderByDescending(v => v);
+    }
+
+    /// Enumerate UNORDERED versions of the package.
+    public IEnumerable<string> EnumerateVersionStrings(string searchPattern = "*") {
         try {
-            return PathUtils.EnumerateNonHiddenDirectoryNames(Path);
+            return PathUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
         } catch (DirectoryNotFoundException) {
             return Enumerable.Empty<string>();
         }
     }
 
-    public RepositoryPackage GetVersion(string version) {
-        return GetVersion(new PackageVersion(version));
+    public RepositoryPackage GetVersionPackage(string version) {
+        return GetVersionPackage(new PackageVersion(version));
     }
 
-    public RepositoryPackage GetVersion(PackageVersion version) {
+    public RepositoryPackage GetVersionPackage(PackageVersion version) {
         return new RepositoryPackage(this, version);
     }
 

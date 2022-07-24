@@ -35,10 +35,6 @@ class PackageRoot : System.Management.Automation.IValidateSetValuesGenerator {
 	}
 }
 
-function NewPackageVersion($v) {
-	return [Pog.PackageVersion]::new($v)
-}
-
 # whew, that's a lot of types...
 class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter {
 	[System.Collections.Generic.IEnumerable[System.Management.Automation.CompletionResult]]
@@ -59,8 +55,9 @@ class ManifestVersionCompleter : System.Management.Automation.IArgumentCompleter
 			return $ResultList # no such package
 		}
 
-		$c.EnumerateVersionStrings() | ? {$_.StartsWith($WordToComplete)} |
-				% {NewPackageVersion $_} | sort -Descending | % {$ResultList.Add($_.ToString())}
+		foreach ($v in $c.EnumerateVersions($WordToComplete + "*")) {
+			$ResultList.Add($v.ToString())
+		}
 		return $ResultList
 	}
 }
@@ -133,7 +130,7 @@ Export function Get-RepositoryPackage {
 	}
 
 	if ($PackageName -and $Version) {
-		$p = $REPOSITORY.GetPackage($PackageName, $true).GetVersion($Version)
+		$p = $REPOSITORY.GetPackage($PackageName, $true).GetVersionPackage($Version)
 		if (-not $p.Exists) {
 			throw "Package '$PackageName' does not have version '$($p.Version)'."
 		}
@@ -148,7 +145,7 @@ Export function Get-RepositoryPackage {
 		if ($LatestVersion) {
 			echo $c.GetLatestPackage()
 		} else {
-			echo $c.EnumerateSorted()
+			echo $c.Enumerate()
 		}
 	}
 }
@@ -450,7 +447,7 @@ function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$F
 	}
 
 	Write-Information "Overwriting previous package manifest..."
-	[Pog.PathConfig]::PackageManifestCleanupPaths | % {Join-Path $TargetPath $_} | ? {Test-Path $_} | Remove-Item -Recurse
+	[Pog.PathConfig]::PackageManifestCleanupPaths | % {Join-Path $p.Path $_} | ? {Test-Path $_} | Remove-Item -Recurse
 }
 
 Export function Import- {
@@ -495,7 +492,7 @@ Export function Import- {
 			# find latest version
 			$SrcPackage = $c.GetLatestPackage()
 		} else {
-			$SrcPackage = $c.GetVersion($Version)
+			$SrcPackage = $c.GetVersionPackage($Version)
 			if (-not $SrcPackage.Exists) {
 				throw "Unknown version of package '$PackageName': $Version"
 			}
@@ -551,7 +548,7 @@ Export function Show-ManifestHash {
 			# find latest version
 			$p = $c.GetLatestPackage()
 		} else {
-			$p = $c.GetVersion($Version)
+			$p = $c.GetVersionPackage($Version)
 			if (-not $p.Exists) {
 				throw "Unknown version of package '$($p.PackageName)': $($p.Version)"
 			}
@@ -590,7 +587,7 @@ Export function New-Manifest {
 	)
 
 	begin {
-		$p = $REPOSITORY.GetPackage($PackageName, $true).GetVersion($Version)
+		$p = $REPOSITORY.GetPackage($PackageName, $true).GetVersionPackage($Version)
 
 		if (-not $p.Exists) {
 			# create manifest dir for version
@@ -754,12 +751,12 @@ Export function Update-Manifest {
 
 			if ($ListOnly) {
 				# useful for testing if all expected versions are retrieved
-				return $GeneratedVersions | % {$c.GetVersion($_.Version)}
+				return $GeneratedVersions | % {$c.GetVersionPackage($_.Version)}
 			}
 
 			# generate manifest for each version
 			$GeneratedVersions | % {
-				$p = $c.GetVersion($_.Version)
+				$p = $c.GetVersionPackage($_.Version)
 				if (-not $p.Exists) {
 					$null = New-Item -Type Directory $p.Path
 				}
@@ -829,9 +826,9 @@ Export function Confirm-RepositoryPackage {
 					AddIssue "Package '$PackageName' has incorrect structure; root contains following files (only version directories should be present): $Files"
 					return
 				}
-				$c.EnumerateSorted()
+				$c.Enumerate()
 			} else {
-				$p = $c.GetVersion($VersionParam)
+				$p = $c.GetVersionPackage($VersionParam)
 				if (-not $p.Exists) {
 					throw "Could not find version '$VersionParam' of package '$PackageName' in the local repository. Tested path: '$($p.Path)'"
 				}

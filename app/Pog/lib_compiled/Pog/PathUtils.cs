@@ -6,8 +6,8 @@ using System.Linq;
 namespace Pog;
 
 internal static class PathUtils {
-    public static IEnumerable<string> EnumerateNonHiddenDirectoryNames(string path) {
-        return new DirectoryInfo(path).EnumerateDirectories()
+    public static IEnumerable<string> EnumerateNonHiddenDirectoryNames(string path, string searchPattern = "*") {
+        return new DirectoryInfo(path).EnumerateDirectories(searchPattern)
                 .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden))
                 .Select(d => d.Name);
     }
