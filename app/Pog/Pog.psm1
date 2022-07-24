@@ -356,7 +356,7 @@ Export function Enable- {
 		}
 
 		Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
-		Invoke-Container Enable $p -Manifest $p.Manifest -InternalArguments $InternalArgs -PackageArguments $PackageParameters
+		Invoke-Container Enable $p -InternalArguments $InternalArgs -PackageArguments $PackageParameters
 		Write-Information "Successfully enabled $($p.PackageName)."
 		if ($PassThru) {
 			return $p
@@ -407,7 +407,7 @@ Export function Install- {
 		}
 
 		Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
-		Invoke-Container Install $p -Manifest $p.Manifest -InternalArguments $InternalArgs
+		Invoke-Container Install $p -InternalArguments $InternalArgs
 		Write-Information "Successfully installed $($p.PackageName)."
 		if ($PassThru) {
 			return $p
@@ -567,7 +567,7 @@ Export function Show-ManifestHash {
 			DownloadLowPriority = [bool]$LowPriority
 		}
 
-		Invoke-Container GetInstallHash $p -Manifest $p.Manifest -InternalArguments $InternalArgs
+		Invoke-Container GetInstallHash $p -InternalArguments $InternalArgs
 	}
 }
 
