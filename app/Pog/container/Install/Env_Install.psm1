@@ -205,6 +205,7 @@ Export function Install-FromUrl {
 			### done in this scriptblock – this ensures that the ./app directory is not left in an inconsistent state
 			### in case of a crash during installation.
 			[ScriptBlock]
+			[Alias("Setup")]
 		$SetupScript,
 			### Pass this if the retrieved file is an NSIS installer
 			### Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
