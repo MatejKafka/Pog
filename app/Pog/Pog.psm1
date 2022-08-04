@@ -5,11 +5,6 @@ using module .\Common.psm1
 using module .\Confirmations.psm1
 . $PSScriptRoot\lib\header.ps1
 
-# TODO: allow wildcards in PackageName and Version arguments where it makes sense
-# TODO: allow pipelining for Import-, Install- and Enable-
-#  (careful about overwriting parameters based on values of other parameters,
-#   e.g. `Get-PogRepositoryPackage git, 7zip -LatestVersion | Import-Pog` will attempt to write 7zip manifest to `git` target)
-
 
 class ImportedPackageName : System.Management.Automation.IValidateSetValuesGenerator {
 	[String[]] GetValidValues() {
@@ -293,17 +288,22 @@ Export function Enable- {
 	#	Enables an installed package to allow external usage.
 	# .DESCRIPTION
 	#	Enables an installed package, setting up required files and exporting public commands and shortcuts.
-	[CmdletBinding()]
+	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
 	[OutputType([Pog.ImportedPackage])]
 	param(
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
+			[Pog.ImportedPackage[]]
+		$Package,
+			### Name of the package to enable. This is the target name, not necessarily the manifest app name.
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
 			[ValidateSet([ImportedPackageName])]
-			[string]
+			[string[]]
 		$PackageName,
 			### Extra parameters to pass to the Enable script in the package manifest. For interactive usage,
 			### prefer to use the automatically generated parameters on this command (e.g. instead of passing
 			### `@{Arg = Value}` to this parameter, pass `-_Arg Value` as a standard parameter to this cmdlet),
 			### which gives you autocomplete and name/type checking.
+			[Parameter(Position = 1)]
 			[Hashtable]
 		$PackageParameters = @{},
 			# allows overriding existing commands without confirmation
@@ -315,18 +315,32 @@ Export function Enable- {
 	)
 
 	dynamicparam {
-		if (-not $PSBoundParameters.ContainsKey("PackageName")) {return}
-		# this may fail in case the manifest is invalid, don't throw here, just return, will be handled in the begin{} block
-		$p = try {$PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)} catch {return}
+		# remove possible leftover from previous dynamicparam invocation
+		Remove-Item Function:ExtractParamsFn -ErrorAction Ignore
+		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $PSBoundParameters.ContainsKey("Package")) {return}
+		# TODO: make this work for multiple packages (probably by prefixing the parameter name with package name?)
+		# more than one package, ignore package parameters
+		if (@($Package).Count -gt 1 -or @($PackageName).Count -gt 1) {return}
 
+		$p = if ($Package) {$Package} else {
+			# this may fail in case the manifest is invalid, don't throw here, just return, will be handled in the begin{} block
+			try {$PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)} catch {return}
+		}
 		$CopiedParams = Copy-ManifestParameters $p.Manifest Enable -NamePrefix "_"
 		$function:ExtractParamsFn = $CopiedParams.ExtractFn
 		return $CopiedParams.Parameters
 	}
 
 	begin {
+		if ($PSBoundParameters.ContainsKey("PackageParameters")) {
+			if ($MyInvocation.ExpectingInput) {throw "-PackageParameters must not be passed when packages are passed through pipeline."}
+			if (@($PackageName).Count -gt 1) {throw "-PackageParameters must not be passed when -PackageName contains multiple package names."}
+			if (@($Package).Count -gt 1) {throw "-PackageParameters must not be passed when -Package contains multiple packages."}
+		}
+
 		if (Test-Path Function:ExtractParamsFn) {
-			# $p and $Manifest are already loaded
+			# $p is already loaded
+			$Package = $p
 			$ForwardedParams = ExtractParamsFn $PSBoundParameters
 			try {
 				$PackageParameters += $ForwardedParams
@@ -336,27 +350,36 @@ Export function Enable- {
 						"Each parameter must be present in at most one of these: " + $_
 			}
 		} else {
-			Write-Debug "Loading manifest inside the begin{} block, dynamicparam failed"
-			# this will throw in case the package or the manifest are not valid
-			$p = $PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)
+			# either the package manifest is invalid, or multiple packages were passed, or pipeline input is used
+		}
+	}
+
+	# TODO: do this in parallel (even for packages passed as array)
+	process {
+		$Packages = if ($Package) {$Package} else {
+			foreach($pn in $PackageName) {
+				$PACKAGE_ROOTS.GetPackage($pn, $true, $true)
+			}
 		}
 
-		Confirm-Manifest $p.Manifest
+		foreach ($p in $Packages) {
+			Confirm-Manifest $p.Manifest
 
-		if (-not $p.Manifest.Raw.ContainsKey("Enable")) {
-			Write-Information "Package '$($p.PackageName)' does not have an Enable block."
-			return
-		}
+			if (-not $p.Manifest.Raw.ContainsKey("Enable")) {
+				Write-Information "Package '$($p.PackageName)' does not have an Enable block."
+				continue
+			}
 
-		$InternalArgs = @{
-			AllowOverwrite = [bool]$Force
-		}
+			$InternalArgs = @{
+				AllowOverwrite = [bool]$Force
+			}
 
-		Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
-		Invoke-Container Enable $p -InternalArguments $InternalArgs -PackageArguments $PackageParameters
-		Write-Information "Successfully enabled $($p.PackageName)."
-		if ($PassThru) {
-			return $p
+			Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
+			Invoke-Container Enable $p -InternalArguments $InternalArgs -PackageArguments $PackageParameters
+			Write-Information "Successfully enabled $($p.PackageName)."
+			if ($PassThru) {
+				echo $p
+			}
 		}
 	}
 }
@@ -367,13 +390,16 @@ Export function Install- {
 	# .DESCRIPTION
 	#	Downloads and extracts package files, populating the ./app directory of the package. Downloaded files
 	#	are cached, so repeated installs only require internet connection for the initial download.
-	[CmdletBinding()]
+	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
 	[OutputType([Pog.ImportedPackage])]
 	param(
-			### Name of the package to install. This is the install name, not necessarily the manifest app name.
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
+			[Pog.ImportedPackage[]]
+		$Package,
+			### Name of the package to install. This is the target name, not necessarily the manifest app name.
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
 			[ValidateSet([ImportedPackageName])]
-			[string]
+			[string[]]
 		$PackageName,
 			### If set, and some version of the package is already installed, prompt before overwriting
 			### with the current version according to the manifest.
@@ -388,26 +414,33 @@ Export function Install- {
 		$PassThru
 	)
 
-	begin {
-		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)
-
-		Confirm-Manifest $p.Manifest
-
-		if (-not $p.Manifest.Raw.ContainsKey("Install")) {
-			Write-Information "Package '$($p.PackageName)' does not have an Install block."
-			return
+	# TODO: do this in parallel (even for packages passed as array)
+	process {
+		$Packages = if ($Package) {$Package} else {
+			foreach($pn in $PackageName) {
+				$PACKAGE_ROOTS.GetPackage($pn, $true, $true)
+			}
 		}
 
-		$InternalArgs = @{
-			AllowOverwrite = -not [bool]$Confirm
-			DownloadLowPriority = [bool]$LowPriority
-		}
+		foreach ($p in $Packages) {
+			Confirm-Manifest $p.Manifest
 
-		Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
-		Invoke-Container Install $p -InternalArguments $InternalArgs
-		Write-Information "Successfully installed $($p.PackageName)."
-		if ($PassThru) {
-			return $p
+			if (-not $p.Manifest.Raw.ContainsKey("Install")) {
+				Write-Information "Package '$($p.PackageName)' does not have an Install block."
+				continue
+			}
+
+			$InternalArgs = @{
+				AllowOverwrite = -not [bool]$Confirm
+				DownloadLowPriority = [bool]$LowPriority
+			}
+
+			Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
+			Invoke-Container Install $p -InternalArguments $InternalArgs
+			Write-Information "Successfully installed $($p.PackageName)."
+			if ($PassThru) {
+				echo $p
+			}
 		}
 	}
 }
@@ -446,24 +479,29 @@ function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$F
 		}
 	}
 
-	Write-Information "Overwriting previous package manifest..."
 	[Pog.PathConfig]::PackageManifestCleanupPaths | % {Join-Path $p.Path $_} | ? {Test-Path $_} | Remove-Item -Recurse
 }
 
+# TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
 Export function Import- {
 	# .SYNOPSIS
 	#	Imports a package manifest from the repository.
-	[CmdletBinding(PositionalBinding = $false)]
+	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
 	[OutputType([Pog.ImportedPackage])]
 	Param(
-			[Parameter(Mandatory, Position = 0)]
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "RepositoryPackage", ValueFromPipeline)]
+			[Pog.RepositoryPackage[]]
+		$Package,
+			[Parameter(Mandatory, ParameterSetName = "PackageName", ValueFromPipeline)]
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "Separate")]
 			[ValidateSet([RepoPackageName])]
-			[string]
+			[string[]]
 		$PackageName,
-			[Parameter(Position = 1)]
+			[Parameter(Position = 1, ParameterSetName = "Separate")]
 			[ArgumentCompleter([ManifestVersionCompleter])]
 			[Pog.PackageVersion]
 		$Version,
+			[Parameter(ParameterSetName = "Separate")]
 			[string]
 		$TargetName,
 			[ValidateSet([PackageRoot])]
@@ -478,45 +516,67 @@ Export function Import- {
 		$PassThru
 	)
 
+	# NOTES:
+	#  - always use $SrcPackage.PackageName instead of $PackageName, which may not have the correct casing
+	#  - same for $ResolvedTargetName and $TargetName
+	#
+	# supported usages:
+	#  - Import-Pog git -Version ...
+	#  - Import-Pog neovim, git  # no Version and TargetName
+	#  - "neovim", "git" | Import-Pog  # no Version and TargetName
+	#  - Get-PogRepositoryPackage -LatestVersion neovim, git | Import-Pog  # no Version and TargetName
+
 	begin {
-		$c = $REPOSITORY.GetPackage($PackageName, $true)
-		# get the resolved name, so that the casing is correct
-		$PackageName = $c.PackageName
-
-		if (-not $TargetName) {
-			# this must be done after the $PackageName update above
-			$TargetName = $PackageName
+		if ($Version) {
+			if ($MyInvocation.ExpectingInput) {throw "-Version must not be passed when -PackageName is passed through pipeline."}
+			if (@($PackageName).Count -gt 1) {throw "-Version must not be passed when -PackageName contains multiple package names."}
 		}
+	}
 
-		if (-not $Version) {
-			# find latest version
-			$SrcPackage = $c.GetLatestPackage()
+	process {
+		if ($Package) {
+			$SrcPackages = $Package
 		} else {
-			$SrcPackage = $c.GetVersionPackage($Version)
-			if (-not $SrcPackage.Exists) {
-				throw "Unknown version of package '$PackageName': $Version"
+			$SrcPackages = foreach ($n in $PackageName) {
+				# resolve package name and version to a package
+				$c = $REPOSITORY.GetPackage($n, $true)
+				if (-not $Version) {
+					# find latest version
+					$c.GetLatestPackage()
+				} else {
+					$p = $c.GetVersionPackage($Version)
+					if (-not $p.Exists) {
+						throw "Unknown version of package '$($p.PackageName)': $Version"
+					}
+					$p
+				}
 			}
 		}
 
-		Write-Verbose "Validating the repository package before importing..."
-		# this forces a manifest load on $SrcPackage
-		if (-not (Confirm-RepositoryPackage $SrcPackage)) {
-			throw "Validation of the repository package failed (see warnings above), not importing."
-		}
+		foreach ($SrcPackage in $SrcPackages) {
+			# see NOTES above for why we don't use a default parameter value
+			$ResolvedTargetName = if ($TargetName) {$TargetName} else {$SrcPackage.PackageName}
 
-		# don't load the manifest yet (may not be valid, will be loaded in ClearPreviousPackageDir)
-		$p = $PACKAGE_ROOTS.GetPackage($TargetName, $TargetPackageRoot, $true, $false)
+			Write-Verbose "Validating the repository package before importing..."
+			# this forces a manifest load on $SrcPackage
+			if (-not (Confirm-RepositoryPackage $SrcPackage)) {
+				throw "Validation of the repository package failed (see warnings above), not importing."
+			}
 
-		# ensure $TargetPath exists and there's no package manifest
-		ClearPreviousPackageDir $p $TargetPackageRoot $SrcPackage -Force:$Force
+			# don't load the manifest yet (may not be valid, will be loaded in ClearPreviousPackageDir)
+			$p = $PACKAGE_ROOTS.GetPackage($ResolvedTargetName, $TargetPackageRoot, $true, $false)
 
-		ls $SrcPackage.Path | Copy-Item -Recurse -Destination $p.Path
-		Write-Information "Initialized '$($p.Path)' with package manifest '$PackageName' (version '$($SrcPackage.Version)')."
-		if ($PassThru) {
-			# reload to remove the previous cached manifest
-			# the imported manifest was validated, this should not throw
-			$p.ReloadManifest()
-			return $p
+			# ensure $TargetPath exists and there's no package manifest
+			ClearPreviousPackageDir $p $TargetPackageRoot $SrcPackage -Force:$Force
+
+			ls $SrcPackage.Path | Copy-Item -Recurse -Destination $p.Path
+			Write-Information "Initialized '$($p.Path)' with package manifest '$($SrcPackage.PackageName)' (version '$($SrcPackage.Version)')."
+			if ($PassThru) {
+				# reload to remove the previous cached manifest
+				# the imported manifest was validated, this should not throw
+				$p.ReloadManifest()
+				echo $p
+			}
 		}
 	}
 }
