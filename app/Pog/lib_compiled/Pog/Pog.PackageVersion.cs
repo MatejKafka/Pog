@@ -37,6 +37,10 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
     };
 
     public PackageVersion(string versionString) {
+        if (string.IsNullOrEmpty(versionString)) {
+            throw new ArgumentException("Package version must not be empty.");
+        }
+
         this._versionString = versionString;
 
         var i = versionString.IndexOfAny(IOPath.GetInvalidFileNameChars());

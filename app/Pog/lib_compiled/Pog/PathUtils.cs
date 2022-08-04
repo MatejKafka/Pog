@@ -14,6 +14,9 @@ internal static class PathUtils {
 
     /// Return `childName`, but with casing matching the name as stored in the filesystem, if it already exists.
     public static string GetResolvedChildName(string parent, string childName) {
+        if (string.IsNullOrEmpty(childName)) {
+            throw new ArgumentException("childName argument must not be empty.");
+        }
         try {
             return new DirectoryInfo(parent).EnumerateDirectories(childName).Single().Name;
         } catch (InvalidOperationException) {

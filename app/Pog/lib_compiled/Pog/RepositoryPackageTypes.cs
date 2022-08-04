@@ -1,4 +1,5 @@
-﻿using IOPath = System.IO.Path;
+﻿using System;
+using IOPath = System.IO.Path;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -44,6 +45,9 @@ public class RepositoryVersionedPackage {
     [Hidden] public bool Exists => Directory.Exists(this.Path);
 
     internal RepositoryVersionedPackage(string packageName, Repository repository) {
+        if (string.IsNullOrEmpty(packageName)) {
+            throw new ArgumentException("packageName argument must not be empty.");
+        }
         PackageName = packageName;
         Repository = repository;
         Path = IOPath.Combine(repository.Path, packageName);

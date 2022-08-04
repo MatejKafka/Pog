@@ -59,7 +59,9 @@ public class PackageRootManager {
 
 /// <summary>
 /// A class representing an imported package.
-/// By default, the package is validated during initialization - it must exist and have a valid manifest, otherwise an exception is thrown.
+///
+/// By default, the package manifest is loaded during initialization - the package must exist and have a valid manifest,
+/// otherwise an exception is thrown.
 /// </summary>
 [PublicAPI]
 public class ImportedPackage : Package {
