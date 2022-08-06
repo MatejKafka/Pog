@@ -43,7 +43,7 @@ public class Package {
     public void ReloadManifest() {
         if (!Exists) {
             throw new DirectoryNotFoundException("INTERNAL ERROR: Tried to read package manifest of a non-existent" +
-                                                 $" package at '${Path}'. Seems like Pog developers fucked something up," +
+                                                 $" package at '{Path}'. Seems like Pog developers fucked something up," +
                                                  " plz send bug report.");
         }
         _manifest = new PackageManifest(ManifestPath);

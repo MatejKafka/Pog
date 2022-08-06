@@ -34,7 +34,7 @@ public class PackageRootManager {
             }
             return new ImportedPackage(packageName, IOPath.Combine(root, packageName), loadManifest);
         }
-        throw new ImportedPackageNotFoundException($"Could not find package '${packageName}' in known package directories."
+        throw new ImportedPackageNotFoundException($"Could not find package '{packageName}' in known package directories."
                                                    + " Searched paths:`n" + string.Join("\n", searchedPaths));
     }
 

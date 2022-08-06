@@ -12,9 +12,20 @@ public class PackageManifestNotFoundException : FileNotFoundException {
     internal PackageManifestNotFoundException(string message, string fileName) : base(message, fileName) {}
 }
 
+[PublicAPI]
 public class PackageManifestParseException : ParseException {
-    internal PackageManifestParseException(string message) : base(message) {}
-    internal PackageManifestParseException(ParseError[] errors) : base(errors) {}
+    public readonly string ManifestPath;
+
+    internal PackageManifestParseException(string manifestPath, string message) : base(message) {
+        ManifestPath = manifestPath;
+    }
+
+    internal PackageManifestParseException(string manifestPath, ParseError[] errors) : base(errors) {
+        ManifestPath = manifestPath;
+    }
+
+    public override string Message =>
+            $"Could not {(Errors == null ? "load" : "parse")} the package manifest at '{ManifestPath}':\n" + base.Message;
 }
 
 [PublicAPI]
@@ -38,7 +49,7 @@ public class PackageManifest {
 
     private Hashtable LoadManifest(string manifestPath) {
         if (!File.Exists(manifestPath)) {
-            throw new PackageManifestNotFoundException($"Package manifest file at '${manifestPath}' does not exist.",
+            throw new PackageManifestNotFoundException($"Package manifest file is missing, expected path: {manifestPath}",
                     manifestPath);
         }
 
@@ -46,13 +57,13 @@ public class PackageManifest {
         //  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
         var ast = Parser.ParseFile(manifestPath, out _, out var errors);
         if (errors.Length > 0) {
-            throw new PackageManifestParseException(errors);
+            throw new PackageManifestParseException(manifestPath, errors);
         }
 
         var data = ast.Find(static a => a is HashtableAst, false);
         if (data == null) {
-            throw new PackageManifestParseException("Could not load package manifest, it is not a valid PowerShell" +
-                                                    " data file, must be a single Hashtable literal: " + manifestPath);
+            throw new PackageManifestParseException(manifestPath, "The manifest is not a valid PowerShell" +
+                                                    " data file, must be a single Hashtable literal.");
         }
 
         var manifest = (data.SafeGetValue() as Hashtable)!;
