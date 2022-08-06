@@ -965,22 +965,19 @@ Export function Confirm-Package {
 	}
 
 	process {
-		$p = if ($Package) {
-			try {
+		$p = try {
+			if ($Package) {
 				# re-read manifest to have it up-to-date and revalidated
 				$p.ReloadManifest()
-			} catch {
-				Write-Warning $_
-				return
-			}
-			$Package
-		} else {
-			try {
+				$Package
+			} else {
 				$PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)
-			} catch {
-				Write-Warning $_
-				return
 			}
+		} catch {
+			# unwrap the actual exception, otherwise we would get a MethodInvocationException instead,
+			#  which has a less readable error message
+			AddIssue $_.Exception.InnerException.Message.Replace("`n", "`n         ")
+			return
 		}
 
 		Write-Verbose "Validating imported package manifest '$($p.PackageName)' at '$($p.ManifestPath)'..."
