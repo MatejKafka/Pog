@@ -454,32 +454,33 @@ function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$F
 	} catch [System.IO.DirectoryNotFoundException] {
 		# the package does not exist, create the directory and return
 		$null = New-Item -Type Directory $p.Path
-		return
+		return $true
 	} catch [Pog.PackageManifestNotFoundException] {
 		# the package exists, but the manifest is missing
 		# either a random folder was erronously created, or this is a package, but corrupted
-		Write-Warning ("A directory with name '$($p.PackageName)' already exists in '$TargetPackageRoot'," `
+		Write-Warning ("A package directory already exists at '$($p.Path)'," `
 				+ " but it doesn't seem to contain a package manifest." `
 				+ " All directories in a package root should be packages with a valid manifest.")
 	} catch [Pog.PackageManifestParseException] {
 		# the package has a manifest, but it's invalid (probably corrupted)
-		Write-Warning "Found an existing manifest in '$($p.PackageName)' at '$TargetPackageRoot', but it's syntactically invalid."
+		Write-Warning ("Found an existing package manifest in '$($p.Path)', but it's not valid." `
+				+ " Call 'Confirm-PogPackage `"$($p.PackageName)`"' to get more detailed information.")
 	}
 
 	if (-not $Force) {
 		# prompt for confirmation
-		$Title = "Overwrite existing package manifest?"
+		$Title = "Overwrite an existing package manifest for '$($p.PackageName)'?"
 		$ManifestDescription = if ($null -eq $OrigManifest) {""}
 				else {" (manifest '$($OrigManifest.Name)', version '$($OrigManifest.Version)')"}
-		$Message = "There is already an imported package with name '$($p.PackageName)'" `
+		$Message = "There is already an imported package '$($p.PackageName)'" `
 				+ " in '$TargetPackageRoot'$ManifestDescription. Overwrite its manifest with version '$($SrcPackage.Version)'?"
 		if (-not (Confirm-Action $Title $Message -ActionType "ManifestOverwrite")) {
-			throw "There is already a package with name '$($p.PackageName)' in '$TargetPackageRoot'." `
-				+ " Pass -Force to overwrite the current manifest without confirmation."
+			return $false
 		}
 	}
 
 	[Pog.PathConfig]::PackageManifestCleanupPaths | % {Join-Path $p.Path $_} | ? {Test-Path $_} | Remove-Item -Recurse
+	return $true
 }
 
 # TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
@@ -567,8 +568,12 @@ Export function Import- {
 			$p = $PACKAGE_ROOTS.GetPackage($ResolvedTargetName, $TargetPackageRoot, $true, $false)
 
 			# ensure $TargetPath exists and there's no package manifest
-			ClearPreviousPackageDir $p $TargetPackageRoot $SrcPackage -Force:$Force
+			if (-not (ClearPreviousPackageDir $p $TargetPackageRoot $SrcPackage -Force:$Force)) {
+				Write-Information "Skipping import of package '$($p.PackageName)'."
+				continue
+			}
 
+			# copy the new package files from the repository
 			ls $SrcPackage.Path | Copy-Item -Recurse -Destination $p.Path
 			Write-Information "Initialized '$($p.Path)' with package manifest '$($SrcPackage.PackageName)' (version '$($SrcPackage.Version)')."
 			if ($PassThru) {
