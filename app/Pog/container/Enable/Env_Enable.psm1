@@ -99,6 +99,7 @@ function Set-Symlink {
 
 	[string]$TargetStr = if ([System.IO.Path]::IsPathRooted($LinkPath) -or [System.IO.Path]::IsPathRooted($TargetPath)) {
 		# one of the paths is rooted, use absolute path for symlink
+		Write-Debug "Using absolute path as symlink target."
 		[string]$Target
 	} else {
 		# get relative path from $LinkPath to $TargetPath for symlink
@@ -208,7 +209,7 @@ Export function Set-SymlinkedPath {
 
 		$result = Set-Symlink $OriginalPath $TargetPath
 		if ($null -eq $result) {
-			Write-Verbose "Symlink already exists and matches requested target: '$OriginalPath'."
+			Write-Verbose "Symlink at '$OriginalPath' already exists and matches requested target '$TargetPath'."
 		} else {
 			Write-Information "Created symlink from '$OriginalPath' to '$TargetPath'."
 		}
@@ -450,8 +451,18 @@ Export function Export-Command {
 			[switch]
 		$SetWorkingDirectory,
 			[switch]
-		$NoSymlink
+		$NoSymlink,
+			[switch]
+		$Symlink
 	)
+
+	# TODO: migrate completely
+	if ($Symlink -and $SetWorkingDirectory) {
+		throw "Export-Command: -SetWorkingDirectory and -Symlink must not be passed together."
+	}
+	if ($Symlink -and $NoSymlink) {
+		throw "Export-Command: -NoSymlink and -Symlink must not be passed together."
+	}
 
 	# TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and warn the user if it's not
 	#  this TODO might be obsolete if we move to a per-package store of exported commands with separate copy mechanism
@@ -466,7 +477,7 @@ Export function Export-Command {
 	$ExePath = Resolve-Path $ExePath
 
 
-	$UseSymlink = -not ($SetWorkingDirectory -or $NoSymlink)
+	$UseSymlink = $Symlink -or -not ($SetWorkingDirectory -or $NoSymlink)
 	$LinkExt = if ($UseSymlink) {Split-Path -Extension $ExePath} else {".exe"}
 	$LinkPath = Join-Path $PATH_CONFIG.ExportedCommandDir ($CmdName + $LinkExt)
 
