@@ -15,6 +15,11 @@ public static class InternalState {
     private static Repository? _repository;
     [PublicAPI] public static Repository Repository => _repository ??= new Repository(PathConfig.ManifestRepositoryDir);
 
+    private static GeneratorRepository? _generatorRepository;
+    [PublicAPI]
+    public static GeneratorRepository GeneratorRepository =>
+            _generatorRepository ??= new GeneratorRepository(PathConfig.ManifestGeneratorDir);
+
     private static PackageRootManager? _packageRootManager;
     [PublicAPI]
     public static PackageRootManager PackageRootManager =>
