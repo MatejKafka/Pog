@@ -33,7 +33,6 @@ public class PackageRootConfig {
 
 [PublicAPI]
 public class PathConfig {
-    // TODO: change repo manifest structure to match this (move pog.psd1 outside .pog)
     public const string PackageManifestRelPath = "pog.psd1";
     public static readonly string[] PackageManifestCleanupPaths = {"pog.psd1", ".pog"};
     

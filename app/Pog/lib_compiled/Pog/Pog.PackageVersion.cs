@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
@@ -51,6 +52,9 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         if (versionString is "." or "..") {
             throw new FormatException("Package version must be a valid directory name, got '" + versionString + "'.");
         }
+
+        // should always pass, checked above
+        Debug.Assert(PathUtils.IsValidFileName(versionString));
 
         var match = VersionRegex.Match(versionString);
         if (!match.Success) {

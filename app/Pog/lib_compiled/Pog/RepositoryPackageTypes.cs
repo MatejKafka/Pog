@@ -1,6 +1,7 @@
 ﻿using System;
 using IOPath = System.IO.Path;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -9,8 +10,8 @@ using JetBrains.Annotations;
 namespace Pog;
 
 [PublicAPI]
-public readonly struct Repository {
-    [Hidden] public readonly string Path;
+public class Repository {
+    public readonly string Path;
 
     public Repository(string manifestRepositoryDirPath) {
         Path = manifestRepositoryDirPath;
@@ -45,9 +46,7 @@ public class RepositoryVersionedPackage {
     [Hidden] public bool Exists => Directory.Exists(this.Path);
 
     internal RepositoryVersionedPackage(string packageName, Repository repository) {
-        if (string.IsNullOrEmpty(packageName)) {
-            throw new ArgumentException("packageName argument must not be empty.");
-        }
+        Debug.Assert(PathUtils.IsValidFileName(packageName));
         PackageName = packageName;
         Repository = repository;
         Path = IOPath.Combine(repository.Path, packageName);

@@ -31,10 +31,11 @@ public class PackageManifestParseException : ParseException {
 [PublicAPI]
 public class PackageManifest {
     public Hashtable Raw;
+    public string Path;
+
     public bool IsPrivate;
     public string? Name;
     public PackageVersion? Version;
-    public string Path;
 
     /// <exception cref="PackageManifestNotFoundException">Thrown if the package manifest file does not exist.</exception>
     /// <exception cref="PackageManifestParseException">Thrown if the package manifest file is not a valid PowerShell data file (.psd1).</exception>
@@ -55,6 +56,7 @@ public class PackageManifest {
 
         // NOTE: how this is loaded is important; the resulting scriptblocks must NOT be bound to a single runspace;
         //  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
+        //  (see e.g. https://github.com/PowerShell/PowerShell/issues/11658#issuecomment-577304407)
         var ast = Parser.ParseFile(manifestPath, out _, out var errors);
         if (errors.Length > 0) {
             throw new PackageManifestParseException(manifestPath, errors);

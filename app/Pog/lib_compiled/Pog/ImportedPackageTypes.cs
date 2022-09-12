@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using IOPath = System.IO.Path;
 using System.IO;
 using System.Linq;
@@ -22,6 +23,7 @@ public class PackageRootManager {
     }
 
     public ImportedPackage GetPackage(string packageName, bool resolveName, bool loadManifest) {
+        Debug.Assert(PathUtils.IsValidFileName(packageName));
         var searchedPaths = new List<string>();
         foreach (var root in PackageRoots.ValidPackageRoots) {
             var path = IOPath.Combine(root, packageName);
@@ -39,6 +41,8 @@ public class PackageRootManager {
     }
 
     public ImportedPackage GetPackage(string packageName, string packageRoot, bool resolveName, bool loadManifest) {
+        Debug.Assert(PathUtils.IsValidFileName(packageName));
+        Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
         if (resolveName) {
             packageName = PathUtils.GetResolvedChildName(packageRoot, packageName);
         }
@@ -69,6 +73,7 @@ public class ImportedPackage : Package {
     [Hidden] public string? ManifestName => Manifest.Name;
 
     internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, path) {
+        Debug.Assert(PathUtils.IsValidFileName(packageName));
         if (loadManifest) {
             // load the manifest to (partially) validate it and ensure the getters above won't throw
             ReloadManifest();

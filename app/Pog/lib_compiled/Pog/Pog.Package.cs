@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using JetBrains.Annotations;
@@ -26,9 +27,7 @@ public class Package {
     }
 
     internal Package(string packageName, string packagePath, PackageManifest? manifest = null) {
-        if (string.IsNullOrEmpty(packageName)) {
-            throw new ArgumentException("packageName argument must not be empty.");
-        }
+        Debug.Assert(PathUtils.IsValidFileName(packageName));
         PackageName = packageName;
         Path = packagePath;
         ManifestPath = System.IO.Path.Combine(Path, PathConfig.PackageManifestRelPath);
