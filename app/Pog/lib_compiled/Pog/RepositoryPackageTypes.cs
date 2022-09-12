@@ -9,6 +9,14 @@ using JetBrains.Annotations;
 
 namespace Pog;
 
+public class RepositoryPackageNotFoundException : DirectoryNotFoundException {
+    public RepositoryPackageNotFoundException(string message) : base(message) {}
+}
+
+public class RepositoryPackageVersionNotFoundException : DirectoryNotFoundException {
+    public RepositoryPackageVersionNotFoundException(string message) : base(message) {}
+}
+
 [PublicAPI]
 public class Repository {
     public readonly string Path;
@@ -26,11 +34,17 @@ public class Repository {
         return EnumeratePackageNames(searchPattern).Select(p => new RepositoryVersionedPackage(p, repo));
     }
 
-    public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName) {
+    public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist) {
+        Debug.Assert(PathUtils.IsValidFileName(packageName));
         if (resolveName) {
             packageName = PathUtils.GetResolvedChildName(Path, packageName);
         }
-        return new RepositoryVersionedPackage(packageName, this);
+        var package = new RepositoryVersionedPackage(packageName, this);
+        if (mustExist && !package.Exists) {
+            throw new RepositoryPackageNotFoundException(
+                    $"Package '{package.PackageName}' does not exist in the repository, expected path: {package.Path}");
+        }
+        return package;
     }
 }
 
@@ -74,17 +88,22 @@ public class RepositoryVersionedPackage {
         }
     }
 
-    public RepositoryPackage GetVersionPackage(string version) {
-        return GetVersionPackage(new PackageVersion(version));
+    public RepositoryPackage GetVersionPackage(string version, bool mustExist) {
+        return GetVersionPackage(new PackageVersion(version), mustExist);
     }
 
-    public RepositoryPackage GetVersionPackage(PackageVersion version) {
-        return new RepositoryPackage(this, version);
+    public RepositoryPackage GetVersionPackage(PackageVersion version, bool mustExist) {
+        var package = new RepositoryPackage(this, version);
+        if (mustExist && !package.Exists) {
+            throw new RepositoryPackageVersionNotFoundException(
+                    $"Package '{PackageName}' in the repository does not have version '{version}', expected path: {package.Path}");
+        }
+        return package;
     }
 
-    public RepositoryPackage GetLatestPackage() {
+    public RepositoryPackage? GetLatestPackage() {
         var latestVersion = EnumerateVersionStrings().Select(v => new PackageVersion(v)).Max();
-        return new RepositoryPackage(this, latestVersion);
+        return latestVersion == null ? null : new RepositoryPackage(this, latestVersion);
     }
 }
 

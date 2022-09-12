@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using IOPath = System.IO.Path;
@@ -12,6 +13,10 @@ public class ImportedPackageNotFoundException : DirectoryNotFoundException {
     public ImportedPackageNotFoundException(string message) : base(message) {}
 }
 
+public class PackageRootNotValidException : ArgumentException {
+    public PackageRootNotValidException(string message) : base(message) {}
+}
+
 [PublicAPI]
 public class PackageRootManager {
     public readonly PackageRootConfig PackageRoots;
@@ -20,6 +25,20 @@ public class PackageRootManager {
 
     public PackageRootManager(PackageRootConfig packageRootConfig) {
         PackageRoots = packageRootConfig;
+    }
+
+    // FIXME: we should resolve the package root path to the correct casing
+    public string ResolveValidPackageRoot(string path) {
+        var normalized = Path.GetFullPath(path);
+        if (PackageRoots.ValidPackageRoots.Contains(normalized)) {
+            return normalized;
+        }
+        if (PackageRoots.MissingPackageRoots.Contains(normalized)) {
+            throw new PackageRootNotValidException(
+                    $"The passed package root is registered, but the directory is missing: {path}");
+        } else {
+            throw new PackageRootNotValidException($"The passed package root is not registered: {path}");
+        }
     }
 
     public ImportedPackage GetPackage(string packageName, bool resolveName, bool loadManifest) {
@@ -37,7 +56,7 @@ public class PackageRootManager {
             return new ImportedPackage(packageName, IOPath.Combine(root, packageName), loadManifest);
         }
         throw new ImportedPackageNotFoundException($"Could not find package '{packageName}' in known package directories."
-                                                   + " Searched paths:`n" + string.Join("\n", searchedPaths));
+                                                   + " Searched paths:\n    " + string.Join("\n    ", searchedPaths));
     }
 
     public ImportedPackage GetPackage(string packageName, string packageRoot, bool resolveName, bool loadManifest) {
