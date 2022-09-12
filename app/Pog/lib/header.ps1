@@ -2,6 +2,14 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# pass `-ErrorAction Stop` to all commands; this is a second line of defence
+#  after `$ErrorActionPreference` and ideally shouldn't be needed, but in some
+#  contexts (e.g. apparently when calling $PSCmdlet.WriteError), it is necessary
+#  to locally override $ErrorActionPreference
+$script:PSDefaultParameterValues = @{
+	"*:ErrorAction" = "Stop"
+}
+
 # all exports are done using the Export hacky fn
 Export-ModuleMember
 
