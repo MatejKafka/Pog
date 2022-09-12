@@ -3,8 +3,9 @@
 
 $PATH_CONFIG = [Pog.InternalState]::PathConfig
 $REPOSITORY = [Pog.InternalState]::Repository
+$GENERATOR_REPOSITORY = [Pog.InternalState]::GeneratorRepository
 $PACKAGE_ROOTS = [Pog.InternalState]::PackageRootManager
-Export-ModuleMember -Variable PATH_CONFIG, REPOSITORY, PACKAGE_ROOTS
+Export-ModuleMember -Variable PATH_CONFIG, REPOSITORY, GENERATOR_REPOSITORY, PACKAGE_ROOTS
 
 # warn about missing package roots
 foreach ($r in $PATH_CONFIG.PackageRoots.MissingPackageRoots) {

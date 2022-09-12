@@ -7,6 +7,14 @@ using System.Management.Automation;
 using System.Management.Automation.Language;
 using JetBrains.Annotations;
 
+// This module implements a set of argument completers that are used in the public Pog cmdlets.
+// Originally, `ValidateSet` was used, which automatically provides autocomplete, but there were a few issues:
+//  1) passing a class to ValidateSet is only supported in pwsh.exe, not in powershell.exe
+//  2) ValidateSet is inefficient, because it always reads the full set, repeatedly. User typically only invokes autocomplete
+//     after typing a few characters, so it should be faster.
+//  3) Typically, we do more processing on the argument inside the function (e.g. name resolution, package retrieval,...),
+//     and we can integrate validation there quite easily, and it's again much more efficient to check that the argument
+//     value is valid than to retrieve the set of all possible argument values.
 namespace Pog.PSAttributes;
 
 public abstract class DirectoryListingArgumentCompleter : IArgumentCompleter {
