@@ -42,7 +42,8 @@ public class PackageRootManager {
     }
 
     public ImportedPackage GetPackage(string packageName, bool resolveName, bool loadManifest) {
-        Debug.Assert(PathUtils.IsValidFileName(packageName));
+        Verify.PackageName(packageName);
+
         var searchedPaths = new List<string>();
         foreach (var root in PackageRoots.ValidPackageRoots) {
             var path = IOPath.Combine(root, packageName);
@@ -60,12 +61,22 @@ public class PackageRootManager {
     }
 
     public ImportedPackage GetPackage(string packageName, string packageRoot, bool resolveName, bool loadManifest) {
-        Debug.Assert(PathUtils.IsValidFileName(packageName));
+        Verify.PackageName(packageName);
         Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
+
         if (resolveName) {
             packageName = PathUtils.GetResolvedChildName(packageRoot, packageName);
         }
-        return new ImportedPackage(packageName, IOPath.Combine(packageRoot, packageName), loadManifest);
+
+        var p = new ImportedPackage(packageName, IOPath.Combine(packageRoot, packageName), false);
+
+        if (loadManifest) {
+            if (!p.Exists) {
+                throw new ImportedPackageNotFoundException($"Package '{p.PackageName}' at '{p.Path}' does not exist");
+            }
+            p.ReloadManifest();
+        }
+        return p;
     }
 
     // FIXME: this should probably return a set (or at least filter the packages to skip collisions)
@@ -92,7 +103,7 @@ public class ImportedPackage : Package {
     [Hidden] public string? ManifestName => Manifest.Name;
 
     internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, path) {
-        Debug.Assert(PathUtils.IsValidFileName(packageName));
+        Verify.Assert.PackageName(packageName);
         if (loadManifest) {
             // load the manifest to (partially) validate it and ensure the getters above won't throw
             ReloadManifest();

@@ -54,7 +54,7 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         }
 
         // should always pass, checked above
-        Debug.Assert(PathUtils.IsValidFileName(versionString));
+        Verify.Assert.FileName(versionString);
 
         var match = VersionRegex.Match(versionString);
         if (!match.Success) {

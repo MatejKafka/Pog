@@ -27,7 +27,7 @@ public class Package {
     }
 
     internal Package(string packageName, string packagePath, PackageManifest? manifest = null) {
-        Debug.Assert(PathUtils.IsValidFileName(packageName));
+        Verify.Assert.PackageName(packageName);
         PackageName = packageName;
         Path = packagePath;
         ManifestPath = System.IO.Path.Combine(Path, PathConfig.PackageManifestRelPath);

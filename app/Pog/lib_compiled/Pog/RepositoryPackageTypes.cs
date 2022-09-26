@@ -35,7 +35,7 @@ public class Repository {
     }
 
     public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist) {
-        Debug.Assert(PathUtils.IsValidFileName(packageName));
+        Verify.PackageName(packageName);
         if (resolveName) {
             packageName = PathUtils.GetResolvedChildName(Path, packageName);
         }
@@ -60,7 +60,7 @@ public class RepositoryVersionedPackage {
     [Hidden] public bool Exists => Directory.Exists(this.Path);
 
     internal RepositoryVersionedPackage(string packageName, Repository repository) {
-        Debug.Assert(PathUtils.IsValidFileName(packageName));
+        Verify.Assert.PackageName(packageName);
         PackageName = packageName;
         Repository = repository;
         Path = IOPath.Combine(repository.Path, packageName);
