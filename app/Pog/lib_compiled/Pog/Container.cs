@@ -13,8 +13,7 @@ namespace Pog;
 public enum ContainerType { Install, GetInstallHash, Enable }
 
 [PublicAPI]
-public record ContainerInternalInfo(
-        string PackageName, string PackageDirectory, PackageManifest Manifest, Hashtable InternalArguments);
+public record ContainerInternalInfo(Package Package, Hashtable InternalArguments);
 
 [PublicAPI]
 public record OutputStreamConfig(ActionPreference Progress, ActionPreference Warning,
@@ -148,8 +147,7 @@ public class Container : IDisposable {
             // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
             new("this", _package.Manifest.Raw, "Loaded manifest of the processed package"),
             // store internal Pog data in the _Pog variable inside the container, used by the environments imported below
-            new("_Pog",
-                    new ContainerInternalInfo(_package.PackageName, _package.Path, _package.Manifest, _internalArguments),
+            new("_Pog", new ContainerInternalInfo(_package, _internalArguments),
                     "Internal data used by the Pog container environment", ScopedItemOptions.Constant),
         });
 

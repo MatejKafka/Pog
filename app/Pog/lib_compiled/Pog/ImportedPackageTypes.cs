@@ -18,12 +18,12 @@ public class PackageRootNotValidException : ArgumentException {
 }
 
 [PublicAPI]
-public class PackageRootManager {
+public class ImportedPackageManager {
     public readonly PackageRootConfig PackageRoots;
 
     public string DefaultPackageRoot => PackageRoots.ValidPackageRoots[0];
 
-    public PackageRootManager(PackageRootConfig packageRootConfig) {
+    public ImportedPackageManager(PackageRootConfig packageRootConfig) {
         PackageRoots = packageRootConfig;
     }
 
@@ -107,6 +107,17 @@ public class ImportedPackage : Package {
         if (loadManifest) {
             // load the manifest to (partially) validate it and ensure the getters above won't throw
             ReloadManifest();
+        }
+    }
+
+    public string GetDescriptionString() {
+        var versionStr = Manifest.Version != null ? $", version '{Manifest.Version}'" : "";
+        if (Manifest.IsPrivate) {
+            return $"private package '{PackageName}'{versionStr}";
+        } else if (Manifest.Name == PackageName) {
+            return $"package '{Manifest.Name}'{versionStr}";
+        } else {
+            return $"package '{Manifest.Name}' (installed as '{PackageName}'){versionStr}";
         }
     }
 }
