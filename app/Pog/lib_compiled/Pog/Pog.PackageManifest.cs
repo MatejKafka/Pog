@@ -118,8 +118,7 @@ public class PackageManifest {
         var realSb = realSbAst?.ScriptBlock.GetScriptBlock();
         // ReSharper disable once JoinNullCheckWithUsage
         if (realSb == null) {
-            throw new Exception("INTERNAL ERROR: Could not unwrap package manifest script-block." +
-                                " Seems like Pog developers fucked something up, plz send bug report.");
+            throw new InternalError("Could not unwrap package manifest script-block.");
         }
         return realSb;
     }
