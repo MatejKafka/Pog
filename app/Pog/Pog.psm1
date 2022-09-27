@@ -165,39 +165,14 @@ Export function Clear-DownloadCache {
 		$DateBefore = [DateTime]::Now.AddDays(-$DaysBefore)
 	}
 
-	$SizeSum = 0
-	$CacheEntries = ls -Directory $PATH_CONFIG.DownloadCacheDir | % {
-		$SourceFile = Get-Item "$_.json" -ErrorAction Ignore
-		$LastAccessTime = if ($SourceFile) {$SourceFile.LastWriteTime} else {$_.LastWriteTime}
-
-		if ($LastAccessTime -gt $DateBefore) {
-			return # recently used entry, don't delete
+	$Entries = $DOWNLOAD_CACHE.EnumerateEntries({param($err)
+		Write-Warning "Invalid cache entry encountered, deleting...: $($err.EntryKey)"
+		try {$DOWNLOAD_CACHE.DeleteEntry($err.EntryKey)} catch [Pog.CacheEntryInUseException] {
+			Write-Warning "Cannot delete the invalid entry, it is currently in use."
 		}
+	}) | ? {$_.LastUseTime -le $DateBefore <# keep recently used entries #>}
 
-		# read cache entry sources from the metadata file
-		$SourceStr = try {
-			Get-Content -Raw $SourceFile | ConvertFrom-Json -AsHashtable | % {
-				$_.PackageName + $(if ($_.ManifestVersion) {" $($_.ManifestVersion)"})
-			} | Join-String -Separator ", "
-		} catch {$null}
-
-		$CachedFile = ls -File $_
-		$SizeSum += $CachedFile.Length
-		return @{
-			EntryDirectory = $_
-			SourceFile = $SourceFile
-			SourceStr = $SourceStr
-			EntryName = $CachedFile.Name
-			EntrySize = $CachedFile.Length
-		}
-	}
-
-	function RemoveEntries {
-		$CacheEntries | % {$_.EntryDirectory; $_.SourceFile} | ? {Test-Path $_} | Remove-Item -Recurse -Force
-	}
-
-
-	if (@($CacheEntries).Count -eq 0) {
+	if (@($Entries).Count -eq 0) {
 		if ($Force) {
 			Write-Information "No package archives older than '$($DateBefore.ToString())' found, nothing to remove."
 			return
@@ -208,25 +183,40 @@ Export function Clear-DownloadCache {
 
 	if ($Force) {
 		# do not check for confirmation
-		RemoveEntries
-		$C = @($CacheEntries).Count
-		Write-Information ("Removed $C package archive" + $(if ($C -eq 1) {""} else {"s"}) +`
+		$SizeSum = 0
+		$DeletedCount = 0
+		$Entries | % {
+			$ErrorActionPreference = "Continue"
+			$SizeSum += $_.Size
+			$DeletedCount += 1
+			try {$DOWNLOAD_CACHE.DeleteEntry($_)}
+			catch [Pog.CacheEntryInUseException] {$PSCmdlet.WriteError($_)}
+		}
+		Write-Information ("Removed $DeletedCount package archive" + $(if ($DeletedCount -eq 1) {""} else {"s"}) +`
 						   ", freeing ~{0:F} GB of space." -f ($SizeSum / 1GB))
 		return
 	}
 
 	# print the cache entry list
-	$CacheEntries | sort EntrySize -Descending | % {
-		Write-Host ("{0,10:F2} MB - {1}" -f @(
-			($_.EntrySize / 1MB),
-			$(if ($_.SourceStr) {$_.SourceStr} else {$_.EntryName})))
+	$SizeSum = 0
+	$Entries | sort Size -Descending | % {
+		$SizeSum += $_.Size
+		$SourceStr = $_.SourcePackages `
+			| % {$_.PackageName + $(if ($_.ManifestVersion) {" $($_.ManifestVersion)"})} `
+			| Join-String -Separator ", "
+		Write-Host ("{0,10:F2} MB - {1}" -f @(($_.Size / 1MB), $SourceStr))
 	}
 
 	$Title = "Remove the listed package archives, freeing ~{0:F} GB of space?" -f ($SizeSum / 1GB)
-	$Message = "This will not affect installed applications. Reinstallation of an application may take longer," + `
+	$Message = "This will not affect already installed applications. Reinstallation of an application may take longer," + `
 		" as it will have to be downloaded again."
 	if (Confirm-Action $Title $Message) {
-		RemoveEntries
+		# delete the entries
+		$Entries | % {
+			$ErrorActionPreference = "Continue"
+			try {$DOWNLOAD_CACHE.DeleteEntry($_)}
+			catch [Pog.CacheEntryInUseException] {$PSCmdlet.WriteError($_)}
+		}
 	} else {
 		Write-Host "No package archives were removed."
 	}
