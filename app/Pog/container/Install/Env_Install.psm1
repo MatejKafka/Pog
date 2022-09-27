@@ -1,7 +1,5 @@
 # Requires -Version 7
 using module .\..\container_lib\Confirmations.psm1
-using module .\ExtractArchive.psm1
-using module .\FileDownloader.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 
 Export-ModuleMember -Function Confirm-Action
@@ -198,8 +196,8 @@ Export function Install-FromUrl {
 			### Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
 			### Set this to `Browser` to use a browser user agent string (currently Firefox).
 			### Set this to `Wget` to use wget user agent string.
-			[UserAgentType]
-		$UserAgent = [UserAgentType]::PowerShell,
+			[Pog.Commands.DownloadParameters+UserAgentType]
+		$UserAgent = [Pog.Commands.DownloadParameters+UserAgentType]::PowerShell,
 			### If you need to modify the extracted archive (e.g. remove some files), pass a scriptblock, which receives
 			### a path to the extracted directory as its only argument. All modifications to the extracted files should be
 			### done in this scriptblock – this ensures that the ./app directory is not left in an inconsistent state
@@ -226,11 +224,12 @@ Export function Install-FromUrl {
 		rm -Recurse -Force $TMP_EXPAND_PATH
 	}
 
-	# these parameters are directly forwarded to the `DownloadFile` function in .\FileDownloader.psm1
-	$DownloadParams = @{
-		UserAgent = $UserAgent
+	if (-not $ExpectedHash) {
+		Write-Warning ("Downloading a file from '$SourceUrl', but no checksum was provided in the package " +`
+			"(passed to 'Install-FromUrl'). This means that we cannot be sure if the download file is the " +`
+			"same one package author intended. This may or may not be a problem on its own, " +`
+			"but it's better style to include a checksum, and it improves security and reproducibility.")
 	}
-
 
 	if (Test-Path .\app) {
 		$ShouldContinue = ConfirmOverwrite "Overwrite existing package installation?" `
@@ -255,40 +254,24 @@ Export function Install-FromUrl {
 		#  we'll delete the old version
 	}
 
+	$DownloadParams = [Pog.Commands.DownloadParameters]::new($UserAgent, $global:_Pog.InternalArguments.DownloadLowPriority)
+	$Package = $global:_Pog.Package
 
 	# 1. Download and expand (move/copy) the archive (file) to the temporary directory at $TMP_EXPAND_PATH
-	Write-Information "Retrieving file from '$SourceUrl' (or local cache)..."
-	if (-not [string]::IsNullOrEmpty($ExpectedHash)) {
-		# we have fixed hash, we can use download cache
-		$DownloadedFile = Invoke-CachedFileDownload $SourceUrl `
-				-ExpectedHash $ExpectedHash.ToUpper() -DownloadParams $DownloadParams
+	$LockedFile = $null
+	try {
+		$LockedFile = Invoke-FileDownload $SourceUrl -ExpectedHash $ExpectedHash -DownloadParameters $DownloadParams -Package $Package
 		Write-Debug "File correctly retrieved, expanding to '$TMP_EXPAND_PATH'..."
+
 		if (-not $NoArchive) {
-			ExtractArchive $DownloadedFile $TMP_EXPAND_PATH
+			Expand-Archive7Zip $LockedFile.Path $TMP_EXPAND_PATH
 		} else {
+			# FIXME: bring back the optimization where a temporary directory is moved instead of a copy
 			$null = New-Item -Type Directory $TMP_EXPAND_PATH
-			Copy-Item $DownloadedFile $TMP_EXPAND_PATH
+			Copy-Item $LockedFile.Path $TMP_EXPAND_PATH
 		}
-	} else {
-		Write-Warning ("Downloading a file from '$SourceUrl', but no checksum was provided in the package " +`
-				"(passed to 'Install-FromUrl'). This means that we cannot be sure if the download file is the " +`
-				"same one package author intended. This may or may not be a problem on its own, " +`
-				"but it's better style to include a checksum, and it improves security and reproducibility.")
-		# the hash is not set, cannot safely cache the file
-		$TmpDir, $DownloadedFile = Invoke-TmpFileDownload $SourceUrl -DownloadParams $DownloadParams
-		if (-not $NoArchive) {
-			try {
-				ExtractArchive $DownloadedFile $TMP_EXPAND_PATH
-			} finally {
-				# remove the temporary dir (including the file) after we finish
-				Remove-Item -Recurse $TmpDir
-				Write-Debug "Removed temporary downloaded archive '$DownloadedFile'."
-			}
-		} else {
-			# move the temporary directory directly, with the file inside; this avoids unnecessary copying
-			Move-Item $TmpDir $TMP_EXPAND_PATH
-			Write-Debug "Moved temporary downloaded archive to '$TMP_EXPAND_PATH'."
-		}
+	} finally {
+		if ($null -ne $LockedFile) {$LockedFile.Dispose()}
 	}
 
 	# 2. Move relevant parts of the extracted temporary directory to ./app directory

@@ -1,5 +1,4 @@
 # Requires -Version 7
-using module .\FileDownloader.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 
 
@@ -25,10 +24,13 @@ Export function __main {
         else {$null}
 
     $UserAgent = if ($Installer.ContainsKey("UserAgent")) {$Installer.UserAgent}
-        else {[UserAgentType]::PowerShell}
+        else {[Pog.Commands.DownloadParameters+UserAgentType]::PowerShell}
+    $DownloadParams = [Pog.Commands.DownloadParameters]::new($UserAgent)
 
-    Write-Information "Retrieving the file hash for '$Url'..."
-    $Hash = Get-UrlFileHash $Url -DownloadParams @{UserAgent = $UserAgent} -ShouldCache
+    $LockedFile = Invoke-FileDownload $Url -DownloadParameters $DownloadParams -StoreInCache -Package $global:_Pog.Package
+    # we don't need the lock, we're only interested in the hash
+    $LockedFile.Unlock()
+    $Hash = $LockedFile.EntryKey
     $Hash | Set-Clipboard
 
     Write-Host ""
