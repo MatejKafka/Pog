@@ -223,17 +223,6 @@ Export function Clear-DownloadCache {
 }
 
 
-function GetPackageDescriptionStr($PackageName, $Manifest) {
-	$VersionStr = if ($Manifest.Version) {", version '$($Manifest.Version)'"} else {""}
-	if ($Manifest.IsPrivate) {
-		return "private package '$PackageName'$VersionStr"
-	} elseif ($Manifest.Name -eq $PackageName) {
-		return "package '$($Manifest.Name)'$VersionStr"
-	} else {
-		return "package '$($Manifest.Name)' (installed as '$PackageName')$VersionStr"
-	}
-}
-
 Export function Enable- {
 	# .SYNOPSIS
 	#	Enables an installed package to allow external usage.
@@ -331,9 +320,9 @@ Export function Enable- {
 				AllowOverwrite = [bool]$Force
 			}
 
-			Write-Information "Enabling $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
+			Write-Information "Enabling $($p.GetDescriptionString())..."
 			Invoke-Container Enable $p -InternalArguments $InternalArgs -PackageArguments $PackageParameters
-			Write-Information "Successfully enabled $($p.PackageName)."
+			Write-Information "Successfully enabled '$($p.PackageName)'."
 			if ($PassThru) {
 				echo $p
 			}
@@ -397,9 +386,9 @@ Export function Install- {
 				DownloadLowPriority = [bool]$LowPriority
 			}
 
-			Write-Information "Installing $(GetPackageDescriptionStr $p.PackageName $p.Manifest)..."
+			Write-Information "Installing $($p.GetDescriptionString())..."
 			Invoke-Container Install $p -InternalArguments $InternalArgs
-			Write-Information "Successfully installed $($p.PackageName)."
+			Write-Information "Successfully installed '$($p.PackageName)'."
 			if ($PassThru) {
 				echo $p
 			}
@@ -918,18 +907,18 @@ Export function Confirm-RepositoryPackage {
 		foreach ($p in $VersionPackages) {
 			foreach ($f in ls $p.Path) {
 				if ($f.Name -notin "pog.psd1", ".pog") {
-					AddIssue ("Manifest directory for '$PackageName', version '$($p.Version)' contains extra file/directory '$($f.Name)' at '$f'." `
+					AddIssue ("Manifest directory for '$($p.PackageName)', version '$($p.Version)' contains extra file/directory '$($f.Name)' at '$f'." `
 							+ " Each manifest directory must only contain a pog.psd1 manifest file and an optional .pog directory for extra files.")
 				}
 			}
 
 			$ExtraFileDir = Get-Item "$p\.pog" -ErrorAction Ignore
 			if ($ExtraFileDir -and $ExtraFileDir -isnot [System.IO.DirectoryInfo]) {
-				AddIssue ("'$ExtraFileDir' should be a directory, not a file, in manifest directory for '$PackageName', version '$($p.Version)'.")
+				AddIssue ("'$ExtraFileDir' should be a directory, not a file, in manifest directory for '$($p.PackageName)', version '$($p.Version)'.")
 			}
 
 			if (-not $p.ManifestExists) {
-				AddIssue "Could not find manifest '$PackageName', version '$($p.Version)'. Searched path: $($p.ManifestPath)"
+				AddIssue "Could not find manifest '$($p.PackageName)', version '$($p.Version)'. Searched path: $($p.ManifestPath)"
 				return
 			}
 
@@ -941,11 +930,10 @@ Export function Confirm-RepositoryPackage {
 			}
 
 			try {
-				Confirm-Manifest $p.Manifest $PackageName $p.Version -IsRepositoryManifest
+				Confirm-Manifest $p.Manifest $p.PackageName $p.Version -IsRepositoryManifest
 			} catch {
-				AddIssue ("Validation of package manifest '$PackageName', version '$($p.Version)' from local repository failed." +`
-						"`nPath: $ManifestPath" +`
-						"`n" +`
+				AddIssue ("Validation of package manifest '$($p.PackageName)', version '$($p.Version)' from local repository failed." +`
+						"`nPath: $($p.ManifestPath)" +`
 						"`n" + $_.ToString().Replace("`t", "     - "))
 			}
 		}
