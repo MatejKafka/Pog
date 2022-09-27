@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Management.Automation;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using IOPath = System.IO.Path;
@@ -12,7 +12,7 @@ using IOPath = System.IO.Path;
 namespace Pog;
 
 [PublicAPI]
-public class InvalidCacheEntryException : RuntimeException {
+public class InvalidCacheEntryException : Exception {
     public readonly string EntryKey;
 
     public InvalidCacheEntryException(string entryKey) : base($"Invalid cache entry: '{entryKey}'") {
@@ -25,7 +25,7 @@ public class InvalidCacheEntryException : RuntimeException {
 }
 
 [PublicAPI]
-public class CacheEntryAlreadyExistsException : RuntimeException {
+public class CacheEntryAlreadyExistsException : Exception {
     public readonly string EntryKey;
 
     public CacheEntryAlreadyExistsException(string entryKey) :
@@ -34,12 +34,12 @@ public class CacheEntryAlreadyExistsException : RuntimeException {
     }
 }
 
-public class InvalidAddedCacheEntryException : RuntimeException {
+public class InvalidAddedCacheEntryException : Exception {
     public InvalidAddedCacheEntryException(string message) : base(message) {}
 }
 
 [PublicAPI]
-public class CacheEntryInUseException : RuntimeException {
+public class CacheEntryInUseException : Exception {
     public readonly string EntryKey;
 
     public CacheEntryInUseException(string entryKey) : base(
@@ -234,6 +234,11 @@ public class SharedFileCache {
     }
 
     /// <exception cref="CacheEntryInUseException"></exception>
+    public void DeleteEntry(CacheEntryInfo entry) {
+        DeleteEntry(entry.EntryKey);
+    }
+
+    /// <exception cref="CacheEntryInUseException"></exception>
     public void DeleteEntry(string entryKey) {
         Verify.FileName(entryKey);
         var srcPath = IOPath.Combine(Path, entryKey);
@@ -307,7 +312,7 @@ public class SharedFileCache {
     /// Atomically add an entry to the cache and get a lock.
     /// Expected usage: File is downloaded to a temporary directory, then moved into the cache using this method.
     /// <exception cref="CacheEntryAlreadyExistsException"></exception>
-    public CacheEntryLock AddEntry(string entryKey, NewCacheEntry newEntry) {
+    public CacheEntryLock AddEntryLocked(string entryKey, NewCacheEntry newEntry) {
         Verify.FileName(entryKey);
 
         var targetPath = IOPath.Combine(Path, entryKey);
@@ -358,12 +363,20 @@ public class SharedFileCache {
     }
 
     [PublicAPI]
-    public class CacheEntryLock : IDisposable {
+    public interface IFileLock : IDisposable {
+        public string Path {get;}
+        public FileStream ReadStream {get;}
+
+        public void Unlock();
+    }
+
+    [PublicAPI]
+    public class CacheEntryLock : IFileLock {
         public readonly string EntryKey;
-        public readonly string Path;
+        public string Path {get;}
         /// The file stream used to lock the cache entry for reading, and also available for use.
         /// Do NOT close this stream manually, it will be closed automatically on Dispose.
-        public readonly FileStream ReadStream;
+        public FileStream ReadStream {get;}
 
         internal CacheEntryLock(string entryKey, string path, FileStream readStream) {
             Verify.Assert.FileName(entryKey);

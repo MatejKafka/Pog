@@ -7,7 +7,7 @@ using JetBrains.Annotations;
 
 namespace Pog.Commands;
 
-public class Failed7ZipHashCalculationException : RuntimeException {
+public class Failed7ZipHashCalculationException : Exception {
     public Failed7ZipHashCalculationException(string message) : base(message) {}
 }
 
@@ -63,7 +63,7 @@ public class GetFileHash7ZipCommand : PSCmdlet, IDisposable {
     protected override void BeginProcessing() {
         base.BeginProcessing();
         _algorithmStr = Algorithm.ToString().ToUpper();
-        _fullPath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(LiteralPath);
+        _fullPath = GetUnresolvedProviderPathFromPSPath(LiteralPath);
 
         _process = new Process {
             StartInfo = new ProcessStartInfo {
@@ -127,5 +127,12 @@ public class GetFileHash7ZipCommand : PSCmdlet, IDisposable {
 
     public void Dispose() {
         _process?.Dispose();
+    }
+
+    public static string Invoke(SessionState ss, string filePath, HashAlgorithm algorithm = HashAlgorithm.SHA256) {
+        var result = ss.InvokeCommand.InvokeScript(ss, ScriptBlock.Create("Get-FileHash7Zip $Args[0] -Algorithm $Args[1]"),
+                filePath, algorithm);
+        Debug.Assert(result.Count == 1);
+        return (string) result[0].BaseObject;
     }
 }

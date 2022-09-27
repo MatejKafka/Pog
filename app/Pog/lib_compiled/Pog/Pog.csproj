@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <LangVersion>default</LangVersion>
-    <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

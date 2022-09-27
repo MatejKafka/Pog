@@ -8,7 +8,7 @@ using JetBrains.Annotations;
 
 namespace Pog.Commands;
 
-public class Failed7ZipArchiveExtractionException : RuntimeException {
+public class Failed7ZipArchiveExtractionException : Exception {
     public Failed7ZipArchiveExtractionException(string message) : base(message) {}
 }
 
@@ -84,9 +84,11 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
         }
 
         if (_process.ExitCode != 0) {
+            CleanupTargetDir();
             throw new Failed7ZipArchiveExtractionException(
                     $"Could not extract archive, '7zip' returned exit code {_process.ExitCode}:{errorStrSb}");
         } else if (errorStrSb.Length != 0) {
+            CleanupTargetDir();
             // TODO: really, just rewrite this shit using P/Invoke, it will be less painful
             // there's some error output; since `cmd.exe` hides the error code of the first 7z invocation for .tar.gz,
             //  we'll throw an error anyway
