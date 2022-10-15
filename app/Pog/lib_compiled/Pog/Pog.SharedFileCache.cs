@@ -136,14 +136,33 @@ public class SharedFileCache {
         JsonSerializer.Serialize(stream, packageInfo);
     }
 
-    // Lock the entry directory, allowing read/write, but not delete.
-    private SafeFileHandle? OpenEntryDirectory(string entryDirPath) {
-        try {
-            return Win32.OpenDirectoryReadOnly(entryDirPath);
-        } catch (FileNotFoundException) {
-            // yes, really, it's not DirectoryNotFoundException
-            // the entry does not exist
-            return null;
+    /// Lock the entry directory, allowing read/write, but not deletion.
+    /// <returns>`null` in case the entry does not exist, a disposable read handle to the directory otherwise.</returns>
+    /// <exception cref="FileLoadException">The directory is locked by someone else with an incompatible mode.</exception>
+    private SafeFileHandle? LockEntryDirectory(string entryDirPath) {
+        for (var i = 0;; i++) {
+            try {
+                return Win32.OpenDirectoryReadOnly(entryDirPath);
+            } catch (FileNotFoundException) {
+                // yes, really, it's not DirectoryNotFoundException
+                // the entry does not exist
+                return null;
+            } catch (FileLoadException) {
+                // cannot open the directory, it is already open with an incompatible sharing mode
+                // this typically means that some other cache instance has opened the entry for deletion
+                if (i < 30) {
+                    // we'll try spinning for a bit; Sleep(1) doesn't use up too much CPU and also gives us
+                    //  a negligible latency from the user's point of view
+                    // you might think that spinning is dumb and we could just open the directory with FileShare.Delete;
+                    //  that looks like a good plan, but that would let the deleting cache instance move the directory right
+                    //  from under our hands, thus not really locking it
+                    Thread.Sleep(1);
+                } else {
+                    // let the exception bubble; ~30ms is a suspiciously long duration and we don't want
+                    //  to hang indefinitely in case something unexpected is going on
+                    throw;
+                }
+            }
         }
     }
 
@@ -166,7 +185,7 @@ public class SharedFileCache {
     private CacheEntryInfo? GetEntryInfoInner(string entryKey) {
         var entryDirPath = IOPath.Combine(Path, entryKey);
         // lock the entry
-        using var directoryHandle = OpenEntryDirectory(entryDirPath);
+        using var directoryHandle = LockEntryDirectory(entryDirPath);
         if (directoryHandle == null) {
             // entry does not exist
             return null;
@@ -200,7 +219,7 @@ public class SharedFileCache {
         var entryDirPath = IOPath.Combine(Path, entryKey);
         // lock the entry; we can release this on return, because we'll have an open handle
         //  directly to the entry file, which will prevent deletion of this entry
-        using var directoryHandle = OpenEntryDirectory(entryDirPath);
+        using var directoryHandle = LockEntryDirectory(entryDirPath);
         if (directoryHandle == null) {
             // entry does not exist
             return null;
@@ -252,7 +271,11 @@ public class SharedFileCache {
         } catch (FileNotFoundException) {
             // entry does not exist
             return;
+        } catch (FileLoadException) {
+            // entry is currently in use
+            throw new CacheEntryInUseException(entryKey);
         }
+
 
         using (h) {
             try {

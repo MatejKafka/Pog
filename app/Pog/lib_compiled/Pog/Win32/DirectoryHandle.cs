@@ -73,12 +73,12 @@ public static partial class Win32 {
     public static SafeFileHandle OpenDirectoryForMove(string directoryPath) {
         // ReSharper disable once InconsistentNaming
         const uint ACCESS_DELETE = 0x00010000;
-        return CreateFileWrapped(directoryPath, ACCESS_DELETE, FileShare.Read | FileShare.Delete,
+        return CreateFileWrapped(directoryPath, ACCESS_DELETE, FileShare.None,
                 FileMode.Open, FILE_FLAG.BACKUP_SEMANTICS);
     }
 
     public static SafeFileHandle OpenDirectoryReadOnly(string directoryPath) {
-        return CreateFileWrapped(directoryPath, (uint) FileAccess.Read, FileShare.Read | FileShare.Delete,
+        return CreateFileWrapped(directoryPath, (uint) FileAccess.Read, FileShare.Read,
                 FileMode.Open, FILE_FLAG.BACKUP_SEMANTICS);
     }
 
