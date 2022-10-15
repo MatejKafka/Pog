@@ -202,7 +202,7 @@ Export function Clear-DownloadCache {
 	$Entries | sort Size -Descending | % {
 		$SizeSum += $_.Size
 		$SourceStr = $_.SourcePackages `
-			| % {$_.PackageName + $(if ($_.ManifestVersion) {" $($_.ManifestVersion)"})} `
+			| % {$_.PackageName + $(if ($_.ManifestVersion) {" v$($_.ManifestVersion)"})} `
 			| Join-String -Separator ", "
 		Write-Host ("{0,10:F2} MB - {1}" -f @(($_.Size / 1MB), $SourceStr))
 	}
