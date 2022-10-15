@@ -39,7 +39,7 @@ public class Package {
     /// <exception cref="PackageManifestParseException">Thrown if the package manifest file is not a valid PowerShell data file (.psd1).</exception>
     public void ReloadManifest() {
         if (!Exists) {
-            throw new InternalError($"Tried to read package manifest of a non-existent package at '{Path}'.");
+            throw new DirectoryNotFoundException($"Tried to read package manifest of a non-existent package at '{Path}'.");
         }
         _manifest = new PackageManifest(ManifestPath);
     }
