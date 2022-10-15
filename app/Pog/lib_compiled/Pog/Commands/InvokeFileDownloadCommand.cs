@@ -77,14 +77,16 @@ public class InvokeFileDownloadCommand : PSCmdlet {
             WriteInformation(new InformationRecord($"Downloading file from '{SourceUrl}'.", null));
         }
 
-        var downloadDirPath = InternalState.TmpDownloadDirectory.GetTemporaryPath(true);
+        // TODO: hold a handle to the tmp directory during download, so that another process can safely delete stale entries
+        //  (typically after a crash) without accidentally deleting a live entry
+        var downloadDirPath = InternalState.TmpDownloadDirectory.GetTemporaryPath();
         Directory.CreateDirectory(downloadDirPath);
         WriteDebug($"Used temporary directory: '{downloadDirPath}'");
         try {
             var downloadedFilePath = DownloadFile(SourceUrl, downloadDirPath, DownloadParameters);
 
             if (ExpectedHash == null && !StoreInCache) {
-                WriteVerbose("Returning downloaded file directly.");
+                WriteVerbose("Returning the downloaded file directly.");
                 WriteObject(new TmpFileLock(downloadedFilePath, downloadDirPath, File.OpenRead(downloadedFilePath)));
                 return;
             }
@@ -93,7 +95,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
             if (ExpectedHash != null && hash != ExpectedHash) {
                 // incorrect hash
                 ThrowTerminatingError(new ErrorRecord(
-                        new IncorrectFileHashException($"Incorrect hash for file downloaded from '{SourceUrl}'"
+                        new IncorrectFileHashException($"Incorrect hash for the file downloaded from '{SourceUrl}'"
                                                        + $" (expected: '{ExpectedHash}', real: '{hash}')."),
                         "IncorrectHash",
                         ErrorCategory.InvalidResult, SourceUrl));
@@ -102,9 +104,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
             WriteVerbose($"Adding the downloaded file to the local cache under the key '{hash}'.");
             WriteObject(AddEntryToCache(hash, InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, Package)));
         } catch {
-            try {
-                Directory.Delete(downloadDirPath, true);
-            } catch (DirectoryNotFoundException) {}
+            PathUtils.EnsureDeleteDirectory(downloadDirPath);
             throw;
         }
     }

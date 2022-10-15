@@ -40,6 +40,12 @@ namespace Pog {
             }
         }
 
+        public static void FilePath(string filePath) {
+            if (!Is.FilePath(filePath)) {
+                throw new ArgumentException($"Invalid file path: '{filePath}'");
+            }
+        }
+
         internal static class Is {
             public static bool PackageName(string packageName) {
                 return Is.FileName(packageName);
@@ -54,22 +60,32 @@ namespace Pog {
                 if (fileName is "." or "..") return false;
                 return 0 > fileName.IndexOfAny(Path.GetInvalidFileNameChars());
             }
+
+            public static bool FilePath(string filePath) {
+                if (string.IsNullOrWhiteSpace(filePath)) return false;
+                return 0 > filePath.IndexOfAny(Path.GetInvalidPathChars());
+            }
         }
 
         internal static class Assert {
             [Conditional("DEBUG")]
             public static void PackageName(string packageName) {
-                Debug.Assert(Is.PackageName(packageName));
+                Debug.Assert(Is.PackageName(packageName), $"Is.PackageName({packageName})");
             }
 
             [Conditional("DEBUG")]
             public static void Sha256Hash(string str) {
-                Debug.Assert(Is.Sha256Hash(str));
+                Debug.Assert(Is.Sha256Hash(str), $"Is.Sha256Hash({str})");
             }
 
             [Conditional("DEBUG")]
             public static void FileName(string fileName) {
-                Debug.Assert(Is.FileName(fileName));
+                Debug.Assert(Is.FileName(fileName), $"Is.FileName({fileName})");
+            }
+
+            [Conditional("DEBUG")]
+            public static void FilePath(string filePath) {
+                Debug.Assert(Is.FilePath(filePath), $"Is.FilePath({filePath})");
             }
         }
     }

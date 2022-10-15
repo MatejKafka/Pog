@@ -69,7 +69,6 @@ public static partial class Win32 {
     }
 
     /// Don't forget to call Dispose() on the returned handle when you're done
-    /// FIXME: createIfNotExists creates a file, not a directory!!!
     public static SafeFileHandle OpenDirectoryForMove(string directoryPath) {
         // ReSharper disable once InconsistentNaming
         const uint ACCESS_DELETE = 0x00010000;
@@ -80,6 +79,19 @@ public static partial class Win32 {
     public static SafeFileHandle OpenDirectoryReadOnly(string directoryPath) {
         return CreateFileWrapped(directoryPath, (uint) FileAccess.Read, FileShare.Read,
                 FileMode.Open, FILE_FLAG.BACKUP_SEMANTICS);
+    }
+
+    public static void MoveDirectoryAtomically(string srcDirPath, string targetPath) {
+        using var handle = OpenDirectoryForMove(srcDirPath);
+        MoveFileByHandle(handle, targetPath);
+    }
+
+    /// It is not possible to atomically delete a directory. Instead, we use a temporary directory
+    /// to first move it out of the way, and then delete it. Note that `tmpMovePath` must
+    /// be at same filesystem as `srcDirPath`.
+    public static void DeleteDirectoryAtomically(string srcDirPath, string tmpMovePath) {
+        MoveDirectoryAtomically(srcDirPath, tmpMovePath);
+        Directory.Delete(tmpMovePath, true);
     }
 
     // ReSharper disable once InconsistentNaming

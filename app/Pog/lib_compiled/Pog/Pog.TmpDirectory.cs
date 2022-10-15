@@ -14,14 +14,10 @@ public class TmpDirectory {
         Path = tmpDirPath;
     }
 
-    public string GetTemporaryPath(bool createDirectory = false) {
+    public string GetTemporaryPath() {
         var path = IOPath.Combine(Path, Guid.NewGuid().ToString());
         // the chance is very small...
         Debug.Assert(!Directory.Exists(path) && !File.Exists(path));
-
-        if (createDirectory) {
-            Directory.CreateDirectory(path);
-        }
         return path;
     }
 }

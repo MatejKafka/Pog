@@ -57,21 +57,26 @@ public class PathConfig {
     /// this move could be needlessly expensive.
     public readonly string DownloadTmpDir;
 
+    /// Path to the exported 7-Zip binary, needed for package extraction during installation.
+    public readonly string Path7Zip;
+
     public readonly PackageRootConfig PackageRoots;
 
     public PathConfig(string rootDirPath) :
         this(Path.Combine(rootDirPath, "data"), Path.Combine(rootDirPath, "cache")) {}
 
     public PathConfig(string dataRootDirPath, string cacheRootDirPath) {
-        this._dataRootDir = dataRootDirPath;
-        this._cacheRootDir = cacheRootDirPath;
-        this.PackageRoots = new PackageRootConfig(Path.Combine(this._dataRootDir, "package_roots.txt"));
+        _dataRootDir = dataRootDirPath;
+        _cacheRootDir = cacheRootDirPath;
+        PackageRoots = new PackageRootConfig(Path.Combine(_dataRootDir, "package_roots.txt"));
 
-        this.ExportedCommandDir = Path.Combine(this._dataRootDir, "package_bin");
-        this.ManifestRepositoryDir = Path.Combine(this._dataRootDir, "manifests");
-        this.ManifestGeneratorDir = Path.Combine(this._dataRootDir, "manifest_generators");
+        ExportedCommandDir = Path.Combine(_dataRootDir, "package_bin");
+        ManifestRepositoryDir = Path.Combine(_dataRootDir, "manifests");
+        ManifestGeneratorDir = Path.Combine(_dataRootDir, "manifest_generators");
 
-        this.DownloadCacheDir = Path.Combine(this._cacheRootDir, "download_cache");
-        this.DownloadTmpDir = Path.Combine(this._cacheRootDir, "download_tmp");
+        DownloadCacheDir = Path.Combine(_cacheRootDir, "download_cache");
+        DownloadTmpDir = Path.Combine(_cacheRootDir, "download_tmp");
+
+        Path7Zip = Path.Combine(ExportedCommandDir, "7z.exe");
     }
 }

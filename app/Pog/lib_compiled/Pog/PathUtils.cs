@@ -22,4 +22,11 @@ internal static class PathUtils {
             return childName;
         }
     }
+
+    /// Delete the directory at `dirPath`, if it exists.
+    public static void EnsureDeleteDirectory(string dirPath) {
+        try {
+            Directory.Delete(dirPath, true);
+        } catch (DirectoryNotFoundException) {}
+    }
 }
