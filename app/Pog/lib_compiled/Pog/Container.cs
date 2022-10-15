@@ -90,7 +90,10 @@ public class Container : IDisposable {
 
     public void Stop() {
         // stop the runspace on Ctrl-C; this works gracefully with `finally` blocks
-        _ps.Stop();
+        // we use .BeginStop instead of .Stop, because .Stop causes a deadlock when the container
+        //  is currently reading user input (not sure why)
+        // ideally, we should probably call .EndStop somewhere, but we don't really need to know about the completion
+        _ps.BeginStop(null, null);
     }
 
     public void Dispose() {
