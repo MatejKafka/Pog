@@ -499,7 +499,8 @@ Export function Export-Command {
 		}
 	}
 
-	$MatchingCommands = ls $PATH_CONFIG.ExportedCommandDir -File -Filter ($CmdName + ".*")
+	$MatchingCommands = ls $PATH_CONFIG.ExportedCommandDir -File -Filter ($CmdName + ".*") `
+			| ? {$_.BaseName -eq $CmdName} # filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
 
 	# there should not be more than 1, if we've done this checking correctly
 	if (@($MatchingCommands).Count -gt 1) {
