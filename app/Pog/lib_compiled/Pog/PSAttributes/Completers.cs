@@ -17,31 +17,47 @@ using JetBrains.Annotations;
 //     value is valid than to retrieve the set of all possible argument values.
 namespace Pog.PSAttributes;
 
-public abstract class QuotingArgumentCompleter : IArgumentCompleter {
-    protected abstract IEnumerable<string> GetCompletions(string wordToComplete, IDictionary fakeBoundParameters);
+public static class ParameterQuotingHelper {
+    public enum ParameterQuoting { None, Single, Double }
 
-    private enum ParameterQuoting { None, Single, Double }
+    /// Attempts to parse the argument literal received by dynamicparam {}. Returns null for (some) non-static literals.
+    // FIXME: this only covers some simple cases, e.g. `"hello $(ls)"` will be returned almost as-is
+    public static string? ParseDynamicparamArgumentLiteral(string str) {
+        // reuse this function, hopefully it also works here
+        var (quoting, stripped) = StripCompletionQuotes(str);
+        return quoting switch {
+            // if the value is unquoted, and the completion function thinks it should be, just return null to signal
+            //  an invalid value, as we cannot be sure what the value is (e.g. it may actually be a subcommand,...)
+            ParameterQuoting.None => ShouldCompletionBeQuoted(stripped) ? null : stripped,
+            ParameterQuoting.Single => stripped.Replace("''", "'"),
+            ParameterQuoting.Double => stripped.Replace("`$", "$").Replace("`\"", "\"").Replace("``", "`"),
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+    }
 
-    private static bool ShouldBeQuoted(string str) {
-        return str.Any(c => !char.IsLetterOrDigit(c) && !@".-_/\:@!".Contains(c));
+    private static bool ShouldCompletionBeQuoted(string str) {
+        return str.Any(c => !char.IsLetterOrDigit(c) && !@".+-_/\:@!".Contains(c));
     }
 
     // sigh, why do we have do everything ourselves? (https://github.com/PowerShell/PowerShell/issues/11330)
-    private static string QuoteString(string str, ParameterQuoting originalQuoting) {
+    public static string QuoteCompletionString(string str, ParameterQuoting originalQuoting) {
         if (originalQuoting == ParameterQuoting.None) {
-            originalQuoting = ShouldBeQuoted(str) ? ParameterQuoting.Single : ParameterQuoting.None;
+            originalQuoting = ShouldCompletionBeQuoted(str) ? ParameterQuoting.Single : ParameterQuoting.None;
         }
         return originalQuoting switch {
             ParameterQuoting.None => str,
             ParameterQuoting.Single => $"'{str.Replace("'", "''")}'",
             // uh, I sure hope this is correct, but I wouldn't bet on it
-            ParameterQuoting.Double => $"\"{str.Replace("`", "``").Replace("\"", "`\"")}\"",
-            _ => throw new ArgumentOutOfRangeException(nameof(originalQuoting), originalQuoting, null)
+            ParameterQuoting.Double => "\"" + str.Replace("`", "``").Replace("\"", "`\"").Replace("$", "`$") + "\"",
+            _ => throw new ArgumentOutOfRangeException(nameof(originalQuoting), originalQuoting, null),
         };
     }
 
-    // if the completion result is wrapped in quotes, remove them
-    private static (ParameterQuoting, string) StripQuotes(string str) {
+    /// If the word to complete is wrapped in quotes, remove them.
+    // curiously, although we need to properly escape '`' (backtick) while outputting a completion,
+    //  we get it back on the next `Tab` press with only a single backtick, and same with ' (single quote)
+    //  in a single-quoted string; go figure...
+    public static (ParameterQuoting, string) StripCompletionQuotes(string str) {
         if (str.Length < 2) {
             return (ParameterQuoting.None, str);
         }
@@ -55,12 +71,17 @@ public abstract class QuotingArgumentCompleter : IArgumentCompleter {
             return (ParameterQuoting.None, str);
         }
     }
+}
+
+public abstract class QuotingArgumentCompleter : IArgumentCompleter {
+    protected abstract IEnumerable<string> GetCompletions(string wordToComplete, IDictionary fakeBoundParameters);
 
     public IEnumerable<CompletionResult> CompleteArgument(string commandName, string parameterName, string wordToComplete,
             CommandAst commandAst, IDictionary fakeBoundParameters) {
-        var (wasQuoted, stripped) = StripQuotes(wordToComplete);
+        var (quoting, stripped) = ParameterQuotingHelper.StripCompletionQuotes(wordToComplete);
         return GetCompletions(stripped, fakeBoundParameters)
-                .Select(s => new CompletionResult(QuoteString(s, wasQuoted), s, CompletionResultType.ParameterValue, s));
+                .Select(s => new CompletionResult(ParameterQuotingHelper.QuoteCompletionString(s, quoting), s,
+                        CompletionResultType.ParameterValue, s));
     }
 }
 

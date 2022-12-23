@@ -15,6 +15,7 @@ public class Failed7ZipHashCalculationException : Exception {
 
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "FileHash7Zip")]
+[OutputType(typeof(string))]
 public class GetFileHash7ZipCommand : PSCmdlet, IDisposable {
     [PublicAPI]
     [SuppressMessage("ReSharper", "InconsistentNaming")]

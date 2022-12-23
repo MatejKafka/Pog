@@ -35,7 +35,7 @@ public class PackageRootConfig {
 public class PathConfig {
     public const string PackageManifestRelPath = "pog.psd1";
     public static readonly string[] PackageManifestCleanupPaths = {"pog.psd1", ".pog"};
-    
+
     /// Directory where exported shortcuts from packages are copied (system-wide).
     public static readonly string StartMenuSystemExportDir =
         Path.Combine(GetFolderPath(SpecialFolder.CommonStartMenu), "Pog");
@@ -61,6 +61,8 @@ public class PathConfig {
     public readonly string Path7Zip;
 
     public readonly PackageRootConfig PackageRoots;
+
+    // if any new paths are added here, also add them to setup.ps1 in the root directory
 
     public PathConfig(string rootDirPath) :
         this(Path.Combine(rootDirPath, "data"), Path.Combine(rootDirPath, "cache")) {}

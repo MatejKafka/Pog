@@ -9,10 +9,15 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DocumentationFile>bin\Debug\Pog.xml</DocumentationFile>
+    <DebugType>full</DebugType>
+    <NoWarn>1701;1702;IL2121;CS1591</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DocumentationFile>bin\Release\Pog.xml</DocumentationFile>
+    <NoWarn>1701;1702;IL2121;CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,15 +28,21 @@
     <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
     <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" />
     <PackageReference Include="System.Text.Json" Version="6.0.6" />
+    <PackageReference Include="XmlDoc2CmdletDoc" Version="0.3.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <Target Name="ExportDLL-Release" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Message Text="Exporting '$(ProjectName).dll' to parent directory..." Importance="High" />
     <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(ProjectDir)..\$(ProjectName).dll" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(ProjectDir)..\$(ProjectName).dll-Help.xml" />
   </Target>
   <Target Name="ExportDLL-Debug" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
     <Message Text="Exporting '$(ProjectName).dll' (Debug) to parent directory..." Importance="High" />
     <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(ProjectDir)..\$(ProjectName)_Debug.dll" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(ProjectDir)..\$(ProjectName)_Debug.dll-Help.xml" />
   </Target>
 
 </Project>

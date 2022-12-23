@@ -14,12 +14,17 @@ public class Failed7ZipArchiveExtractionException : Exception {
     public Failed7ZipArchiveExtractionException(string message) : base(message) {}
 }
 
+/// <summary>
+/// <para type="synopsis">Extracts files from a specified archive file using 7Zip.</para>
+/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Expand, "Archive7Zip")]
 public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
     [Parameter(Mandatory = true, Position = 0)] public string ArchivePath = null!;
     [Parameter(Mandatory = true, Position = 1)] public string TargetPath = null!;
-    /// Subdirectory of the archive to extract instead of the whole archive
+    /// <summary>
+    /// <para type="description">Subdirectory of the archive to extract instead of the whole archive.</para>
+    /// </summary>
     [Parameter]
     public string? Subdirectory;
 

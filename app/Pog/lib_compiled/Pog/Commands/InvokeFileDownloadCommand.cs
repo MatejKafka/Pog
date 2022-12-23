@@ -37,7 +37,7 @@ public record DownloadParameters(
 //    = do not pass -ExpectedHash, pass -StoreInCache
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "FileDownload", DefaultParameterSetName = "Hash")]
-[OutputType(typeof(SharedFileCache.IFileLock))]
+[OutputType(typeof(TmpFileLock), typeof(SharedFileCache.CacheEntryLock))]
 public class InvokeFileDownloadCommand : PSCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string SourceUrl = null!;
     [Parameter(ParameterSetName = "Hash")] public string? ExpectedHash;
@@ -81,7 +81,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
         //  (typically after a crash) without accidentally deleting a live entry
         var downloadDirPath = InternalState.TmpDownloadDirectory.GetTemporaryPath();
         Directory.CreateDirectory(downloadDirPath);
-        WriteDebug($"Used temporary directory: '{downloadDirPath}'");
+        WriteDebug($"Using temporary directory '{downloadDirPath}'.");
         try {
             var downloadedFilePath = DownloadFile(SourceUrl, downloadDirPath, DownloadParameters);
 

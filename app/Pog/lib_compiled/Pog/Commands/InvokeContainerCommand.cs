@@ -7,6 +7,7 @@ namespace Pog.Commands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "Container")]
+[OutputType(typeof(object))]
 public class InvokeContainerCommand : PSCmdlet, IDisposable {
     [Parameter(Mandatory = true, Position = 0)] public ContainerType ContainerType;
     [Parameter(Mandatory = true, Position = 1)] public Package Package = null!;
