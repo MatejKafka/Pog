@@ -3,6 +3,7 @@ using module .\Paths.psm1
 using module .\lib\Utils.psm1
 using module .\Common.psm1
 using module .\Confirmations.psm1
+using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
 
@@ -21,7 +22,7 @@ function Export-AppShortcut {
 }
 
 
-Export function Export-ShortcutsToStartMenu {
+Export function Export-PogShortcutsToStartMenu {
 	[CmdletBinding()]
 	param(
 			[switch]
@@ -49,7 +50,7 @@ Export function Export-ShortcutsToStartMenu {
 }
 
 
-Export function Get-RepositoryPackage {
+Export function Get-PogRepositoryPackage {
 	[CmdletBinding(DefaultParameterSetName="Version")]
 	[OutputType([Pog.RepositoryPackage])]
 	param(
@@ -101,7 +102,7 @@ Export function Get-RepositoryPackage {
 	}
 }
 
-Export function Get-Package {
+Export function Get-PogPackage {
 	[CmdletBinding()]
 	[OutputType([Pog.ImportedPackage])]
 	param(
@@ -129,7 +130,7 @@ Export function Get-Package {
 	}
 }
 
-Export function Get-Root {
+Export function Get-PogRoot {
 	[CmdletBinding()]
 	[OutputType([string])]
 	param()
@@ -139,7 +140,7 @@ Export function Get-Root {
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
 #  to get the file updates right from a concurrency perspective
 # TODO: ^ figure out how to provide the functions safely
-Export function Edit-RootList {
+Export function Edit-PogRootList {
 	$Path = $PACKAGE_ROOTS.PackageRoots.PackageRootFile
 	Write-Information "Opening the package root list at '$Path' for editing in a text editor..."
 	Write-Information "Each line should contain a single absolute path to the package root directory."
@@ -148,7 +149,7 @@ Export function Edit-RootList {
 }
 
 <# Remove cached package archives older than the provided date. #>
-Export function Clear-DownloadCache {
+Export function Clear-PogDownloadCache {
 	[CmdletBinding(DefaultParameterSetName = "Days")]
 	param(
 			[Parameter(Mandatory, ParameterSetName = "Date", Position = 0)]
@@ -223,7 +224,7 @@ Export function Clear-DownloadCache {
 }
 
 
-Export function Enable- {
+Export function Enable-Pog {
 	# .SYNOPSIS
 	#	Enables an installed package to allow external usage.
 	# .DESCRIPTION
@@ -282,7 +283,7 @@ Export function Enable- {
 			if (@($Package).Count -gt 1) {throw "-PackageParameters must not be passed when -Package contains multiple packages."}
 		}
 
-		if (Get-Variable CopiedParams -ErrorAction Ignore) {
+		if (Get-Variable CopiedParams -Scope Local -ErrorAction Ignore) {
 			# $p is already loaded
 			$Package = $p
 			$ForwardedParams = $CopiedParams.Extract($PSBoundParameters)
@@ -333,7 +334,7 @@ Export function Enable- {
 	}
 }
 
-Export function Install- {
+Export function Install-Pog {
 	# .SYNOPSIS
 	#	Downloads and extracts package files.
 	# .DESCRIPTION
@@ -438,7 +439,7 @@ function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$F
 }
 
 # TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
-Export function Import- {
+Export function Import-Pog {
 	# .SYNOPSIS
 	#	Imports a package manifest from the repository.
 	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "Separate")]
@@ -530,7 +531,7 @@ Export function Import- {
 
 			Write-Verbose "Validating the repository package before importing..."
 			# this forces a manifest load on $SrcPackage
-			if (-not (Confirm-RepositoryPackage $SrcPackage)) {
+			if (-not (Confirm-PogRepositoryPackage $SrcPackage)) {
 				throw "Validation of the repository package failed (see warnings above), not importing."
 			}
 
@@ -556,7 +557,51 @@ Export function Import- {
 	}
 }
 
-Export function Show-ManifestHash {
+# CmdletBinding is manually copied from Import-Pog, there doesn't seem any way to dynamically copy this like with dynamicparam
+# TODO: rollback on error
+Export function Invoke-Pog {
+	# .SYNOPSIS
+	#   Import, install and enable a package.
+	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "Separate")]
+	param([switch]$InstallOnly)
+	dynamicparam {
+		$CopiedParams = Copy-CommandParameters (Get-Command Import-Pog)
+		return $CopiedParams
+	}
+
+	begin {
+		$Params = $CopiedParams.Extract($PSBoundParameters)
+
+		# reuse PassThru parameter from Import-Pog for Enable-Pog
+		$PassThru = [bool]$Params["PassThru"]
+
+		$LogArgs = @{}
+		if ($PSBoundParameters.ContainsKey("Verbose")) {$LogArgs["Verbose"] = $PSBoundParameters.Verbose}
+		if ($PSBoundParameters.ContainsKey("Debug")) {$LogArgs["Debug"] = $PSBoundParameters.Debug}
+
+		$null = $Params.Remove("PassThru")
+
+		$SbWithEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru:$PassThru @LogArgs}
+		$SbNoEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru:$PassThru @LogArgs}
+
+		$sp = ($InstallOnly ? $SbNoEnable : $SbWithEnable).GetSteppablePipeline()
+		$sp.Begin($PSCmdlet)
+	}
+
+	process {
+		$sp.Process($_)
+	}
+
+	end {
+		$sp.End()
+	}
+}
+
+New-Alias pog Invoke-Pog
+Export-ModuleMember -Alias pog
+
+
+Export function Show-PogManifestHash {
 	[CmdletBinding()]
 	param(
 			# ValueFromPipelineByPropertyName lets us avoid having to define a separate $Package parameter
@@ -594,7 +639,7 @@ Export function Show-ManifestHash {
 		}
 
         # this forces a manifest load on $p
-		if (-not (Confirm-RepositoryPackage $p)) {
+		if (-not (Confirm-PogRepositoryPackage $p)) {
 			throw "Validation of the repository package failed (see warnings above)."
 		}
 
@@ -612,7 +657,7 @@ Export function Show-ManifestHash {
 	}
 }
 
-Export function New-Manifest {
+Export function New-PogManifest {
 	[CmdletBinding()]
 	[OutputType([Pog.RepositoryPackage])]
 	param(
@@ -650,7 +695,7 @@ Export function New-Manifest {
 	}
 }
 
-Export function New-ImportedPackage {
+Export function New-PogImportedPackage {
 	[CmdletBinding()]
 	[OutputType([Pog.ImportedPackage])]
 	param(
@@ -721,7 +766,7 @@ function RetrievePackageVersions($PackageName, $GenDir) {
 # TODO: set working directory of the generator script to the target dir?
 <# Generates manifests for new versions of the package. First checks for new versions,
    then calls the manifest generator for each version. #>
-Export function Update-Manifest {
+Export function Update-PogManifest {
 	[CmdletBinding()]
 	[OutputType([Pog.RepositoryPackage])]
 	param(
@@ -831,7 +876,7 @@ Export function Update-Manifest {
 					} else {
 						# target dir is empty, nothing was generated
 						rm $p.Path
-						# TODO: also check if the manifest file itself is generated, or possibly run full validation (Confirm-RepositoryPackage)
+						# TODO: also check if the manifest file itself is generated, or possibly run full validation (Confirm-PogRepositoryPackage)
 						throw "Manifest generator for package '$($p.PackageName)', version '$($p.Version) did not generate any files."
 					}
 				} catch {
@@ -849,7 +894,7 @@ Export function Update-Manifest {
 	}
 }
 
-Export function Confirm-RepositoryPackage {
+Export function Confirm-PogRepositoryPackage {
 	[CmdletBinding(DefaultParameterSetName="Separate")]
 	param(
 			# TODO: add support for an array of packages/package names, similarly to other commands
@@ -956,9 +1001,9 @@ Export function Confirm-RepositoryPackage {
 	}
 }
 
-# TODO: expand to really check whole package, not just manifest, then update Install- and Enable- to use this instead of Confirm-Manifest
+# TODO: expand to really check whole package, not just manifest, then update Install-Pog and Enable-Pog to use this instead of Confirm-Manifest
 #  when switched, figure out what to do about the forced manifest reload (we do not want to load the manifest multiple times)
-Export function Confirm-Package {
+Export function Confirm-PogPackage {
 	[CmdletBinding(DefaultParameterSetName="Name")]
 	param(
 			[Parameter(Mandatory, Position=0, ValueFromPipeline, ParameterSetName="Package")]

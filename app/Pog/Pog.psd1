@@ -1,47 +1,40 @@
 # Requires -Version 7
 @{
-	ModuleVersion = '0.2.0'
 	RootModule = 'Pog.psm1'
+	ModuleVersion = '0.2.0'
+	GUID = 'decb807b-afa1-4111-ad81-bfe9aa7dd44d'
+	Author = 'Matej Kafka'
 
-	DefaultCommandPrefix = 'Pog'
+	# originally, `DefaultCommandPrefix = 'Pog'` was used and the internal commands were not prefixed with `Pog`,
+	#  but DefaultCommandPrefix has two issues – autoloading breaks (https://github.com/PowerShell/PowerShell/issues/12858),
+	#  and it does not seem possible to export unprefixed aliases
 
-	# https://github.com/PowerShell/PowerShell/issues/12858
-	#  as a workaround, we "export" both versions, so that the commands are correctly auto-loaded
+	AliasesToExport = @('pog')
+
 	FunctionsToExport = @(
-		"Import-"
-		"Import-Pog"
-		"Enable-"
-		"Enable-Pog"
-		"Install-"
-		"Install-Pog"
+		'Invoke-Pog'
+		'Import-Pog'
+		'Enable-Pog'
+		'Install-Pog'
 
-		"Export-ShortcutsToStartMenu"
-		"Export-PogShortcutsToStartMenu"
+		'Export-PogShortcutsToStartMenu'
 
-		"Show-ManifestHash"
-		"Show-PogManifestHash"
-		"New-Manifest"
-		"New-PogManifest"
-		"New-ImportedPackage"
-		"New-PogImportedPackage"
-		"Update-Manifest"
-		"Update-PogManifest"
+		'Show-PogManifestHash'
+		'New-PogManifest'
+		'New-PogImportedPackage'
+		'Update-PogManifest'
 
-		"Confirm-RepositoryPackage"
-		"Confirm-PogRepositoryPackage"
-		"Confirm-Package"
-		"Confirm-PogPackage"
-		"Get-RepositoryPackage"
-		"Get-PogRepositoryPackage"
-		"Get-Package"
-		"Get-PogPackage"
+		'Confirm-PogRepositoryPackage'
+		'Confirm-PogPackage'
+		'Get-PogRepositoryPackage'
+		'Get-PogPackage'
 
-		"Clear-DownloadCache"
-		"Clear-PogDownloadCache"
+		'Clear-PogDownloadCache'
 
-		"Get-Root"
-		"Get-PogRoot"
-		"Edit-RootList"
-		"Edit-PogRootList"
+		'Get-PogRoot'
+		'Edit-PogRootList'
 	)
+
+	VariablesToExport = @()
+	CmdletsToExport = @()
 }
