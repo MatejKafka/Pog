@@ -1,21 +1,10 @@
 # Requires -Version 7
 using module .\..\container_lib\Confirmations.psm1
+using module .\LockedFiles.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
-
-Export-ModuleMember -Function Confirm-Action
 
 
 $TMP_EXPAND_PATH = ".\.install_tmp"
-
-# http://www.nirsoft.net/utils/opened_files_view.html
-$OpenedFilesViewCmd = Get-Command "OpenedFilesView" -ErrorAction Ignore
-# TODO: also check if package_bin dir is in PATH, warn otherwise
-if ($null -eq $OpenedFilesViewCmd) {
-	throw "Could not find OpenedFilesView (command 'OpenedFilesView'), which is used during package installation. " +`
-			"It is supposed to be installed as a normal Pog package, unless you manually removed it. " +`
-			"If you know why this happened, please restore the package and run this command again. " +`
-			"If you don't, contact Pog developers and we'll hopefully figure out where's the issue."
-}
 
 
 
@@ -25,7 +14,8 @@ Export function __main {
 
 	if ($Manifest.Install -is [scriptblock]) {
 		# run the installer scriptblock
-		& $Manifest.Install @PackageArguments
+		# see Env_Enable\__main for explanation of .GetNewClosure()
+		& $Manifest.Install.GetNewClosure() @PackageArguments
 	} else {
 		# Install block is a hashtable of arguments to Install-FromUrl
 		# create a copy, do not modify the main manifest
@@ -34,7 +24,8 @@ Export function __main {
 		# resolve SourceUrl/Url scriptblocks
 		foreach ($Prop in @("SourceUrl", "Url")) {
 			if ($Installer.ContainsKey($Prop) -and $Installer[$Prop] -is [scriptblock]) {
-				$Installer[$Prop] = & $Installer[$Prop]
+				# see Env_Enable\__main for explanation of .GetNewClosure()
+				$Installer[$Prop] = & $Installer[$Prop].GetNewClosure()
 			}
 		}
 
@@ -42,14 +33,34 @@ Export function __main {
 	}
 }
 
-<# This function is called after __main finishes. #>
+<# This function is called after __main finishes, even if it fails or gets interrupted. #>
 Export function __cleanup {
 	# nothing for now
 }
 
 
 
-function Get-ExtractedDirPath([string]$Subdirectory) {
+<# Retrieves the requested archive/file (either downloading it, or using a cached version), and extracts it to $TMP_EXPAND_PATH.
+   The extraction is not atomic – that is, if it fails or gets interrupted, $TMP_EXPAND_PATH may be left in a half-extracted state. #>
+function RetrieveAndExpandArchive($SourceUrl, $ExpectedHash, $DownloadParams, $Package, [switch]$NoArchive) {
+	$LockedFile = $null
+	try {
+		$LockedFile = Invoke-FileDownload $SourceUrl -ExpectedHash $ExpectedHash -DownloadParameters $DownloadParams -Package $Package
+		Write-Debug "File correctly retrieved, expanding to '$TMP_EXPAND_PATH'..."
+
+		if (-not $NoArchive) {
+			Expand-Archive7Zip $LockedFile.Path $TMP_EXPAND_PATH
+		} else {
+			# FIXME: bring back the optimization where a temporary directory is moved instead of a copy
+			$null = New-Item -Type Directory $TMP_EXPAND_PATH
+			Copy-Item $LockedFile.Path $TMP_EXPAND_PATH
+		}
+	} finally {
+		if ($null -ne $LockedFile) {$LockedFile.Dispose()}
+	}
+}
+
+function Get-ExtractedAppDirectory([string]$Subdirectory) {
 	$DirContent = ls $TMP_EXPAND_PATH
 	if (-not $Subdirectory) {
 		if (@($DirContent).Count -eq 1 -and $DirContent[0].PSIsContainer) {
@@ -59,7 +70,7 @@ function Get-ExtractedDirPath([string]$Subdirectory) {
 		} else {
 			# no single subdirectory, multiple files in root (Windows-style archive)
 			Write-Debug "Archive root contains multiple items, using archive root directly for './app'."
-			return $TMP_EXPAND_PATH
+			return Get-Item $TMP_EXPAND_PATH
 		}
 	} else {
 		$DirPath = Join-Path $TMP_EXPAND_PATH $Subdirectory
@@ -77,99 +88,26 @@ function Get-ExtractedDirPath([string]$Subdirectory) {
 	}
 }
 
-<# Checks if any file in the passed directory is locked by a process (has an open handle without allowed sharing). #>
-function CheckForLockedFiles($DirPath) {
-	foreach ($file in Get-ChildItem -Recurse -File $DirPath) {
-		# try to open each file for writing; if it fails with HRESULT == 0x80070020,
-		#  we know another process holds a lock over the file
+function PrepareNewAppDirectory($SrcDirectory, [scriptblock]$SetupScript, [switch]$NsisInstaller) {
+	if ($NsisInstaller) {
+		$NsisPath = Join-Path $SrcDirectory '$PLUGINSDIR'
+		if (-not (Test-Path -Type Container $NsisPath)) {
+			throw "'-NsisInstaller' flag was passed to 'Install-FromUrl' in package manifest, " + `
+				"but the directory '`$PLUGINSDIR' does not exist in the extracted path (NSIS self-extracting archive should contain it)."
+		}
+		rm -Recurse -Force $NsisPath
+		Write-Debug "Removed `$PLUGINSDIR directory from the extracted NSIS installer archive."
+	}
+	if ($SetupScript) {
+		# run the -SetupScript with a changed directory
+		$OrigWD = Get-Location
 		try {
-			# TODO: use the low-level version which returns handle, we don't need the C# file stream, and this is a very hot loop
-			[System.IO.File]::Open($file, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Write).Close()
-		} catch {
-			$InnerException = $_.Exception.InnerException
-			if ($null -ne $InnerException -and $InnerException.HResult -eq 0x80070020) {
-				return $true # another process is holding a lock
-			} else {
-				throw # another error
-			}
+			Set-Location $SrcDirectory
+			& $SetupScript
+		} finally {
+			Set-Location $OrigWD
 		}
 	}
-	return $false
-}
-
-<# Lists processes that have a lock (an open handle without allowed sharing) on a file under $DirPath. #>
-function ListProcessesLockingFiles($DirPath) {
-	# OpenedFilesView always writes to a file, stdout is not supported (it's a GUI app)
-	$OutFile = New-TemporaryFile
-	$Procs = [Xml]::new()
-	try {
-		# arguments with spaces must be manually quoted
-		$OFVProc = Start-Process -FilePath $OpenedFilesViewCmd -Wait -NoNewWindow -PassThru `
-				-ArgumentList /sxml, "`"$OutFile`"", /nosort, /filefilter, "`"$(Resolve-Path $DirPath)`""
-		if ($OFVProc.ExitCode -ne 0) {
-			throw "Could not list processes locking files in '$DirPath' (OpenedFilesView returned exit code '$($Proc.ExitCode)')."
-		}
-		# the XML generated by OFV contains an invalid XML tag `<%_position>`, replace it
-		# FIXME: error-prone, assumes the default UTF8 encoding, otherwise the XML might get mangled
-		$OutXmlStr = (Get-Content -Raw $OutFile) -replace '(<|</)%_position>', '$1percentual_position>'
-		$Procs.LoadXml($OutXmlStr)
-	} finally {
-		rm $OutFile -ErrorAction Ignore
-	}
-	if ($Procs.opened_files_list -ne "") {
-		return $Procs.opened_files_list.item | Group-Object process_path | % {[pscustomobject]@{
-				ProcessPath = $_.Name
-				Files = $_.Group.full_path
-			}}
-	}
-}
-
-<#
-Ensures that the existing .\app directory can be removed (no locked files from other processes).
-
-Prints all processes that hold a lock over a file in an existing .\app directory, then waits until user closes them,
-in a loop, until there are no locked files in the directory.
-#>
-function WaitForNoLockedFilesInAppDirectory {
-	Write-Debug "Checking if there are any locked files in the existing './app' directory..."
-	if (-not (CheckForLockedFiles .\app)) {
-		# no locked files
-		return
-	}
-
-	# there are some locked files, find out which, report to the user and throw an exception
-	$LockingProcs = ListProcessesLockingFiles .\app
-	if (@($LockingProcs).Count -eq 0) {
-		# some process is locking files in the directory, but we don't which one
-		# therefore, we cannot wait for it; only reasonable option I see is to throw an error and let the user handle it
-		# I don't see why this should happen (unless some process exits between the two checks, or there's an error in OFV),
-		# so this is here just in case
-		throw "There is an existing package installation, which we cannot overwrite, as there are" +`
-			" file(s) opened by an unknown running process. Is it possible that some program from" +`
-			" the package is running or that another running program is using a file from this package?" +`
-			" To resolve the issue, stop all running programs that are working with files in the package directory," +`
-			" and then run the installation again."
-	}
-
-	# TODO: print more user-friendly app names
-	# TODO: instead of throwing an error, list the offending processes and then wait until the user stops them
-	# TODO: explain to the user what he should do to resolve the issue
-
-	# long error messages are hard to read, because all newlines are removed;
-	#  instead write out the files and then show a short error message
-	echo ("`nThere is an existing package installation, which we cannot overwrite, because the following" +`
-		" programs are working with files inside the installation directory:")
-	$LockingProcs | % {
-		echo "  Files locked by '$($_.ProcessPath)':"
-		$_.Files | select -First 5 | % {
-			echo "    $_"
-		}
-		if (@($_.Files).Count -gt 5) {
-			echo "   ... ($($_.Files.Count) more)"
-		}
-	}
-
-	throw "Cannot overwrite an existing package installation, because processes listed in the output above are working with files inside the package."
 }
 
 Export function Install-FromUrl {
@@ -191,6 +129,7 @@ Export function Install-FromUrl {
 			[Alias("Hash")]
 		$ExpectedHash,
 			### If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored.
+			### TODO: probably combine this with the top-level directory removal to make the behavior more intuitive
 			[string]
 		$Subdirectory = "",
 			### Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
@@ -220,33 +159,36 @@ Export function Install-FromUrl {
 	}
 
 	if (Test-Path $TMP_EXPAND_PATH) {
-		Write-Warning "Clearing orphaned tmp installer directory, probably from failed previous install..."
-		rm -Recurse -Force $TMP_EXPAND_PATH
+		Write-Warning "Clearing orphaned tmp installer directory, probably from a failed previous install..."
+		Remove-Item -Recurse -Force $TMP_EXPAND_PATH
 	}
 
 	if (-not $ExpectedHash) {
-		Write-Warning ("Downloading a file from '$SourceUrl', but no checksum was provided in the package " +`
-			"(passed to 'Install-FromUrl'). This means that we cannot be sure if the download file is the " +`
+		Write-Warning ("Downloading a file from '$SourceUrl', but no checksum was provided in the package. " +`
+			"This means that we cannot be sure if the download file is the " +`
 			"same one package author intended. This may or may not be a problem on its own, " +`
 			"but it's better style to include a checksum, and it improves security and reproducibility.")
 	}
 
 	if (Test-Path .\app) {
 		$ShouldContinue = ConfirmOverwrite "Overwrite existing package installation?" `
-			("Package seems to be already installed. Do you want to overwrite " +`
+			("Package seems to be already installed. Do you want to overwrite the " +`
 			"current installation (./app subdirectory)?`n" +`
 			"Configuration and other package data will be kept.")
 
 		if (-not $ShouldContinue) {
 			throw "Not installing, user refused to overwrite existing package installation." +`
-					" Do not pass -Confirm to overwrite the existing installation without confirmation."
+				" Do not pass -Confirm to overwrite the existing installation without confirmation."
 		}
+
+		# FIXME: when the actual waiting for unlock is implemented, this call should probably not wait,
+		#  and instead just check, print out information about the locked files, and then we should start downloading
+		#  and extracting in the meantime, so that when the user closes the app, he doesn't have to wait any more
 
 		# next, we check if we can move/delete the ./app directory
 		# e.g. maybe the packaged program is running and holding a lock over a file inside
 		# if that would be the case, we would extract the package and then get
 		#  Acess Denied error, and user would waste his time waiting for the extraction all over again
-		# this command outputs data directly, don't $null= it
 		WaitForNoLockedFilesInAppDirectory
 
 		# do not remove the ./app directory just yet; first, we'll download the new version,
@@ -257,55 +199,31 @@ Export function Install-FromUrl {
 	$DownloadParams = [Pog.Commands.DownloadParameters]::new($UserAgent, $global:_Pog.InternalArguments.DownloadLowPriority)
 	$Package = $global:_Pog.Package
 
-	# 1. Download and expand (move/copy) the archive (file) to the temporary directory at $TMP_EXPAND_PATH
-	$LockedFile = $null
 	try {
-		$LockedFile = Invoke-FileDownload $SourceUrl -ExpectedHash $ExpectedHash -DownloadParameters $DownloadParams -Package $Package
-		Write-Debug "File correctly retrieved, expanding to '$TMP_EXPAND_PATH'..."
+		# 1. Download and expand (move/copy) the archive (file) to the temporary directory at $TMP_EXPAND_PATH
+		RetrieveAndExpandArchive $SourceUrl $ExpectedHash -DownloadParams $DownloadParams -Package $Package -NoArchive:$NoArchive
 
-		if (-not $NoArchive) {
-			Expand-Archive7Zip $LockedFile.Path $TMP_EXPAND_PATH
-		} else {
-			# FIXME: bring back the optimization where a temporary directory is moved instead of a copy
-			$null = New-Item -Type Directory $TMP_EXPAND_PATH
-			Copy-Item $LockedFile.Path $TMP_EXPAND_PATH
-		}
-	} finally {
-		if ($null -ne $LockedFile) {$LockedFile.Dispose()}
-	}
+		# 2. Setup the extracted directory into the final state, so that we can atomically move it into place
+		#    This is done before replacing the ./app directory, because throwing an exception here is safe
+		#    and $TMP_EXPAND_PATH will be cleaned up automatically.
+		$ExtractedDir = Get-ExtractedAppDirectory -Subdirectory $Subdirectory
+		PrepareNewAppDirectory $ExtractedDir -SetupScript $SetupScript -NsisInstaller:$NsisInstaller
 
-	# 2. Move relevant parts of the extracted temporary directory to ./app directory
-	try {
-		$ExtractedDir = Get-ExtractedDirPath -Subdirectory $Subdirectory
-
+		# 3. Move relevant parts of the extracted temporary directory to ./app directory
 		if (Test-Path .\app) {
 			Write-Debug "Removing previous ./app directory..."
 			# check again if the directory is still lock-free
 			WaitForNoLockedFilesInAppDirectory
 			# no locked files, this should succeed (there's still a short race condition, but whatever...)
-			rm -Recurse -Force .\app
+			Remove-Item -Recurse -Force .\app
 		}
 
 		Write-Debug "Moving extracted directory '$ExtractedDir' to './app'..."
 		Move-Item -LiteralPath $ExtractedDir .\app
 
 	} finally {
-		rm -Recurse -Force -LiteralPath $TMP_EXPAND_PATH -ErrorAction Ignore
+		Remove-Item -Recurse -Force -LiteralPath $TMP_EXPAND_PATH -ErrorAction Ignore
 	}
 
-	if ($NsisInstaller) {
-		if (-not (Test-Path -Type Container ./app/`$PLUGINSDIR)) {
-			throw "'-NsisInstaller' flag was passed to 'Install-FromUrl' in package manifest, " + `
-				"but directory `$PLUGINSDIR does not exist in the extracted path (NSIS self-extracting archive should contain it)."
-		}
-		rm -Recurse ./app/`$PLUGINSDIR
-		Write-Debug "Removed `$PLUGINSDIR directory from extracted NSIS installer archive."
-	}
-	if ($null -ne $SetupScript) {
-		# FIXME: move this to the correct place
-		# TODO: set working directory?
-		& $SetupScript (Resolve-Path ./app)
-	}
-
-	Write-Information "Package successfully installed from downloaded archive."
+	Write-Information "Package successfully installed from the downloaded archive."
 }

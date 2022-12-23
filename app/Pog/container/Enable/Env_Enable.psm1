@@ -30,7 +30,10 @@ Export function __main {
 	Write-Debug "Listed original shortcuts."
 
 	# invoke the scriptblock
-	& $Manifest.Enable @PackageArguments
+	# without .GetNewClosure(), the script block would see our internal module functions, probably because
+	#  it would be automatically bound to our SessionState; not really sure why GetNewClosure() binds it to
+	#  a different scope
+	& $Manifest.Enable.GetNewClosure() @PackageArguments
 }
 
 <# This function is called after the Enable script finishes. #>

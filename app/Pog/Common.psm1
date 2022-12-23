@@ -2,7 +2,7 @@
 <# Module with opinionated, package-related support functions. #>
 using module ./Paths.psm1
 using module ./lib/Utils.psm1
-using module ./lib/Convert-CommandParametersToDynamic.psm1
+using module ./lib/Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
 
@@ -47,24 +47,7 @@ Export function Copy-ManifestParameters {
 	$function:TmpFn = $Sb
 	$FnInfo = Get-Command -Type Function TmpFn
 
-	$RuntimeDict = Convert-CommandParametersToDynamic $FnInfo -NoPositionAttribute -NamePrefix $NamePrefix
-
-	$ExtractAddedParameters = {
-		param([Parameter(Mandatory)]$_PSBoundParameters)
-
-		$Extracted = @{}
-		foreach ($ParamName in $RuntimeDict.Keys) {
-			if ($_PSBoundParameters.ContainsKey($ParamName)) {
-				$Extracted[$ParamName.Substring($NamePrefix.Length)] = $_PSBoundParameters[$ParamName]
-			}
-		}
-		return $Extracted
-	}.GetNewClosure()
-
-	return @{
-		Parameters = $RuntimeDict
-		ExtractFn = $ExtractAddedParameters
-	}
+	return Copy-CommandParameters $FnInfo -NoPositionAttribute -NamePrefix $NamePrefix
 }
 
 
@@ -119,12 +102,10 @@ Export function Confirm-Manifest {
 	$Manifest = $ParsedManifest.Raw
 
 	$RequiredKeys = @{
-		Name = [string]; Version = [string]; Architecture = @([string], [Object[]]);
-		Enable = [scriptblock]; Install = @([scriptblock], [Hashtable], [string])
+		Name = [string]; Version = [string]; Architecture = @([string], [Object[]]); Enable = [scriptblock]
 	}
-
 	$OptionalKeys = @{
-		Private = [bool]; Description = [string]; Website = [string]; Channel = [string]
+		Private = [bool]; Description = [string]; Website = [string]; Channel = [string]; Install = [hashtable]
 	}
 
 	$Issues = @()
@@ -147,7 +128,7 @@ Export function Confirm-Manifest {
 		}
 		$RealType = $Manifest[$_.Key].GetType()
 		if ($RealType -notin $_.Value) {
-			$Issues += "Property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
+			$Issues += "Property '$($_.Key)' is present, but has an incorrect type '$RealType', expected '$StrTypes'."
 		}
 	}
 
@@ -155,7 +136,7 @@ Export function Confirm-Manifest {
 		$RealType = $Manifest[$_.Key].GetType()
 		if ($RealType -notin $_.Value) {
 			$StrTypes = $_.Value -join " | "
-			$Issues += "Optional property '$($_.Key)' is present, but has incorrect type '$RealType', expected '$StrTypes'."
+			$Issues += "Optional property '$($_.Key)' is present, but has an incorrect type '$RealType', expected '$StrTypes'."
 		}
 	}
 
@@ -184,9 +165,13 @@ Export function Confirm-Manifest {
 		}
 	}
 
-	if ($Manifest.ContainsKey("Install") -and $Manifest.Install -is [hashtable]) {
-		# check Install key structure
-		$Issues += Confirm-ManifestInstallHashtable $Manifest.Install
+	if ($Manifest.ContainsKey("Install")) {
+		if ($Manifest.Install -is [hashtable]) {
+			# check Install key structure
+			$Issues += Confirm-ManifestInstallHashtable $Manifest.Install
+		} elseif ($Manifest.Install -is [scriptblock]) {
+			$Issues += "Scriptblock-based Install block is deprecated, use a Hashtable instead."
+		}
 	}
 
 	if ($Issues.Count -gt 1) {

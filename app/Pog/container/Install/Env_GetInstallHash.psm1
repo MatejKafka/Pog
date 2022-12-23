@@ -14,9 +14,11 @@ Export function __main {
     # FIXME: copy parameters from Install-FromUrl, so that we can reuse its validation
     #  and ensure the arguments are consistent for both environments
     $Url = if ($Installer.ContainsKey("SourceUrl")) {
-        if ($Installer.SourceUrl -is [scriptblock]) {& $Installer.SourceUrl} else {$Installer.SourceUrl}
+        # see Env_Enable\__main for explanation of .GetNewClosure()
+        if ($Installer.SourceUrl -is [scriptblock]) {& $Installer.SourceUrl.GetNewClosure()} else {$Installer.SourceUrl}
     } else {
-        if ($Installer.Url -is [scriptblock]) {& $Installer.Url} else {$Installer.Url}
+        # see Env_Enable\__main for explanation of .GetNewClosure()
+        if ($Installer.Url -is [scriptblock]) {& $Installer.Url.GetNewClosure()} else {$Installer.Url}
     }
 
     $ExpectedHash = if ($Installer.ContainsKey("ExpectedHash")) {$Installer.ExpectedHash}

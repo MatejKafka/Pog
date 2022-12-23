@@ -246,10 +246,10 @@ Export function Enable- {
 			[Parameter(Position = 1)]
 			[Hashtable]
 		$PackageParameters = @{},
-			# allows overriding existing commands without confirmation
+			### Allow overriding existing commands without confirmation.
 			[switch]
 		$Force,
-			<# Return a [Pog.ImportedPackage] object with information about the enabled package. #>
+			### Return a [Pog.ImportedPackage] object with information about the enabled package.
 			[switch]
 		$PassThru
 	)
@@ -263,13 +263,16 @@ Export function Enable- {
 		if (@($Package).Count -gt 1 -or @($PackageName).Count -gt 1) {return}
 
 		$p = if ($Package) {$Package} else {
+			# $PackageName contains what's written at the command line, without any parsing or evaluation, we need to (try to) parse it
+			$ParsedPackageName = [Pog.PSAttributes.ParameterQuotingHelper]::ParseDynamicparamArgumentLiteral($PackageName)
+			# could not parse
+			if (-not $ParsedPackageName) {return}
 			# this may fail in case the package does not exist, or manifest is invalid
 			# don't throw here, just return, the issue will be handled in the begin{} block
-			try {$PACKAGE_ROOTS.GetPackage($PackageName, $true, $true)} catch {return}
+			try {$PACKAGE_ROOTS.GetPackage($ParsedPackageName, $true, $true)} catch {return}
 		}
 		$CopiedParams = Copy-ManifestParameters $p.Manifest Enable -NamePrefix "_"
-		$function:ExtractParamsFn = $CopiedParams.ExtractFn
-		return $CopiedParams.Parameters
+		return $CopiedParams
 	}
 
 	begin {
@@ -279,10 +282,10 @@ Export function Enable- {
 			if (@($Package).Count -gt 1) {throw "-PackageParameters must not be passed when -Package contains multiple packages."}
 		}
 
-		if (Test-Path Function:ExtractParamsFn) {
+		if (Get-Variable CopiedParams -ErrorAction Ignore) {
 			# $p is already loaded
 			$Package = $p
-			$ForwardedParams = ExtractParamsFn $PSBoundParameters
+			$ForwardedParams = $CopiedParams.Extract($PSBoundParameters)
 			try {
 				$PackageParameters += $ForwardedParams
 			} catch {
@@ -408,7 +411,7 @@ function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$F
 		return $true
 	} catch [Pog.PackageManifestNotFoundException] {
 		# the package exists, but the manifest is missing
-		# either a random folder was erronously created, or this is a package, but corrupted
+		# either a random folder was erroneously created, or this is a package, but corrupted
 		Write-Warning ("A package directory already exists at '$($p.Path)'," `
 				+ " but it doesn't seem to contain a package manifest." `
 				+ " All directories in a package root should be packages with a valid manifest.")
@@ -440,7 +443,7 @@ Export function Import- {
 	#	Imports a package manifest from the repository.
 	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "Separate")]
 	[OutputType([Pog.ImportedPackage])]
-	Param(
+	param(
 			[Parameter(Mandatory, Position = 0, ParameterSetName = "RepositoryPackage", ValueFromPipeline)]
 			[Pog.RepositoryPackage[]]
 		$Package,
@@ -454,15 +457,16 @@ Export function Import- {
 			[Pog.PackageVersion]
 		$Version,
 			[Parameter(ParameterSetName = "Separate")]
+			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
 			[string]
 		$TargetName,
 			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
 			[string]
 		$TargetPackageRoot = $PACKAGE_ROOTS.DefaultPackageRoot,
-			<# Overwrite an existing package without prompting for confirmation. #>
+			### Overwrite an existing package without prompting for confirmation.
 			[switch]
 		$Force,
-			<# Return a [Pog.ImportedPackage] object with information about the imported package. #>
+			### Return a [Pog.ImportedPackage] object with information about the imported package.
 			[switch]
 		$PassThru
 	)
@@ -592,6 +596,11 @@ Export function Show-ManifestHash {
         # this forces a manifest load on $p
 		if (-not (Confirm-RepositoryPackage $p)) {
 			throw "Validation of the repository package failed (see warnings above)."
+		}
+
+		if (-not $p.Manifest.Raw.ContainsKey("Install")) {
+			Write-Information "Package '$($p.PackageName)' does not have an Install block."
+			continue
 		}
 
 		$InternalArgs = @{
@@ -865,7 +874,7 @@ Export function Confirm-RepositoryPackage {
 		$VersionParam = $Version
 
 		$NoIssues = $true
-		function AddIssue($IssueMsg) {
+		function AddIssue([string]$IssueMsg) {
 			Set-Variable NoIssues $false -Scope 1
 			Write-Warning $IssueMsg.Replace("`n", "`n         ")
 		}
@@ -924,6 +933,9 @@ Export function Confirm-RepositoryPackage {
 
 			try {
 				$p.ReloadManifest()
+			} catch [Pog.PackageManifestParseException] {
+				AddIssue $_
+				return
 			} catch {
 				AddIssue $_
 				return

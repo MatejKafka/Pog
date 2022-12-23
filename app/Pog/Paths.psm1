@@ -11,6 +11,6 @@ Export-ModuleMember -Variable PATH_CONFIG, REPOSITORY, GENERATOR_REPOSITORY, PAC
 # warn about missing package roots
 foreach ($r in $PATH_CONFIG.PackageRoots.MissingPackageRoots) {
 	# TODO: figure out how to dynamically get the name of Edit-PogRootList including current command prefix
-	Write-Warning ("Could not find package root '$_'. Create the directory, or remove it" `
+	Write-Warning ("Could not find package root '$r'. Create the directory, or remove it" `
 			+ " from the package root list using the 'Edit-PogRootList' command.")
 }

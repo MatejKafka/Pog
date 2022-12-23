@@ -9,10 +9,6 @@
 	#  7zip (x64)
 	#  OpenedFilesView (x64)
 
-	Install = {
-		echo "Pog itself is already installed. Auto-update is not supported at the moment."
-	}
-
 	Enable = {
 		echo "It seems Pog is setup correctly and working now. :)"
 	}
