@@ -45,16 +45,21 @@ $MANIFEST_REPO_PATH = Resolve-VirtualPath "$PSScriptRoot/data/manifests"
 if (-not (Test-Path $MANIFEST_REPO_PATH)) {
     # manifest repository is not initialized, download it
     Write-Host "Downloading package manifests from 'https://github.com/MatejKafka/PogPackages'..."
-    $ExtractedPath = "${env:TEMP}\PogPackages-$(New-Guid)"
-    $ArchivePath = "${ExtractedPath}.zip"
-    try {
-        Invoke-WebRequest "https://github.com/MatejKafka/PogPackages/archive/refs/heads/main.zip" -OutFile $ArchivePath
-        Expand-Archive $ArchivePath -DestinationPath $ExtractedPath -Force
-        Move-Item $ExtractedPath\* $MANIFEST_REPO_PATH -Force
-        Write-Host "Downloaded '$(@(ls -Directory $MANIFEST_REPO_PATH).Count)' package manifests."
-    } finally {
-        Remove-Item -Force -ErrorAction Ignore $ArchivePath
+    if (Get-Command git -ErrorAction Ignore) {
+        Write-Host "Cloning using git..."
+        git clone https://github.com/MatejKafka/PogPackages $MANIFEST_REPO_PATH --depth 1 --quiet
+    } else {
+        $ExtractedPath = "${env:TEMP}\PogPackages-$(New-Guid)"
+        $ArchivePath = "${ExtractedPath}.zip"
+        try {
+            Invoke-WebRequest "https://github.com/MatejKafka/PogPackages/archive/refs/heads/main.zip" -OutFile $ArchivePath
+            Expand-Archive $ArchivePath -DestinationPath $ExtractedPath -Force
+            Move-Item $ExtractedPath\* $MANIFEST_REPO_PATH -Force
+        } finally {
+            Remove-Item -Force -ErrorAction Ignore $ArchivePath
+        }
     }
+    Write-Host "Downloaded '$(@(ls -Directory $MANIFEST_REPO_PATH).Count)' package manifests."
 }
 
 Write-Host "Setting up PATH and PSModulePath..."
