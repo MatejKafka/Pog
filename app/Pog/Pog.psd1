@@ -14,8 +14,8 @@
 	FunctionsToExport = @(
 		'Invoke-Pog'
 		'Import-Pog'
-		'Enable-Pog'
 		'Install-Pog'
+		'Enable-Pog'
 
 		'Export-PogShortcutsToStartMenu'
 
