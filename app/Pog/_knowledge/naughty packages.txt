@@ -1,6 +1,7 @@
 multiple apps writing to HKCU/SOFTWARE/<appname>
 multiple apps write to C:\ProgramData
 
+openjdk – IDEA needs direct path to the directory, but then it will bypass MAVEN_REPOSITORY and other overriden env variables
 
 Firefox - error reporting and updater
 	C:\ProgramData\Mozilla
