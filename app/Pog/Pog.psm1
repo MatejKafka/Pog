@@ -63,9 +63,9 @@ Export function Get-PogRepositoryPackage {
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
 			[Pog.PackageVersion]
 		$Version,
-			[Parameter(ParameterSetName="LatestVersion")]
+			[Parameter(ParameterSetName="AllVersions")]
 			[switch]
-		$LatestVersion
+		$AllVersions
 	)
 
 	begin {
@@ -74,11 +74,10 @@ Export function Get-PogRepositoryPackage {
 			if (-not $PackageName) {throw "-Version must not be passed without also passing -PackageName."}
 			if (@($PackageName).Count -gt 1) {throw "-Version must not be passed when -PackageName contains multiple package names."}
 
-			$p = $REPOSITORY.GetPackage($PackageName, $true, $true).GetVersionPackage($Version, $true)
-			return $p
+			return $REPOSITORY.GetPackage($PackageName, $true, $true).GetVersionPackage($Version, $true)
 		}
 
-		if (-not $PackageName) {
+		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $MyInvocation.ExpectingInput) {
 			$PackageName = $REPOSITORY.EnumeratePackageNames()
 		}
 	}
@@ -88,15 +87,18 @@ Export function Get-PogRepositoryPackage {
 		foreach ($pn in $PackageName) {& {
 			$ErrorActionPreference = "Continue"
 			try {
+				# TODO: use Enumerate($pn) to support wildcards and handle arrays in the rest of the code
+				#  same for Get-PogPackage
 				$c = $REPOSITORY.GetPackage($pn, $true, $true)
-			} catch [Pog.RepositoryPackageNotFoundException] {
+			} catch [Pog.RepositoryPackageNotFoundException], [Pog.InvalidPackageNameException] {
 				$PSCmdlet.WriteError($_)
 				continue
 			}
-			if ($LatestVersion) {
-				echo $c.GetLatestPackage()
-			} else {
+			$ErrorActionPreference = "Stop"
+			if ($AllVersions) {
 				echo $c.Enumerate()
+			} else {
+				echo $c.GetLatestPackage()
 			}
 		}}
 	}
@@ -122,7 +124,7 @@ Export function Get-PogPackage {
 				try {
 					# do not eagerly load the manifest -------\/
 					echo $PACKAGE_ROOTS.GetPackage($p, $true, $false)
-				} catch [Pog.ImportedPackageNotFoundException] {
+				} catch [Pog.ImportedPackageNotFoundException], [Pog.InvalidPackageNameException] {
 					$PSCmdlet.WriteError($_)
 				}
 			}
@@ -257,15 +259,16 @@ Export function Enable-Pog {
 
 	dynamicparam {
 		# remove possible leftover from previous dynamicparam invocation
-		Remove-Item Function:ExtractParamsFn -ErrorAction Ignore
+		Remove-Variable CopiedParams -Scope Local -ErrorAction Ignore
+
 		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $PSBoundParameters.ContainsKey("Package")) {return}
 		# TODO: make this work for multiple packages (probably by prefixing the parameter name with package name?)
 		# more than one package, ignore package parameters
-		if (@($Package).Count -gt 1 -or @($PackageName).Count -gt 1) {return}
+		if (@($PSBoundParameters["Package"]).Count -gt 1 -or @($PSBoundParameters["PackageName"]).Count -gt 1) {return}
 
-		$p = if ($Package) {$Package} else {
+		$p = if ($PSBoundParameters["Package"]) {$PSBoundParameters["Package"]} else {
 			# $PackageName contains what's written at the command line, without any parsing or evaluation, we need to (try to) parse it
-			$ParsedPackageName = [Pog.PSAttributes.ParameterQuotingHelper]::ParseDynamicparamArgumentLiteral($PackageName)
+			$ParsedPackageName = [Pog.PSAttributes.ParameterQuotingHelper]::ParseDynamicparamArgumentLiteral($PSBoundParameters["PackageName"])
 			# could not parse
 			if (-not $ParsedPackageName) {return}
 			# this may fail in case the package does not exist, or manifest is invalid
@@ -359,7 +362,7 @@ Export function Install-Pog {
 			### for other programs, but possibly slower download speed.
 			[switch]
 		$LowPriority,
-			<# Return a [Pog.ImportedPackage] object with information about the installed package. #>
+			### Return a [Pog.ImportedPackage] object with information about the installed package.
 			[switch]
 		$PassThru
 	)
@@ -391,6 +394,7 @@ Export function Install-Pog {
 			}
 
 			Write-Information "Installing $($p.GetDescriptionString())..."
+			# FIXME: probably discard container output, it breaks -PassThru
 			Invoke-Container Install $p -InternalArguments $InternalArgs
 			Write-Information "Successfully installed '$($p.PackageName)'."
 			if ($PassThru) {
@@ -602,6 +606,9 @@ Export-ModuleMember -Alias pog
 
 
 Export function Show-PogManifestHash {
+	# .SYNOPSIS
+	# Download all resources specified in the package manifest, store them in the download cache and show the SHA-256 hash.
+	# This cmdlet is useful for retrieving the archive hash when writing a package manifest.
 	[CmdletBinding()]
 	param(
 			# ValueFromPipelineByPropertyName lets us avoid having to define a separate $Package parameter

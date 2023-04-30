@@ -68,7 +68,14 @@ public static partial class Win32 {
         DELETE_ON_CLOSE = 0x04000000,
     }
 
-    /// Don't forget to call Dispose() on the returned handle when you're done
+    /// Don't forget to call Dispose() on the returned handle when you're done.
+    ///
+    /// This method, together with `MoveFileByHandle`, is useful to distinguish between 2 possible causes
+    /// for an Access Denied error, which are conflated together with `MoveFile`:
+    /// 1) We don't have sufficient permissions to move the directory (in which case this method throws
+    ///    an Access Denied exception).
+    /// 2) There's a locked entry in the directory and we cannot move it (in which case the same exception
+    ///    is thrown from `MoveFileByHandle`).
     public static SafeFileHandle OpenDirectoryForMove(string directoryPath) {
         // ReSharper disable once InconsistentNaming
         const uint ACCESS_DELETE = 0x00010000;
@@ -81,6 +88,9 @@ public static partial class Win32 {
                 FileMode.Open, FILE_FLAG.BACKUP_SEMANTICS);
     }
 
+    /// This method is very similar to PowerShell `Rename-Item`, which iirc internally calls `MoveFile`.
+    /// TODO: why did I write this? iirc there's some issue with MoveFile, cannot remember what it is;
+    ///       maybe something with it trying to move directories file-by-file?
     public static void MoveDirectoryAtomically(string srcDirPath, string targetPath) {
         using var handle = OpenDirectoryForMove(srcDirPath);
         MoveFileByHandle(handle, targetPath);

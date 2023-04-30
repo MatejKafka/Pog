@@ -71,11 +71,11 @@ public class InvokeFileDownloadCommand : PSCmdlet {
             }
             // the entry does not exist yet, download it and then add it into the cache
             WriteVerbose("File not found in the local cache.");
-            WriteInformation(new InformationRecord($"Downloading file from '{SourceUrl}'.", null));
         } else {
             WriteVerbose("No hash provided, cannot use the local cache.");
-            WriteInformation(new InformationRecord($"Downloading file from '{SourceUrl}'.", null));
         }
+
+        WriteInformation(new InformationRecord($"Downloading file from '{SourceUrl}'.", null));
 
         // TODO: hold a handle to the tmp directory during download, so that another process can safely delete stale entries
         //  (typically after a crash) without accidentally deleting a live entry

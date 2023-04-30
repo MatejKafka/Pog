@@ -8,12 +8,7 @@ using module .\command_generator\SubstituteExe.psm1
 
 
 Export-ModuleMember -Function Confirm-Action
-
-# not sure if we should expose this, as packages really shouldn't need to use admin privilege
-# currently, this is used by Notepad++ to optionally redirect Notepad to Notepad++ in Registry
-Export-ModuleMember -Function Assert-Admin
-
-# also not sure about this, PowerShell (private package) uses it to set PSModulePath
+# not sure if we should expose this, PowerShell (private package) uses it to set PSModulePath
 Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 
 
@@ -263,21 +258,25 @@ Export function Assert-File {
 			# return $true if something was changed, $false if original content was kept
 			[Parameter(Position=2, ParameterSetName="ScriptBlocks")]
 			[ValidateScript({
-				if ($_.GetType() -eq [scriptblock]) {return $true}
-				if ($_.GetType() -eq [string]) {
+				if ($_ -is [scriptblock]) {return $true}
+				if ($_ -is [string]) {
 					if (Test-Path -Type Leaf $_) {return $true}
 					throw "-ContentUpdater is a path string, but it doesn't point to an existing PowerShell script file: '${_}'"
 				}
-				throw "-ContentUpdater must be either script block, or path to a PowerShell script file, got '$($_.GetType())'."
+				throw "-ContentUpdater must be either a script block, or a path to a PowerShell script file, got '$($_.GetType())'."
 			})]
 		$ContentUpdater = $null,
-			# this would work better as a [string], but it's a [scriptblock] for consistency with the other parameters
 			[Parameter(ParameterSetName="FixedContent")]
-			[scriptblock]
+			[ValidateScript({
+				if ($_ -is [scriptblock] -or $_ -is [string]) {return $true}
+				throw "-FixedContent must be either a script block, or a string, got '$($_.GetType())'."
+			})]
 		$FixedContent = $null
 	)
 
-	$FixedContentStr = if ($FixedContent) {& $FixedContent (Resolve-VirtualPath $Path)} else {$null}
+	$FixedContentStr = if ($FixedContent -is [scriptblock]) {& $FixedContent (Resolve-VirtualPath $Path)}
+			elseif ($FixedContent -is [string]) {$FixedContent}
+			else {$null}
 
 	if (Test-Path -Type Leaf $Path) {
 		if ($FixedContentStr) {
@@ -335,6 +334,7 @@ Export function Assert-File {
 
 
 Export function Export-Shortcut {
+	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
 			[string]

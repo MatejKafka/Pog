@@ -23,7 +23,10 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
     [Parameter(Mandatory = true, Position = 0)] public string ArchivePath = null!;
     [Parameter(Mandatory = true, Position = 1)] public string TargetPath = null!;
     /// <summary>
-    /// <para type="description">Subdirectory of the archive to extract instead of the whole archive.</para>
+    /// <para type="description">
+    /// Subdirectory of the archive to extract instead of the whole archive. Note that this only acts as a filter,
+    /// so `TargetPath` still corresponds to the root directory of the archive.
+    /// </para>
     /// </summary>
     [Parameter]
     public string? Subdirectory;
@@ -46,9 +49,9 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
         base.BeginProcessing();
         _fullArchivePath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(ArchivePath);
         _fullTargetPath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(TargetPath);
-        if (Subdirectory != null) {
+        if (!string.IsNullOrEmpty(Subdirectory)) {
             // normalize slashes
-            _subdirectory = Subdirectory.Replace('/', '\\');
+            _subdirectory = Subdirectory!.Replace('/', '\\');
             // strip leading `.\`, 7zip does not like it
             if (_subdirectory.StartsWith(".\\")) {
                 _subdirectory = _subdirectory.Substring(2);

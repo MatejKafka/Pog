@@ -39,7 +39,7 @@ public static partial class Win32 {
         // ReSharper disable once InconsistentNaming
         FAIL_IMMEDIATELY = 0x00000001,
         // ReSharper disable once InconsistentNaming
-        WAIT = 0x00000000
+        WAIT = 0x00000000,
     }
 
     [PublicAPI]

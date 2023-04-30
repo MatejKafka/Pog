@@ -52,7 +52,7 @@ public class CacheEntryInUseException : Exception {
 //  - each subdirectory in the main directory is a cache entry
 //  - each cache entry contains exactly 2 files:
 //     - one is called `referencingPackages.json-list`, it contains a list of packages that accessed this entry
-//     - second one has any other name, and is the actual cache entry; during insert, if the entry file is also called
+//     - second one has any other name, and is the actual cache entry; during insertion, if the entry file is also called
 //       `referencingPackages.json-list`, it is prefixed with `_`
 [PublicAPI]
 public class SharedFileCache {
@@ -70,8 +70,8 @@ public class SharedFileCache {
     public delegate void InvalidCacheEntryCb(InvalidCacheEntryException exception);
 
     public IEnumerable<CacheEntryInfo> EnumerateEntries(InvalidCacheEntryCb? invalidEntryCb = null) {
-        // the last .Where is necessary to avoid race conditions (cache entry exists when EnumerateEntryHashes runs,
-        //  but is deleted before GetEntryInfoInner finishes)
+        // the last .Where is necessary to avoid race conditions (cache entry exists when entries are enumerated,
+        //  but is deleted before `GetEntryInfoInner(...)` finishes)
         return PathUtils.EnumerateNonHiddenDirectoryNames(Path)
                 .Select(entryKey => {
                     try {
