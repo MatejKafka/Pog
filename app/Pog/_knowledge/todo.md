@@ -1,10 +1,12 @@
 ## Dependency management
 
+**UPDATE: nope, not doing dependencies, vendor should figure that part out**
+
 - NOTE: packages that were not installed directly must not be visible to the user/system
-	- the package may be installed in normal package root (although that may cause confusion for a user who ventures there and wonders why he cannot use the package), but without exported shortcuts and commands
+  - the package may be installed in normal package root (although that may cause confusion for a user who ventures there and wonders why he cannot use the package), but without exported shortcuts and commands
 - when package declares another package as dependency, copy/symlink exported commands/shortcuts/libraries/... to a well-defined path **inside** the package (and probably add to PATH?), so that the package doesn't have to reach out of its package directory during normal operation
 - NOTE: must figure out a way to pass arguments to manifest methods of a dependency
-	- also, somehow remember them, so we know what to do when user or another package requests the package with potentially different options
+  - also, somehow remember them, so we know what to do when user or another package requests the package with potentially different options
 
 
 
@@ -23,6 +25,7 @@ what's needed:
 example: JetBrains IDE shared folder
 
 """
+
 osobne vidim 2 varianty:
 
 1) mit metapackage jetbrains-shared-config, ktery bude dependency pro kazde ide,
@@ -32,6 +35,7 @@ zapisuji do config dir ciziho package)
 2) udelat do Pog koncept neceho jako shared memory; package rekne,
 ze chce shared folder s timhle jmenem, vsechny package si vyzadaji
 stejnou slozku, a tam budou zapisovat
+
 """
 
 ## Qt installer

@@ -1,26 +1,42 @@
 priorities
 	1. `HKCU\Software\Classes\.testfile\shell\open\command` is the default, apparently lowest-priority
-	2. when a (Default) in the previous key is set to `testfile_auto` and `HKCU\Software\Classes\testfile_auto\shell\open\command` is created,
-		it completely overrides the previous value 
-	3. when a value is added to the list in `HKCU\Software\Classes\.testfile\OpenWithProgids`, it overrides the shell\open\command path from 1.,
-		but 2. is kept as a default and has higher priority; however, after a key is added here, the Open With popup is shown next time the user
+	2. when a (Default) in the previous key is set to `testfile_auto` and
+	   `HKCU\Software\Classes\testfile_auto\shell\open\command` is created, it completely overrides the previous value 
+	3. when a value is added to the list in `HKCU\Software\Classes\.testfile\OpenWithProgids`,
+	   it overrides the shell\open\command path from 1., but 2. is kept as a default and has higher priority;
+	   however, after a key is added here, the Open With popup is shown next time the user
 		tries to open a file with the `.testfile` extension
 	4. OpenWithProgids subkey in `...\testfile_auto` is completely ignored
 	5. whenever a file is opened, an entry for the extension is created in `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.testfile`
 		- `OpenWithProgids` subkey initially only contains the original shell association from 2. as property (not Default!)
-		- `OpenWithList` is initially empty; when user manually selects app in the Open With popup without checking the "Always use this..." checkbox,
-			it is added here with letter-based indexing of entries
+		- `OpenWithList` is initially empty; when user manually selects app in the Open With popup without checking the 
+		  "Always use this..." checkbox, it is added here with letter-based indexing of entries
 	6. when user explicitly selects a new default application, a new `UserChoice` is created under 5.
 		- `ProgId` contains an application name from HKCR\Applications (but without the usual `Applications` prefix)
 		- `Hash` is an automatically computed checksum value that lets the shell validate that no one changed the entry
 		- if `UserChoice` is set, and the ProgId is valid, this overrides previously listed entries
 
 
+"Open with" menu
+	TODO: this is possibly incomplete, investigate more
+	for a program to appear in the "Open with" menu, it should be:
+	 1. present under FileExts\...\OpenWithList
+	 2. the target should either be a binary which has the FileDescription and CompanyName filled out,
+	    or an entry for .ApplicationCompany with any value must be added to HKEY_CLASSES_ROOT\Local Settings\Software\Microsoft\Windows\Shell\MuiCache;
+	    .FriendlyAppName should also be added here for consistency, but note that the entry value is
+	    not used if the following key exists: HKEY_CLASSES_ROOT\Applications\...\FriendlyAppName
+	NOTE: creating the MuiCache entries manually is probably not a good solution, as the internet says that it is periodically flushed (didn't encounter that yet personally)
+	sources:
+		https://superuser.com/questions/1303165/editing-the-open-with-menu-in-windows-10
+		https://superuser.com/questions/1199648/strange-open-with-list-inconsistent-with-registry/1256482#1256482
+		https://www.quora.com/What-is-MUI-Cache-in-Windows-10?share=1
+
+
 TODO: DefaultIcon in HKCR\Applications doesn't seem to work; figure out how should we override app icon
 
 
 in code, use HKEY_CURRENT_USER\Software\Classes, not HKEY_CLASSES_ROOT
-%1 should be quoted in all commands (apparently, there are never quotes by default)
+%1 should be quoted in all verb commands (apparently, there are never quotes by default)
 
 
 https://docs.microsoft.com/en-us/windows/win32/shell/fa-how-work
@@ -76,3 +92,16 @@ HKEY_CLASSES_ROOT\ <extension> \shell\runas\ProgrammaticAccessOnly
 
 https://stackoverflow.com/questions/10686411/create-windows-right-click-context-menu-for-specific-folders
 https://www.tenforums.com/software-apps/177462-change-open-list-items.html
+
+
+
+
+
+https://devblogs.microsoft.com/oldnewthing/20070802-00/?p=25743
+ When you’re installing your shell extension, you need to know which progid to hang it off of inside HKEY_CLASSES_ROOT. We’ll start with the title question and then move on to other predefined (but perhaps not well-known) progids.
+
+    “Folder” is the progid for any shell folder. It could be a virtual folder (like Control Panel) or a file system folder (like C:\WINDOWS).
+    “Directory” is the progid for file system folders. This is a subset of “Folder”.
+    “*” is the progid for all files. Doesn’t matter what the extension is.
+    “.” (that’s a single period) is the progid for files without any extension.
+    “AllFileSystemObjects” is the union of “*” and “Directory”. It is the progid for all files and for file system directories.
