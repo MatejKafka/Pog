@@ -10,6 +10,24 @@ Export function Resolve-VirtualPath {
 	return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 }
 
+Export function using_object {
+	param(
+		[Parameter(Mandatory)][scriptblock]$ResourceSb,
+		[Parameter(Mandatory)][scriptblock]$BodySb
+	)
+
+	$Resource = $null
+	try {
+		$Resource = & $ResourceSb
+		# bind resource to $_
+		ForEach-Object $BodySb -InputObject $Resource
+	} finally {
+		if ($null -ne $Resource) {
+			$Resource.Dispose()
+		}
+	}
+}
+
 Export function Assert-Admin {
 	param([string]$ErrorMessage = $null)
 
