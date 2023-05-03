@@ -45,14 +45,8 @@ Ensures that the existing .\app directory can be removed (no locked files from o
 Prints all processes that hold a lock over a file in an existing .\app directory, then waits until user closes them,
 in a loop, until there are no locked files in the directory.
 #>
-Export function WaitForNoLockedFilesInAppDirectory {
-	Write-Debug "Checking if there are any locked files in the existing './app' directory..."
-	if (-not ([Pog.FileLockUtils]::ContainsLockedFiles((Resolve-VirtualPath ./app)))) {
-		# no locked files
-		return
-	}
-
-	# there are some locked files, find out which, report to the user and throw an exception
+Export function ThrowLockedFileList {
+	# find out which files are locked, report to the user and throw an exception
 	$LockingProcs = ListProcessesLockingFiles .\app
 	if (@($LockingProcs).Count -eq 0) {
 		# some process is locking files in the directory, but we don't which one
