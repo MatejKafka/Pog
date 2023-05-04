@@ -12,6 +12,55 @@ if ($null -eq $OpenedFilesViewCmd) {
 			"If you don't, contact Pog developers and we'll hopefully figure out where's the issue."
 }
 
+$KNOWN_APPIDS = @{
+	"{DFB65C4C-B34F-435D-AFE9-A86218684AA8}" = "WSL2" # Plan9FileSystem
+	"{72075277-282A-420A-8C25-62BFCB94C71E}" = "WSL2" # something related to the previous entry, not sure what it actually does
+}
+
+$ImportedCimCmdlets = $false
+
+function GetDllhostOwner {
+	[CmdletBinding()]
+	[OutputType([string])]
+	param(
+			[Parameter(Mandatory, ValueFromPipeline)]
+			[int]
+		$ProcessId
+	)
+
+	process {
+		if (-not $ImportedCimCmdlets) {
+			$ImportedCimCmdlets = $true
+			Import-Module CimCmdlets
+		}
+
+		# Get-Process does not give use CommandLine in older PowerShell versions
+		$Process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId"
+
+		if ($Process.CommandLine -notmatch ".*DllHost.exe`"? /Processid:(\{[A-Z0-9-]{36}\})") {
+			return $Process.Path
+		}
+
+		$AppId = $Matches[1]
+		if ($KNOWN_APPIDS.ContainsKey($AppId)) {
+			return $KNOWN_APPIDS[$AppId]
+		}
+
+		$AppIdReg = Get-Item "Registry::HKEY_CLASSES_ROOT\AppID\$AppId" -ErrorAction Ignore
+		if (-not $AppIdReg) {
+			return "Unknown DllHost process $AppId"
+		}
+
+		# default key, returns null if not present
+		$Description = $AppIdReg.GetValue($null)
+		if ($Description) {
+			return $Description
+		} else {
+			return "Unknown DllHost process $AppId"
+		}
+	}
+}
+
 <# Lists processes that have a lock (an open handle without allowed sharing) on a file under $DirPath. #>
 function ListProcessesLockingFiles($DirPath) {
 	# OpenedFilesView always writes to a file, stdout is not supported (it's a GUI app)
@@ -32,10 +81,22 @@ function ListProcessesLockingFiles($DirPath) {
 		Remove-Item $OutFile -ErrorAction Ignore
 	}
 	if ($Procs.opened_files_list -ne "") {
-		return $Procs.opened_files_list.item | Group-Object process_path | % {[pscustomobject]@{
-				ProcessPath = $_.Name
-				Files = $_.Group.full_path
-			}}
+		return $Procs.opened_files_list.item | Group-Object process_path | % {
+			if ($_.Name -like "*DllHost.exe") {
+				$_.Group | Group-Object process_id | % {
+					$Owner = GetDllhostOwner $_.Name
+					[pscustomobject]@{
+						ProcessInfo = $Owner
+						Files = $_.Group.full_path
+					}
+				}
+			} else {
+				return [pscustomobject]@{
+					ProcessInfo = $_.Name
+					Files = $_.Group.full_path
+				}
+			}
+		}
 	}
 }
 
@@ -69,7 +130,7 @@ Export function ThrowLockedFileList {
 	Write-Host ("`nThere is an existing package installation, which we cannot overwrite, because the following" +`
 		" programs are working with files inside the installation directory:")
 	$LockingProcs | % {
-		Write-Host "  Files locked by '$($_.ProcessPath)':"
+		Write-Host "  Files locked by '$($_.ProcessInfo)':"
 		$_.Files | select -First 5 | % {
 			Write-Host "    $_"
 		}
