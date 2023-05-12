@@ -163,10 +163,6 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
         return "\"" + arg.Replace("\"", "\\\"").Replace("%", "%Q%") + "\"";
     }
 
-    private static string QuoteArgument(string arg, bool cmdExe = false) {
-        return "\"" + arg.Replace("\"", "\\\"") + "\"";
-    }
-
     private ProcessStartInfo SetupProcessStartInfo(string archivePath, string targetPath, string? subdirectory) {
         if (archivePath.EndsWith(".tar.gz") || archivePath.EndsWith(".tgz")) {
             // 7zip extracts .tar.gz in two steps – first invocation outputs a .tar, which has to be extracted a second time
@@ -208,8 +204,8 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
             return new ProcessStartInfo {
                 FileName = InternalState.PathConfig.Path7Zip,
                 Arguments =
-                        $"x {QuoteArgument(archivePath)} {QuoteArgument("-o" + targetPath)}"
-                        + (subdirectory == null ? "" : $" {QuoteArgument(subdirectory)}")
+                        $"x {Win32Args.EscapeArgument(archivePath)} {Win32Args.EscapeArgument("-o" + targetPath)}"
+                        + (subdirectory == null ? "" : $" {Win32Args.EscapeArgument(subdirectory)}")
                         + " -bso0" // disable normal output
                         + " -bsp2" // enable progress prints to stderr (cannot use stdout for consistency with .tar.gz extraction above)
                         + " -aoa" // automatically overwrite existing files (should not usually occur, unless

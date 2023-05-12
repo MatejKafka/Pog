@@ -49,7 +49,7 @@ Export function __cleanup {
 
 function RemoveDirectoryAtomically($Dir, [switch]$IgnoreNotFoundError) {
 	try {
-		[Pog.Win32]::DeleteDirectoryAtomically((Resolve-VirtualPath $Dir), (Resolve-VirtualPath $TMP_DELETE_PATH))
+		[Pog.Native]::DeleteDirectoryAtomically((Resolve-VirtualPath $Dir), (Resolve-VirtualPath $TMP_DELETE_PATH))
 	} catch {
 		# 0x80070002 = ERROR_FILE_NOT_FOUND
 		if ($IgnoreNotFoundError -and ($_.Exception.InnerException.HResult -eq 0x80070002)) {
@@ -132,7 +132,7 @@ function PrepareNewAppDirectory($SrcDirectory, [scriptblock]$SetupScript, [switc
 function MoveOldAppDirectory {
 	Write-Debug "Moving the previous ./app directory to '$TMP_APP_RENAME_PATH'..."
 	# try to move the ./app directory; this will either atomically succeed, or we'll list the offending processes and exit
-	if (-not [Pog.FileLockUtils]::MoveDirectoryUnlocked((Resolve-VirtualPath ./app), (Resolve-VirtualPath $TMP_APP_RENAME_PATH))) {
+	if (-not [Pog.Native]::MoveDirectoryUnlocked((Resolve-VirtualPath ./app), (Resolve-VirtualPath $TMP_APP_RENAME_PATH))) {
 		Write-Debug "The previous ./app directory seems to be used."
 		# FIXME: better message
 		Write-Host "The package seems to be in use, trying to find offending processes..."
@@ -162,7 +162,7 @@ function InstallExtractedAppVersion($SrcDirectory) {
 		MoveOldAppDirectory
 	}
 	Write-Debug "Moving the extracted directory '$SrcDirectory' to './app'..."
-	[Pog.Win32]::MoveDirectoryAtomically($SrcDirectory, (Resolve-VirtualPath ./app))
+	[Pog.Native]::MoveDirectoryAtomically($SrcDirectory, (Resolve-VirtualPath ./app))
 }
 
 Export function Install-FromUrl {
@@ -232,7 +232,7 @@ Export function Install-FromUrl {
 			RemoveDirectoryAtomically ./app -IgnoreNotFoundError
 		}
 		Write-Warning "Restoring the previous app directory to recover from an interrupted install..."
-		[Pog.Win32]::MoveDirectoryAtomically((Resolve-VirtualPath $TMP_APP_RENAME_PATH), (Resolve-VirtualPath ./app))
+		[Pog.Native]::MoveDirectoryAtomically((Resolve-VirtualPath $TMP_APP_RENAME_PATH), (Resolve-VirtualPath ./app))
 	}
 
 	if (-not $ExpectedHash) {
@@ -261,7 +261,7 @@ Export function Install-FromUrl {
 		# e.g. maybe the packaged program is running and holding a lock over a file inside
 		# if that would be the case, we would extract the package and then get
 		#  Acess Denied error, and user would waste his time waiting for the extraction all over again
-		if ([Pog.FileLockUtils]::IsDirectoryLocked((Resolve-VirtualPath ./app))) {
+		if ([Pog.Native]::IsDirectoryLocked((Resolve-VirtualPath ./app))) {
 			ThrowLockedFileList
 		}
 
@@ -294,7 +294,7 @@ Export function Install-FromUrl {
 		if (-not $Success -and (Test-Path $TMP_APP_RENAME_PATH)) {
 			# the installation did not complete, move the old app directory back into place
 			RemoveDirectoryAtomically ./app -IgnoreNotFoundError
-			[Pog.Win32]::MoveDirectoryAtomically((Resolve-VirtualPath $TMP_APP_RENAME_PATH), (Resolve-VirtualPath ./app))
+			[Pog.Native]::MoveDirectoryAtomically((Resolve-VirtualPath $TMP_APP_RENAME_PATH), (Resolve-VirtualPath ./app))
 		}
 		Write-Debug "Removing temporary installation directories..."
 		Remove-Item -Recurse -Force -LiteralPath $TMP_EXPAND_PATH -ErrorAction Ignore
