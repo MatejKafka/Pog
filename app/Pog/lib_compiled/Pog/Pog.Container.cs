@@ -4,7 +4,6 @@ using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
-using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.PowerShell;
 
@@ -33,9 +32,6 @@ public record OutputStreamConfig(ActionPreference Progress, ActionPreference War
 //    so no input can be supplied); fortunately, we don't need any pipeline input to the container, so it works ok
 [PublicAPI]
 public class Container : IDisposable {
-    private static readonly string ContainerDir = Path.GetFullPath(Path.Combine(
-            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, @"..\container"));
-
     /// Output streams from the container runspace.
     public PSDataStreams Streams => _ps.Streams;
 
@@ -157,6 +153,7 @@ public class Container : IDisposable {
                     "Internal data used by the Pog container environment", ScopedItemOptions.Constant),
         });
 
+        var containerDir = InternalState.PathConfig.ContainerDir;
         iss.ImportPSModule(new[] {
             // these two imports contain basic stuff needed for printing output, errors, FS traversal,...
             "Microsoft.PowerShell.Management",
@@ -164,11 +161,11 @@ public class Container : IDisposable {
             // setup environment for package manifest script
             // each environment module must provide functions `__main` and `__cleanup`
             _containerType switch {
-                ContainerType.Enable => Path.Combine(ContainerDir, @"Enable\Env_Enable.psm1"),
-                ContainerType.Install => Path.Combine(ContainerDir, @"Install\Env_Install.psm1"),
-                ContainerType.GetInstallHash => Path.Combine(ContainerDir, @"Install\Env_GetInstallHash.psm1"),
+                ContainerType.Enable => Path.Combine(containerDir, @"Enable\Env_Enable.psm1"),
+                ContainerType.Install => Path.Combine(containerDir, @"Install\Env_Install.psm1"),
+                ContainerType.GetInstallHash => Path.Combine(containerDir, @"Install\Env_GetInstallHash.psm1"),
                 _ => throw new ArgumentOutOfRangeException(nameof(_containerType), _containerType, null),
-            }
+            },
         });
 
         // TODO: figure out if we can define this without having to write inline PowerShell function
