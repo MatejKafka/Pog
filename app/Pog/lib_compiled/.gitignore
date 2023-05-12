@@ -1,8 +1,13 @@
+/.idea/
+
 /RandomTests/*
 !/RandomTests/RandomTests.csproj
+
 /Pog/bin/
 /Pog/obj/
-/.idea/
+/Pog.Tests/bin/
+/Pog.Tests/obj/
+
 
 /Pog_Debug.dll
 /Pog_Debug.dll-Help.xml
