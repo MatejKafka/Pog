@@ -7,39 +7,15 @@ using JetBrains.Annotations;
 namespace Pog;
 
 [PublicAPI]
-public static partial class Win32 {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool LockFileEx(
-            IntPtr hFile, LockFileFlags dwFlags, uint dwReserved,
-            uint nNumberOfBytesToLockLow, uint nNumberOfBytesToLockHigh,
-            [In] ref NativeOverlapped lpOverlapped);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool UnlockFileEx(
-            IntPtr hFile, uint dwReserved,
-            uint nNumberOfBytesToLockLow, uint nNumberOfBytesToLockHigh,
-            [In] ref NativeOverlapped lpOverlapped);
-
-    public static FileRegionLock LockFile(FileStream stream, LockFileFlags flags, ulong position, ulong length) {
+public static partial class Native {
+    public static FileRegionLock LockFile(FileStream stream, Win32.LockFileFlags flags, ulong position, ulong length) {
         var regionLock = new FileRegionLock(stream.SafeFileHandle!.DangerousGetHandle(), position, length);
-        var success = LockFileEx(regionLock.Handle, flags, 0, regionLock.LengthLow, regionLock.LengthHigh,
+        var success = Win32.LockFileEx(regionLock.Handle, flags, 0, regionLock.LengthLow, regionLock.LengthHigh,
                 ref regionLock.Overlapped);
         if (!success) {
             Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
         }
         return regionLock;
-    }
-
-    [Flags]
-    public enum LockFileFlags {
-        // ReSharper disable once InconsistentNaming
-        EXCLUSIVE_LOCK = 0x00000002,
-        // ReSharper disable once InconsistentNaming
-        FAIL_IMMEDIATELY = 0x00000001,
-        // ReSharper disable once InconsistentNaming
-        WAIT = 0x00000000,
     }
 
     [PublicAPI]
