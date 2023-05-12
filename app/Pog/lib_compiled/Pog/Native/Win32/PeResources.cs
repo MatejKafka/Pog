@@ -23,7 +23,7 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern BOOL FreeLibrary(HMODULE hLibModule);
+    public static extern BOOL FreeLibrary(HMODULE hLibModule);
 
     /// <summary>Loads the specified module into the address space of the calling process.</summary>
     /// <param name="lpLibFileName">
@@ -39,7 +39,7 @@ public static partial class Win32 {
     [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "LoadLibraryW", SetLastError = true,
             CharSet = CharSet.Unicode)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern FreeLibrarySafeHandle LoadLibrary(string lpLibFileName);
+    public static extern FreeLibrarySafeHandle LoadLibrary(string lpLibFileName);
 
     /// <summary>Determines the location of a resource with the specified type and name in the specified module.</summary>
     /// <param name="hModule">
@@ -62,7 +62,7 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "FindResourceW")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern HRSRC FindResource(FreeLibrarySafeHandle hModule, ResourceAtom lpName,
+    public static extern HRSRC FindResource(FreeLibrarySafeHandle hModule, ResourceAtom lpName,
             ResourceAtom lpType);
 
     /// <inheritdoc cref="LoadResource(HMODULE, HRSRC)"/>
@@ -99,7 +99,7 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern HGLOBAL LoadResource(HMODULE hModule, HRSRC hResInfo);
+    public static extern HGLOBAL LoadResource(HMODULE hModule, HRSRC hResInfo);
 
     /// <summary>Retrieves a pointer to the specified resource in memory.</summary>
     /// <param name="hResData">
@@ -114,10 +114,10 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern unsafe void* LockResource(HGLOBAL hResData);
+    public static extern unsafe void* LockResource(HGLOBAL hResData);
 
     /// <inheritdoc cref="SizeofResource(HMODULE, HRSRC)"/>
-    internal static uint SizeofResource(SafeHandle? hModule, HRSRC hResInfo) {
+    public static uint SizeofResource(SafeHandle? hModule, HRSRC hResInfo) {
         bool hModuleAddRef = false;
         try {
             HMODULE hModuleLocal;
@@ -150,10 +150,10 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern uint SizeofResource(HMODULE hModule, HRSRC hResInfo);
+    public static extern uint SizeofResource(HMODULE hModule, HRSRC hResInfo);
 
-    /// <inheritdoc cref="EnumResourceNames(HMODULE, PCWSTR, ENUMRESNAMEPROCW, nint)"/>
-    internal static bool EnumResourceNames(SafeHandle? hModule, ResourceAtom lpType,
+    /// <inheritdoc cref="EnumResourceNames(HMODULE, ResourceAtom, ENUMRESNAMEPROCW, nint)"/>
+    public static bool EnumResourceNames(SafeHandle? hModule, ResourceAtom lpType,
             ENUMRESNAMEPROCW lpEnumFunc, nint lParam) {
         var hModuleAddRef = false;
         try {
@@ -195,7 +195,7 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "EnumResourceNamesW", SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern BOOL EnumResourceNames(HMODULE hModule, ResourceAtom lpType,
+    public static extern BOOL EnumResourceNames(HMODULE hModule, ResourceAtom lpType,
             ENUMRESNAMEPROCW lpEnumFunc, nint lParam);
 
     /// <summary>Commits or discards changes made prior to a call to UpdateResource.</summary>
@@ -215,7 +215,7 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "EndUpdateResourceW", SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern BOOL EndUpdateResource(ResourceUpdateSafeHandle hUpdate, BOOL fDiscard);
+    public static extern BOOL EndUpdateResource(ResourceUpdateSafeHandle hUpdate, BOOL fDiscard);
 
     /// <summary>Retrieves a handle that can be used by the UpdateResource function to add, delete, or replace resources in a binary module.</summary>
     /// <param name="pFileName">
@@ -235,7 +235,7 @@ public static partial class Win32 {
     [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "BeginUpdateResourceW", SetLastError = true,
             CharSet = CharSet.Unicode)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern ResourceUpdateSafeHandle BeginUpdateResource(string pFileName, BOOL bDeleteExistingResources);
+    public static extern ResourceUpdateSafeHandle BeginUpdateResource(string pFileName, BOOL bDeleteExistingResources);
 
     /// <summary>Adds, deletes, or replaces a resource in a portable executable (PE) file.</summary>
     /// <param name="hUpdate">
@@ -271,18 +271,18 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "UpdateResourceW", SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern unsafe BOOL UpdateResource(ResourceUpdateSafeHandle hUpdate, ResourceAtom lpType,
+    public static extern unsafe BOOL UpdateResource(ResourceUpdateSafeHandle hUpdate, ResourceAtom lpType,
             ResourceAtom lpName, ushort wLanguage, [Optional] void* lpData, uint cb);
 
     /// <summary>
     /// Represents a Win32 handle that can be closed with <see cref="FreeLibrary"/>.
     /// </summary>
-    internal class FreeLibrarySafeHandle
+    public class FreeLibrarySafeHandle
             : SafeHandle {
         private static readonly IntPtr InvalidHandleValue = new IntPtr(0L);
-        internal FreeLibrarySafeHandle() : base(InvalidHandleValue, true) {}
+        public FreeLibrarySafeHandle() : base(InvalidHandleValue, true) {}
 
-        internal FreeLibrarySafeHandle(IntPtr preexistingHandle, bool ownsHandle = true) :
+        public FreeLibrarySafeHandle(IntPtr preexistingHandle, bool ownsHandle = true) :
                 base(InvalidHandleValue, ownsHandle) {
             this.SetHandle(preexistingHandle);
         }
@@ -292,7 +292,7 @@ public static partial class Win32 {
         protected override bool ReleaseHandle() => FreeLibrary((HMODULE) this.handle);
     }
 
-    internal sealed class ResourceUpdateSafeHandle : SafeHandle {
+    public sealed class ResourceUpdateSafeHandle : SafeHandle {
         public ResourceUpdateSafeHandle() : base(IntPtr.Zero, true) {}
 
         public ResourceUpdateSafeHandle(IntPtr handle, bool ownsHandle = true) : base(IntPtr.Zero, ownsHandle) {
@@ -314,9 +314,9 @@ public static partial class Win32 {
     }
 
     [DebuggerDisplay("{Value}")]
-    internal readonly struct BOOL : IEquatable<BOOL> {
-        internal readonly int Value;
-        internal BOOL(int value) => this.Value = value;
+    public readonly struct BOOL : IEquatable<BOOL> {
+        public readonly int Value;
+        public BOOL(int value) => this.Value = value;
         public static implicit operator int(BOOL value) => value.Value;
         public static explicit operator BOOL(int value) => new BOOL(value);
         public static bool operator ==(BOOL left, BOOL right) => left.Value == right.Value;
@@ -327,19 +327,19 @@ public static partial class Win32 {
         public override bool Equals(object obj) => obj is BOOL other && this.Equals(other);
 
         public override int GetHashCode() => this.Value.GetHashCode();
-        internal BOOL(bool value) => this.Value = value ? 1 : 0;
+        public BOOL(bool value) => this.Value = value ? 1 : 0;
         public static implicit operator bool(BOOL value) => value.Value != 0;
         public static implicit operator BOOL(bool value) => new BOOL(value);
     }
 
     [DebuggerDisplay("{Value}")]
-    internal readonly struct HMODULE : IEquatable<HMODULE> {
-        internal readonly IntPtr Value;
-        internal HMODULE(IntPtr value) => this.Value = value;
+    public readonly struct HMODULE : IEquatable<HMODULE> {
+        public readonly IntPtr Value;
+        public HMODULE(IntPtr value) => this.Value = value;
 
-        internal static HMODULE Null => default;
+        public static HMODULE Null => default;
 
-        internal bool IsNull => Value == default;
+        public bool IsNull => Value == default;
         public static implicit operator IntPtr(HMODULE value) => value.Value;
         public static explicit operator HMODULE(IntPtr value) => new HMODULE(value);
         public static bool operator ==(HMODULE left, HMODULE right) => left.Value == right.Value;
@@ -354,8 +354,8 @@ public static partial class Win32 {
 
     [DebuggerDisplay("{Value}")]
     public readonly struct HRSRC : IEquatable<HRSRC> {
-        internal readonly nint Value;
-        internal HRSRC(nint value) => this.Value = value;
+        public readonly nint Value;
+        public HRSRC(nint value) => this.Value = value;
         public static implicit operator nint(HRSRC value) => value.Value;
         public static explicit operator HRSRC(nint value) => new HRSRC(value);
         public static bool operator ==(HRSRC left, HRSRC right) => left.Value == right.Value;
@@ -370,12 +370,12 @@ public static partial class Win32 {
 
     [DebuggerDisplay("{Value}")]
     public readonly struct HGLOBAL : IEquatable<HGLOBAL> {
-        internal readonly IntPtr Value;
-        internal HGLOBAL(IntPtr value) => this.Value = value;
+        public readonly IntPtr Value;
+        public HGLOBAL(IntPtr value) => this.Value = value;
 
-        internal static HGLOBAL Null => default;
+        public static HGLOBAL Null => default;
 
-        internal bool IsNull => Value == default;
+        public bool IsNull => Value == default;
         public static implicit operator IntPtr(HGLOBAL value) => value.Value;
         public static explicit operator HGLOBAL(IntPtr value) => new HGLOBAL(value);
         public static bool operator ==(HGLOBAL left, HGLOBAL right) => left.Value == right.Value;
@@ -428,5 +428,5 @@ public static partial class Win32 {
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     // ReSharper disable once InconsistentNaming, IdentifierTypo
-    internal delegate BOOL ENUMRESNAMEPROCW(HMODULE hModule, ResourceAtom lpType, ResourceAtom lpName, nint lParam);
+    public delegate BOOL ENUMRESNAMEPROCW(HMODULE hModule, ResourceAtom lpType, ResourceAtom lpName, nint lParam);
 }
