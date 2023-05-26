@@ -2,8 +2,6 @@
 
 #include <Windows.h>
 #include <cassert>
-#include <objbase.h>
-#include <shellapi.h>
 #include "StubData.hpp"
 #include "util.hpp"
 
@@ -72,8 +70,7 @@ const wchar_t* find_argv0_end(const wchar_t* cmd_line) {
     return it;
 }
 
-std::pair<c_wstring, const wchar_t*> build_command_line(std::optional<std::wstring_view> prefixed_args,
-                                                        const wchar_t* target_override = nullptr) {
+c_wstring build_command_line(std::optional<std::wstring_view> prefixed_args, const wchar_t* target_override = nullptr) {
     const wchar_t* const_cmd_line = GetCommandLine();
     auto* const_argv0_end = find_argv0_end(const_cmd_line);
     auto argv0_len = target_override ? wcslen(target_override) : const_argv0_end - const_cmd_line;
@@ -96,8 +93,7 @@ std::pair<c_wstring, const wchar_t*> build_command_line(std::optional<std::wstri
     it_out = std::copy(const_argv0_end, const_argv0_end + args_len + 1, it_out);
 
     assert(cmd_line.str + cmd_line.size == it_out);
-    // +1 to move past whitespace arg separator
-    return {std::move(cmd_line), cmd_line.str + argv0_len + 1};
+    return cmd_line;
 }
 
 HANDLE create_child_job() {
@@ -115,19 +111,6 @@ HANDLE create_child_job() {
     return job_handle;
 }
 
-class ComInit {
-public:
-    ComInit() {
-        if (S_OK != CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)) {
-            throw system_error_from_win32("CoInitializeEx(...)");
-        }
-    }
-
-    ~ComInit() {
-        CoUninitialize();
-    }
-};
-
 struct ChildHandles {
     HANDLE job;
     HANDLE process;
@@ -138,49 +121,23 @@ struct ChildHandles {
     }
 };
 
-ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wchar_t* cmd_args,
-                        const wchar_t* working_directory) {
+ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wchar_t* working_directory) {
     STARTUPINFO startup_info{.cb = sizeof(startup_info)};
     PROCESS_INFORMATION process_info{};
     DWORD flags = INHERIT_PARENT_AFFINITY | CREATE_SUSPENDED;
 
     // assign the child to a job so that the child is killed if this stub process dies
     auto job_handle = create_child_job();
-    bool success = CreateProcess(target, command_line, nullptr, nullptr, true, flags,
-                                 nullptr, working_directory, &startup_info, &process_info);
+    CHECK_ERROR_B(CreateProcess(target, command_line, nullptr, nullptr, true, flags,
+                                nullptr, working_directory, &startup_info, &process_info));
 
-    if (!success && GetLastError() != ERROR_ELEVATION_REQUIRED) {
-        throw system_error_from_win32("CreateProcess(...)");
-    } else if (success) {
-        // assign the child to the job and resume it
-        CHECK_ERROR_B(AssignProcessToJobObject(job_handle, process_info.hProcess));
-        CHECK_ERROR_V((DWORD)-1, ResumeThread(process_info.hThread));
-        // we don't need the thread handle anymore, close it
-        CHECK_ERROR_B(CloseHandle(process_info.hThread));
+    // assign the child to the job and resume it
+    CHECK_ERROR_B(AssignProcessToJobObject(job_handle, process_info.hProcess));
+    CHECK_ERROR_V((DWORD)-1, ResumeThread(process_info.hThread));
+    // we don't need the thread handle anymore, close it
+    CHECK_ERROR_B(CloseHandle(process_info.hThread));
 
-        return {.job = job_handle, .process = process_info.hProcess};
-    } else {
-        DBG_LOG(L"Using ShellExecute\n");
-        // We must elevate the process, which is (basically) impossible with CreateProcess,
-        // and therefore we fall back to ShellExecuteEx, which CAN create elevated processes,
-        // at the cost of opening a new separate window. Theoretically, this could be fixed
-        // (or rather, worked around) using pipes and IPC, but... this is a question for another day.
-        SHELLEXECUTEINFO sei = {
-                .cbSize = sizeof(sei),
-                .fMask = SEE_MASK_NOCLOSEPROCESS,
-                .lpFile = target,
-                .lpParameters = cmd_args,
-                .lpDirectory = working_directory,
-                .nShow = SW_SHOW,
-        };
-
-        // COM should be initialized when calling ShellExecute
-        // https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexa#remarks
-        ComInit com{};
-
-        CHECK_ERROR_B(ShellExecuteEx(&sei));
-        return {.job = job_handle, .process = sei.hProcess};
-    }
+    return {.job = job_handle, .process = process_info.hProcess};
 }
 
 [[noreturn]] void real_main() {
@@ -204,7 +161,7 @@ ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wcha
 
     DBG_LOG(L"override argv: %ls\n", stub_data.flags() & StubFlag::REPLACE_ARGV0 ? L"yes" : L"no");
     DBG_LOG(L"target: %ls\n", target);
-    DBG_LOG(L"command line: %ls\n", cmd_line.first.str);
+    DBG_LOG(L"command line: %ls\n", cmd_line.str);
     if (working_dir) {
         DBG_LOG(L"working directory: %ls\n", working_dir);
     }
@@ -216,7 +173,7 @@ ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wcha
     CHECK_ERROR_B(SetConsoleCtrlHandler(ctrl_handler, TRUE));
 
     // run the target
-    auto handles = run_target(target, cmd_line.first.str, cmd_line.second, working_dir);
+    auto handles = run_target(target, cmd_line.str, working_dir);
 
     // wait until the child stops
     CHECK_ERROR_V((DWORD)-1, WaitForSingleObject(handles.process, INFINITE));
