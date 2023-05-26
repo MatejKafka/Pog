@@ -1,4 +1,5 @@
 /.idea/
+/lib_compiled.sln.DotSettings.user
 
 /RandomTests/*
 !/RandomTests/RandomTests.csproj
