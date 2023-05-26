@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using JetBrains.Annotations;
@@ -345,9 +344,10 @@ public class SharedFileCache {
         // move the entry into place
         try {
             Native.MoveFileByHandle(handle, targetPath);
-        } catch (COMException e) {
-            // -2147024713 (0x800700B7) = target already exists
-            if (e.HResult == -2147024713) {
+        } catch (SystemException e) {
+            // 0x800700B7 = ERROR_ALREADY_EXISTS (-2147024713)
+            // 0x80070005 = ERROR_ACCESS_DENIED (-2147024891)
+            if (e.HResult is -2147024713 or -2147024891) {
                 throw new CacheEntryAlreadyExistsException(entryKey);
             }
             throw;

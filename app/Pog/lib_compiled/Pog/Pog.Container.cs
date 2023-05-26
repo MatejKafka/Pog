@@ -66,7 +66,6 @@ public class Container : IDisposable {
         //  and then remove them from the global scope, so that the manifest does not see them
         // the `finally` block is called even on exit
         _ps.AddScript(@"
-            Set-StrictMode -Version Latest
             $mainSb = (Get-Command __main).ScriptBlock
             $cleanupSb = (Get-Command __cleanup).ScriptBlock
             Remove-Item Function:__main, Function:__cleanup
