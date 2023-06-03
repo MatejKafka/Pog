@@ -1,13 +1,15 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 
-namespace Pog;
+namespace Pog.Native;
 
 // This class exists because .NET API (and win32 MoveItem) does not allow us to differ between
 //  "we don't have permission to rename a directory" and "there's a locked entry in the directory".
-public static partial class Native {
+[PublicAPI]
+public static class DirectoryUtils {
     // source: https://github.com/microsoft/BuildXL/blob/d09e1c45d68a81ccabff3f32e0e31c855ee246f8/Public/Src/Utilities/Native/IO/Windows/FileSystem.Win.cs#L1605=
     public static unsafe void MoveFileByHandle(SafeFileHandle handle, string destinationPath,
             bool replaceExistingFile = false) {
@@ -51,8 +53,6 @@ public static partial class Native {
         return handle;
     }
 
-    /// Don't forget to call Dispose() on the returned handle when you're done.
-    ///
     /// This method, together with `MoveFileByHandle`, is useful to distinguish between 2 possible causes
     /// for an Access Denied error, which are conflated together with `MoveFile`:
     /// 1) We don't have sufficient permissions to move the directory (in which case this method throws
@@ -95,9 +95,9 @@ public static partial class Native {
      * <exception cref="SystemException"></exception>
      */
     public static bool MoveDirectoryUnlocked(string srcPath, string destinationPath) {
-        using var handle = Native.OpenDirectoryForMove(srcPath);
+        using var handle = OpenDirectoryForMove(srcPath);
         try {
-            Native.MoveFileByHandle(handle, destinationPath);
+            MoveFileByHandle(handle, destinationPath);
             return true; // move succeeded, no locks
         } catch (SystemException e) {
             // 0x80070005 = ERROR_ACCESS_DENIED

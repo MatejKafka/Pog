@@ -4,317 +4,319 @@ using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 
-namespace Pog;
+namespace Pog.Native;
 
-public static partial class Native {
-    // TODO: support resources with non-standard types (accept ResourceAtom as resourceType, in addition to ResourceType)
-    public static class PeResources {
-        [PublicAPI]
-        public class Module : IDisposable {
-            private readonly Win32.FreeLibrarySafeHandle _handle;
+// TODO: support resources with non-standard types (accept ResourceAtom as resourceType, in addition to ResourceType)
+public static class PeResources {
+    [PublicAPI]
+    public class Module : IDisposable {
+        private readonly Win32.FreeLibrarySafeHandle _handle;
 
-            public Module(string pePath) {
-                _handle = Win32.LoadLibraryEx(pePath, default, Win32.LoadLibraryFlags.LOAD_LIBRARY_AS_DATAFILE);
+        public Module(string pePath) {
+            _handle = Win32.LoadLibraryEx(pePath, default, Win32.LoadLibraryFlags.LOAD_LIBRARY_AS_DATAFILE);
+            if (_handle.IsInvalid) {
+                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
+            }
+        }
+
+        public void Dispose() {
+            _handle.Dispose();
+        }
+
+        /// <returns>
+        /// Span wrapping the loaded resource.
+        /// NOTE: You must NOT use the span after the Module instance is disposed, as it unmaps the resource from memory.
+        /// </returns>
+        /// <exception cref="ResourceNotFoundException">Resource does not exist.</exception>
+        public unsafe ReadOnlySpan<byte> GetResource(ResourceType resourceType, Win32.ResourceAtom resourceName) {
+            var resourceHandle = Win32.FindResource(_handle, resourceName, (ushort) resourceType);
+            if (resourceHandle == default) {
+                var hr = Marshal.GetHRForLastWin32Error();
+                if (!ResourceNotFoundException.ThrowForHResult(hr, resourceType, resourceName)) {
+                    Marshal.ThrowExceptionForHR(hr);
+                }
             }
 
-            public void Dispose() {
-                _handle.Dispose();
+            var loadedResource = Win32.LoadResource(_handle, resourceHandle);
+            if (loadedResource.IsNull) {
+                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
             }
 
-            /// <returns>
-            /// Span wrapping the loaded resource.
-            /// NOTE: You must NOT use the span after the Module instance is disposed, as it unmaps the resource from memory.
-            /// </returns>
-            /// <exception cref="ResourceNotFoundException">Resource does not exist.</exception>
-            public unsafe ReadOnlySpan<byte> GetResource(ResourceType resourceType, Win32.ResourceAtom resourceName) {
-                var resourceHandle = Win32.FindResource(_handle, resourceName, (ushort) resourceType);
-                if (resourceHandle == default) {
-                    var hr = Marshal.GetHRForLastWin32Error();
-                    if (!ResourceNotFoundException.ThrowForHResult(hr, resourceType, resourceName)) {
-                        Marshal.ThrowExceptionForHR(hr);
-                    }
-                }
-
-                var loadedResource = Win32.LoadResource(_handle, resourceHandle);
-                if (loadedResource.IsNull) {
-                    Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-                }
-
-                var resourcePtr = Win32.LockResource(loadedResource);
-                if (resourcePtr == null) {
-                    Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-                }
-
-                var resourceSize = Win32.SizeofResource(_handle, resourceHandle);
-                if (resourceSize == 0) {
-                    Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-                }
-
-                return new ReadOnlySpan<byte>(resourcePtr, (int) resourceSize);
+            var resourcePtr = Win32.LockResource(loadedResource);
+            if (resourcePtr == null) {
+                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
             }
 
-            /// <inheritdoc cref="GetResource(Pog.Native.PeResources.ResourceType,Pog.Win32.ResourceAtom)"/>
-            public ReadOnlySpan<byte> GetResource(ResourceId resourceId) {
-                return GetResource(resourceId.Type, resourceId.Name);
+            var resourceSize = Win32.SizeofResource(_handle, resourceHandle);
+            if (resourceSize == 0) {
+                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
             }
 
-            public bool TryGetResource(ResourceType resourceType, Win32.ResourceAtom resourceName,
-                    out ReadOnlySpan<byte> resource) {
+            return new ReadOnlySpan<byte>(resourcePtr, (int) resourceSize);
+        }
+
+        /// <inheritdoc cref="GetResource(Pog.Native.PeResources.ResourceType,Win32.ResourceAtom)"/>
+        public ReadOnlySpan<byte> GetResource(ResourceId resourceId) {
+            return GetResource(resourceId.Type, resourceId.Name);
+        }
+
+        public bool TryGetResource(ResourceType resourceType, Win32.ResourceAtom resourceName,
+                out ReadOnlySpan<byte> resource) {
+            try {
+                resource = GetResource(resourceType, resourceName);
+            } catch (ResourceNotFoundException) {
+                resource = default;
+                return false;
+            }
+            return true;
+        }
+
+        public bool TryGetResource(ResourceId resourceId, out ReadOnlySpan<byte> resource) {
+            return TryGetResource(resourceId.Type, resourceId.Name, out resource);
+        }
+
+        /// <exception cref="ResourceTypeNotFoundException"></exception>
+        public bool IterateResourceNames(ResourceType resourceType, Func<Win32.ResourceAtom, bool> callback) {
+            ExceptionDispatchInfo? exceptionFromCb = null;
+            var success = Win32.EnumResourceNames(_handle, (ushort) resourceType, (_, _, name, _) => {
                 try {
-                    resource = GetResource(resourceType, resourceName);
-                } catch (ResourceNotFoundException) {
-                    resource = default;
+                    return callback(name);
+                } catch (Exception e) {
+                    // exceptions must not escape the enumeration callback, because .NET marshalling cannot propagate
+                    //  them through the native call
+                    exceptionFromCb = ExceptionDispatchInfo.Capture(e);
                     return false;
                 }
+            }, 0);
+
+            if (success) {
                 return true;
             }
 
-            public bool TryGetResource(ResourceId resourceId, out ReadOnlySpan<byte> resource) {
-                return TryGetResource(resourceId.Type, resourceId.Name, out resource);
+            var hr = Marshal.GetHRForLastWin32Error();
+            // 0x80073B02 = ERROR_RESOURCE_ENUM_USER_STOP, user stopped enumeration by returning false from callback
+            if (hr == -2147009790) {
+                // if exception occurred inside the callback, rethrow it with original stack trace
+                exceptionFromCb?.Throw();
+                // else return false
+                return false;
+            } else if (!ResourceTypeNotFoundException.ThrowForHResult(hr, resourceType)) {
+                Marshal.ThrowExceptionForHR(hr);
             }
+            throw new InvalidOperationException("unreachable");
+        }
 
-            /// <exception cref="ResourceTypeNotFoundException"></exception>
-            public bool IterateResourceNames(ResourceType resourceType, Func<Win32.ResourceAtom, bool> callback) {
-                ExceptionDispatchInfo? exceptionFromCb = null;
-                var success = Win32.EnumResourceNames(_handle, (ushort) resourceType, (_, _, name, _) => {
-                    try {
-                        return callback(name);
-                    } catch (Exception e) {
-                        // exceptions must not escape the enumeration callback, because .NET marshalling cannot propagate
-                        //  them through the native call
-                        exceptionFromCb = ExceptionDispatchInfo.Capture(e);
-                        return false;
-                    }
-                }, 0);
-
-                if (success) {
-                    return true;
-                }
-
-                var hr = Marshal.GetHRForLastWin32Error();
-                // 0x80073B02 = ERROR_RESOURCE_ENUM_USER_STOP, user stopped enumeration by returning false from callback
-                if (hr == -2147009790) {
-                    // if exception occurred inside the callback, rethrow it with original stack trace
-                    exceptionFromCb?.Throw();
-                    // else return false
-                    return false;
-                } else if (!ResourceTypeNotFoundException.ThrowForHResult(hr, resourceType)) {
-                    Marshal.ThrowExceptionForHR(hr);
-                }
-                throw new InvalidOperationException("unreachable");
-            }
-
-            /// Note that the callback receives a `ResourceAtom`. Use the extension method `.ToResourceType()` to get
-            /// the corresponding enum value, or null if not convertible.
-            /// <exception cref="ResourceSectionNotFoundException"></exception>
-            public bool IterateResourceTypes(Func<Win32.ResourceAtom, bool> callback) {
-                ExceptionDispatchInfo? exceptionFromCb = null;
-                var success = Win32.EnumResourceTypes(_handle, (_, name, _) => {
-                    try {
-                        return callback(name);
-                    } catch (Exception e) {
-                        // exceptions must not escape the enumeration callback, because .NET marshalling cannot propagate
-                        //  them through the native call
-                        exceptionFromCb = ExceptionDispatchInfo.Capture(e);
-                        return false;
-                    }
-                }, 0);
-
-                if (success) {
-                    return true;
-                }
-
-                var hr = Marshal.GetHRForLastWin32Error();
-                // 0x80073B02 = ERROR_RESOURCE_ENUM_USER_STOP, user stopped enumeration by returning false from callback
-                if (hr == -2147009790) {
-                    // if exception occurred inside the callback, rethrow it with original stack trace
-                    exceptionFromCb?.Throw();
-                    // else return false
-                    return false;
-                } else if (!ResourceSectionNotFoundException.ThrowForHResult(hr)) {
-                    Marshal.ThrowExceptionForHR(hr);
-                }
-                throw new InvalidOperationException("unreachable");
-            }
-
-            public List<Win32.ResourceAtom> GetResourceNames(ResourceType resourceType) {
-                var list = new List<Win32.ResourceAtom>();
-                IterateResourceNames(resourceType, name => {
-                    list.Add(name);
-                    return true;
-                });
-                return list;
-            }
-
-            public List<Win32.ResourceAtom> GetResourceTypes() {
-                var list = new List<Win32.ResourceAtom>();
-                IterateResourceTypes(type => {
-                    list.Add(type);
-                    return true;
-                });
-                return list;
-            }
-
-            public bool TryGetResourceNames(ResourceType resourceType, out List<Win32.ResourceAtom> resourcesNames) {
+        /// Note that the callback receives a `ResourceAtom`. Use the extension method `.ToResourceType()` to get
+        /// the corresponding enum value, or null if not convertible.
+        /// <exception cref="ResourceSectionNotFoundException"></exception>
+        public bool IterateResourceTypes(Func<Win32.ResourceAtom, bool> callback) {
+            ExceptionDispatchInfo? exceptionFromCb = null;
+            var success = Win32.EnumResourceTypes(_handle, (_, name, _) => {
                 try {
-                    resourcesNames = GetResourceNames(resourceType);
-                    return true;
-                } catch (ResourceNotFoundException) {
-                    resourcesNames = null!;
+                    return callback(name);
+                } catch (Exception e) {
+                    // exceptions must not escape the enumeration callback, because .NET marshalling cannot propagate
+                    //  them through the native call
+                    exceptionFromCb = ExceptionDispatchInfo.Capture(e);
                     return false;
                 }
+            }, 0);
+
+            if (success) {
+                return true;
             }
 
-            public bool TryGetResourceTypes(out List<Win32.ResourceAtom>? resourceTypes) {
-                try {
-                    resourceTypes = GetResourceTypes();
-                    return true;
-                } catch (ResourceNotFoundException) {
-                    resourceTypes = null;
-                    return false;
-                }
+            var hr = Marshal.GetHRForLastWin32Error();
+            // 0x80073B02 = ERROR_RESOURCE_ENUM_USER_STOP, user stopped enumeration by returning false from callback
+            if (hr == -2147009790) {
+                // if exception occurred inside the callback, rethrow it with original stack trace
+                exceptionFromCb?.Throw();
+                // else return false
+                return false;
+            } else if (!ResourceSectionNotFoundException.ThrowForHResult(hr)) {
+                Marshal.ThrowExceptionForHR(hr);
+            }
+            throw new InvalidOperationException("unreachable");
+        }
+
+        public List<Win32.ResourceAtom> GetResourceNames(ResourceType resourceType) {
+            var list = new List<Win32.ResourceAtom>();
+            IterateResourceNames(resourceType, name => {
+                list.Add(name);
+                return true;
+            });
+            return list;
+        }
+
+        public List<Win32.ResourceAtom> GetResourceTypes() {
+            var list = new List<Win32.ResourceAtom>();
+            IterateResourceTypes(type => {
+                list.Add(type);
+                return true;
+            });
+            return list;
+        }
+
+        public bool TryGetResourceNames(ResourceType resourceType, out List<Win32.ResourceAtom> resourcesNames) {
+            try {
+                resourcesNames = GetResourceNames(resourceType);
+                return true;
+            } catch (ResourceNotFoundException) {
+                resourcesNames = null!;
+                return false;
             }
         }
 
-        [PublicAPI]
-        public class ResourceUpdater : IDisposable {
-            private Win32.ResourceUpdateSafeHandle _handle;
+        public bool TryGetResourceTypes(out List<Win32.ResourceAtom>? resourceTypes) {
+            try {
+                resourceTypes = GetResourceTypes();
+                return true;
+            } catch (ResourceNotFoundException) {
+                resourceTypes = null;
+                return false;
+            }
+        }
+    }
 
-            public ResourceUpdater(string pePath, bool deleteExistingResources = false) {
-                _handle = Win32.BeginUpdateResource(pePath, deleteExistingResources);
-                if (_handle.IsInvalid) {
+    [PublicAPI]
+    public class ResourceUpdater : IDisposable {
+        private Win32.ResourceUpdateSafeHandle _handle;
+
+        public ResourceUpdater(string pePath, bool deleteExistingResources = false) {
+            _handle = Win32.BeginUpdateResource(pePath, deleteExistingResources);
+            if (_handle.IsInvalid) {
+                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
+            }
+        }
+
+        public void Dispose() {
+            _handle.Dispose();
+        }
+
+        public void DiscardChanges() {
+            _handle.Dispose();
+        }
+
+        public void CommitChanges() {
+            _handle.CommitChanges();
+        }
+
+        // = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
+        private const ushort NeutralLanguageId = 0;
+
+        public unsafe void SetResource(ResourceType resourceType, Win32.ResourceAtom resourceName,
+                ReadOnlySpan<byte> resource) {
+            fixed (byte* resourcePtr = resource) {
+                if (!Win32.UpdateResource(_handle, (ushort) resourceType, resourceName, NeutralLanguageId, resourcePtr,
+                            (uint) resource.Length)) {
                     Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
                 }
             }
+        }
 
-            public void Dispose() {
-                _handle.Dispose();
-            }
+        /// <inheritdoc cref="SetResource(Pog.Native.PeResources.ResourceType,Win32.ResourceAtom,System.ReadOnlySpan{byte})"/>
+        public void SetResource(ResourceId resourceId, ReadOnlySpan<byte> resource) {
+            SetResource(resourceId.Type, resourceId.Name, resource);
+        }
 
-            public void DiscardChanges() {
-                _handle.Dispose();
-            }
+        public void CopyResourceFrom(Module srcModule, ResourceType resourceType, Win32.ResourceAtom resourceName) {
+            SetResource(resourceType, resourceName, srcModule.GetResource(resourceType, resourceName));
+        }
 
-            public void CommitChanges() {
-                _handle.CommitChanges();
-            }
-
-            // = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
-            private const ushort NeutralLanguageId = 0;
-
-            public unsafe void SetResource(ResourceType resourceType, Win32.ResourceAtom resourceName,
-                    ReadOnlySpan<byte> resource) {
-                fixed (byte* resourcePtr = resource) {
-                    if (!Win32.UpdateResource(_handle, (ushort) resourceType, resourceName, NeutralLanguageId, resourcePtr,
-                                (uint) resource.Length)) {
-                        Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-                    }
-                }
-            }
-
-            /// <inheritdoc cref="SetResource(Pog.Native.PeResources.ResourceType,Pog.Win32.ResourceAtom,System.ReadOnlySpan{byte})"/>
-            public void SetResource(ResourceId resourceId, ReadOnlySpan<byte> resource) {
-                SetResource(resourceId.Type, resourceId.Name, resource);
-            }
-
-            public void CopyResourceFrom(Module srcModule, ResourceType resourceType, Win32.ResourceAtom resourceName) {
-                SetResource(resourceType, resourceName, srcModule.GetResource(resourceType, resourceName));
-            }
-
-            public unsafe void DeleteResource(ResourceType resourceType, Win32.ResourceAtom resourceName) {
-                if (!Win32.UpdateResource(_handle, (ushort) resourceType, resourceName, NeutralLanguageId, (void*) 0, 0)) {
-                    Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-                }
-            }
-
-            /// <inheritdoc cref="DeleteResource(Pog.Native.PeResources.ResourceType,Pog.Win32.ResourceAtom)"/>
-            public void DeleteResource(ResourceId resourceId) {
-                DeleteResource(resourceId.Type, resourceId.Name);
+        public unsafe void DeleteResource(ResourceType resourceType, Win32.ResourceAtom resourceName) {
+            if (!Win32.UpdateResource(_handle, (ushort) resourceType, resourceName, NeutralLanguageId, (void*) 0, 0)) {
+                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
             }
         }
 
-        public class ResourceNotFoundException : Exception {
-            internal ResourceNotFoundException(string message) : base(message) {}
-
-            private ResourceNotFoundException(ResourceType resourceType, Win32.ResourceAtom resourceName)
-                    : base($"Resource '{resourceType} {resourceName}' is not present in the specified image file.") {}
-
-            internal static bool ThrowForHResult(int hr, ResourceType type, Win32.ResourceAtom name) {
-                // 0x80070716 = ERROR_RESOURCE_NAME_NOT_FOUND, resource not found
-                if (hr == -2147023082) throw new ResourceNotFoundException(type, name);
-                else return ResourceTypeNotFoundException.ThrowForHResult(hr, type);
-            }
+        /// <inheritdoc cref="DeleteResource(Pog.Native.PeResources.ResourceType,Win32.ResourceAtom)"/>
+        public void DeleteResource(ResourceId resourceId) {
+            DeleteResource(resourceId.Type, resourceId.Name);
         }
+    }
 
-        public class ResourceTypeNotFoundException : ResourceNotFoundException {
-            internal ResourceTypeNotFoundException(string message) : base(message) {}
+    public class ResourceNotFoundException : Exception {
+        internal ResourceNotFoundException(string message) : base(message) {}
 
-            private ResourceTypeNotFoundException(ResourceType resourceType)
-                    : base($"Resource type '{resourceType}' is not present in the specified image file.") {}
+        private ResourceNotFoundException(ResourceType resourceType, Win32.ResourceAtom resourceName)
+                : base($"Resource '{resourceType} {resourceName}' is not present in the specified image file.") {}
 
-            internal static bool ThrowForHResult(int hr, ResourceType type) {
-                // 0x80070715 = ERROR_RESOURCE_TYPE_NOT_FOUND, no resources of requested type
-                if (hr == -2147023083) throw new ResourceTypeNotFoundException(type);
-                else return ResourceSectionNotFoundException.ThrowForHResult(hr);
-            }
+        internal static bool ThrowForHResult(int hr, ResourceType type, Win32.ResourceAtom name) {
+            // 0x80070716 = ERROR_RESOURCE_NAME_NOT_FOUND, resource not found
+            if (hr == -2147023082) throw new ResourceNotFoundException(type, name);
+            else return ResourceTypeNotFoundException.ThrowForHResult(hr, type);
         }
+    }
 
-        public class ResourceSectionNotFoundException : ResourceTypeNotFoundException {
-            private ResourceSectionNotFoundException() :
-                    base("The specified image file does not contain a resource section.") {}
+    public class ResourceTypeNotFoundException : ResourceNotFoundException {
+        internal ResourceTypeNotFoundException(string message) : base(message) {}
 
-            internal static bool ThrowForHResult(int hr) {
-                // 0x80070714 = ERROR_RESOURCE_DATA_NOT_FOUND, no resource section, the module does not have any resources
-                if (hr == -2147023084) throw new ResourceSectionNotFoundException();
-                else return false;
-            }
+        private ResourceTypeNotFoundException(ResourceType resourceType)
+                : base($"Resource type '{resourceType}' is not present in the specified image file.") {}
+
+        internal static bool ThrowForHResult(int hr, ResourceType type) {
+            // 0x80070715 = ERROR_RESOURCE_TYPE_NOT_FOUND, no resources of requested type
+            if (hr == -2147023083) throw new ResourceTypeNotFoundException(type);
+            else return ResourceSectionNotFoundException.ThrowForHResult(hr);
         }
+    }
 
-        [PublicAPI]
-        public enum ResourceType : ushort {
-            Cursor = 1,
-            Bitmap = 2,
-            Icon = 3,
-            Menu = 4,
-            Dialog = 5,
-            String = 6,
-            FontDir = 7,
-            Font = 8,
-            Accelerator = 9,
-            RcData = 10,
-            MessageTable = 11,
+    public class ResourceSectionNotFoundException : ResourceTypeNotFoundException {
+        private ResourceSectionNotFoundException() :
+                base("The specified image file does not contain a resource section.") {}
 
-            CursorGroup = 11 + Cursor,
-            IconGroup = 11 + Icon,
-
-            Version = 16,
-            DlgInclude = 17,
-            PlugPlay = 19,
-            Vxd = 20,
-            CursorAnimated = 21,
-            IconAnimated = 22,
-            Html = 23,
-            Manifest = 24,
+        internal static bool ThrowForHResult(int hr) {
+            // 0x80070714 = ERROR_RESOURCE_DATA_NOT_FOUND, no resource section, the module does not have any resources
+            if (hr == -2147023084) throw new ResourceSectionNotFoundException();
+            else return false;
         }
+    }
 
-        public readonly struct ResourceId {
-            public readonly ResourceType Type;
-            public readonly Win32.ResourceAtom Name;
+    [PublicAPI]
+    public enum ResourceType : ushort {
+        Cursor = 1,
+        Bitmap = 2,
+        Icon = 3,
+        Menu = 4,
+        Dialog = 5,
+        String = 6,
+        FontDir = 7,
+        Font = 8,
+        Accelerator = 9,
+        RcData = 10,
+        MessageTable = 11,
 
-            public ResourceId(ResourceType type, Win32.ResourceAtom name) {
-                Type = type;
-                Name = name;
-            }
+        CursorGroup = 11 + Cursor,
+        IconGroup = 11 + Icon,
+
+        Version = 16,
+        DlgInclude = 17,
+        PlugPlay = 19,
+        Vxd = 20,
+        CursorAnimated = 21,
+        IconAnimated = 22,
+        Html = 23,
+        Manifest = 24,
+    }
+
+    public readonly struct ResourceId {
+        public readonly ResourceType Type;
+        public readonly Win32.ResourceAtom Name;
+
+        public ResourceId(ResourceType type, Win32.ResourceAtom name) {
+            Type = type;
+            Name = name;
         }
     }
 }
 
+[UsedImplicitly]
 public static class ResourceAtomExtensions {
-    public static Native.PeResources.ResourceType? ToResourceType(this Win32.ResourceAtom atom) {
+    public static PeResources.ResourceType? ToResourceType(this Win32.ResourceAtom atom) {
         if (atom.IsId()) {
             var id = atom.GetAsId();
-            if (Enum.IsDefined(typeof(Native.PeResources.ResourceType), id)) {
-                return (Native.PeResources.ResourceType) id;
+            if (Enum.IsDefined(typeof(PeResources.ResourceType), id)) {
+                return (PeResources.ResourceType) id;
             } else {
                 return null;
             }

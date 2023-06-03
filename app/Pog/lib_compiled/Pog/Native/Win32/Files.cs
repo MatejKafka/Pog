@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
-namespace Pog;
+namespace Pog.Native;
 
 public static partial class Win32 {
     [DllImport("Kernel32.dll", SetLastError = true)]
@@ -15,6 +15,7 @@ public static partial class Win32 {
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [Flags]
     public enum FILE_FLAG {
+        OPEN_REPARSE_POINT = 0x00200000,
         // must be passed to open a directory handle (otherwise you can only create file handles)
         BACKUP_SEMANTICS = 0x02000000,
         DELETE_ON_CLOSE = 0x04000000,
@@ -37,12 +38,12 @@ public static partial class Win32 {
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool LockFileEx(IntPtr hFile, LockFileFlags dwFlags, uint dwReserved,
+    public static extern bool LockFileEx(SafeFileHandle hFile, LockFileFlags dwFlags, uint dwReserved,
             uint nNumberOfBytesToLockLow, uint nNumberOfBytesToLockHigh, [In] ref NativeOverlapped lpOverlapped);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool UnlockFileEx(IntPtr hFile, uint dwReserved,
+    public static extern bool UnlockFileEx(SafeFileHandle hFile, uint dwReserved,
             uint nNumberOfBytesToLockLow, uint nNumberOfBytesToLockHigh, [In] ref NativeOverlapped lpOverlapped);
 
     [Flags]

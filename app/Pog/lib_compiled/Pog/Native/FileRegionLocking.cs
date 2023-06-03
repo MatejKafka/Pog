@@ -3,13 +3,35 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using JetBrains.Annotations;
+using Microsoft.Win32.SafeHandles;
 
-namespace Pog;
+namespace Pog.Native;
 
 [PublicAPI]
-public static partial class Native {
-    public static FileRegionLock LockFile(FileStream stream, Win32.LockFileFlags flags, ulong position, ulong length) {
-        var regionLock = new FileRegionLock(stream.SafeFileHandle!.DangerousGetHandle(), position, length);
+public class FileLock : IDisposable {
+    internal SafeFileHandle Handle;
+    internal NativeOverlapped Overlapped;
+    internal uint LengthLow;
+    internal uint LengthHigh;
+    private bool _locked = true;
+
+    internal FileLock(SafeFileHandle handle, ulong position, ulong length) {
+        Handle = handle;
+        Overlapped = new NativeOverlapped {
+            OffsetLow = (int) (position & 0xFFFFFFFF),
+            OffsetHigh = (int) (position >> 32),
+        };
+        LengthLow = (uint) (length & 0xFFFFFFFF);
+        LengthHigh = (uint) (length >> 32);
+    }
+
+    /// Locks the whole file.
+    public static FileLock Lock(FileStream stream, Win32.LockFileFlags flags) {
+        return Lock(stream, flags, 0, ulong.MaxValue);
+    }
+
+    public static FileLock Lock(FileStream stream, Win32.LockFileFlags flags, ulong position, ulong length) {
+        var regionLock = new FileLock(stream.SafeFileHandle!, position, length);
         var success = Win32.LockFileEx(regionLock.Handle, flags, 0, regionLock.LengthLow, regionLock.LengthHigh,
                 ref regionLock.Overlapped);
         if (!success) {
@@ -18,36 +40,17 @@ public static partial class Native {
         return regionLock;
     }
 
-    [PublicAPI]
-    public class FileRegionLock : IDisposable {
-        internal IntPtr Handle;
-        internal NativeOverlapped Overlapped;
-        internal uint LengthLow;
-        internal uint LengthHigh;
-        private bool _locked = true;
-
-        internal FileRegionLock(IntPtr handle, ulong position, ulong length) {
-            Handle = handle;
-            Overlapped = new NativeOverlapped {
-                OffsetLow = (int) (position & 0xFFFFFFFF),
-                OffsetHigh = (int) (position >> 32)
-            };
-            LengthLow = (uint) (length & 0xFFFFFFFF);
-            LengthHigh = (uint) (length >> 32);
+    public void Unlock() {
+        if (!_locked) return;
+        var success = Win32.UnlockFileEx(Handle, 0, LengthLow, LengthHigh, ref Overlapped);
+        if (success) {
+            _locked = false;
+        } else {
+            Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
         }
+    }
 
-        public void Unlock() {
-            if (!_locked) return;
-            var success = Win32.UnlockFileEx(Handle, 0, LengthLow, LengthHigh, ref Overlapped);
-            if (success) {
-                _locked = false;
-            } else {
-                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-            }
-        }
-
-        public void Dispose() {
-            Unlock();
-        }
+    public void Dispose() {
+        Unlock();
     }
 }

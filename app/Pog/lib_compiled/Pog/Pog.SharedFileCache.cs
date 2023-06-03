@@ -101,7 +101,7 @@ public class SharedFileCache {
         try {
             using var stream = File.Open(metadataPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             // lock the whole file in a shared read-only mode
-            using var regionLock = Native.LockFile(stream, Win32.LockFileFlags.WAIT, 0, ulong.MaxValue);
+            using var regionLock = Native.FileLock.Lock(stream, Native.Win32.LockFileFlags.WAIT, 0, ulong.MaxValue);
             return EnumerateMetadataFileStream(stream).ToArray();
         } catch (FileNotFoundException) {
             return null;
@@ -111,8 +111,7 @@ public class SharedFileCache {
     private void AddPackageMetadata(string metadataPath, SourcePackageMetadata packageInfo) {
         using var stream = File.Open(metadataPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
         // lock the whole file in RW mode
-        using var regionLock = Native.LockFile(stream, Win32.LockFileFlags.EXCLUSIVE_LOCK | Win32.LockFileFlags.WAIT,
-                0, ulong.MaxValue);
+        using var regionLock = Native.FileLock.Lock(stream, Native.Win32.LockFileFlags.EXCLUSIVE_LOCK | Native.Win32.LockFileFlags.WAIT);
 
         // ensure that we're not adding a duplicate
         if (EnumerateMetadataFileStream(stream).Any(pm => pm == packageInfo)) {
@@ -141,7 +140,7 @@ public class SharedFileCache {
     private SafeFileHandle? LockEntryDirectory(string entryDirPath) {
         for (var i = 0;; i++) {
             try {
-                return Native.OpenDirectoryReadOnly(entryDirPath);
+                return Native.DirectoryUtils.OpenDirectoryReadOnly(entryDirPath);
             } catch (FileNotFoundException) {
                 // yes, really, it's not DirectoryNotFoundException
                 // the entry does not exist
@@ -266,7 +265,7 @@ public class SharedFileCache {
         try {
             // it's not possible to atomically delete a directory; instead, we move it
             //  to a temporary directory and delete it there
-            h = Native.OpenDirectoryForMove(srcPath);
+            h = Native.DirectoryUtils.OpenDirectoryForMove(srcPath);
         } catch (FileNotFoundException) {
             // entry does not exist
             return;
@@ -279,7 +278,7 @@ public class SharedFileCache {
         using (h) {
             try {
                 // this atomically moves the directory
-                Native.MoveFileByHandle(h, destinationPath);
+                Native.DirectoryUtils.MoveFileByHandle(h, destinationPath);
             } catch (UnauthorizedAccessException) {
                 // entry is currently in use
                 throw new CacheEntryInUseException(entryKey);
@@ -339,11 +338,11 @@ public class SharedFileCache {
 
         var targetPath = IOPath.Combine(Path, entryKey);
         // we close this handle after the method is done, similarly to GetEntryLocked
-        using var handle = Native.OpenDirectoryForMove(newEntry.DirPath);
+        using var handle = Native.DirectoryUtils.OpenDirectoryForMove(newEntry.DirPath);
 
         // move the entry into place
         try {
-            Native.MoveFileByHandle(handle, targetPath);
+            Native.DirectoryUtils.MoveFileByHandle(handle, targetPath);
         } catch (SystemException e) {
             // 0x800700B7 = ERROR_ALREADY_EXISTS (-2147024713)
             // 0x80070005 = ERROR_ACCESS_DENIED (-2147024891)
