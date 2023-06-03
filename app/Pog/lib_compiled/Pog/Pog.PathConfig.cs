@@ -80,7 +80,7 @@ public class PathConfig {
 
         ContainerDir = Path.Combine(_appRootDir, "container");
         CompiledLibDir = Path.Combine(_appRootDir, "lib_compiled");
-        ExecutableStubPath = Path.Combine(CompiledLibDir, "ExecutableStubTemplate.exe");
+        ExecutableStubPath = Path.Combine(CompiledLibDir, "PogExecutableStubTemplate.exe");
 
         ExportedCommandDir = Path.Combine(_dataRootDir, "package_bin");
         ManifestRepositoryDir = Path.Combine(_dataRootDir, "manifests");
