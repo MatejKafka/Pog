@@ -5,11 +5,21 @@ using System.Linq;
 
 namespace Pog;
 
-internal static class PathUtils {
-    public static IEnumerable<string> EnumerateNonHiddenDirectoryNames(string path, string searchPattern = "*") {
-        return new DirectoryInfo(path).EnumerateDirectories(searchPattern)
+public static class PathUtils {
+    public static IEnumerable<string> EnumerateNonHiddenDirectoryNames(string dirPath, string searchPattern = "*") {
+        return new DirectoryInfo(dirPath).EnumerateDirectories(searchPattern)
                 .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden))
                 .Select(d => d.Name);
+    }
+
+    public static IEnumerable<FileInfo> EnumerateNonHiddenFiles(string dirPath, string searchPattern = "*") {
+        return new DirectoryInfo(dirPath).EnumerateFiles(searchPattern)
+                .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden));
+    }
+
+    public static bool FileContentEqual(FileInfo f1, FileInfo f2) {
+        // significantly faster than trying to do a streaming implementation
+        return f1.Length == f2.Length && File.ReadAllBytes(f1.FullName).SequenceEqual(File.ReadAllBytes(f2.FullName));
     }
 
     /// Return `childName`, but with casing matching the name as stored in the filesystem, if it already exists.

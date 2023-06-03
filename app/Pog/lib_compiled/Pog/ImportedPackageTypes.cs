@@ -60,6 +60,7 @@ public class ImportedPackageManager {
                                                    + " Searched paths:\n    " + string.Join("\n    ", searchedPaths));
     }
 
+    /// Assumes that the package root is valid.
     public ImportedPackage GetPackage(string packageName, string packageRoot, bool resolveName, bool loadManifest) {
         Verify.PackageName(packageName);
         Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
@@ -85,9 +86,15 @@ public class ImportedPackageManager {
     }
 
     public IEnumerable<ImportedPackage> EnumeratePackages(bool loadManifest, string namePattern = "*") {
-        return PackageRoots.ValidPackageRoots.SelectMany(r => PathUtils.EnumerateNonHiddenDirectoryNames(r, namePattern)
+        return PackageRoots.ValidPackageRoots.SelectMany(r => EnumeratePackages(r, loadManifest, namePattern));
+    }
+
+    /// Assumes that the package root is valid.
+    public IEnumerable<ImportedPackage> EnumeratePackages(string packageRoot, bool loadManifest, string namePattern = "*") {
+        Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
+        return PathUtils.EnumerateNonHiddenDirectoryNames(packageRoot, namePattern)
                 // do not resolve name, it already has the correct casing
-                .Select(p => GetPackage(p, r, false, loadManifest)));
+                .Select(p => GetPackage(p, packageRoot, false, loadManifest));
     }
 }
 
@@ -105,8 +112,28 @@ public class ImportedPackage : Package {
     internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, path) {
         Verify.Assert.PackageName(packageName);
         if (loadManifest) {
-            // load the manifest to (partially) validate it and ensure the getters above won't throw
+            // load the manifest to (partially) validate it and ensure the getters won't throw
             ReloadManifest();
+        }
+    }
+
+    /// Enumerates full paths of all exported shortcuts.
+    public IEnumerable<FileInfo> EnumerateExportedShortcuts() {
+        return EnumerateFiles(IOPath.Combine(Path, PathConfig.PackagePaths.ShortcutDirRelPath), "*.lnk");
+    }
+
+    /// Enumerates full paths of all exported commands.
+    public IEnumerable<FileInfo> EnumerateExportedCommands() {
+        return EnumerateFiles(IOPath.Combine(Path, PathConfig.PackagePaths.CommandDirRelPath));
+    }
+
+    private static IEnumerable<FileInfo> EnumerateFiles(string dirPath, string searchPattern = "*") {
+        try {
+            return new DirectoryInfo(dirPath).EnumerateFiles(searchPattern)
+                    .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden));
+        } catch (DirectoryNotFoundException) {
+            // if nothing was exported, the directory might not exist
+            return Enumerable.Empty<FileInfo>();
         }
     }
 

@@ -10,19 +10,24 @@ using module .\command_generator\SubstituteExe.psm1
 Export-ModuleMember -Function Confirm-Action
 # not sure if we should expose this, PowerShell (private package) uses it to set PSModulePath
 Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
+Export-ModuleMember -Cmdlet Export-Command
 
 
+
+function SetupInternalState {
+	[CmdletBinding()]
+	param()
+
+	# moved to a separate function, because we need [CmdletBinding()] to get $PSCmdlet
+	$null = [Pog.ContainerEnableInternalState]::InitCurrent($PSCmdlet, $global:_Pog.Package)
+}
 
 <# This function is called after the container setup is finished to run the Enable script. #>
 Export function __main {
+	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
 	param($Manifest, $PackageArguments)
 
-	# set of all shortcuts that were not "refreshed" during this Enable call
-	# starts with all shortcuts found in package, and each time Export-Shortcut is called, it is removed
-	# before end of Enable, all shortcuts still in this set are deleted
-	$script:StaleShortcuts = [System.Collections.Generic.HashSet[string]]::new()
-	ls -File -Filter "./*.lnk" | % {[void]$script:StaleShortcuts.Add($_.BaseName)}
-	Write-Debug "Listed original shortcuts."
+	SetupInternalState
 
 	# invoke the scriptblock
 	# without .GetNewClosure(), the script block would see our internal module functions, probably because
@@ -33,13 +38,26 @@ Export function __main {
 
 <# This function is called after the Enable script finishes. #>
 Export function __cleanup {
-	# remove stale shortcuts
-	if ($script:StaleShortcuts.Count -gt 0) {
+	[CmdletBinding()]
+	param()
+
+	# remove stale shortcuts and commands
+	$InternalState = [Pog.ContainerEnableInternalState]::GetCurrent($PSCmdlet)
+
+	if ($InternalState.StaleShortcuts.Count -gt 0) {
 		Write-Verbose "Removing stale shortcuts..."
+		$InternalState.StaleShortcuts | % {
+			Remove-Item $_
+			Write-Information "Removed stale shortcut '$_'."
+		}
 	}
-	$script:StaleShortcuts | % {
-		Remove-Item ("./" + $_ + ".lnk")
-		Write-Verbose "Removed stale shortcut '$_'."
+
+	if ($InternalState.StaleCommands.Count -gt 0) {
+		Write-Verbose "Removing stale commands..."
+		$InternalState.StaleCommands | % {
+			Remove-Item $_
+			Write-Information "Removed stale command '$_'."
+		}
 	}
 }
 
@@ -359,10 +377,6 @@ Export function Export-Shortcut {
 		throw "Export-Shortcut: -StartMaximized and -StartMinimized switch parameters must not be passed together."
 	}
 
-	# this shortcut was refreshed, not stale, remove it
-	# noop when not present
-	$null = $StaleShortcuts.Remove($ShortcutName)
-
 	# shortcut takes all the arguments as a single string, so we need to quote it ourselves
 	# unfortunately, I don't believe there's an universal way that will work with all programs,
 	#  but this way of quoting and escaping nested quotes should work correctly for most programs:
@@ -375,7 +389,7 @@ Export function Export-Shortcut {
 
 	$Shell = New-Object -ComObject "WScript.Shell"
 	# Shell object has different CWD, have to resolve all paths
-	$ShortcutPath = Resolve-VirtualPath "./$ShortcutName.lnk"
+	$ShortcutPath = Resolve-VirtualPath ([Pog.PathConfig+PackagePaths]::ShortcutDirRelPath + "/$ShortcutName.lnk")
 
 	$Target = if ($TargetPath.Contains("/") -or $TargetPath.Contains("\")) {
 		# assume the target is a path
@@ -416,6 +430,9 @@ Export function Export-Shortcut {
 		$Description = [string](Split-Path -LeafBase $TargetPath)
 	}
 
+	# this shortcut was refreshed, not stale, remove it
+	# noop when not present
+	$null = [Pog.ContainerEnableInternalState]::GetCurrent($PSCmdlet).StaleShortcuts.Remove($ShortcutPath)
 
 	$S = $Shell.CreateShortcut($ShortcutPath)
 
@@ -443,103 +460,6 @@ Export function Export-Shortcut {
 
 	$S.Save()
 	Write-Information "Set up a shortcut called '$ShortcutName' (target: '$TargetPath')."
-}
-
-Export function Export-Command {
-	param(
-			[Parameter(Mandatory)]
-		$CmdName,
-			[Parameter(Mandatory)]
-		$ExePath,
-			[switch]
-		$SetWorkingDirectory,
-			[switch]
-		$NoSymlink,
-			[switch]
-		$Symlink
-	)
-
-	# TODO: migrate completely
-	if ($Symlink -and $SetWorkingDirectory) {
-		throw "Export-Command: -SetWorkingDirectory and -Symlink must not be passed together."
-	}
-	if ($Symlink -and $NoSymlink) {
-		throw "Export-Command: -NoSymlink and -Symlink must not be passed together."
-	}
-
-	# TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and warn the user if it's not
-	#  this TODO might be obsolete if we move to a per-package store of exported commands with separate copy mechanism
-
-	if (-not (Test-Path $ExePath)) {
-		throw "Cannot register command '$CmdName', provided target '$ExePath' does not exist."
-	}
-	if (-not (Test-Path -Type Leaf $ExePath)) {
-		throw "Cannot register command '$CmdName', provided target '$ExePath' exists, but it's not a file."
-	}
-
-	$ExePath = Resolve-Path $ExePath
-
-
-	$UseSymlink = $Symlink -or -not ($SetWorkingDirectory -or $NoSymlink)
-	$LinkExt = if ($UseSymlink) {Split-Path -Extension $ExePath} else {".exe"}
-	$LinkPath = Join-Path $PATH_CONFIG.ExportedCommandDir ($CmdName + $LinkExt)
-
-	if (Test-Path -Type Leaf $LinkPath) {
-		$Item = Get-Item $LinkPath
-		if ($Item.Target -eq $null) {
-			# exe
-			$IsMatching = Test-SubstituteExe $LinkPath $ExePath -SetWorkingDirectory:$SetWorkingDirectory
-			if ($IsMatching -and !$UseSymlink) {
-				Write-Verbose "Command ${CmdName} is already registered for this package."
-				return
-			}
-		} else {
-			# symlink
-			if ($Item.Target -eq $ExePath -and $UseSymlink) {
-				Write-Verbose "Command ${CmdName} is already registered for this package."
-				return
-			}
-		}
-	}
-
-	$MatchingCommands = ls $PATH_CONFIG.ExportedCommandDir -File -Filter ($CmdName + ".*") `
-			| ? {$_.BaseName -eq $CmdName} # filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
-
-	# there should not be more than 1, if we've done this checking correctly
-	if (@($MatchingCommands).Count -gt 1) {
-		Write-Warning "Pog developers fucked something up, and there are multiple colliding commands. Plz send bug report."
-	}
-
-	# -gt 0 in case the previous if falls through
-	if (@($MatchingCommands).Count -gt 0) {
-		# TODO: find which package registered the previous command
-		$ShouldContinue = ConfirmOverwrite "Overwrite existing command?" `
-			("There's already a command '$CmdName' registered by another package.`n" +`
-				"To suppress this prompt next time, pass -Force.")
-
-		if (-not $ShouldContinue) {
-			Write-Information "Skipped command '$CmdName' registration, user refused to override existing command."
-			return
-		}
-
-		Write-Warning "Overwriting existing command '${CmdName}'."
-		Remove-Item -Force $MatchingCommands
-	}
-
-	if ($UseSymlink) {
-		$Ext = [System.IO.Path]::GetExtension($ExePath)
-		if ($Ext -in @(".cmd", ".bat")) {
-			Write-Warning ("When running a batch file (.cmd/.bat) through a symlink, " +
-				"the script will think it is located at the symlink location, not in the real location in the package directory, " +
-				"which might break paths to other parts of the package.")
-		}
-
-		$null = Set-Symlink $LinkPath $ExePath
-		Write-Information "Registered command '$CmdName' using symlink."
-	} else {
-		Write-SubstituteExe $LinkPath $ExePath -SetWorkingDirectory:$SetWorkingDirectory
-		Write-Information "Registered command '$CmdName' using substitute exe."
-	}
 }
 
 
