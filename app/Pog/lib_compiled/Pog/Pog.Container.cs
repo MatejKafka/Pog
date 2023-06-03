@@ -9,21 +9,6 @@ using Microsoft.PowerShell;
 
 namespace Pog;
 
-public enum ContainerType { Install, GetInstallHash, Enable }
-
-[PublicAPI]
-public record ContainerInternalInfo(Package Package, Hashtable InternalArguments);
-
-[PublicAPI]
-public record OutputStreamConfig(ActionPreference Progress, ActionPreference Warning,
-        ActionPreference Information, ActionPreference Verbose, ActionPreference Debug) {
-    public ActionPreference Progress = Progress;
-    public ActionPreference Warning = Warning;
-    public ActionPreference Information = Information;
-    public ActionPreference Verbose = Verbose;
-    public ActionPreference Debug = Debug;
-}
-
 // Some notes
 //  - according to https://github.com/PowerShell/PowerShell/issues/17617#issuecomment-1173169928,
 //    it's not possible to run the container in the same thread as the main runspace runs in
@@ -73,8 +58,13 @@ public class Container : IDisposable {
                 & $mainSb @Args
             } finally {
                 Write-Debug 'Cleaning up...'
-                & $cleanupSb
-                Write-Debug 'Cleanup finished.'
+                try {
+                    & $cleanupSb
+                    Write-Debug 'Cleanup finished.'
+                } catch {
+                    # don't throw, we'd lose the original exception
+                    Write-Warning ('Cleanup failed: ' + $_)
+                }
             }
         ").AddArgument(_package.Manifest.Raw).AddArgument(_packageArguments);
 
@@ -178,4 +168,20 @@ public class Container : IDisposable {
 
         return iss;
     }
+
+    /// Enum of supported container environments.
+    public enum ContainerType { Install, GetInstallHash, Enable }
+
+    [PublicAPI]
+    public record OutputStreamConfig(ActionPreference Progress, ActionPreference Warning,
+            ActionPreference Information, ActionPreference Verbose, ActionPreference Debug) {
+        public ActionPreference Progress = Progress;
+        public ActionPreference Warning = Warning;
+        public ActionPreference Information = Information;
+        public ActionPreference Verbose = Verbose;
+        public ActionPreference Debug = Debug;
+    }
+
+    [PublicAPI]
+    public record ContainerInternalInfo(Package Package, Hashtable InternalArguments);
 }

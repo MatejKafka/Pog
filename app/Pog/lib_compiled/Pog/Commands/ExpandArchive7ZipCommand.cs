@@ -47,8 +47,8 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
-        _fullArchivePath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(ArchivePath);
-        _fullTargetPath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(TargetPath);
+        _fullArchivePath = GetUnresolvedProviderPathFromPSPath(ArchivePath);
+        _fullTargetPath = GetUnresolvedProviderPathFromPSPath(TargetPath);
         if (!string.IsNullOrEmpty(Subdirectory)) {
             // normalize slashes
             _subdirectory = Subdirectory!.Replace('/', '\\');
