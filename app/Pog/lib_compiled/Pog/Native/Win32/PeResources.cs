@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 
-namespace Pog;
+namespace Pog.Native;
 
 /// <content>
 /// Contains extern methods from "KERNEL32.dll".
