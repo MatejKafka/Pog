@@ -1,0 +1,128 @@
+## Export-Command, Export-Shortcut
+
+- unified API, except for GUI-specific features for shortcuts (icon,...)
+- detects if the program is console-based or GUI, changes launcher to match
+	- no need to have 2 different binaries, just patch the header
+- the following can be set for the launched program:
+	- working directory
+	- process environment variables - only set for the single process (and children)
+	- default arguments - if user passes a custom value for this argument, it replaces the predefined one in the launcher
+		TODO: add this later, too complicated for the first version
+- copy description from the target binary, both for commands (copy the whole version block) and for shortcuts (copy just the description)
+- copy icon from the target binary, both for commands and shortcuts
+- implementation:
+	- if none of the above options are set and the program supports it, use a symlink
+		- explicit opt-in, as it often leads to breakage (program has to explicitly support symlinking)
+	- substitute exe: precompiled binary that launches the target with given options
+		use this, launcher file would likely be too brittle
+	- launcher file: custom file format that's interpreted by a custom file handler set by Pog
+		- downside: requires systemwide registration, but we are doing it anyway (adding `package_bin` to PATH, Pog to PSModulePath,...)
+
+- TODO: figure out a simple way to support multiple architectures; for now, ignore it
+
+=========================================================================================
+
+Export-Command  -Name <string> -Target <string> [-Symlink]
+Export-Command  -Name <string> -Target <string> [-WorkingDirectory <string>] [-Arguments <array>] [-Environment <hashtable>]
+
+Export-Shortcut -Name <string> -Target <string> [-WorkingDirectory <string>] [-Arguments <array>] [-Environment <hashtable>] `
+                [-IconPath/-Icon <string>]
+
+accelerators: [resolve], [noresolve], [prepend] and [append]
+
+=========================================================================================
+
+Export-Command "idea" "./app/bin/idea.exe" `
+	-Architecture x86 `
+	-Arguments @("--flag", "value", "another value", "--config-dir", [resolve]"./config") `
+	-Environment @{
+		IDEA_PROPERTIES = "./config/idea.properties"
+		IDEA_VM_OPTIONS = "./config/idea.exe.vmoptions"
+		# hypothetical env var that should not be resolved
+		REL_IDEA_DIR_PATH = [noresolve]"./.idea"
+		PATH = [append]"./app/bin"
+		PATHEXT = [prepend]".pog"
+	}
+
+Export-Command "idea" "./app/bin/idea.exe" `
+	-Arguments @("--flag=value", "another value", "--config-dir=" + [resolve]"./config")
+
+
+if -Architecture is not set, default to the declared package architecture (if there's only one, otherwise complain)
+
+if env var value starts with './' or '.\', assume it's a path relative to package root
+to control this behavior more exactly, instead cast the string to [resolve] or [noresolve] accelerator types
+	(these are automatically imported using `using namespace [Pog.ExportedArgument]` or by defining type accelerators)
+	(`[psobject].Assembly.GetType("System.Management.Automation.TypeAccelerators")::Add("test", "System.String")`)
+[prepend],[resolve],... all inherit from one interface that implements the actual boolean properties and preserves them
+	through additional type casts
+
+=========================================================================================
+
+	# TODO: allow the user to override CLI arguments defined here;
+	#  however, this requires us to be aware of what format the target uses
+	#  possibilities:
+	#   - let the caller mark option names with another type annotation (e.g. [option])
+	#     and then check the arguments passed at invocation time for exact matches,
+	#     and if found, drop the predefined option and the following argument
+	#     ISSUE: how to deal with single-argument formats like '--param=value'
+	#            and '--param:value'?
+	#
+	<# Array of arguments that are passed to the target when the stub file is invoked.
+	   Any arguments that the stub file is invoked with are appended to the arguments
+	   defined here.
+
+	   By default, all arguments starting with './' or '.\' are treated as relative
+	   paths and resolved during stub file creation (not when the stub is invoked).
+	   See the command description if you need more control over the resolution
+	   ([resolve] and [noresolve] types). #>
+	[Alias("Arguments")]
+	[array]
+$ArgumentList = @(),
+	<# A hashtable of environment variables that the target is launched with,
+	   in addition to the environment variables inherited from the calling process.
+
+	   By default, variable values starting with './' or '.\' are treated as relative
+	   paths and resolved during stub file creation (NOT when the stub is invoked).
+	   See the command description if you need more control over the resolution
+	   ([resolve] and [noresolve] types).
+
+	   If you want to either prepend or append a value to an existing environment
+	   variable like PATH, PATHEXT,..., cast the value to one of the following types:
+	    - [prepend] - Prepends the value to the the existing environment variable,
+		              using ; as a separator (creating it if it does not exist yet).
+		- [append] - Analogous to [prepend], but the value is appended instead.
+	   These types may be combined with the resolution types ([resolve] and
+	   [noresolve]) described above, in any order (e.g. `PATH = [noresolve][prepend]"./dir"`).
+	   #>
+	[hashtable]
+$Environment = @{}
+
+=========================================================================================
+
+[General]
+; this should be separate from Target, so that we have a root for PathEnvironment and can easily check which package a binary came from
+; TYPE = absolute path
+PackageDirectory = D:\_\IntelliJ IDEA
+; if the app supports multiple architectures, only the one for the current architecture is set here
+; TYPE = relative path
+Target = app\bin\idea64.exe
+; TODO: if this is set, possibly try to make passed relative paths absolute, so that they are correctly resolved?
+; TYPE = relative path
+WorkingDirectory = ...
+
+; in binary form, store this as an array
+[Arguments]
+0 = -flag
+1 = value
+2 = another value
+
+; environment variables that should be completed as package-relative paths
+[PathEnvironment]
+IDEA_PROPERTIES = config\idea.properties
+IDEA_VM_OPTIONS = config\idea.exe.vmoptions
+IDEA64_VM_OPTIONS = config\idea64.exe.vmoptions
+
+[Environment]
+REL_IDEA_DIR_PATH = ./.idea
+RANDOM_ENV_VAR = value
