@@ -11,6 +11,6 @@ add_compile_options(/W4)
 add_link_options(/MANIFEST:NO)
 
 
-add_executable(pog_stub pog_stub.cpp)
+add_executable(PogExecutableStubTemplate pog_stub.cpp)
 # export release build binary to lib_compiled dir
-set_target_properties(pog_stub PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "../..")
+set_target_properties(PogExecutableStubTemplate PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "../..")
