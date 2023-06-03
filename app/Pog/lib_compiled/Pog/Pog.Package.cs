@@ -28,7 +28,7 @@ public class Package {
         Verify.Assert.PackageName(packageName);
         PackageName = packageName;
         Path = packagePath;
-        ManifestPath = System.IO.Path.Combine(Path, PathConfig.PackageManifestRelPath);
+        ManifestPath = System.IO.Path.Combine(Path, PathConfig.PackagePaths.ManifestRelPath);
         if (manifest != null) {
             _manifest = manifest;
         }

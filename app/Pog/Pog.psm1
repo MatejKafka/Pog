@@ -438,7 +438,7 @@ function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$F
 		}
 	}
 
-	[Pog.PathConfig]::PackageManifestCleanupPaths | % {Join-Path $p.Path $_} | ? {Test-Path $_} | Remove-Item -Recurse
+	[Pog.PathConfig+PackagePaths]::ManifestCleanupPaths | % {Join-Path $p.Path $_} | ? {Test-Path $_} | Remove-Item -Recurse
 	return $true
 }
 

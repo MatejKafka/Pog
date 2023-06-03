@@ -33,8 +33,14 @@ public class PackageRootConfig {
 
 [PublicAPI]
 public class PathConfig {
-    public const string PackageManifestRelPath = "pog.psd1";
-    public static readonly string[] PackageManifestCleanupPaths = {"pog.psd1", ".pog"};
+    [PublicAPI]
+    public static class PackagePaths {
+        public const string ManifestRelPath = "pog.psd1";
+        public static readonly string[] ManifestCleanupPaths = {"pog.psd1", ".pog"};
+
+        public const string ShortcutDirRelPath = ".";
+        public const string CommandDirRelPath = "./.commands";
+    }
 
     /// Directory where exported shortcuts from packages are copied (system-wide).
     public static readonly string StartMenuSystemExportDir =
