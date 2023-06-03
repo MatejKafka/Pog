@@ -3,7 +3,6 @@ using module ..\..\Paths.psm1
 using module ..\..\lib\Utils.psm1
 using module ..\container_lib\Environment.psm1
 using module ..\container_lib\Confirmations.psm1
-using module .\command_generator\SubstituteExe.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 
 
