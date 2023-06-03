@@ -68,19 +68,39 @@ Export function Get-PogPackage {
 			[Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
 			[string[]]
-		$PackageName
+		$PackageName,
+			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
+			[string]
+		$PackageRoot
 	)
 
 	process {
+		if ($PackageRoot) {
+			$PackageRoot = try {
+				$PACKAGE_ROOTS.ResolveValidPackageRoot($PackageRoot)
+			} catch [Pog.PackageRootNotValidException] {
+				$PSCmdlet.ThrowTerminatingError($_)
+			}
+		}
+
 		if (-not $PackageName) {
 			# do not eagerly load the manifest
-			echo $PACKAGE_ROOTS.EnumeratePackages($false)
+			if ($PackageRoot) {
+				echo $PACKAGE_ROOTS.EnumeratePackages($PackageRoot, $false)
+			} else {
+				echo $PACKAGE_ROOTS.EnumeratePackages($false)
+			}
 		} else {
 			$ErrorActionPreference = "Continue"
 			foreach ($p in $PackageName) {
 				try {
-					# do not eagerly load the manifest -------\/
-					echo $PACKAGE_ROOTS.GetPackage($p, $true, $false)
+					if ($PackageRoot) {
+						# do not eagerly load the manifest ---------------------\/
+						echo $PACKAGE_ROOTS.GetPackage($p, $PackageRoot, $true, $false)
+					} else {
+						# do not eagerly load the manifest -------\/
+						echo $PACKAGE_ROOTS.GetPackage($p, $true, $false)
+					}
 				} catch [Pog.ImportedPackageNotFoundException], [Pog.InvalidPackageNameException] {
 					$PSCmdlet.WriteError($_)
 				}
