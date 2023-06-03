@@ -16,8 +16,7 @@
 		'Import-Pog'
 		'Install-Pog'
 		'Enable-Pog'
-
-		'Export-PogShortcutsToStartMenu'
+		'Export-Pog'
 
 		'Show-PogManifestHash'
 		'New-PogManifest'

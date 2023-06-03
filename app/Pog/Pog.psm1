@@ -7,49 +7,6 @@ using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
 
-function Export-AppShortcut {
-	param(
-		[Parameter(Mandatory)]$AppPath,
-		[Parameter(Mandatory)]$ExportPath
-	)
-
-	$Shortcuts = ls -File -Filter "*.lnk" $AppPath
-	$Shortcuts | % {
-		Copy-Item $_ -Destination $ExportPath
-		Write-Verbose "Exported shortcut '$($_.Name)' from '$(Split-Path -Leaf $AppPath)'."
-	}
-	return @($Shortcuts).Count
-}
-
-
-Export function Export-PogShortcutsToStartMenu {
-	[CmdletBinding()]
-	param(
-			[switch]
-		$UseSystemWideMenu
-	)
-
-	$TargetDir = if ($UseSystemWideMenu) {
-		[Pog.PathConfig]::StartMenuSystemExportDir
-	} else {
-		[Pog.PathConfig]::StartMenuUserExportDir
-	}
-
-	if (Test-Path $TargetDir) {
-		Write-Information "Clearing previous Pog start menu entries..."
-		Remove-Item -Recurse $TargetDir
-	}
-
-	Write-Information "Exporting shortcuts to '$TargetDir'."
-	$null = New-Item -ItemType Directory $TargetDir
-
-	$ShortcutCount = $PACKAGE_ROOTS.EnumeratePackages($false) `
-		| % {Export-AppShortcut $_.Path $TargetDir} `
-		| Measure-Object -Sum | % Sum
-	Write-Information "Exported $ShortcutCount shortcuts."
-}
-
-
 Export function Get-PogRepositoryPackage {
 	[CmdletBinding(DefaultParameterSetName="Version")]
 	[OutputType([Pog.RepositoryPackage])]
@@ -561,6 +518,97 @@ Export function Import-Pog {
 	}
 }
 
+Export function Export-Pog {
+	# .SYNOPSIS
+	#	Exports shortcuts and commands from the package.
+	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
+	[OutputType([Pog.ImportedPackage])]
+	param(
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
+			[Pog.ImportedPackage[]]
+		$Package,
+			### Name of the package to export. This is the target name, not necessarily the manifest app name.
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
+			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
+			[string[]]
+		$PackageName,
+			### Export shortcuts to the systemwide start menu.
+			[switch]
+		$Systemwide,
+			### Return a [Pog.ImportedPackage] object with information about the package.
+			[switch]
+		$PassThru
+	)
+
+	begin {
+		$StartMenuDir = if ($Systemwide) {
+			[Pog.PathConfig]::StartMenuSystemExportDir
+		} else {
+			[Pog.PathConfig]::StartMenuUserExportDir
+		}
+	}
+
+	process {
+		$Packages = if ($Package) {$Package} else {& {
+			$ErrorActionPreference = "Continue"
+			foreach($pn in $PackageName) {
+				try {
+					$PACKAGE_ROOTS.GetPackage($pn, $true, $true)
+				} catch [Pog.ImportedPackageNotFoundException] {
+					$PSCmdlet.WriteError($_)
+				}
+			}
+		}}
+
+		foreach ($p in $Packages) {
+			foreach ($_ in $p.EnumerateExportedShortcuts()) {
+				$TargetPath = Join-Path $StartMenuDir $_.Name
+				if (Test-Path $TargetPath) {
+					if ([Pog.PathUtils]::FileContentEqual((gi $TargetPath), $_)) {
+						Write-Verbose "Shortcut '$($_.BaseName)' is already exported from this package."
+						continue
+					}
+					Write-Warning "Overwriting existing shortcut '$($_.BaseName)'..."
+					Remove-Item -Force $TargetPath
+				}
+				Copy-Item $_ -Destination $TargetPath
+				Write-Verbose "Exported shortcut '$($_.BaseName)' from '$($p.PackageName)'."
+			}
+
+			# TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and warn the user if it's not
+			foreach ($Command in $p.EnumerateExportedCommands()) {
+				$TargetPath = Join-Path $PATH_CONFIG.ExportedCommandDir $Command.Name
+				$CmdName = $Command.BaseName
+
+				if ($Command.FullName -eq [Pog.Native.Symlink]::GetLinkTarget($TargetPath, $false)) {
+					Write-Verbose "Command '${CmdName}' is already exported from this package."
+					continue
+				}
+
+				$MatchingCommands = ls $PATH_CONFIG.ExportedCommandDir -File -Filter ($CmdName + ".*") `
+						| ? {$_.BaseName -eq $CmdName} # filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
+
+				# there should not be more than 1, if we've done this checking correctly
+				if (@($MatchingCommands).Count -gt 1) {
+					Write-Warning "Pog developers fucked something up, and there are multiple colliding commands. Plz send bug report."
+				}
+
+				if (@($MatchingCommands).Count -gt 0) {
+					Write-Warning "Overwriting existing command '${CmdName}'..."
+					Remove-Item -Force $MatchingCommands
+				}
+
+				[Pog.Native.Symlink]::CreateSymbolicLink($TargetPath, $Command.FullName, $false)
+				Write-Verbose "Exported command '${CmdName}' from '$($p.PackageName)'."
+			}
+
+			if ($PassThru) {
+				echo $p
+			}
+		}
+	}
+}
+
 # CmdletBinding is manually copied from Import-Pog, there doesn't seem any way to dynamically copy this like with dynamicparam
 # TODO: rollback on error
 Export function Invoke-Pog {
@@ -585,7 +633,7 @@ Export function Invoke-Pog {
 
 		$null = $Params.Remove("PassThru")
 
-		$SbWithEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru:$PassThru @LogArgs}
+		$SbWithEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru @LogArgs | Export-Pog -PassThru:$PassThru @LogArgs}
 		$SbNoEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru:$PassThru @LogArgs}
 
 		$sp = ($InstallOnly ? $SbNoEnable : $SbWithEnable).GetSteppablePipeline()
