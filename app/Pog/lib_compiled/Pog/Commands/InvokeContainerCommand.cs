@@ -9,7 +9,7 @@ namespace Pog.Commands;
 [Cmdlet(VerbsLifecycle.Invoke, "Container")]
 [OutputType(typeof(object))]
 public class InvokeContainerCommand : PSCmdlet, IDisposable {
-    [Parameter(Mandatory = true, Position = 0)] public ContainerType ContainerType;
+    [Parameter(Mandatory = true, Position = 0)] public Container.ContainerType ContainerType;
     [Parameter(Mandatory = true, Position = 1)] public Package Package = null!;
     [Parameter(Mandatory = true)] public Hashtable InternalArguments = null!;
     [Parameter] public Hashtable PackageArguments = new();
@@ -46,8 +46,8 @@ public class InvokeContainerCommand : PSCmdlet, IDisposable {
                 : parentVar.Value; // use the preference variable value from the parent scope
     }
 
-    private OutputStreamConfig ReadStreamPreferenceVariables() {
-        var config = new OutputStreamConfig(
+    private Container.OutputStreamConfig ReadStreamPreferenceVariables() {
+        var config = new Container.OutputStreamConfig(
                 (ActionPreference) GetPreferenceVariableValue("ProgressPreference", null, null),
                 (ActionPreference) GetPreferenceVariableValue("WarningPreference", "WarningAction", param => param),
                 (ActionPreference) GetPreferenceVariableValue("InformationPreference", "InformationAction", param => param),

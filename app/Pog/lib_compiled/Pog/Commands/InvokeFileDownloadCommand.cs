@@ -62,7 +62,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
             WriteDebug($"Checking if we have a cached copy for '{ExpectedHash}'...");
             var entryLock = InternalState.DownloadCache.GetEntryLocked(ExpectedHash, Package);
             if (entryLock != null) {
-                WriteInformation(new InformationRecord($"File retrieved from the local cache: '{SourceUrl}'", null));
+                WriteInformation($"File retrieved from the local cache: '{SourceUrl}'", null);
                 // do not validate the hash; it was already validated once when the entry was first downloaded;
                 //  archives and binaries already have a checksum that's verified during extraction/execution, which
                 //  should be enough to detect accidental corruption of the stored file
@@ -75,7 +75,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
             WriteVerbose("No hash provided, cannot use the local cache.");
         }
 
-        WriteInformation(new InformationRecord($"Downloading file from '{SourceUrl}'.", null));
+        WriteInformation($"Downloading file from '{SourceUrl}'.", null);
 
         // TODO: hold a handle to the tmp directory during download, so that another process can safely delete stale entries
         //  (typically after a crash) without accidentally deleting a live entry
@@ -97,8 +97,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
                 ThrowTerminatingError(new ErrorRecord(
                         new IncorrectFileHashException($"Incorrect hash for the file downloaded from '{SourceUrl}'"
                                                        + $" (expected: '{ExpectedHash}', real: '{hash}')."),
-                        "IncorrectHash",
-                        ErrorCategory.InvalidResult, SourceUrl));
+                        "IncorrectHash", ErrorCategory.InvalidResult, SourceUrl));
             }
 
             WriteVerbose($"Adding the downloaded file to the local cache under the key '{hash}'.");
