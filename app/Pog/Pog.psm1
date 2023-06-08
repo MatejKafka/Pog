@@ -8,18 +8,28 @@ using module .\lib\Copy-CommandParameters.psm1
 
 
 Export function Get-PogRepositoryPackage {
+	# .SYNOPSIS
+	#	Lists packages available in the package repository.
+	# .DESCRIPTION
+	#   The `Get-PogRepositoryPackage` cmdlet lists packages from the package repository.
+	#   Each package is represented by a single `Pog.RepositoryPackage` instance. By default, only the latest version
+	#   of each package is returned. If you want to list all available versions, use the `-AllVersions` switch parameter.
 	[CmdletBinding(DefaultParameterSetName="Version")]
 	[OutputType([Pog.RepositoryPackage])]
 	param(
+			### Names of packages to return. If not passed, all repository packages are returned.
 			[Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageNameCompleter])]
 			[string[]]
 		$PackageName,
 			# TODO: figure out how to remove this parameter when -PackageName is an array
+
+			### Is set, only a single package with the given version is returned, or an exception is thrown.
 			[Parameter(Position=1, ParameterSetName="Version")]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
 			[Pog.PackageVersion]
 		$Version,
+			### If set, all available versions of each repository package are returned. By default, only the latest one is returned.
 			[Parameter(ParameterSetName="AllVersions")]
 			[switch]
 		$AllVersions
@@ -31,7 +41,11 @@ Export function Get-PogRepositoryPackage {
 			if (-not $PackageName) {throw "-Version must not be passed without also passing -PackageName."}
 			if (@($PackageName).Count -gt 1) {throw "-Version must not be passed when -PackageName contains multiple package names."}
 
-			return $REPOSITORY.GetPackage($PackageName, $true, $true).GetVersionPackage($Version, $true)
+			try {
+				return $REPOSITORY.GetPackage($PackageName, $true, $true).GetVersionPackage($Version, $true)
+			} catch [Pog.RepositoryPackageNotFoundException], [Pog.RepositoryPackageVersionNotFoundException] {
+				$PSCmdlet.ThrowTerminatingError($_)
+			}
 		}
 
 		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $MyInvocation.ExpectingInput) {
@@ -62,13 +76,20 @@ Export function Get-PogRepositoryPackage {
 }
 
 Export function Get-PogPackage {
+	# .SYNOPSIS
+	#	Lists installed packages.
+	# .DESCRIPTION
+	#   The `Get-PogPackage` cmdlet lists installed packages. Each package is represented by a single `Pog.ImportedPackage` instance.
+	#   By default, packages from all package roots are returned, unless the `-PackageRoot` parameter is set.
 	[CmdletBinding()]
 	[OutputType([Pog.ImportedPackage])]
 	param(
+			### Names of installed packages to return. If not passed, all installed packages are returned.
 			[Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
 			[string[]]
 		$PackageName,
+			### Path to the content root in which to list packages. If not passed, installed packages from all package roots are returned.
 			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
 			[string]
 		$PackageRoot
@@ -110,6 +131,8 @@ Export function Get-PogPackage {
 }
 
 Export function Get-PogRoot {
+	# .SYNOPSIS
+	#	Returns a list of all registered package roots, even obsolete (non-existent) ones.
 	[CmdletBinding()]
 	[OutputType([string])]
 	param()
@@ -129,6 +152,12 @@ Export function Edit-PogRootList {
 
 <# Remove cached package archives older than the provided date. #>
 Export function Clear-PogDownloadCache {
+	# .SYNOPSIS
+	#	Removes all cached package archives in the local download cache that are older than the specified date.
+	# .DESCRIPTION
+	#   The `Clear-PogDownloadCache` cmdlet lists all package archives stored in the local download cache, which are older than the specified date.
+	#   After confirmation, the archives are deleted. If an archive is currently used (the package is currently being installed), a warning
+	#   is printed, but the matching remaining entries are deleted.
 	[CmdletBinding(DefaultParameterSetName = "Days")]
 	param(
 			[Parameter(Mandatory, ParameterSetName = "Date", Position = 0)]
@@ -137,6 +166,7 @@ Export function Clear-PogDownloadCache {
 			[Parameter(ParameterSetName = "Days", Position = 0)]
 			[int]
 		$DaysBefore = 0,
+			### If set, do not prompt for confirmation and delete the cache entries immeditately.
 			[switch]
 		$Force
 	)
@@ -592,7 +622,7 @@ Export function Export-Pog {
 					Remove-Item -Force $TargetPath
 				}
 				Copy-Item $_ -Destination $TargetPath
-				Write-Verbose "Exported shortcut '$($_.BaseName)' from '$($p.PackageName)'."
+				Write-Information "Exported shortcut '$($_.BaseName)' from '$($p.PackageName)'."
 			}
 
 			# TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and warn the user if it's not
@@ -619,7 +649,7 @@ Export function Export-Pog {
 				}
 
 				[Pog.Native.Symlink]::CreateSymbolicLink($TargetPath, $Command.FullName, $false)
-				Write-Verbose "Exported command '${CmdName}' from '$($p.PackageName)'."
+				Write-Information "Exported command '${CmdName}' from '$($p.PackageName)'."
 			}
 
 			if ($PassThru) {
