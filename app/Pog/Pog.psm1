@@ -150,7 +150,6 @@ Export function Edit-PogRootList {
 	Start-Process $Path
 }
 
-<# Remove cached package archives older than the provided date. #>
 Export function Clear-PogDownloadCache {
 	# .SYNOPSIS
 	#	Removes all cached package archives in the local download cache that are older than the specified date.
@@ -166,7 +165,7 @@ Export function Clear-PogDownloadCache {
 			[Parameter(ParameterSetName = "Days", Position = 0)]
 			[int]
 		$DaysBefore = 0,
-			### If set, do not prompt for confirmation and delete the cache entries immeditately.
+			### If set, do not prompt for confirmation and delete the cache entries immediately.
 			[switch]
 		$Force
 	)
@@ -453,25 +452,34 @@ function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$F
 Export function Import-Pog {
 	# .SYNOPSIS
 	#	Imports a package manifest from the repository.
+	# .DESCRIPTION
+	#	Imports a package from the repository by copying the package manifest to the target path,
+	#	where it can be installed by calling `Install-Pog` and the remaining installation stage cmdlets.
 	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "Separate")]
 	[OutputType([Pog.ImportedPackage])]
 	param(
 			[Parameter(Mandatory, Position = 0, ParameterSetName = "RepositoryPackage", ValueFromPipeline)]
 			[Pog.RepositoryPackage[]]
 		$Package,
+			### Names of the repository packages to import.
 			[Parameter(Mandatory, ParameterSetName = "PackageName", ValueFromPipeline)]
 			[Parameter(Mandatory, Position = 0, ParameterSetName = "Separate")]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageNameCompleter])]
 			[string[]]
 		$PackageName,
+			### Specific version of the package to import. By default, the latest version is imported.
 			[Parameter(Position = 1, ParameterSetName = "Separate")]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
 			[Pog.PackageVersion]
 		$Version,
+			### Name of the imported package. By default, this is the same as the repository package name.
+			### Use this parameter to distinguish multiple installations of the same package.
 			[Parameter(ParameterSetName = "Separate")]
 			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
 			[string]
 		$TargetName,
+			### Path to a registered package root, where the package should be imported.
+			### If not set, the default (first) package root is used.
 			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
 			[string]
 		$TargetPackageRoot = $PACKAGE_ROOTS.DefaultPackageRoot,
@@ -571,6 +579,8 @@ Export function Import-Pog {
 Export function Export-Pog {
 	# .SYNOPSIS
 	#	Exports shortcuts and commands from the package.
+	# .DESCRIPTION
+	#	Exports shortcuts from the package to the start menu, and commands to an internal Pog directory that's available on $env:PATH.
 	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
 	[OutputType([Pog.ImportedPackage])]
 	param(
@@ -582,7 +592,7 @@ Export function Export-Pog {
 			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
 			[string[]]
 		$PackageName,
-			### Export shortcuts to the systemwide start menu.
+			### Export shortcuts to the systemwide start menu for all users, instead of the user-specific start menu.
 			[switch]
 		$Systemwide,
 			### Return a [Pog.ImportedPackage] object with information about the package.
@@ -659,13 +669,24 @@ Export function Export-Pog {
 	}
 }
 
+# defined below
+Export alias pog Invoke-Pog
+
 # CmdletBinding is manually copied from Import-Pog, there doesn't seem any way to dynamically copy this like with dynamicparam
 # TODO: rollback on error
 Export function Invoke-Pog {
 	# .SYNOPSIS
-	#   Import, install and enable a package.
+	#   Import, install, enable and export a package.
+	# .DESCRIPTION
+	#	Runs all four installation stages in order. All arguments passed to this cmdlet,
+	#	except for the `-InstallOnly` switch, are forwarded to `Import-Pog`.
 	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "Separate")]
-	param([switch]$InstallOnly)
+	param(
+			### Only import and install the package, do not enable and export.
+			[switch]
+		$InstallOnly
+	)
+
 	dynamicparam {
 		$CopiedParams = Copy-CommandParameters (Get-Command Import-Pog)
 		return $CopiedParams
@@ -699,22 +720,24 @@ Export function Invoke-Pog {
 	}
 }
 
-New-Alias pog Invoke-Pog
-Export-ModuleMember -Alias pog
-
 
 Export function Show-PogManifestHash {
 	# .SYNOPSIS
-	# Download all resources specified in the package manifest, store them in the download cache and show the SHA-256 hash.
-	# This cmdlet is useful for retrieving the archive hash when writing a package manifest.
+	#	Download resources for the given package and show SHA-256 hashes.
+	# .DESCRIPTION
+	#	Download all resources specified in the package manifest, store them in the download cache and show the SHA-256 hash.
+	#	This cmdlet is useful for retrieving the archive hash when writing a package manifest.
 	[CmdletBinding()]
 	param(
 			# ValueFromPipelineByPropertyName lets us avoid having to define a separate $Package parameter
 			# TODO: add support for an array of package names, similarly to other commands
+
+			### Name of the repository package to retrieve.
 			[Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageNameCompleter])]
 			[string]
 		$PackageName,
+			### Version of the package to retrieve. By default, the latest version is used.
 			[Parameter(ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
 			[Pog.PackageVersion]
@@ -724,7 +747,8 @@ Export function Show-PogManifestHash {
 			[switch]
 		$LowPriority
 	)
-	# TODO: -PassThru to return structured object instead of Write-Host pretty-print
+
+	# TODO: add -PassThru to return structured object instead of Write-Host pretty-print
 
 	process {
 		$c = try {
@@ -869,23 +893,27 @@ function RetrievePackageVersions($PackageName, $GenDir) {
 
 # TODO: run this inside a container
 # TODO: set working directory of the generator script to the target dir?
-<# Generates manifests for new versions of the package. First checks for new versions,
-   then calls the manifest generator for each version. #>
 Export function Update-PogManifest {
+	# .SYNOPSIS
+	#	Generate new manifests in the package repository for the given package manifest generator.
 	[CmdletBinding()]
 	[OutputType([Pog.RepositoryPackage])]
 	param(
+			### Name of the manifest generator for which to generate new manifests.
 			[Parameter(ValueFromPipeline)]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageGeneratorNameCompleter])]
 			[string]
 		$PackageName,
 			# we only use -Version to match against retrieved versions, no need to parse
+
+			### List of versions to generate/update manifests for.
 			[string[]]
 		$Version,
-			<# Recreates even existing manifests. #>
+			### Regenerate even existing manifests. By default, only manifests for versions that
+			### do not currently exist in the repository are generated.
 			[switch]
 		$Force,
-			<# Only retrieve and list versions, do not generate manifests. #>
+			### Only retrieve and list versions, do not generate manifests.
 			[switch]
 		$ListOnly
 	)
@@ -1000,6 +1028,8 @@ Export function Update-PogManifest {
 }
 
 Export function Confirm-PogRepositoryPackage {
+	# .SYNOPSIS
+	#	Validates a repository package.
 	[CmdletBinding(DefaultParameterSetName="Separate")]
 	param(
 			# TODO: add support for an array of packages/package names, similarly to other commands
@@ -1109,6 +1139,8 @@ Export function Confirm-PogRepositoryPackage {
 # TODO: expand to really check whole package, not just manifest, then update Install-Pog and Enable-Pog to use this instead of Confirm-Manifest
 #  when switched, figure out what to do about the forced manifest reload (we do not want to load the manifest multiple times)
 Export function Confirm-PogPackage {
+	# .SYNOPSIS
+	#	Checks that the manifest of an imported package is valid.
 	[CmdletBinding(DefaultParameterSetName="Name")]
 	param(
 			[Parameter(Mandatory, Position=0, ValueFromPipeline, ParameterSetName="Package")]
