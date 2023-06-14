@@ -1,15 +1,10 @@
+using Pog.Native;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Pog.Tests;
 
 public class Win32ArgsTests {
-    private readonly ITestOutputHelper _testOutputHelper;
     private static readonly Random Random = new();
-
-    public Win32ArgsTests(ITestOutputHelper testOutputHelper) {
-        _testOutputHelper = testOutputHelper;
-    }
 
     // special chars are repeated multiple times to make them more likely to be generated
     private const string ArgChars =
@@ -56,12 +51,6 @@ public class Win32ArgsTests {
         // TODO: shouldn't we add a flag?
         var parsedWithCmd = Win32.CommandLineToArgv("cmd " + commandLine);
         var parsed = new ArraySegment<string>(parsedWithCmd, 1, parsedWithCmd.Length - 1);
-
-        // _testOutputHelper.WriteLine(commandLine.Replace('\n', '☐').Replace('\r', '☐'));
-        // var i = 0;
-        // foreach (var (orig, processed) in args.Zip(parsed, ValueTuple.Create)) {
-        //     _testOutputHelper.WriteLine($"{i++}: <{orig.Replace('\n', '☐').Replace('\r', '☐')}> = <{processed.Replace('\n', '☐').Replace('\r', '☐')}>");
-        // }
 
         Assert.Equal(args.Count, parsed.Count);
         foreach (var (orig, processed) in args.Zip(parsed, ValueTuple.Create)) {
