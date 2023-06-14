@@ -43,7 +43,7 @@ function Export {
 			Export-ModuleMember -Variable $Name
 		}
 		"alias" {
-			New-Alias $Name $Value
+			New-Alias -Scope Script $Name $Value
 			Export-ModuleMember -Alias $Name
 		}
 	}
