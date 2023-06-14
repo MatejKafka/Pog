@@ -1,5 +1,13 @@
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$script:ErrorActionPreference = "Stop"
+$script:PSDefaultParameterValues = @{
+    "*:ErrorAction" = "Stop"
+}
+
+if ($PSVersionTable.PSVersion -lt 7.0) {
+    throw ("Pog currently requires at least PowerShell Core 7.0. " +`
+            "Support for PowerShell 5 and older PowerShell Core versions is in-progress.")
+}
 
 # these modules only use library functions, so it is safe to import them even during setup
 Import-Module $PSScriptRoot/app/Pog/container/container_lib/Environment
@@ -40,7 +48,7 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
     Set-Content $ROOT_FILE_PATH -Value $DefaultContentRoot
 }
 
-# TODO: when a move comprehensive support for remote repository is implemented, update this
+# TODO: when a more comprehensive support for remote repository is implemented, update this
 $MANIFEST_REPO_PATH = Resolve-VirtualPath "$PSScriptRoot/data/manifests"
 if (-not (Test-Path $MANIFEST_REPO_PATH)) {
     # manifest repository is not initialized, download it
@@ -75,23 +83,29 @@ Write-Host "Importing Pog...`n"
 Import-Module Pog
 
 try {
-    Enable-Pog 7zip
+    $null = Get-PogPackage 7zip, OpenedFilesView
 } catch {
-    throw ("Failed to enable the 7zip package, required for correct functioning of Pog. " + `
-            "The 7zip package should be provided with Pog itself. Error: " + $_)
+    throw "Could not find the packages '7zip' and 'OpenedFilesView', required for correct functioning of Pog. " +`
+        "Both packages should be provided with Pog itself. Please install Pog from a release, not by cloning the repository directly."
     return
 }
 
-if (-not (Test-Path "$PSScriptRoot\data\package_bin\7z.exe")) {
-    throw "Setup of 7zip was successful, but we cannot find the 7z.exe binary that should be provided by the package."
+try {
+    Enable-Pog 7zip
+} catch {
+    throw ("Failed to enable the 7zip package, required for correct functioning of Pog: " + $_)
     return
 }
 
 try {
     Enable-Pog OpenedFilesView
 } catch {
-    throw ("Failed to enable the OpenedFilesView package, required for correct functioning of Pog. " + `
-            "The OpenedFilesView package should be provided with Pog itself. Error: " + $_)
+    throw ("Failed to enable the OpenedFilesView package, required for correct functioning of Pog: " + $_)
+    return
+}
+
+if (-not (Test-Path "$PSScriptRoot\data\package_bin\7z.exe")) {
+    throw "Setup of 7zip was successful, but we cannot find the 7z.exe binary that should be provided by the package."
     return
 }
 
