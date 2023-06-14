@@ -17,16 +17,22 @@ public class ContainerEnableInternalState {
     public readonly HashSet<string> StaleShortcuts;
     /// <see cref="StaleShortcuts"/>
     public readonly HashSet<string> StaleCommands;
+    /// <see cref="StaleShortcuts"/>
+    public readonly HashSet<string> StaleShortcutStubs;
 
-    private ContainerEnableInternalState(IEnumerable<string> staleShortcuts, IEnumerable<string> staleCommands) {
-        StaleShortcuts = new HashSet<string>(staleShortcuts);
-        StaleCommands = new HashSet<string>(staleCommands);
+    private ContainerEnableInternalState(IEnumerable<string> shortcuts, IEnumerable<string> commands,
+            IEnumerable<string> shortcutStubs) {
+        StaleShortcuts = new HashSet<string>(shortcuts);
+        StaleCommands = new HashSet<string>(commands);
+        StaleShortcutStubs = new HashSet<string>(shortcutStubs);
     }
 
+    /// Creates a new `ContainerEnableInternalState` instance and stores it as a global variable in the current container instance.
     public static ContainerEnableInternalState InitCurrent(PSCmdlet callingCmdlet, ImportedPackage enabledPackage) {
         var state = new ContainerEnableInternalState(
                 enabledPackage.EnumerateExportedShortcuts().Select(f => f.FullName),
-                enabledPackage.EnumerateExportedCommands().Select(f => f.FullName));
+                enabledPackage.EnumerateExportedCommands().Select(f => f.FullName),
+                enabledPackage.EnumerateShortcutStubs().Select(f => f.FullName));
         SetCurrent(callingCmdlet, state);
         return state;
     }
@@ -35,6 +41,8 @@ public class ContainerEnableInternalState {
         callingCmdlet.SessionState.PSVariable.Set(new PSVariable(StateVariableName, state, ScopedItemOptions.Constant));
     }
 
+    /// Retrieves the instance of `ContainerEnableInternalState` associated with this container (PowerShell runspace).
+    /// <exception cref="InvalidOperationException">No valid `ContainerEnableInternalState` instance is associated with this container.</exception>
     public static ContainerEnableInternalState GetCurrent(PSCmdlet callingCmdlet) {
         var containerStateVar = callingCmdlet.SessionState.PSVariable.Get(StateVariableName);
         if (containerStateVar == null) {
