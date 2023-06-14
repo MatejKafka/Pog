@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 
-namespace Pog;
+namespace Pog.Native;
 
 public static class Win32Args {
     /// Escapes and combines a list of arguments into a command line string. The invoked command itself must be added separately.

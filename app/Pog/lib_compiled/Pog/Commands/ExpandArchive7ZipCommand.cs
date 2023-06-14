@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Pog.Commands.Utils;
+using Pog.Native;
 
 namespace Pog.Commands;
 
