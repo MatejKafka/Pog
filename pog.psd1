@@ -1,8 +1,7 @@
 @{
 	Name = "Pog"
 	Version = "0.3.0"
-	# unfortunately, the fixed nim binaries for substitute executables
-	#  are not portable, so we are currently bound to x64 (also, dependencies)
+	# the stub executable binaries are currently only compiled for x64, so we are bound to x64 for now (also, dependencies)
 	Architecture = "x64"
 
 	# dependencies:
