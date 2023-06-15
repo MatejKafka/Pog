@@ -11,9 +11,9 @@ Export function Get-PogRepositoryPackage {
 	# .SYNOPSIS
 	#	Lists packages available in the package repository.
 	# .DESCRIPTION
-	#   The `Get-PogRepositoryPackage` cmdlet lists packages from the package repository.
-	#   Each package is represented by a single `Pog.RepositoryPackage` instance. By default, only the latest version
-	#   of each package is returned. If you want to list all available versions, use the `-AllVersions` switch parameter.
+	#	The `Get-PogRepositoryPackage` cmdlet lists packages from the package repository.
+	#	Each package is represented by a single `Pog.RepositoryPackage` instance. By default, only the latest version
+	#	of each package is returned. If you want to list all available versions, use the `-AllVersions` switch parameter.
 	[CmdletBinding(DefaultParameterSetName="Version")]
 	[OutputType([Pog.RepositoryPackage])]
 	param(
@@ -79,8 +79,8 @@ Export function Get-PogPackage {
 	# .SYNOPSIS
 	#	Lists installed packages.
 	# .DESCRIPTION
-	#   The `Get-PogPackage` cmdlet lists installed packages. Each package is represented by a single `Pog.ImportedPackage` instance.
-	#   By default, packages from all package roots are returned, unless the `-PackageRoot` parameter is set.
+	#	The `Get-PogPackage` cmdlet lists installed packages. Each package is represented by a single `Pog.ImportedPackage` instance.
+	#	By default, packages from all package roots are returned, unless the `-PackageRoot` parameter is set.
 	[CmdletBinding()]
 	[OutputType([Pog.ImportedPackage])]
 	param(
