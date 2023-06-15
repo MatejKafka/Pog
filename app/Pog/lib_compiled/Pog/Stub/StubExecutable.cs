@@ -21,9 +21,11 @@ namespace Pog.Stub;
 public class StubExecutable {
     // stub data are stored as an RCDATA resource at index 1
     private static readonly PeResources.ResourceId StubDataResourceId = new(ResourceType.RcData, 1);
+    // TODO: bring back ResourceType.Manifest, but it will require some amount of parsing
+    //  e.g. Firefox declares required assemblies, which the stub doesn't see, so it fails
     /// List of resource types which are copied from target to the stub.
     private static readonly ResourceType[] CopiedResourceTypes =
-            {ResourceType.Icon, ResourceType.IconGroup, ResourceType.Version, ResourceType.Manifest};
+            {ResourceType.Icon, ResourceType.IconGroup, ResourceType.Version/*, ResourceType.Manifest*/};
     /// List of supported target extensions. All listed extensions can be invoked directly by `CreateProcess(...)`.
     private static readonly string[] SupportedTargetExtensions = {".exe", ".com", ".cmd", ".bat"};
 
