@@ -60,7 +60,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
 
         if (ExpectedHash != null) {
             WriteDebug($"Checking if we have a cached copy for '{ExpectedHash}'...");
-            var entryLock = InternalState.DownloadCache.GetEntryLocked(ExpectedHash, Package);
+            var entryLock = GetEntryLockedWithCleanup(ExpectedHash, Package);
             if (entryLock != null) {
                 WriteInformation($"File retrieved from the local cache: '{SourceUrl}'", null);
                 // do not validate the hash; it was already validated once when the entry was first downloaded;
@@ -115,7 +115,7 @@ public class InvokeFileDownloadCommand : PSCmdlet {
                 return InternalState.DownloadCache.AddEntryLocked(hash, entry);
             } catch (CacheEntryAlreadyExistsException) {
                 WriteVerbose("File is already cached.");
-                var entryLock = InternalState.DownloadCache.GetEntryLocked(hash, Package);
+                var entryLock = GetEntryLockedWithCleanup(hash, Package);
                 if (entryLock == null) {
                     continue; // retry
                 }
@@ -130,6 +130,23 @@ public class InvokeFileDownloadCommand : PSCmdlet {
                 }
                 return entryLock;
             }
+        }
+    }
+
+    private SharedFileCache.CacheEntryLock? GetEntryLockedWithCleanup(string hash, Package package) {
+        try {
+            return InternalState.DownloadCache.GetEntryLocked(hash, package);
+        } catch (InvalidCacheEntryException) {
+            WriteWarning($"Found an invalid download cache entry '{hash}', replacing...");
+            // TODO: figure out how to handle the failure more gracefully (maybe skip the cache all-together
+            //  if we don't manage to delete the entry even after the download completes?)
+            try {
+                InternalState.DownloadCache.DeleteEntry(hash);
+                return null;
+            } catch {
+                // deletion failed, fall-through, rethrow the original exception
+            }
+            throw;
         }
     }
 
