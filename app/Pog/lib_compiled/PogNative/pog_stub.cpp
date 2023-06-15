@@ -76,13 +76,24 @@ c_wstring build_command_line(std::optional<std::wstring_view> prefixed_args, con
     auto argv0_len = target_override ? wcslen(target_override) : const_argv0_end - const_cmd_line;
     auto args_len = wcslen(const_argv0_end);
 
-    c_wstring cmd_line{argv0_len + (prefixed_args ? 1 + prefixed_args->size() : 0) + args_len + 1};
+    // allocate the cmd_line buffer
+    c_wstring cmd_line{argv0_len + (target_override ? 2 : 0) // +2 for quotes around `target_override`
+            + (prefixed_args ? 1 + prefixed_args->size() : 0) + args_len + 1};
 
     // build the command line
     auto it_out = cmd_line.str;
+
     // copy argv[0], or insert target_override
-    it_out = target_override ? std::copy(target_override, target_override + argv0_len, it_out)
-                             : std::copy(const_cmd_line, const_argv0_end, it_out);
+    if (target_override) {
+        // quote `target_override`, in case it contains spaces; when .cmd files are invoked, cmd.exe looks at argv[0],
+        //  not on the lpApplicationName value, and spaces would throw it off without quotes
+        *it_out++ = L'"';
+        it_out = std::copy(target_override, target_override + argv0_len, it_out);
+        *it_out++ = L'"';
+    } else {
+        it_out = std::copy(const_cmd_line, const_argv0_end, it_out);
+    }
+
     if (prefixed_args) {
         // add space
         *it_out++ = L' ';
