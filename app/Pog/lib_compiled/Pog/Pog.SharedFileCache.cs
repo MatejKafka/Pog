@@ -208,7 +208,7 @@ public class SharedFileCache {
     /// <summary>
     /// Retrieves a single entry by its key and locks it for reading.
     /// The lock should be held during the whole time that you're reading from the entry. To unlock it, call Unlock or Dispose.
-    /// Information about the requesting package is recorded into the entry metadata, if it's passed.
+    /// Information about the requesting package is recorded into the entry metadata.
     /// </summary>
     /// <exception cref="InvalidCacheEntryException"></exception>
     public CacheEntryLock? GetEntryLocked(string entryKey, Package package) {
