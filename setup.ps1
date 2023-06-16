@@ -1,13 +1,17 @@
 Set-StrictMode -Version Latest
-$script:ErrorActionPreference = "Stop"
-$script:PSDefaultParameterValues = @{
+
+$ErrorActionPreference = "Stop"
+$InformationPreference = "Continue"
+$PSDefaultParameterValues = @{
     "*:ErrorAction" = "Stop"
 }
+
 
 if ($PSVersionTable.PSVersion -lt 7.0) {
     throw ("Pog currently requires at least PowerShell Core 7.0. " +`
             "Support for PowerShell 5 and older PowerShell Core versions is in-progress.")
 }
+
 
 # these modules only use library functions, so it is safe to import them even during setup
 Import-Module $PSScriptRoot/app/Pog/container/container_lib/Environment
@@ -83,7 +87,7 @@ Write-Host "Importing Pog...`n"
 Import-Module Pog
 
 try {
-    $null = Get-PogPackage 7zip, OpenedFilesView
+    $7z, $ofv = Get-PogPackage 7zip, OpenedFilesView
 } catch {
     throw "Could not find the packages '7zip' and 'OpenedFilesView', required for correct functioning of Pog. " +`
         "Both packages should be provided with Pog itself. Please install Pog from a release, not by cloning the repository directly."
@@ -91,26 +95,26 @@ try {
 }
 
 try {
-    Enable-Pog 7zip
+    $7z | Enable-Pog -PassThru | Export-Pog
 } catch {
-    throw ("Failed to enable the 7zip package, required for correct functioning of Pog: " + $_)
+    throw ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
     return
 }
 
 try {
-    Enable-Pog OpenedFilesView
+    $ofv | Enable-Pog -PassThru | Export-Pog
 } catch {
-    throw ("Failed to enable the OpenedFilesView package, required for correct functioning of Pog: " + $_)
+    throw ("Failed to enable the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
     return
 }
 
 if (-not (Test-Path "$PSScriptRoot\data\package_bin\7z.exe")) {
-    throw "Setup of 7zip was successful, but we cannot find the 7z.exe binary that should be provided by the package."
+    throw "Setup of '7zip' was successful, but we cannot find the 7z.exe binary that should be provided by the package."
     return
 }
 
 if (-not (Test-Path "$PSScriptRoot\data\package_bin\OpenedFilesView.exe")) {
-    throw "Setup of OpenedFilesView was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
+    throw "Setup of 'OpenedFilesView' was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
     return
 }
 
