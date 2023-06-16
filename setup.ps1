@@ -7,7 +7,7 @@ $PSDefaultParameterValues = @{
 }
 
 
-if ($PSVersionTable.PSVersion -lt 7.0) {
+if ($PSVersionTable.PSVersion -lt "7.0") {
     throw ("Pog currently requires at least PowerShell Core 7.0. " +`
             "Support for PowerShell 5 and older PowerShell Core versions is in-progress.")
 }
