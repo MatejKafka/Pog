@@ -606,6 +606,10 @@ Export function Export-Pog {
 		} else {
 			[Pog.PathConfig]::StartMenuUserExportDir
 		}
+
+		if (-not (Test-Path $StartMenuDir)) {
+			$null = New-Item -Type Directory $StartMenuDir
+		}
 	}
 
 	process {
