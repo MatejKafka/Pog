@@ -135,10 +135,11 @@ public class GetFileHash7ZipCommand : PSCmdlet, IDisposable {
         _process?.Dispose();
     }
 
-    public static string Invoke(SessionState ss, string filePath, HashAlgorithm algorithm = HashAlgorithm.SHA256) {
-        var result = ss.InvokeCommand.InvokeScript(ss, ScriptBlock.Create("Get-FileHash7Zip $Args[0] -Algorithm $Args[1]"),
-                filePath, algorithm);
-        Debug.Assert(result.Count == 1);
-        return (string) result[0].BaseObject;
+    private static readonly ScriptBlock InvokeSb = ScriptBlock.Create("Get-FileHash7Zip $Args[0] -Algorithm $Args[1]");
+
+    public static string Invoke(string filePath, HashAlgorithm algorithm = HashAlgorithm.SHA256) {
+        var result = ((PSObject)InvokeSb.InvokeReturnAsIs(filePath, algorithm)).BaseObject;
+        Debug.Assert(result is string);
+        return (string) result;
     }
 }
