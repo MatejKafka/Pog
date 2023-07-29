@@ -183,7 +183,5 @@ public static class Symlink {
         }
     }
 
-    public class FileAlreadyExistsException : Exception {
-        public FileAlreadyExistsException() {}
-    }
+    public class FileAlreadyExistsException : Exception {}
 }

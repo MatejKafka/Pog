@@ -7,18 +7,37 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Pog.Native;
 
+[SuppressMessage("ReSharper", "InconsistentNaming")]
 public static partial class Win32 {
-    [DllImport("Kernel32.dll", SetLastError = true)]
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern unsafe bool SetFileInformationByHandle(SafeFileHandle fileHandle, int fileInformationClass,
             FILE_RENAME_INFO* fileInformation, int fileInformationSize);
 
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     [Flags]
-    public enum FILE_FLAG {
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    public enum FILE_FLAG : uint {
+        ATTRIBUTE_READONLY = 0x1,
+        ATTRIBUTE_HIDDEN = 0x2,
+        ATTRIBUTE_SYSTEM = 0x4,
+        ATTRIBUTE_ARCHIVE = 0x20,
+        ATTRIBUTE_NORMAL = 0x80,
+        ATTRIBUTE_TEMPORARY = 0x100,
+        ATTRIBUTE_OFFLINE = 0x1000,
+        ATTRIBUTE_ENCRYPTED = 0x4000,
+
+        // file is deleted when this handle is closed
+        OPEN_NO_RECALL = 0x00100000,
         OPEN_REPARSE_POINT = 0x00200000,
+        SESSION_AWARE = 0x00800000,
+        POSIX_SEMANTICS = 0x01000000,
         // must be passed to open a directory handle (otherwise you can only create file handles)
         BACKUP_SEMANTICS = 0x02000000,
         DELETE_ON_CLOSE = 0x04000000,
+        SEQUENTIAL_SCAN = 0x08000000,
+        RANDOM_ACCESS = 0x10000000,
+        NO_BUFFERING = 0x20000000,
+        OVERLAPPED = 0x40000000,
+        WRITE_THROUGH = 0x80000000,
     }
 
     // ReSharper disable once InconsistentNaming
@@ -32,9 +51,15 @@ public static partial class Win32 {
         public readonly char FileName;
     }
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern SafeFileHandle CreateFile(string filename, uint desiredAccess, FileShare sharedMode,
-            IntPtr securityAttributes, FileMode creationDisposition, FILE_FLAG flagsAndAttributes, IntPtr templateFile);
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern SafeFileHandle CreateFile(
+            string filename,
+            uint desiredAccess = (uint)FileAccess.ReadWrite,
+            FileShare sharedMode = FileShare.None,
+            IntPtr securityAttributes = default,
+            FileMode creationDisposition = FileMode.OpenOrCreate,
+            FILE_FLAG flagsAndAttributes = FILE_FLAG.ATTRIBUTE_NORMAL,
+            IntPtr templateFile = default);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -48,11 +73,8 @@ public static partial class Win32 {
 
     [Flags]
     public enum LockFileFlags {
-        // ReSharper disable once InconsistentNaming
         EXCLUSIVE_LOCK = 0x00000002,
-        // ReSharper disable once InconsistentNaming
         FAIL_IMMEDIATELY = 0x00000001,
-        // ReSharper disable once InconsistentNaming
         WAIT = 0x00000000,
     }
 }

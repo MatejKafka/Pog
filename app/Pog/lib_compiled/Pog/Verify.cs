@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Management.Automation;
 
 namespace System.Runtime.CompilerServices {
     [AttributeUsage(AttributeTargets.Parameter)]
@@ -43,6 +44,30 @@ namespace Pog {
         public static void FilePath(string filePath) {
             if (!Is.FilePath(filePath)) {
                 throw new ArgumentException($"Invalid file path: '{filePath}'");
+            }
+        }
+
+        public class PackageNameAttribute : ValidateArgumentsAttribute {
+            protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
+                PackageName((string)arguments);
+            }
+        }
+
+        public class Sha256HashAttribute : ValidateArgumentsAttribute {
+            protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
+                Sha256Hash((string)arguments);
+            }
+        }
+
+        public class FileNameAttribute : ValidateArgumentsAttribute {
+            protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
+                FileName((string)arguments);
+            }
+        }
+
+        public class FilePathAttribute : ValidateArgumentsAttribute {
+            protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
+                FilePath((string)arguments);
             }
         }
 

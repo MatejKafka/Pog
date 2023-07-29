@@ -183,5 +183,22 @@ public class Container : IDisposable {
     }
 
     [PublicAPI]
-    public record ContainerInternalInfo(Package Package, Hashtable InternalArguments);
+    public record ContainerInternalInfo(Package Package, Hashtable InternalArguments) {
+        private const string StateVariableName = "global:_Pog";
+
+        /// Retrieves the instance of `ContainerInternalInfo` associated with this container (PowerShell runspace).
+        /// <exception cref="InvalidOperationException">No valid `ContainerInternalInfo` instance is associated with this container.</exception>
+        public static ContainerInternalInfo GetCurrent(PSCmdlet callingCmdlet) {
+            var containerStateVar = callingCmdlet.SessionState.PSVariable.Get(StateVariableName);
+            if (containerStateVar == null) {
+                throw new InvalidOperationException(
+                        $"${StateVariableName} variable is missing, Pog package manifests must be executed inside the Pog environment.");
+            }
+            if (containerStateVar.Value is not ContainerInternalInfo containerState) {
+                throw new InvalidOperationException(
+                        $"${StateVariableName} is not of type {nameof(ContainerInternalInfo)}");
+            }
+            return containerState;
+        }
+    }
 }

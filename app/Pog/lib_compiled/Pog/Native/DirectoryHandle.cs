@@ -83,31 +83,48 @@ public static class DirectoryUtils {
     /// It is not possible to atomically delete a directory. Instead, we use a temporary directory
     /// to first move it out of the way, and then delete it. Note that `tmpMovePath` must
     /// be at same filesystem as `srcDirPath`.
-    public static void DeleteDirectoryAtomically(string srcDirPath, string tmpMovePath) {
-        MoveDirectoryAtomically(srcDirPath, tmpMovePath);
+    public static void DeleteDirectoryAtomically(string srcDirPath, string tmpMovePath, bool ignoreNotFound = false) {
+        try {
+            MoveDirectoryAtomically(srcDirPath, tmpMovePath);
+        } catch (FileNotFoundException) {
+            if (ignoreNotFound) return;
+            throw;
+        }
         Directory.Delete(tmpMovePath, true);
     }
 
-    /**
-     * Attempts to atomically move the directory at `srcPath` to `destinationPath`. Returns `true on success,
-     * `false` if the directory is locked, throws an exception for other error cases.
-     *
-     * <exception cref="SystemException"></exception>
-     */
+    /// Attempts to atomically move the directory at `srcPath` to `destinationPath`. Returns `true on success,
+    /// `false` if the directory is locked, throws an exception for other error cases.
+    ///
+    /// <remarks>If `destinationPath` is locked, this function erroneously returns true.</remarks>
+    ///
+    /// <exception cref="SystemException"></exception>
     public static bool MoveDirectoryUnlocked(string srcPath, string destinationPath) {
-        using var handle = OpenDirectoryForMove(srcPath);
+        SafeFileHandle dirHandle;
         try {
-            MoveFileByHandle(handle, destinationPath);
-            return true; // move succeeded, no locks
-        } catch (SystemException e) {
-            // 0x80070005 = ERROR_ACCESS_DENIED
-            if (e.HResult == -2147024891) {
-                return false; // something in the directory is locked
-            }
-            throw;
+            dirHandle = OpenDirectoryForMove(srcPath);
+        } catch (FileLoadException) {
+            // the directory at dirPath is locked by another process
+            return false;
         }
+
+        using (dirHandle) {
+            try {
+                MoveFileByHandle(dirHandle, destinationPath);
+            } catch (UnauthorizedAccessException) {
+                // 2 possibilities:
+                // 1) an entry inside srcPath is locked by another process
+                // 2) an entry inside destinationPath is locked by another process
+                // FIXME: it doesn't seem there's an easy way to distinguish between these two;
+                //  currently, we always return true
+                return false;
+            }
+        }
+
+        return true;
     }
 
+    /// Returns true if any entry inside the directory or the directory is locked.
     public static bool IsDirectoryLocked(string directoryPath) {
         // move directory to itself; this returns false when the directory contains anything locked, and is a no-op otherwise
         return !MoveDirectoryUnlocked(directoryPath, directoryPath);

@@ -34,9 +34,12 @@ public static class PathUtils {
     }
 
     /// Delete the directory at `dirPath`, if it exists.
-    public static void EnsureDeleteDirectory(string dirPath) {
+    public static bool EnsureDeleteDirectory(string dirPath) {
         try {
             Directory.Delete(dirPath, true);
-        } catch (DirectoryNotFoundException) {}
+            return true;
+        } catch (DirectoryNotFoundException) {
+            return false;
+        }
     }
 }

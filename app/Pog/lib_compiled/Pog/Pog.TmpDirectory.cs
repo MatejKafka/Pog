@@ -6,6 +6,10 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
+/// <summary>
+/// This class manages a directory of temporary files. This is used instead of %TEMP%,
+/// because the directory must be at the same partition as the download cache.
+/// </summary>
 [PublicAPI]
 public class TmpDirectory {
     public readonly string Path;
