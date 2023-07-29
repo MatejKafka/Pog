@@ -268,21 +268,20 @@ Export function Assert-File {
 			# if file does not exist, use output of this script block to populate it
 			# file is left empty if this is not passed
 			[Parameter(Position=1, ParameterSetName="ScriptBlocks")]
-			[scriptblock]
-		$DefaultContent = {param($File)},
-			# if file does exist and this is passed, the script block is ran with reference to the file
-			# NOTE: you have to save the output yourself (this was deemed more
-			#  robust and often more efficient solution than just returning the desired new content)
-			# return $true if something was changed, $false if original content was kept
-			[Parameter(Position=2, ParameterSetName="ScriptBlocks")]
 			[ValidateScript({
 				if ($_ -is [scriptblock]) {return $true}
 				if ($_ -is [string]) {
 					if (Test-Path -Type Leaf $_) {return $true}
-					throw "-ContentUpdater is a path string, but it doesn't point to an existing PowerShell script file: '${_}'"
+					throw "-DefaultContent is a template path string, but it doesn't point to an existing file: '${_}'"
 				}
-				throw "-ContentUpdater must be either a script block, or a path to a PowerShell script file, got '$($_.GetType())'."
+				throw "-DefaultContent must be either a script block, or a path to an existing template file, got '$($_.GetType())'."
 			})]
+		$DefaultContent = {},
+			# if file does exist and this is passed, the script block is ran with reference to the file
+			# NOTE: you have to save the output yourself (this was deemed more
+			#  robust and often more efficient solution than just returning the desired new content)
+			[Parameter(Position=2, ParameterSetName="ScriptBlocks")]
+			[scriptblock]
 		$ContentUpdater = $null,
 			[Parameter(ParameterSetName="FixedContent")]
 			[ValidateScript({
@@ -292,7 +291,7 @@ Export function Assert-File {
 		$FixedContent = $null
 	)
 
-	$FixedContentStr = if ($FixedContent -is [scriptblock]) {& $FixedContent (Resolve-VirtualPath $Path)}
+	$FixedContentStr = if ($FixedContent -is [scriptblock]) {$FixedContent.InvokeWithContext($null, @([psvariable]::new("_", (Resolve-VirtualPath $Path))))}
 			elseif ($FixedContent -is [string]) {$FixedContent}
 			else {$null}
 
@@ -313,7 +312,7 @@ Export function Assert-File {
 		}
 
 		$File = Get-Item $Path
-		$null = & $ContentUpdater $File
+		$null = $ContentUpdater.InvokeWithContext($null, @([psvariable]::new("_", $File)))
 
 		$WasChanged = $File.LastWriteTime -ne (Get-Item $Path).LastWriteTime
 		if ($WasChanged) {
@@ -340,7 +339,8 @@ Export function Assert-File {
 	#  or just return the desired content and we'll create it ourselves
 	# the first option is supported, because some apps have a builtin way to generate a default config directly
 	$NewContent = if ($FixedContentStr) {$FixedContentStr}
-		else {& $DefaultContent (Resolve-VirtualPath $Path)}
+		elseif ($DefaultContent -is [string]) {Copy-Item $DefaultContent $Path}
+		else {$DefaultContent.InvokeWithContext($null, @([psvariable]::new("_", (Resolve-VirtualPath $Path))))}
 
 	if (-not (Test-Path $Path)) {
 		# -NoNewline doesn't skip just the trailing newline, but all newlines;
