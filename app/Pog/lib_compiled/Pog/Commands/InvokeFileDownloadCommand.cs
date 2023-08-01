@@ -17,20 +17,20 @@ namespace Pog.Commands;
 [OutputType(typeof(InvokeFileDownload.TmpFileLock), typeof(SharedFileCache.CacheEntryLock))]
 public class InvokeFileDownloadCommand : PSCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string SourceUrl = null!;
-    [Parameter(ParameterSetName = "Hash")] public string? ExpectedHash;
+
+    [Parameter(ParameterSetName = "Hash")]
+    [Alias("Hash")]
+    [Verify.Sha256Hash]
+    public string? ExpectedHash;
+
     [Parameter] public DownloadParameters DownloadParameters = new();
     [Parameter(Mandatory = true)] public Package Package = null!;
     [Parameter(ParameterSetName = "NoHash")] public SwitchParameter StoreInCache;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
-        if (ExpectedHash == "") {
-            ExpectedHash = null;
-        }
-        if (ExpectedHash != null) {
-            Verify.Sha256Hash(ExpectedHash);
-            ExpectedHash = ExpectedHash.ToUpper();
-        }
+
+        ExpectedHash = ExpectedHash?.ToUpper();
 
         WriteObject(InvokeFileDownload.Invoke(this, SourceUrl, ExpectedHash, DownloadParameters, Package, StoreInCache));
     }

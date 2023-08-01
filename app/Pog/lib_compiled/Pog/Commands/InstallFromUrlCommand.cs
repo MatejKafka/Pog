@@ -145,6 +145,8 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
+        // hash should always be uppercase
+        ExpectedHash = ExpectedHash?.ToUpper();
         if (ExpectedHash == null) {
             WriteWarning($"Downloading a file from '{SourceUrl}', but no checksum was provided in the package." +
                          " This means that we cannot be sure if the downloaded file is the same one the package author intended." +
