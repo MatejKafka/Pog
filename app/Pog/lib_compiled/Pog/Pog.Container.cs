@@ -96,6 +96,7 @@ public class Container : IDisposable {
 
         // set the working directory
         // this is a hack, but unfortunately a necessary one: https://github.com/PowerShell/PowerShell/issues/17603
+        // TODO: add a mutex here in case multiple containers are started in parallel
         var originalWorkingDirectory = Environment.CurrentDirectory;
         try {
             // temporarily override the working directory

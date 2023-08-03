@@ -98,7 +98,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         _package = internalInfo.Package;
 
 
-        if (new[] {_p(TmpExtractionDirName), _newAppDirPath, _p(TmpDeleteDirName)}.Any(PathUtils.EnsureDeleteDirectory)) {
+        if (new[] {_p(TmpExtractionDirName), _newAppDirPath, _p(TmpDeleteDirName)}.Any(FileUtils.EnsureDeleteDirectory)) {
             WriteWarning("Removed orphaned tmp installer directories, probably from an interrupted previous install...");
         }
 
@@ -200,9 +200,9 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     }
 
     public void Dispose() {
-        PathUtils.EnsureDeleteDirectory(_p(TmpDeleteDirName));
-        PathUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
-        PathUtils.EnsureDeleteDirectory(_newAppDirPath);
+        FileUtils.EnsureDeleteDirectory(_p(TmpDeleteDirName));
+        FileUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
+        FileUtils.EnsureDeleteDirectory(_newAppDirPath);
         // do not attempt to delete AppBackupDirName here, it should be already cleaned up
         //  (and if it isn't, it probably also won't work here)
     }
@@ -240,19 +240,8 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
             Directory.CreateDirectory(parentPath);
             usedDir.MoveTo(targetPath);
         } else {
-            MoveDirectoryContents(usedDir, targetPath);
-        }
-    }
-
-    // TODO: handle existing target
-    private void MoveDirectoryContents(DirectoryInfo srcDir, string targetDir) {
-        foreach (var entry in srcDir.EnumerateFileSystemInfos()) {
-            // shrug, not all .NET APIs are nice...
-            if (entry is FileInfo file)
-                file.MoveTo(Path.Combine(targetDir, entry.Name));
-            else if (entry is DirectoryInfo dir) {
-                dir.MoveTo(Path.Combine(targetDir, entry.Name));
-            }
+            // TODO: handle existing target (overwrite?)
+            FileUtils.MoveDirectoryContents(usedDir, targetPath);
         }
     }
 

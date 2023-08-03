@@ -130,7 +130,7 @@ public class ExpandArchive7Zip : Command, IDisposable {
     }
 
     private void CleanupTargetDir() {
-        PathUtils.EnsureDeleteDirectory(_targetPath);
+        FileUtils.EnsureDeleteDirectory(_targetPath);
     }
 
     /// Should be called when Ctrl-c is pressed by the user.

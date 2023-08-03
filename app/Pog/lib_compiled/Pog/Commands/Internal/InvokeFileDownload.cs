@@ -95,7 +95,7 @@ public class InvokeFileDownload : Command {
             WriteVerbose($"Adding the downloaded file to the local cache under the key '{hash}'.");
             return AddEntryToCache(hash, InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, _package));
         } catch {
-            PathUtils.EnsureDeleteDirectory(downloadDirPath);
+            FileUtils.EnsureDeleteDirectory(downloadDirPath);
             throw;
         }
     }

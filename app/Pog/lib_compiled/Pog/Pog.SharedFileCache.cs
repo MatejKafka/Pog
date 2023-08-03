@@ -71,7 +71,7 @@ public class SharedFileCache {
     public IEnumerable<CacheEntryInfo> EnumerateEntries(InvalidCacheEntryCb? invalidEntryCb = null) {
         // the last .Where is necessary to avoid race conditions (cache entry exists when entries are enumerated,
         //  but is deleted before `GetEntryInfoInner(...)` finishes)
-        return PathUtils.EnumerateNonHiddenDirectoryNames(Path)
+        return FileUtils.EnumerateNonHiddenDirectoryNames(Path)
                 .Select(entryKey => {
                     try {
                         return GetEntryInfoInner(entryKey);

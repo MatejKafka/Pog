@@ -13,6 +13,6 @@ public class GeneratorRepository {
     }
 
     public IEnumerable<string> EnumerateGeneratorNames(string searchPattern = "*") {
-        return PathUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
+        return FileUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
     }
 }

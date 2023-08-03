@@ -24,12 +24,12 @@ Export function Get-PogRepositoryPackage {
 		$PackageName,
 			# TODO: figure out how to remove this parameter when -PackageName is an array
 
-			### Is set, only a single package with the given version is returned, or an exception is thrown.
+			### Return only a single package with the given version. An exception is thrown if the version is not found.
 			[Parameter(Position=1, ParameterSetName="Version")]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
 			[Pog.PackageVersion]
 		$Version,
-			### If set, all available versions of each repository package are returned. By default, only the latest one is returned.
+			### Return all available versions of each repository package. By default, only the latest one is returned.
 			[Parameter(ParameterSetName="AllVersions")]
 			[switch]
 		$AllVersions
@@ -48,6 +48,7 @@ Export function Get-PogRepositoryPackage {
 			}
 		}
 
+		# by default, return all available packages
 		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $MyInvocation.ExpectingInput) {
 			$PackageName = $REPOSITORY.EnumeratePackageNames()
 		}
@@ -165,7 +166,7 @@ Export function Clear-PogDownloadCache {
 			[Parameter(ParameterSetName = "Days", Position = 0)]
 			[int]
 		$DaysBefore = 0,
-			### If set, do not prompt for confirmation and delete the cache entries immediately.
+			### Do not prompt for confirmation and delete the cache entries immediately.
 			[switch]
 		$Force
 	)
@@ -360,11 +361,11 @@ Export function Install-Pog {
 			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
 			[string[]]
 		$PackageName,
-			### If set, and some version of the package is already installed, prompt before overwriting
+			### If some version of the package is already installed, prompt before overwriting
 			### with the current version according to the manifest.
 			[switch]
 		$Confirm,
-			### If set, files are downloaded with low priority, which results in better network responsiveness
+			### Download files with low priority, which results in better network responsiveness
 			### for other programs, but possibly slower download speed.
 			[switch]
 		$LowPriority,
@@ -410,7 +411,7 @@ Export function Install-Pog {
 	}
 }
 
-function ClearPreviousPackageDir($p, $TargetPackageRoot, $SrcPackage, [switch]$Force) {
+function ClearPreviousPackageDir([Pog.ImportedPackage]$p, $TargetPackageRoot, [Pog.RepositoryPackage]$SrcPackage, [switch]$Force) {
 	$OrigManifest = $null
 	try {
 		# try to load the (possibly) existing manifest
@@ -628,7 +629,7 @@ Export function Export-Pog {
 			foreach ($_ in $p.EnumerateExportedShortcuts()) {
 				$TargetPath = Join-Path $StartMenuDir $_.Name
 				if (Test-Path $TargetPath) {
-					if ([Pog.PathUtils]::FileContentEqual((gi $TargetPath), $_)) {
+					if ([Pog.FileUtils]::FileContentEqual((Get-Item $TargetPath), $_)) {
 						Write-Verbose "Shortcut '$($_.BaseName)' is already exported from this package."
 						continue
 					}
@@ -746,7 +747,7 @@ Export function Show-PogManifestHash {
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
 			[Pog.PackageVersion]
 		$Version,
-			### If set, files are downloaded with low priority, which results in better network responsiveness
+			### Download files with low priority, which results in better network responsiveness
 			### for other programs, but possibly slower download speed.
 			[switch]
 		$LowPriority
@@ -1082,7 +1083,7 @@ Export function Confirm-PogRepositoryPackage {
 			$VersionPackages = if (-not $VersionParam) {
 				$Files = ls -File $c.Path
 				if ($Files) {
-					AddIssue "Package '$PackageName' has incorrect structure; root contains following files (only version directories should be present): $Files"
+					AddIssue "Package '$PackageName' has incorrect structure; root contains the following files (only version directories should be present): $Files"
 					return
 				}
 				$c.Enumerate()
@@ -1110,13 +1111,11 @@ Export function Confirm-PogRepositoryPackage {
 				AddIssue ("'$ExtraFileDir' should be a directory, not a file, in manifest directory for '$($p.PackageName)', version '$($p.Version)'.")
 			}
 
-			if (-not $p.ManifestExists) {
-				AddIssue "Could not find manifest '$($p.PackageName)', version '$($p.Version)'. Searched path: $($p.ManifestPath)"
-				return
-			}
-
 			try {
 				$p.ReloadManifest()
+			} catch [Pog.PackageManifestNotFoundException] {
+				AddIssue "Could not find manifest '$($p.PackageName)', version '$($p.Version)'. Searched path: $($_.FileName)"
+				return
 			} catch [Pog.PackageManifestParseException] {
 				AddIssue $_
 				return

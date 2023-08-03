@@ -36,20 +36,23 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         {"rc", DevVersionType.Rc},
     };
 
+    /// <exception cref="InvalidPackageVersionException"></exception>
     public PackageVersion(string versionString) {
         if (string.IsNullOrEmpty(versionString)) {
-            throw new ArgumentException("Package version must not be empty.");
+            throw new InvalidPackageVersionException("Package version must not be empty.");
         }
 
         this._versionString = versionString;
 
         var i = versionString.IndexOfAny(IOPath.GetInvalidFileNameChars());
         if (i >= 0) {
-            throw new FormatException("Package version must be a valid directory name, cannot contain"
-                                      + " invalid characters like '" + versionString[i] + "': " + versionString);
+            throw new InvalidPackageVersionException("Package version must be a valid directory name, cannot contain"
+                                                     + " invalid characters like '" + versionString[i] + "': " +
+                                                     versionString);
         }
         if (versionString is "." or "..") {
-            throw new FormatException("Package version must be a valid directory name, got '" + versionString + "'.");
+            throw new InvalidPackageVersionException("Package version must be a valid directory name, got '" +
+                                                     versionString + "'.");
         }
 
         // should always pass, checked above
@@ -57,7 +60,7 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
 
         var match = VersionRegex.Match(versionString);
         if (!match.Success) {
-            throw new FormatException("Could not parse package version: " + versionString);
+            throw new InvalidPackageVersionException("Could not parse package version: " + versionString);
         }
 
         // the regex should ensure this always works
@@ -71,8 +74,8 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
             if (token == "") return;
             devVersion.Add(isNumericToken.GetValueOrDefault(false)
                     ? int.Parse(token)
-                    : DevVersionTypeMap.ContainsKey(token)
-                            ? DevVersionTypeMap[token]
+                    : DevVersionTypeMap.TryGetValue(token, out var value)
+                            ? value
                             : token);
         }
 
@@ -184,4 +187,8 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         var secExp = second.Concat(Enumerable.Repeat(pad2, Math.Max(first.Length - second.Length, 0)));
         return firstExp.Zip(secExp, (a, b) => (a, b));
     }
+}
+
+public class InvalidPackageVersionException : FormatException {
+    public InvalidPackageVersionException(string message) : base(message) {}
 }
