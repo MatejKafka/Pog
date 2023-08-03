@@ -690,7 +690,10 @@ Export function Invoke-Pog {
 	param(
 			### Only import and install the package, do not enable and export.
 			[switch]
-		$InstallOnly
+		$InstallOnly,
+			### Import, install and enable the package, do not export it.
+			[switch]
+		$NoExport
 	)
 
 	dynamicparam {
@@ -710,10 +713,15 @@ Export function Invoke-Pog {
 
 		$null = $Params.Remove("PassThru")
 
-		$SbWithEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru @LogArgs | Export-Pog -PassThru:$PassThru @LogArgs}
+		$SbAll = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru @LogArgs | Export-Pog -PassThru:$PassThru @LogArgs}
+		$SbNoExport = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru:$PassThru @LogArgs}
 		$SbNoEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru:$PassThru @LogArgs}
 
-		$sp = ($InstallOnly ? $SbNoEnable : $SbWithEnable).GetSteppablePipeline()
+		$Sb = if ($InstallOnly) {$SbNoEnable}
+			elseif ($NoExport) {$SbNoExport}
+			else {$SbAll}
+
+		$sp = $Sb.GetSteppablePipeline()
 		$sp.Begin($PSCmdlet)
 	}
 
