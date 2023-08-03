@@ -104,9 +104,9 @@ public class RepositoryVersionedPackage {
 
         var package = GetPackage(version);
         if (mustExist && !package.Exists) {
-            // FIXME: bullshit path for TemplatedRepositoryPackage
+            var path = IsTemplated ? package.ManifestPath : package.Path;
             throw new RepositoryPackageVersionNotFoundException(
-                    $"Package '{PackageName}' in the repository does not have version '{version}', expected path: {package.Path}");
+                    $"Package '{PackageName}' in the repository does not have version '{version}', expected path: {path}");
         }
         return package;
     }
