@@ -445,7 +445,7 @@ function ClearPreviousPackageDir([Pog.ImportedPackage]$p, $TargetPackageRoot, [P
 		}
 	}
 
-	[Pog.PathConfig+PackagePaths]::ManifestCleanupPaths | % {Join-Path $p.Path $_} | ? {Test-Path $_} | Remove-Item -Recurse
+	$p.RemoveManifest()
 	return $true
 }
 
@@ -564,8 +564,9 @@ Export function Import-Pog {
 				continue
 			}
 
-			# copy the new package files from the repository
-			ls $SrcPackage.Path | Copy-Item -Recurse -Destination $p.Path
+			# import the package
+			$SrcPackage.ImportTo($p)
+
 			Write-Information "Initialized '$($p.Path)' with package manifest '$($SrcPackage.PackageName)' (version '$($SrcPackage.Version)')."
 			if ($PassThru) {
 				# reload to remove the previous cached manifest

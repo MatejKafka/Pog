@@ -105,7 +105,7 @@ public class ImportedPackageManager {
 /// otherwise an exception is thrown.
 /// </summary>
 [PublicAPI]
-public class ImportedPackage : Package {
+public sealed class ImportedPackage : Package {
     public PackageVersion? Version => Manifest.Version;
     [Hidden] public string? ManifestName => Manifest.Name;
 
@@ -115,6 +115,12 @@ public class ImportedPackage : Package {
             // load the manifest to (partially) validate it and ensure the getters won't throw
             ReloadManifest();
         }
+    }
+
+    // called while importing a new manifest
+    public void RemoveManifest() {
+        FileUtils.EnsureDeleteFile(ManifestPath);
+        FileUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
     }
 
     /// Enumerates full paths of all exported shortcuts.

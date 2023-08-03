@@ -36,7 +36,7 @@ public class PathConfig {
     [PublicAPI]
     public static class PackagePaths {
         public const string ManifestRelPath = "pog.psd1";
-        public static readonly string[] ManifestCleanupPaths = {"pog.psd1", ".pog"};
+        public const string ManifestResourceRelPath = ".pog";
 
         public const string ShortcutDirRelPath = ".";
         public const string CommandDirRelPath = "./.commands";

@@ -37,19 +37,26 @@ public class PackageManifest {
     public string? Name;
     public PackageVersion? Version;
 
+    /// <param name="manifestPath">Path to the manifest file.</param>
+    /// <param name="manifestStr">
+    /// If passed, the manifest is parsed from the string and <paramref name="manifestPath"/> is only used to improve error reporting.
+    /// </param>
+    ///
     /// <exception cref="PackageManifestNotFoundException">Thrown if the package manifest file does not exist.</exception>
     /// <exception cref="PackageManifestParseException">Thrown if the package manifest file is not a valid PowerShell data file (.psd1).</exception>
-    public PackageManifest(string manifestPath) {
+    internal PackageManifest(string manifestPath, string? manifestStr = null) {
         Path = manifestPath;
-        Raw = LoadManifest(manifestPath);
+        Raw = LoadManifest(manifestPath, manifestStr);
         IsPrivate = (bool) (Raw["Private"] ?? false);
         Name = (string?) Raw["Name"];
         var v = Raw["Version"];
         Version = v == null ? null : new PackageVersion((string) v);
     }
 
-    private Hashtable LoadManifest(string manifestPath) {
-        if (!File.Exists(manifestPath)) {
+    /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
+    /// unwrapping any script-blocks (see the other methods).
+    private static Hashtable LoadManifest(string manifestPath, string? manifestStr = null) {
+        if (manifestStr == null && !File.Exists(manifestPath)) {
             throw new PackageManifestNotFoundException($"Package manifest file is missing, expected path: {manifestPath}",
                     manifestPath);
         }
@@ -57,18 +64,20 @@ public class PackageManifest {
         // NOTE: how this is loaded is important; the resulting scriptblocks must NOT be bound to a single runspace;
         //  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
         //  (see e.g. https://github.com/PowerShell/PowerShell/issues/11658#issuecomment-577304407)
-        var ast = Parser.ParseFile(manifestPath, out _, out var errors);
+        var ast = manifestStr == null
+                ? Parser.ParseFile(manifestPath, out _, out var errors)
+                : Parser.ParseInput(manifestStr, out _, out errors);
         if (errors.Length > 0) {
             throw new PackageManifestParseException(manifestPath, errors);
         }
 
-        var data = ast.Find(static a => a is HashtableAst, false);
-        if (data == null) {
-            throw new PackageManifestParseException(manifestPath, "The manifest is not a valid PowerShell" +
-                                                    " data file, must be a single Hashtable literal.");
+        var hashtableNode = (HashtableAst) ast.Find(static a => a is HashtableAst, false);
+        if (hashtableNode == null) {
+            throw new PackageManifestParseException(manifestPath,
+                    "The manifest is not a valid PowerShell data file, must be a single Hashtable literal.");
         }
 
-        var manifest = (data.SafeGetValue() as Hashtable)!;
+        var manifest = (Hashtable) hashtableNode.SafeGetValue();
         UnwrapHashtableScriptBlocks(manifest);
         return manifest;
     }
@@ -77,7 +86,7 @@ public class PackageManifest {
     /// instead of the scriptblock itself, so it's double wrapped. Before this is fixed upstream, we have to go through
     /// the manifest and unwrap any scriptblock we find.
     /// TODO: report these findings upstream
-    private void UnwrapHashtableScriptBlocks(Hashtable hashtable) {
+    private static void UnwrapHashtableScriptBlocks(Hashtable hashtable) {
         // use .Keys to avoid exception from modifying an iterated-over Hashtable
         foreach (var key in hashtable.Keys.Cast<object>().ToList()) {
             switch (hashtable[key]) {
@@ -94,7 +103,7 @@ public class PackageManifest {
         }
     }
 
-    private void UnwrapArrayScriptBlocks(Array arr) {
+    private static void UnwrapArrayScriptBlocks(Array arr) {
         for (long i = 0; i < arr.Length; i++) {
             switch (arr.GetValue(i)) {
                 case Hashtable ht:
@@ -110,7 +119,7 @@ public class PackageManifest {
         }
     }
 
-    private ScriptBlock UnwrapScriptBlock(ScriptBlock sb) {
+    private static ScriptBlock UnwrapScriptBlock(ScriptBlock sb) {
         // this is just going through the nested members, read through the parse tree to understand what it does
         var sbAst = sb.Ast as ScriptBlockAst;
         var pipelineAst = sbAst?.EndBlock.Statements[0] as PipelineAst;

@@ -1,17 +1,20 @@
 ﻿using System.IO;
+using IOPath = System.IO.Path;
 using System.Management.Automation;
 using JetBrains.Annotations;
 
 namespace Pog;
 
 [PublicAPI]
-public class Package {
-    public string PackageName {get;}
-    [Hidden] public string Path {get;}
-    [Hidden] public string ManifestPath {get;}
+public abstract class Package {
+    public readonly string PackageName;
+    [Hidden] public readonly string Path;
+    [Hidden] public string ManifestPath => _manifest != null ? Manifest.Path : GetManifestPath();
 
-    [Hidden] public bool Exists => Directory.Exists(this.Path);
-    [Hidden] public bool ManifestExists => File.Exists(this.ManifestPath);
+    [Hidden] public virtual bool Exists => Directory.Exists(Path);
+
+    // TODO: make this public?
+    internal string ManifestResourceDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestResourceRelPath);
 
     private PackageManifest? _manifest;
     [Hidden]
@@ -24,14 +27,12 @@ public class Package {
         }
     }
 
-    internal Package(string packageName, string packagePath, PackageManifest? manifest = null) {
+    protected Package(string packageName, string packagePath, PackageManifest? manifest = null) {
         Verify.Assert.PackageName(packageName);
+        Verify.Assert.FilePath(packagePath);
         PackageName = packageName;
         Path = packagePath;
-        ManifestPath = System.IO.Path.Combine(Path, PathConfig.PackagePaths.ManifestRelPath);
-        if (manifest != null) {
-            _manifest = manifest;
-        }
+        _manifest = manifest;
     }
 
     /// <exception cref="DirectoryNotFoundException">Thrown if the package directory does not exist.</exception>
@@ -41,6 +42,14 @@ public class Package {
         if (!Exists) {
             throw new DirectoryNotFoundException($"Tried to read package manifest of a non-existent package at '{Path}'.");
         }
-        _manifest = new PackageManifest(ManifestPath);
+        _manifest = LoadManifest();
+    }
+
+    protected virtual string GetManifestPath() {
+        return IOPath.Combine(Path, PathConfig.PackagePaths.ManifestRelPath);
+    }
+
+    protected virtual PackageManifest LoadManifest() {
+        return new PackageManifest(ManifestPath);
     }
 }
