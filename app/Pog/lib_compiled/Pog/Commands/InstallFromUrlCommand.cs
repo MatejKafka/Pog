@@ -30,7 +30,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     [Verify.FilePath]
     public string? Subdirectory;
     /// If passed, the extracted directory is moved to "./app/$Target", instead of directly to ./app.
-    [Parameter(ValueFromPipelineByPropertyName = true)]
+    [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
     // make Target mandatory when NoArchive is set, otherwise the name of the binary would be controlled by the server
     //  we're downloading from, making the resulting package no longer reproducible based on just the hash
     [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "NoArchive")]
@@ -180,6 +180,9 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
             // move `usedDir` to the new app directory
             var targetPath = Path.Combine(_p(NewAppDirName), Target ?? ".");
             if (!Directory.Exists(targetPath)) {
+                var parentPath = Path.GetDirectoryName(targetPath.TrimEnd('/', '\\'))!;
+                // ensure parent directory exists
+                Directory.CreateDirectory(parentPath);
                 usedDir.MoveTo(targetPath);
             } else {
                 MoveDirectoryContents(usedDir, targetPath);
