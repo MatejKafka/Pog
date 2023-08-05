@@ -105,7 +105,7 @@ Export function Confirm-Manifest {
 		Name = [string]; Version = [string]; Architecture = @([string], [Object[]]); Enable = [scriptblock]
 	}
 	$OptionalKeys = @{
-		Private = [bool]; Description = [string]; Website = [string]; Channel = [string]; Install = [hashtable]
+		Private = [bool]; Description = [string]; Website = [string]; Channel = [string]; Install = @([hashtable], [Object[]])
 	}
 
 	$Issues = @()
@@ -169,6 +169,14 @@ Export function Confirm-Manifest {
 		if ($Manifest.Install -is [hashtable]) {
 			# check Install key structure
 			$Issues += Confirm-ManifestInstallHashtable $Manifest.Install
+		} elseif ($Manifest.Install -is [Object[]]) {
+			foreach ($Entry in $Manifest.Install) {
+				if ($Entry -isnot [hashtable]) {
+					$Issues += "All 'Install' array entries must be of type Hashtable, got '$($Entry.GetType())'."
+					continue
+				}
+				$Issues += Confirm-ManifestInstallHashtable $Entry
+			}
 		} elseif ($Manifest.Install -is [scriptblock]) {
 			$Issues += "Scriptblock-based Install block is deprecated, use a Hashtable instead."
 		}
