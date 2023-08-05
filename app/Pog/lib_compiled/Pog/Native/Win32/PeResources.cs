@@ -2,7 +2,9 @@
 
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using JetBrains.Annotations;
 
 namespace Pog;
 
@@ -41,6 +43,32 @@ public static partial class Win32 {
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     public static extern FreeLibrarySafeHandle LoadLibrary(string lpLibFileName);
 
+    [PublicAPI]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "IdentifierTypo")]
+    [Flags]
+    public enum LoadLibraryFlags : uint {
+        None = 0,
+        DONT_RESOLVE_DLL_REFERENCES = 0x00000001,
+        LOAD_IGNORE_CODE_AUTHZ_LEVEL = 0x00000010,
+        LOAD_LIBRARY_AS_DATAFILE = 0x00000002,
+        LOAD_LIBRARY_AS_DATAFILE_EXCLUSIVE = 0x00000040,
+        LOAD_LIBRARY_AS_IMAGE_RESOURCE = 0x00000020,
+        LOAD_LIBRARY_SEARCH_APPLICATION_DIR = 0x00000200,
+        LOAD_LIBRARY_SEARCH_DEFAULT_DIRS = 0x00001000,
+        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR = 0x00000100,
+        LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800,
+        LOAD_LIBRARY_SEARCH_USER_DIRS = 0x00000400,
+        LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008,
+        LOAD_LIBRARY_REQUIRE_SIGNED_TARGET = 0x00000080,
+        LOAD_LIBRARY_SAFE_CURRENT_DIRS = 0x00002000,
+    }
+
+    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "LoadLibraryExW", SetLastError = true,
+            CharSet = CharSet.Unicode)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    public static extern FreeLibrarySafeHandle LoadLibraryEx(string lpLibFileName, IntPtr hFile, LoadLibraryFlags dwFlags);
+
     /// <summary>Determines the location of a resource with the specified type and name in the specified module.</summary>
     /// <param name="hModule">
     /// <para>Type: <b>HMODULE</b> A handle to the module whose portable executable file or an accompanying MUI file contains the resource. If this parameter is <b>NULL</b>, the function searches the module used to create the current process.</para>
@@ -60,10 +88,9 @@ public static partial class Win32 {
     /// <remarks>
     /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-findresourcew">Learn more about this API from docs.microsoft.com</see>.</para>
     /// </remarks>
-    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "FindResourceW")]
+    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "FindResourceW", SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    public static extern HRSRC FindResource(FreeLibrarySafeHandle hModule, ResourceAtom lpName,
-            ResourceAtom lpType);
+    public static extern HRSRC FindResource(FreeLibrarySafeHandle hModule, ResourceAtom lpName, ResourceAtom lpType);
 
     /// <inheritdoc cref="LoadResource(HMODULE, HRSRC)"/>
     public static HGLOBAL LoadResource(SafeHandle? hModule, HRSRC hResInfo) {
@@ -112,7 +139,7 @@ public static partial class Win32 {
     /// <remarks>
     /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-lockresource">Learn more about this API from docs.microsoft.com</see>.</para>
     /// </remarks>
-    [DllImport("KERNEL32.dll", ExactSpelling = true)]
+    [DllImport("KERNEL32.dll", ExactSpelling = true, SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     public static extern unsafe void* LockResource(HGLOBAL hResData);
 
@@ -198,6 +225,28 @@ public static partial class Win32 {
     public static extern BOOL EnumResourceNames(HMODULE hModule, ResourceAtom lpType,
             ENUMRESNAMEPROCW lpEnumFunc, nint lParam);
 
+    /// <inheritdoc cref="EnumResourceTypes(HMODULE, ENUMRESTYPEPROCW, nint)"/>
+    public static bool EnumResourceTypes(SafeHandle? hModule, ENUMRESTYPEPROCW lpEnumFunc, nint lParam) {
+        var hModuleAddRef = false;
+        try {
+            HMODULE hModuleLocal;
+            if (hModule != null) {
+                hModule.DangerousAddRef(ref hModuleAddRef);
+                hModuleLocal = (HMODULE) hModule.DangerousGetHandle();
+            } else
+                hModuleLocal = (HMODULE) new IntPtr(0L);
+            return EnumResourceTypes(hModuleLocal, lpEnumFunc, lParam);
+        } finally {
+            if (hModuleAddRef)
+                hModule!.DangerousRelease();
+        }
+    }
+
+    /// <see href="https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-enumresourcetypesw"/>
+    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "EnumResourceTypesW", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    public static extern BOOL EnumResourceTypes(HMODULE hModule, ENUMRESTYPEPROCW lpEnumFunc, nint lParam);
+
     /// <summary>Commits or discards changes made prior to a call to UpdateResource.</summary>
     /// <param name="hUpdate">
     /// <para>Type: <b>HANDLE</b> A module handle returned by the <a href="https://docs.microsoft.com/windows/desktop/api/winbase/nf-winbase-beginupdateresourcea">BeginUpdateResource</a> function, and used by <a href="https://docs.microsoft.com/windows/desktop/api/winbase/nf-winbase-updateresourcea">UpdateResource</a>, referencing the file to be updated.</para>
@@ -215,7 +264,7 @@ public static partial class Win32 {
     /// </remarks>
     [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "EndUpdateResourceW", SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    public static extern BOOL EndUpdateResource(ResourceUpdateSafeHandle hUpdate, BOOL fDiscard);
+    public static extern BOOL EndUpdateResource(IntPtr hUpdate, BOOL fDiscard);
 
     /// <summary>Retrieves a handle that can be used by the UpdateResource function to add, delete, or replace resources in a binary module.</summary>
     /// <param name="pFileName">
@@ -293,20 +342,22 @@ public static partial class Win32 {
     }
 
     public sealed class ResourceUpdateSafeHandle : SafeHandle {
-        public ResourceUpdateSafeHandle() : base(IntPtr.Zero, true) {}
+        private static readonly IntPtr InvalidHandleValue = default;
 
-        public ResourceUpdateSafeHandle(IntPtr handle, bool ownsHandle = true) : base(IntPtr.Zero, ownsHandle) {
+        public ResourceUpdateSafeHandle() : base(InvalidHandleValue, true) {}
+
+        public ResourceUpdateSafeHandle(IntPtr handle, bool ownsHandle = true) : base(InvalidHandleValue, ownsHandle) {
             SetHandle(handle);
         }
 
-        public override bool IsInvalid => handle == IntPtr.Zero;
+        public override bool IsInvalid => handle == InvalidHandleValue;
 
         protected override bool ReleaseHandle() {
-            return EndUpdateResource(this, true);
+            return EndUpdateResource(handle, true);
         }
 
         public void CommitChanges() {
-            if (!EndUpdateResource(this, false)) {
+            if (!EndUpdateResource(handle, false)) {
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
             }
             SetHandleAsInvalid();
@@ -405,28 +456,49 @@ public static partial class Win32 {
             return new ResourceAtom(id);
         }
 
-        public bool IsNumeric() {
+        public bool IsId() {
             return (nuint) _name <= ushort.MaxValue;
         }
 
         /// Note that this copies the pointed-to string.
         public string GetAsString() {
-            if (IsNumeric()) {
+            if (IsId()) {
                 throw new InvalidOperationException("The atom is a numeric value, not a string");
             }
             return new string(_name);
         }
 
-        public ushort GetAsNumber() {
+        public ushort GetAsId() {
             return (ushort) _name;
         }
 
         public override string ToString() {
-            return IsNumeric() ? $"#{GetAsNumber()}" : GetAsString();
+            return IsId() ? $"#{GetAsId()}" : GetAsString();
         }
+
+        private static bool StringEquals(char* p1, char* p2) {
+            // never thought I'd write this in C#
+            for (; *p1 == *p2 && *p1 != 0; p1++, p2++) {}
+            return *p1 == *p2;
+        }
+
+        public static bool operator ==(ResourceAtom a, ResourceAtom b) {
+            if (a.IsId() != b.IsId()) return false;
+            if (a.IsId()) return a.GetAsId() == b.GetAsId();
+            else return StringEquals(a._name, b._name);
+        }
+
+        public static bool operator !=(ResourceAtom a, ResourceAtom b) => !(a == b);
+        public bool Equals(ResourceAtom other) => this == other;
+        public override bool Equals(object? obj) => obj is ResourceAtom other && this == other;
+        public override int GetHashCode() => (int) (nuint) _name;
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     // ReSharper disable once InconsistentNaming, IdentifierTypo
     public delegate BOOL ENUMRESNAMEPROCW(HMODULE hModule, ResourceAtom lpType, ResourceAtom lpName, nint lParam);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    // ReSharper disable once InconsistentNaming, IdentifierTypo
+    public delegate BOOL ENUMRESTYPEPROCW(HMODULE hModule, ResourceAtom lpType, nint lParam);
 }

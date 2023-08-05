@@ -2,10 +2,24 @@
 	<s:String x:Key="/Default/Environment/AssemblyExplorer/XmlDocument/@EntryValue">&lt;AssemblyExplorer&gt;&#xD;
   &lt;Assembly Path="C:\Users\admin\.nuget\packages\microsoft.windows.cswin32\0.2.229-beta\analyzers\cs\Microsoft.Windows.CsWin32.dll" /&gt;&#xD;
 &lt;/AssemblyExplorer&gt;</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=881b1922_002D0072_002D4bb2_002D94c0_002D620f5775131d/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Win32ArgsTests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+	<s:String x:Key="/Default/Environment/Highlighting/HighlightingSourceSnapshotLocation/@EntryValue">D:\_\JetBrains Rider\cache\resharper-host\temp\Rider\vAny\CoverageData\_lib_compiled.-1520601744\Snapshot\snapshot.utdcvr</s:String>
+	
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=881b1922_002D0072_002D4bb2_002D94c0_002D620f5775131d/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="Win32ArgsTests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;Not&gt;&#xD;
+    &lt;TestAncestor&gt;&#xD;
+      &lt;TestId&gt;xUnit::1B442191-0EEB-4D45-B15E-FC1DD8DEB6B0::net7.0-windows::Pog.Tests._TmpManualTests&lt;/TestId&gt;&#xD;
+    &lt;/TestAncestor&gt;&#xD;
+  &lt;/Not&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=fbb367d7_002Dc37b_002D46f9_002D8ca4_002De16ad6979b9d/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Test" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;xUnit::1B442191-0EEB-4D45-B15E-FC1DD8DEB6B0::net7.0-windows::Pog.Tests.Win32ArgsTests&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::1B442191-0EEB-4D45-B15E-FC1DD8DEB6B0::net7.0-windows::Pog.Tests._TmpManualTests.Test&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
+	
+	
+	
+	
+	
 	
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=scriptblocks/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>

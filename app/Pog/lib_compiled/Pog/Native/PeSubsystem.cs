@@ -27,8 +27,11 @@ public static partial class Native {
         }
 
         /// Returns current subsystem of the executable at `pePath`. If newSystem is not null, update the subsystem of the executable.
-        private static WindowsSubsystem UpdateSubsystem(string pePath, WindowsSubsystem? newSubsystem = null) {
-            using var stream = new FileStream(pePath, FileMode.Open, FileAccess.ReadWrite);
+        private static WindowsSubsystem UpdateSubsystemInner(string pePath, WindowsSubsystem? newSubsystem = null) {
+            // buffer 256 bytes; the subsystem field should almost always be below that
+            // only open with write access if we might need to write a new subsystem
+            using var stream = new FileStream(pePath, FileMode.Open,
+                    newSubsystem == null ? FileAccess.Read : FileAccess.ReadWrite, FileShare.ReadWrite, 256);
             var reader = new BinaryReader(stream);
 
             // 0x3c contains the offset of the PE signature
@@ -82,12 +85,25 @@ public static partial class Native {
             return currentSubsystem;
         }
 
+        private static WindowsSubsystem UpdateSubsystem(string pePath, WindowsSubsystem? newSubsystem = null) {
+            try {
+                return UpdateSubsystemInner(pePath, newSubsystem);
+            } catch (EndOfStreamException e) {
+                throw new InvalidPeBinaryException($"Invalid PE binary '{pePath}', unable to read the subsystem.", e);
+            }
+        }
+
         public static WindowsSubsystem GetSubsystem(string pePath) {
             return UpdateSubsystem(pePath);
         }
 
-        public static void SetSubsystem(string pePath, WindowsSubsystem newSubsystem) {
-            UpdateSubsystem(pePath, newSubsystem);
+        public static WindowsSubsystem SetSubsystem(string pePath, WindowsSubsystem newSubsystem) {
+            return UpdateSubsystem(pePath, newSubsystem);
+        }
+
+        public class InvalidPeBinaryException : IOException {
+            public InvalidPeBinaryException(string message) : base(message) {}
+            public InvalidPeBinaryException(string message, Exception innerException) : base(message, innerException) {}
         }
     }
 }

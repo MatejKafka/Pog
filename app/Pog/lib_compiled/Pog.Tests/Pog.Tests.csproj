@@ -10,7 +10,7 @@
 
         <LangVersion>default</LangVersion>
 
-        <TargetFrameworks>net7.0-windows;net472</TargetFrameworks>
+        <TargetFramework>net7.0-windows</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>
