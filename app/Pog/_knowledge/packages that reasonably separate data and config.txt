@@ -1,0 +1,7 @@
+packages that reasonably separate data/ and config/:
+	apache-httpd
+	maven
+	nim-lang
+	nvim
+	qBittorrent
+	Syncthing
