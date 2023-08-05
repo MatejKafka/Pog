@@ -34,7 +34,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     // make Target mandatory when NoArchive is set, otherwise the name of the binary would be controlled by the server
     //  we're downloading from, making the resulting package no longer reproducible based on just the hash
     [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "NoArchive")]
-    [Verify.FilePath] // TODO: validate that the path is a relative path without .. (inside the app directory)
+    [Verify.FilePath]
     public string? Target;
     /// Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
     /// Set this to `Browser` to use a browser user agent string (currently Firefox).
@@ -77,6 +77,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     private Command? _currentRunningCmd;
     private string _packageDirPath = null!;
     private string _appDirPath = null!;
+    private string _newAppDirPath = null!;
     private bool _allowOverwrite = false;
     private DownloadParameters _downloadParameters = null!;
     private Package _package = null!;
@@ -87,6 +88,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         base.BeginProcessing();
         _packageDirPath = SessionState.Path.CurrentLocation.ProviderPath;
         _appDirPath = _p(AppDirName);
+        _newAppDirPath = _p(NewAppDirName);
 
         // read download parameters from the global container info variable
         var internalInfo = Container.ContainerInternalInfo.GetCurrent(this);
@@ -96,7 +98,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         _package = internalInfo.Package;
 
 
-        if (new[] {TmpExtractionDirName, NewAppDirName, TmpDeleteDirName}.Select(_p).Any(PathUtils.EnsureDeleteDirectory)) {
+        if (new[] {_p(TmpExtractionDirName), _newAppDirPath, _p(TmpDeleteDirName)}.Any(PathUtils.EnsureDeleteDirectory)) {
             WriteWarning("Removed orphaned tmp installer directories, probably from an interrupted previous install...");
         }
 
@@ -154,48 +156,42 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
                          " and it improves security and reproducibility.");
         }
 
+        Debug.Assert(!NoArchive || Target != null);
+        var targetPath = Target == null
+                ? _newAppDirPath
+                : Path.GetFullPath(_newAppDirPath + '\\' + Target.TrimEnd('/', '\\'));
+
+        if (!targetPath.StartsWith(_newAppDirPath + '\\') && targetPath != _newAppDirPath) {
+            // the target path escapes from the app directory
+            ThrowTerminatingError(new ErrorRecord(
+                    new ArgumentException(
+                            $"Argument passed to the -Target parameter must be a relative path that does not escape " +
+                            $"the app directory, got '{Target}'."),
+                    "TargetEscapesRoot", ErrorCategory.InvalidArgument, Target));
+        }
+
+        if (NoArchive) {
+            if (targetPath == _newAppDirPath) {
+                ThrowTerminatingError(new ErrorRecord(new ArgumentException(
+                                $"Argument passed to the -Target parameter must contain the target file name, got '{Target}'"),
+                        "TargetResolvesToRoot", ErrorCategory.InvalidArgument, Target));
+            }
+        }
+
         using var downloadedFile = InvokeFileDownload.Invoke(
                 this, SourceUrl, ExpectedHash, _downloadParameters, _package, false);
 
         if (NoArchive) {
-            // TODO: check that Target is valid
-            Debug.Assert(Target != null);
-            // for NoArchive, Target contains even the file name, not just the directory name
-            var targetPath = Path.Combine(_p(NewAppDirName), Target!);
-            // ensure that the parent directory exists
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            // copy the file directly to the target path
-            File.Copy(downloadedFile.Path, targetPath, true);
+            InstallNoArchive(downloadedFile, targetPath);
         } else {
-            // extract the archive to a temporary directory
-            var extractionDir = _p(TmpExtractionDirName);
-            var cmd = new ExpandArchive7Zip(this, downloadedFile.Path, extractionDir, Subdirectory);
-            _currentRunningCmd = cmd;
-            cmd.Invoke();
-            _currentRunningCmd = null;
-            downloadedFile.Dispose();
-
-            // find and prepare the used subdirectory
-            var usedDir = GetExtractedSubdirectory(extractionDir, Subdirectory);
-            PrepareExtractedSubdirectory(usedDir.FullName, SetupScript, NsisInstaller);
-
-            // move `usedDir` to the new app directory
-            var targetPath = Path.Combine(_p(NewAppDirName), Target ?? ".");
-            if (!Directory.Exists(targetPath)) {
-                var parentPath = Path.GetDirectoryName(targetPath.TrimEnd('/', '\\'))!;
-                // ensure parent directory exists
-                Directory.CreateDirectory(parentPath);
-                usedDir.MoveTo(targetPath);
-            } else {
-                MoveDirectoryContents(usedDir, targetPath);
-            }
+            InstallArchive(downloadedFile, targetPath);
         }
     }
 
     /// here, we install the new ./app directory created during extraction
     protected override void EndProcessing() {
         base.EndProcessing();
-        ReplaceAppDirectory(_p(NewAppDirName), _appDirPath, _p(AppBackupDirName));
+        ReplaceAppDirectory(_newAppDirPath, _appDirPath, _p(AppBackupDirName));
     }
 
     protected override void StopProcessing() {
@@ -204,9 +200,9 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     }
 
     public void Dispose() {
-        PathUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
-        PathUtils.EnsureDeleteDirectory(_p(NewAppDirName));
         PathUtils.EnsureDeleteDirectory(_p(TmpDeleteDirName));
+        PathUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
+        PathUtils.EnsureDeleteDirectory(_newAppDirPath);
         // do not attempt to delete AppBackupDirName here, it should be already cleaned up
         //  (and if it isn't, it probably also won't work here)
     }
@@ -214,6 +210,38 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     /// Resolve a package-relative path to an absolute path.
     private string _p(string relPath) {
         return Path.Combine(_packageDirPath, relPath);
+    }
+
+    private void InstallNoArchive(SharedFileCache.IFileLock downloadedFile, string targetPath) {
+        // ensure that the parent directory exists
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        // copy the file directly to the target path
+        // for NoArchive, Target contains even the file name, not just the directory name
+        File.Copy(downloadedFile.Path, targetPath, true);
+    }
+
+    private void InstallArchive(SharedFileCache.IFileLock downloadedFile, string targetPath) {
+        // extract the archive to a temporary directory
+        var extractionDir = _p(TmpExtractionDirName);
+        var cmd = new ExpandArchive7Zip(this, downloadedFile.Path, extractionDir, Subdirectory);
+        _currentRunningCmd = cmd;
+        cmd.Invoke();
+        _currentRunningCmd = null;
+        downloadedFile.Dispose();
+
+        // find and prepare the used subdirectory
+        var usedDir = GetExtractedSubdirectory(extractionDir, Subdirectory);
+        PrepareExtractedSubdirectory(usedDir.FullName, SetupScript, NsisInstaller);
+
+        // move `usedDir` to the new app directory
+        if (!Directory.Exists(targetPath)) {
+            var parentPath = Path.GetDirectoryName(targetPath)!;
+            // ensure parent directory exists
+            Directory.CreateDirectory(parentPath);
+            usedDir.MoveTo(targetPath);
+        } else {
+            MoveDirectoryContents(usedDir, targetPath);
+        }
     }
 
     // TODO: handle existing target
@@ -265,6 +293,8 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
             if ((sub.Attributes & FileAttributes.Directory) == 0) {
                 // it's actually a file
                 // use the parent directory, 7zip should have only extracted the file we're interested in
+                // FIXME: if the user specifies the -Target, it might be confusing that a directory with the file is placed
+                //  there instead of just the file
                 return sub.Parent!; // cannot be null, we're inside the extracted directory
             } else {
                 // directory
