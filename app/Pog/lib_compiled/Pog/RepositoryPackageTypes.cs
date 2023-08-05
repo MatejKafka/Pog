@@ -180,7 +180,7 @@ public sealed class TemplatedRepositoryPackage : RepositoryPackage {
 
     protected override void ImportManifestTo(ImportedPackage target) {
         // TODO: figure out how to avoid calling .Substitute twice when first validating, and then importing the package
-        TemplateFile.Substitute(TemplatePath, ManifestPath, target.ManifestPath);
+        ManifestTemplateFile.Substitute(TemplatePath, ManifestPath, target.ManifestPath);
     }
 
     protected override string GetManifestPath() {
@@ -188,6 +188,6 @@ public sealed class TemplatedRepositoryPackage : RepositoryPackage {
     }
 
     protected override PackageManifest LoadManifest() {
-        return new PackageManifest(ManifestPath, TemplateFile.Substitute(TemplatePath, ManifestPath));
+        return new PackageManifest(ManifestPath, ManifestTemplateFile.Substitute(TemplatePath, ManifestPath));
     }
 }

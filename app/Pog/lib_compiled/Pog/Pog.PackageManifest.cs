@@ -30,12 +30,12 @@ public class PackageManifestParseException : ParseException {
 
 [PublicAPI]
 public class PackageManifest {
-    public Hashtable Raw;
-    public string Path;
+    public readonly Hashtable Raw;
+    public readonly string Path;
 
-    public bool IsPrivate;
-    public string? Name;
-    public PackageVersion? Version;
+    public readonly bool IsPrivate;
+    public readonly string? Name;
+    public readonly PackageVersion? Version;
 
     /// <param name="manifestPath">Path to the manifest file.</param>
     /// <param name="manifestStr">
@@ -55,7 +55,7 @@ public class PackageManifest {
 
     /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
     /// unwrapping any script-blocks (see the other methods).
-    private static Hashtable LoadManifest(string manifestPath, string? manifestStr = null) {
+    internal static Hashtable LoadManifest(string manifestPath, string? manifestStr = null) {
         if (manifestStr == null && !File.Exists(manifestPath)) {
             throw new PackageManifestNotFoundException($"Package manifest file is missing, expected path: {manifestPath}",
                     manifestPath);
