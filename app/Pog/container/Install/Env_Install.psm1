@@ -1,11 +1,18 @@
 # Requires -Version 7
+using module .\..\..\lib\Utils.psm1
 using module .\..\container_lib\Confirmations.psm1
 using module .\LockedFiles.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 
 
-$TMP_EXPAND_PATH = ".\.install_tmp"
-
+<# temporary directory used for archive extraction #>
+$TMP_EXPAND_PATH = ".\.POG_INTERNAL_install_tmp"
+<# temporary directory where the previous ./app directory is moved when installing
+   a new version to support rollback in case of a failed install #>
+$TMP_APP_RENAME_PATH = ".\.POG_INTERNAL_app_old"
+<# temporary directory where a deleted directory is first moved so that the delete
+   is an atomic operation with respect to the original location  #>
+$TMP_DELETE_PATH = ".\.POG_INTERNAL_delete_tmp"
 
 
 <# This function is called after the container setup is finished to run the passed manifest. #>
@@ -40,23 +47,31 @@ Export function __cleanup {
 
 
 
+function RemoveDirectoryAtomically($Dir, [switch]$IgnoreNotFoundError) {
+	try {
+		[Pog.Win32]::DeleteDirectoryAtomically((Resolve-VirtualPath $Dir), (Resolve-VirtualPath $TMP_DELETE_PATH))
+	} catch {
+		# 0x80070002 = ERROR_FILE_NOT_FOUND
+		if ($IgnoreNotFoundError -and ($_.Exception.InnerException.HResult -eq 0x80070002)) {
+			return
+		}
+		throw
+	}
+}
+
 <# Retrieves the requested archive/file (either downloading it, or using a cached version), and extracts it to $TMP_EXPAND_PATH.
    The extraction is not atomic – that is, if it fails or gets interrupted, $TMP_EXPAND_PATH may be left in a half-extracted state. #>
-function RetrieveAndExpandArchive($SourceUrl, $ExpectedHash, $DownloadParams, $Package, [switch]$NoArchive) {
-	$LockedFile = $null
-	try {
-		$LockedFile = Invoke-FileDownload $SourceUrl -ExpectedHash $ExpectedHash -DownloadParameters $DownloadParams -Package $Package
-		Write-Debug "File correctly retrieved, expanding to '$TMP_EXPAND_PATH'..."
+function RetrieveAndExpandArchive($SourceUrl, $ExpectedHash, $DownloadParams, $Package, $Subdirectory, [switch]$NoArchive) {
+		using_object {Invoke-FileDownload $SourceUrl -ExpectedHash $ExpectedHash -DownloadParameters $DownloadParams -Package $Package} {
+		Write-Debug "File retrieved, extracting to '$TMP_EXPAND_PATH'..."
 
 		if (-not $NoArchive) {
-			Expand-Archive7Zip $LockedFile.Path $TMP_EXPAND_PATH
+			Expand-Archive7Zip $_.Path $TMP_EXPAND_PATH -Subdirectory $Subdirectory
 		} else {
 			# FIXME: bring back the optimization where a temporary directory is moved instead of a copy
 			$null = New-Item -Type Directory $TMP_EXPAND_PATH
-			Copy-Item $LockedFile.Path $TMP_EXPAND_PATH
+			Copy-Item $_.Path $TMP_EXPAND_PATH
 		}
-	} finally {
-		if ($null -ne $LockedFile) {$LockedFile.Dispose()}
 	}
 }
 
@@ -77,14 +92,18 @@ function Get-ExtractedAppDirectory([string]$Subdirectory) {
 		Write-Debug "Using passed path inside archive: '$DirPath'."
 
 		# test if the path exists in the extracted directory
-		if (-not (Test-Path -Type Container $DirPath)) {
+		if (Test-Path -Type Leaf $DirPath) {
+			# use the parent directory, 7zip should have only extracted the file we're interested in
+			return (Get-Item $DirPath).Parent
+		} elseif (Test-Path -Type Container $DirPath) {
+			return Get-Item $DirPath
+		} else {
 			$Dirs = (ls $TMP_EXPAND_PATH).Name | % {"'" + $_ + "'"}
 			$Dirs = $Dirs -join ", "
 			throw "'-Subdirectory $Subdirectory' param was provided to 'Install-FromUrl' " +`
 				"in package manifest, but the directory does not exist inside the archive. " +`
 				"Root of the archive contains the following items: $Dirs."
 		}
-		return Get-Item $DirPath
 	}
 }
 
@@ -108,6 +127,53 @@ function PrepareNewAppDirectory($SrcDirectory, [scriptblock]$SetupScript, [switc
 			Set-Location $OrigWD
 		}
 	}
+}
+
+function MoveOldAppDirectory {
+	Write-Debug "Moving the previous ./app directory to '$TMP_APP_RENAME_PATH'..."
+	while ($true) {
+		# try to move the ./app directory; this will either atomically succeed,
+		#  or we'll wait until locks inside the directory are released and retry
+		using_object {[Pog.Win32]::OpenDirectoryForMove((Resolve-VirtualPath ./app))} {
+			try {
+				[Pog.Win32]::MoveFileByHandle($_, (Resolve-VirtualPath $TMP_APP_RENAME_PATH))
+				break
+			} catch {
+				# Access Denied
+				if ($_.Exception.HResult -eq 0x80070005) {
+					# something inside the directory is locked
+					WaitForNoLockedFilesInAppDirectory
+					continue
+				} else {
+					throw
+				}
+			}
+		}
+	}
+}
+
+<#
+	.SYNOPSIS
+	Copies the relevant part of the extracted archive to the ./app directory.
+	Ensures that there are no locked files in the previous ./app directory (if it exists), and renames it to $TMP_APP_RENAME_PATH.
+
+	.DESCRIPTION
+	The function assumes that $SrcDirectory exists and contains the replacement ./app directory.
+	First, we attempt to move $SrcDirectory into place. If this succeeds, the function returns.
+	Otherwise, we attempt to move the old ./app directory out of the way (this typically only
+	fails when the installed app is currently open), and then move the new ./app directory into
+	place.
+
+	If this function does not complete, be it due to an unexpected error, a system crash, or this
+	pwsh instance getting killed, it may leave the package directory in an intermediate state.
+#>
+function InstallExtractedAppVersion($SrcDirectory) {
+	if (Test-Path ./app) {
+		# move the old ./app directory out of the way
+		MoveOldAppDirectory
+	}
+	Write-Debug "Moving the extracted directory '$SrcDirectory' to './app'..."
+	[Pog.Win32]::MoveDirectoryAtomically($SrcDirectory, (Resolve-VirtualPath ./app))
 }
 
 Export function Install-FromUrl {
@@ -159,8 +225,25 @@ Export function Install-FromUrl {
 	}
 
 	if (Test-Path $TMP_EXPAND_PATH) {
-		Write-Warning "Clearing orphaned tmp installer directory, probably from a failed previous install..."
+		Write-Warning "Clearing an orphaned tmp installer directory, probably from a failed previous install..."
 		Remove-Item -Recurse -Force $TMP_EXPAND_PATH
+	}
+	if (Test-Path $TMP_DELETE_PATH) {
+		Write-Warning "Clearing an orphaned tmp installer directory, probably from a failed previous install..."
+		# no need to be atomic here
+		Remove-Item -Recurse -Force $TMP_DELETE_PATH
+	}
+	if (Test-Path $TMP_APP_RENAME_PATH) {
+		# the installation has been interrupted before it cleaned up; to be safe, always revert to the previous version,
+		#  in case we add some post-install steps after the ./app directory is moved in place, because otherwise if we
+		#  would keep the new version, we'd have to check that the follow-up steps all finished
+		if (Test-Path ./app) {
+			Write-Warning "Clearing the new app directory from a previous interrupted install..."
+			# remove atomically, so that user doesn't see a partially deleted app directory in case this is interrupted again
+			RemoveDirectoryAtomically ./app -IgnoreNotFoundError
+		}
+		Write-Warning "Restoring the previous app directory to recover from an interrupted install..."
+		[Pog.Win32]::MoveDirectoryAtomically((Resolve-VirtualPath $TMP_APP_RENAME_PATH), (Resolve-VirtualPath ./app))
 	}
 
 	if (-not $ExpectedHash) {
@@ -199,9 +282,11 @@ Export function Install-FromUrl {
 	$DownloadParams = [Pog.Commands.DownloadParameters]::new($UserAgent, $global:_Pog.InternalArguments.DownloadLowPriority)
 	$Package = $global:_Pog.Package
 
+	$Success = $false
 	try {
-		# 1. Download and expand (move/copy) the archive (file) to the temporary directory at $TMP_EXPAND_PATH
-		RetrieveAndExpandArchive $SourceUrl $ExpectedHash -DownloadParams $DownloadParams -Package $Package -NoArchive:$NoArchive
+		# 1. Download and expand (move/copy) the archive (file) to the temporary directory at $TMP_EXPAND_PATH.
+		RetrieveAndExpandArchive $SourceUrl $ExpectedHash -DownloadParams $DownloadParams -Package $Package `
+				-Subdirectory $Subdirectory -NoArchive:$NoArchive
 
 		# 2. Setup the extracted directory into the final state, so that we can atomically move it into place
 		#    This is done before replacing the ./app directory, because throwing an exception here is safe
@@ -209,20 +294,20 @@ Export function Install-FromUrl {
 		$ExtractedDir = Get-ExtractedAppDirectory -Subdirectory $Subdirectory
 		PrepareNewAppDirectory $ExtractedDir -SetupScript $SetupScript -NsisInstaller:$NsisInstaller
 
-		# 3. Move relevant parts of the extracted temporary directory to ./app directory
-		if (Test-Path .\app) {
-			Write-Debug "Removing previous ./app directory..."
-			# check again if the directory is still lock-free
-			WaitForNoLockedFilesInAppDirectory
-			# no locked files, this should succeed (there's still a short race condition, but whatever...)
-			Remove-Item -Recurse -Force .\app
-		}
+		# 3. Atomically move $ExtractedDir to the ./app directory, ensuring that either the installation succeeds,
+		#    or the old version remains in place.
+		InstallExtractedAppVersion $ExtractedDir
 
-		Write-Debug "Moving extracted directory '$ExtractedDir' to './app'..."
-		Move-Item -LiteralPath $ExtractedDir .\app
-
+		$Success = $true
 	} finally {
+		if (-not $Success -and (Test-Path $TMP_APP_RENAME_PATH)) {
+			# the installation did not complete, move the old app directory back into place
+			RemoveDirectoryAtomically ./app -IgnoreNotFoundError
+			[Pog.Win32]::MoveDirectoryAtomically((Resolve-VirtualPath $TMP_APP_RENAME_PATH), (Resolve-VirtualPath ./app))
+		}
+		Write-Debug "Removing temporary installation directories..."
 		Remove-Item -Recurse -Force -LiteralPath $TMP_EXPAND_PATH -ErrorAction Ignore
+		RemoveDirectoryAtomically $TMP_APP_RENAME_PATH -IgnoreNotFoundError
 	}
 
 	Write-Information "Package successfully installed from the downloaded archive."
