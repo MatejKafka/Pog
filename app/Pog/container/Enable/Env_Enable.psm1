@@ -43,12 +43,13 @@ Export function __cleanup {
 	# remove stale shortcuts and commands
 	$InternalState = [Pog.ContainerEnableInternalState]::GetCurrent($PSCmdlet)
 
-	if ($InternalState.StaleShortcuts.Count -gt 0) {
+	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutStubs.Count -gt 0) {
 		Write-Verbose "Removing stale shortcuts..."
 		$InternalState.StaleShortcuts | % {
 			Remove-Item $_
 			Write-Information "Removed stale shortcut '$_'."
 		}
+		Remove-Item $InternalState.StaleShortcutStubs
 	}
 
 	if ($InternalState.StaleCommands.Count -gt 0) {
@@ -359,49 +360,26 @@ Export function Export-Shortcut {
 			[Parameter(Mandatory)]
 			[string]
 		$TargetPath,
-			[Alias("ArgumentList")]
-		$Arguments,
+			[Alias("Arguments")]
+			[string[]]
+		$ArgumentList,
 		$WorkingDirectory,
-			[switch]
-		$StartMaximized,
-			[switch]
-		$StartMinimized,
 			[Alias("Icon")]
 		$IconPath,
-		$Description
+		$Description,
+    		[Alias("Environment")]
+    		[Hashtable]
+		$EnvironmentVariables
 	)
 
-	# FIXME: switch to a single WindowStyle argument
-	if ($StartMaximized -and $StartMinimized) {
-		throw "Export-Shortcut: -StartMaximized and -StartMinimized switch parameters must not be passed together."
-	}
-
-	# shortcut takes all the arguments as a single string, so we need to quote it ourselves
-	# unfortunately, I don't believe there's an universal way that will work with all programs,
-	#  but this way of quoting and escaping nested quotes should work correctly for most programs:
-	#  https://stackoverflow.com/a/15262019
-	# fortunately, as quotes aren't a valid char for file/directory names, we shouldn't have to escape them too often
-	$Arguments = $Arguments `
-			| % {[string]$_} `
-			| % {if ($_.Contains(" ") -or $_.Contains("`t")) {'"' + ($_ -replace '"', '"""') + '"'} else {$_}} `
-			| Join-String -Separator " "
+	# shortcut takes a command line string, not an argument array
+	$CommandLine = if ($ArgumentList) {[Pog.Native.Win32Args]::EscapeArguments($ArgumentList)} else {""}
 
 	$Shell = New-Object -ComObject "WScript.Shell"
 	# Shell object has different CWD, have to resolve all paths
 	$ShortcutPath = Resolve-VirtualPath ([Pog.PathConfig+PackagePaths]::ShortcutDirRelPath + "/$ShortcutName.lnk")
 
-	$Target = if ($TargetPath.Contains("/") -or $TargetPath.Contains("\")) {
-		# assume the target is a path
-		Resolve-Path $TargetPath
-	} else {
-		# assume the target is a command in env:PATH
-		$Cmd = Get-Command -CommandType Application $TargetPath -TotalCount 1 -ErrorAction SilentlyContinue
-		if ($null -eq $Cmd) {
-			throw "Cannot create shortcut to command '$TargetPath', as no such command is known by the system (present in env:PATH)."
-		}
-		Resolve-Path $Cmd.Source
-	}
-
+	$Target = Resolve-Path $TargetPath
 	Write-Debug "Resolved shortcut target: $Target"
 
 	$WorkingDirectory = if ($WorkingDirectory -eq $null) {
@@ -423,11 +401,20 @@ Export function Export-Shortcut {
 		$Icon = [string]$IconPath + ",0"
 	}
 
-	$WinStyle = if ($StartMaximized) {3} elseif ($StartMinimized) {7} else {1}
-
 	if ($null -eq $Description) {
 		$Description = [string](Split-Path -LeafBase $TargetPath)
 	}
+
+
+	if ($EnvironmentVariables) {
+		Write-Debug "Creating a hidden stub to set environment variables..."
+		# if -EnvironmentVariables was used, create a hidden command and point the shortcut to it,
+		#  since shortcuts cannot set environment variables
+		$Target = Export-Command -_InternalDoNotUse_Shortcut -PassThru `
+			$ShortcutName $TargetPath -EnvironmentVariables $EnvironmentVariables `
+			-Verbose:$false -Debug:$false -InformationAction SilentlyContinue
+	}
+
 
 	# this shortcut was refreshed, not stale, remove it
 	# noop when not present
@@ -437,9 +424,9 @@ Export function Export-Shortcut {
 
 	if ((Test-Path $ShortcutPath) `
 			-and $S.TargetPath -eq $Target `
-			-and $S.Arguments -eq $Arguments `
+			-and $S.Arguments -eq $CommandLine `
 			-and $S.WorkingDirectory -eq $WorkingDirectory `
-			-and $S.WindowStyle -eq $WinStyle `
+			-and $S.WindowStyle -eq 1 `
 			-and $S.IconLocation -eq $Icon `
 			-and $S.Description -eq $Description) {
 		Write-Verbose "Shortcut '$ShortcutName' is already configured."
@@ -451,9 +438,9 @@ Export function Export-Shortcut {
 	}
 
 	$S.TargetPath = $Target
-	$S.Arguments = $Arguments
+	$S.Arguments = $CommandLine
 	$S.WorkingDirectory = $WorkingDirectory
-	$S.WindowStyle = $WinStyle
+	$S.WindowStyle = 1 # default window style
 	$S.IconLocation = $Icon
 	$S.Description = $Description
 

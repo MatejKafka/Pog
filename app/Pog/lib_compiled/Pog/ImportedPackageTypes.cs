@@ -119,15 +119,21 @@ public class ImportedPackage : Package {
 
     /// Enumerates full paths of all exported shortcuts.
     public IEnumerable<FileInfo> EnumerateExportedShortcuts() {
-        return EnumerateFiles(IOPath.Combine(Path, PathConfig.PackagePaths.ShortcutDirRelPath), "*.lnk");
+        return EnumerateFilesRel(PathConfig.PackagePaths.ShortcutDirRelPath, "*.lnk");
     }
 
     /// Enumerates full paths of all exported commands.
     public IEnumerable<FileInfo> EnumerateExportedCommands() {
-        return EnumerateFiles(IOPath.Combine(Path, PathConfig.PackagePaths.CommandDirRelPath));
+        return EnumerateFilesRel(PathConfig.PackagePaths.CommandDirRelPath);
     }
 
-    private static IEnumerable<FileInfo> EnumerateFiles(string dirPath, string searchPattern = "*") {
+    /// Enumerates full paths of all internal shortcut stubs.
+    internal IEnumerable<FileInfo> EnumerateShortcutStubs() {
+        return EnumerateFilesRel(PathConfig.PackagePaths.ShortcutStubDirRelPath);
+    }
+
+    private IEnumerable<FileInfo> EnumerateFilesRel(string relDirPath, string searchPattern = "*") {
+        var dirPath = IOPath.Combine(Path, relDirPath);
         try {
             return new DirectoryInfo(dirPath).EnumerateFiles(searchPattern)
                     .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden));

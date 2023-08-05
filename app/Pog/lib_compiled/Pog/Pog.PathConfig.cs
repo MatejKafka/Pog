@@ -40,6 +40,7 @@ public class PathConfig {
 
         public const string ShortcutDirRelPath = ".";
         public const string CommandDirRelPath = "./.commands";
+        public const string ShortcutStubDirRelPath = "./.commands/shortcuts";
     }
 
     /// Directory where exported shortcuts from packages are copied (system-wide).
