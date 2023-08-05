@@ -411,15 +411,14 @@ Export function Install-Pog {
 	}
 }
 
-function ClearPreviousPackageDir([Pog.ImportedPackage]$p, $TargetPackageRoot, [Pog.RepositoryPackage]$SrcPackage, [switch]$Force) {
+function ConfirmManifestOverwrite([Pog.ImportedPackage]$p, $TargetPackageRoot, [Pog.RepositoryPackage]$SrcPackage, [switch]$Force) {
 	$OrigManifest = $null
 	try {
 		# try to load the (possibly) existing manifest
 		$p.ReloadManifest()
 		$OrigManifest = $p.Manifest
 	} catch [System.IO.DirectoryNotFoundException] {
-		# the package does not exist, create the directory and return
-		$null = New-Item -Type Directory $p.Path
+		# the package does not exist, no need to confirm
 		return $true
 	} catch [Pog.PackageManifestNotFoundException] {
 		# the package exists, but the manifest is missing
@@ -445,7 +444,6 @@ function ClearPreviousPackageDir([Pog.ImportedPackage]$p, $TargetPackageRoot, [P
 		}
 	}
 
-	$p.RemoveManifest()
 	return $true
 }
 
@@ -555,16 +553,15 @@ Export function Import-Pog {
 				throw "Validation of the repository package failed (see warnings above), not importing."
 			}
 
-			# don't load the manifest yet (may not be valid, will be loaded in ClearPreviousPackageDir)
+			# don't load the manifest yet (may not be valid, will be loaded in ConfirmManifestOverwrite)
 			$p = $PACKAGE_ROOTS.GetPackage($ResolvedTargetName, $TargetPackageRoot, $true, $false)
 
-			# ensure $TargetPath exists and there's no package manifest
-			if (-not (ClearPreviousPackageDir $p $TargetPackageRoot $SrcPackage -Force:$Force)) {
+			if (-not (ConfirmManifestOverwrite $p $TargetPackageRoot $SrcPackage -Force:$Force)) {
 				Write-Information "Skipping import of package '$($p.PackageName)'."
 				continue
 			}
 
-			# import the package
+			# import the package, replacing the previous manifest (and creating the directory if the package is new)
 			$SrcPackage.ImportTo($p)
 
 			Write-Information "Initialized '$($p.Path)' with package manifest '$($SrcPackage.PackageName)' (version '$($SrcPackage.Version)')."
@@ -713,7 +710,7 @@ Export function Invoke-Pog {
 
 		$null = $Params.Remove("PassThru")
 
-		$SbAll = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru @LogArgs | Export-Pog -PassThru:$PassThru @LogArgs}
+		$SbAll =      {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru @LogArgs | Export-Pog -PassThru:$PassThru @LogArgs}
 		$SbNoExport = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru:$PassThru @LogArgs}
 		$SbNoEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru:$PassThru @LogArgs}
 
@@ -800,40 +797,56 @@ Export function Show-PogManifestHash {
 	}
 }
 
-Export function New-PogManifest {
+<# Ad-hoc template format used to create default manifests in the following 2 functions. #>
+function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {
+	$Template = Get-Content -Raw $SrcPath
+	foreach ($Entry in $TemplateData.GetEnumerator()) {
+		$Template = $Template.Replace("'{{$($Entry.Key)}}'", "'" + $Entry.Value.Replace("'", "''") + "'")
+	}
+	$null = New-Item -Path $DestinationPath -Value $Template
+}
+
+Export function New-PogPackage {
 	[CmdletBinding()]
 	[OutputType([Pog.RepositoryPackage])]
 	param(
 			[Parameter(Mandatory)]
-			[ValidateScript({
-				$InvalidI = $_.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars())
-				if ($InvalidI -ge 0) {throw "Must be a valid directory name, cannot contain invalid characters like '$($_[$InvalidI])': $_"}
-				if ($_ -eq "." -or $_ -eq "..") {throw "Must be a valid directory name, not '.' or '..': $_"}
-				return $true
-			})]
+			[Pog.Verify+PackageName()]
 			[string]
 		$PackageName,
 			[Parameter(Mandatory)]
 			[Pog.PackageVersion]
-		$Version
+		$Version,
+			[switch]
+		$Templated
 	)
 
 	begin {
-		$p = $REPOSITORY.GetPackage($PackageName, $true, $false).GetVersionPackage($Version, $false)
+		$c = $REPOSITORY.GetPackage($PackageName, $true, $false)
 
-		if (-not $p.Exists) {
+		if ($c.Exists) {
+            throw "Package '$($c.PackageName)' already exists in the repository at '$($c.Path)'.'"
+        }
+
+		$null = New-Item -Type Directory $c.Path
+        if ($Templated) {
+			$null = New-Item -Type Directory $c.TemplateDirPath
+        }
+
+		# only get the package after the parent is created, otherwise it would always default to a non-templated package
+		$p = $c.GetVersionPackage($Version, $false)
+
+		$TemplateData = @{NAME = $p.PackageName; VERSION = $p.Version.ToString()}
+		if ($Templated) {
+			# template dir is already created above
+			RenderTemplate "$PSScriptRoot\resources\manifest_templates\repository_templated.psd1" $p.TemplatePath $TemplateData
+			RenderTemplate "$PSScriptRoot\resources\manifest_templates\repository_templated_data.psd1" $p.ManifestPath $TemplateData
+		} else {
 			# create manifest dir for version
 			$null = New-Item -Type Directory $p.Path
-		} elseif (@(ls $p.Path).Count -ne 0) {
-			# there is non-empty package dir here
-			# TODO: validate state of the package directory (check if it's not empty after error,...)
-			throw "Package $($p.PackageName) already has a manifest for version '$($p.Version)'."
+			RenderTemplate "$PSScriptRoot\resources\manifest_templates\repository_direct.psd1" $p.ManifestPath $TemplateData
 		}
 
-		$Template = Get-Content -Raw "$PSScriptRoot\resources\repository_manifest_template.psd1"
-		$Template = $Template.Replace("'{{NAME}}'", "'" + $p.PackageName.Replace("'", "''") + "'")
-		$Template = $Template.Replace("'{{VERSION}}'", "'" + $p.Version.ToString().Replace("'", "''") + "'")
-		$null = New-Item -Path $p.ManifestPath -Value $Template
 		return $p
 	}
 }
@@ -843,6 +856,7 @@ Export function New-PogImportedPackage {
 	[OutputType([Pog.ImportedPackage])]
 	param(
 			[Parameter(Mandatory)]
+			[Pog.Verify+PackageName()]
 			[string]
 		$PackageName,
 			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
@@ -865,15 +879,11 @@ Export function New-PogImportedPackage {
 			throw "Package already exists: $($p.Path)"
 		}
 
-		$PackageDirectory = New-Item -Type Directory $p.Path
-		try {
-			Copy-Item $PSScriptRoot\resources\direct_manifest_template.psd1 $p.ManifestPath
-			$p.ReloadManifest()
-			return $p
-		} catch {
-			Remove-Item -Recurse -Force $PackageDirectory
-			throw
-		}
+		# create the package dir
+		$null = New-Item -Type Directory $p.Path
+		RenderTemplate "$PSScriptRoot\resources\manifest_templates\imported.psd1" $p.ManifestPath @{NAME = $p.PackageName}
+
+		return $p
 	}
 }
 
@@ -1072,6 +1082,20 @@ Export function Confirm-PogRepositoryPackage {
 			Set-Variable NoIssues $false -Scope 1
 			Write-Warning $IssueMsg.Replace("`n", "`n         ")
 		}
+
+		function ValidateManifestDirStructure($Path, $PackageInfoStr) {
+			foreach ($f in (Get-ChildItem $Path)) {
+				if ($f.Name -notin "pog.psd1", ".pog") {
+					AddIssue ("Manifest directory for $PackageInfoStr contains extra file/directory '$($f.Name)' at '$f'." `
+							+ " Each manifest directory must only contain a pog.psd1 manifest file and an optional .pog directory for extra files.")
+				}
+			}
+
+			$ExtraFileDir = Get-Item "$Path\.pog" -ErrorAction Ignore
+			if ($ExtraFileDir -and $ExtraFileDir -isnot [System.IO.DirectoryInfo]) {
+				AddIssue ("'$ExtraFileDir' should be a directory, not a file, in manifest directory for $PackageInfoStr.")
+			}
+		}
 	}
 
 	process {
@@ -1089,16 +1113,31 @@ Export function Confirm-PogRepositoryPackage {
 			Write-Verbose "Validating package '$PackageName'$VersionStr from local repository..."
 
 			# TODO: validate that package has at least one version defined
-			$VersionPackages = if (-not $VersionParam) {
-				$Files = ls -File $c.Path
-				if ($Files) {
-					AddIssue "Package '$PackageName' has incorrect structure; root contains the following files (only version directories should be present): $Files"
-					return
+			if (-not $VersionParam) {
+				$VersionPackages = $c.Enumerate()
+
+				if ($c.IsTemplated) {
+					$ExtraFiles = Get-ChildItem -File $c.Path | ? {$_.Name -notlike "*.psd1"}
+					if ($ExtraFiles) {
+						AddIssue "Package '$PackageName' has incorrect structure; root contains extra files (only .psd1 should be present): $ExtraFiles"
+					}
+
+					$ExtraDirs = Get-ChildItem -Directory $c.Path | ? {$_.FullName -ne $c.TemplateDirPath}
+					if ($ExtraDirs) {
+						AddIssue "Package '$PackageName' has incorrect structure; root contains invalid extra directories: $ExtraDirs"
+					}
+
+					ValidateManifestDirStructure $c.TemplateDirPath "'$($c.PackageName)'"
+				} else {
+					$Files = Get-ChildItem -File $c.Path
+					if ($Files) {
+						AddIssue "Package '$PackageName' has incorrect structure; root contains the following files (only version directories should be present): $Files"
+					}
 				}
-				$c.Enumerate()
+
 			} else {
 				try {
-					$c.GetVersionPackage($VersionParam, $true)
+					$VersionPackages = $c.GetVersionPackage($VersionParam, $true)
 				} catch [Pog.RepositoryPackageVersionNotFoundException] {
 					$NoIssues = $false
 					$PSCmdlet.WriteError($_)
@@ -1108,16 +1147,8 @@ Export function Confirm-PogRepositoryPackage {
 		}
 
 		foreach ($p in $VersionPackages) {
-			foreach ($f in ls $p.Path) {
-				if ($f.Name -notin "pog.psd1", ".pog") {
-					AddIssue ("Manifest directory for '$($p.PackageName)', version '$($p.Version)' contains extra file/directory '$($f.Name)' at '$f'." `
-							+ " Each manifest directory must only contain a pog.psd1 manifest file and an optional .pog directory for extra files.")
-				}
-			}
-
-			$ExtraFileDir = Get-Item "$p\.pog" -ErrorAction Ignore
-			if ($ExtraFileDir -and $ExtraFileDir -isnot [System.IO.DirectoryInfo]) {
-				AddIssue ("'$ExtraFileDir' should be a directory, not a file, in manifest directory for '$($p.PackageName)', version '$($p.Version)'.")
+			if ($p -is [Pog.DirectRepositoryPackage]) {
+				ValidateManifestDirStructure $p.Path "'$($p.PackageName)', version '$($p.Version)'"
 			}
 
 			try {

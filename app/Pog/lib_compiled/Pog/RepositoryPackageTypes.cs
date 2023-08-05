@@ -29,7 +29,7 @@ public class Repository {
 
     public IEnumerable<RepositoryVersionedPackage> Enumerate(string searchPattern = "*") {
         var repo = this;
-        return EnumeratePackageNames(searchPattern).Select(p => new RepositoryVersionedPackage(p, repo));
+        return EnumeratePackageNames(searchPattern).Select(p => new RepositoryVersionedPackage(repo, p));
     }
 
     public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist) {
@@ -37,7 +37,7 @@ public class Repository {
         if (resolveName) {
             packageName = FsUtils.GetResolvedChildName(Path, packageName);
         }
-        var package = new RepositoryVersionedPackage(packageName, this);
+        var package = new RepositoryVersionedPackage(this, packageName);
         if (mustExist && !package.Exists) {
             throw new RepositoryPackageNotFoundException(
                     $"Package '{package.PackageName}' does not exist in the repository, expected path: {package.Path}");
@@ -56,9 +56,12 @@ public class RepositoryVersionedPackage {
     [Hidden] public readonly Repository Repository;
     public readonly string Path;
     [Hidden] public bool Exists => Directory.Exists(Path);
-    [Hidden] public bool IsTemplated => Directory.Exists(IOPath.Combine(Path, TemplatedRepositoryPackage.TemplateDirName));
+    [Hidden] public bool IsTemplated => Directory.Exists(TemplateDirPath);
 
-    internal RepositoryVersionedPackage(string packageName, Repository repository) {
+    private const string TemplateDirName = ".template";
+    [Hidden] public string TemplateDirPath => IOPath.Combine(Path, TemplateDirName);
+
+    internal RepositoryVersionedPackage(Repository repository, string packageName) {
         Verify.Assert.PackageName(packageName);
         PackageName = packageName;
         Repository = repository;
@@ -96,10 +99,10 @@ public class RepositoryVersionedPackage {
     }
 
     public RepositoryPackage GetVersionPackage(PackageVersion version, bool mustExist) {
-        if (version.ToString() == TemplatedRepositoryPackage.TemplateDirName) {
+        if (version.ToString() == TemplateDirName) {
             // disallow creating this version, otherwise we couldn't distinguish between a templated and direct package types
             throw new InvalidPackageVersionException(
-                    $"Version of a package in the repository must not be '{TemplatedRepositoryPackage.TemplateDirName}'.");
+                    $"Version of a package in the repository must not be '{TemplateDirName}'.");
         }
 
         var package = GetPackage(version);
@@ -138,7 +141,23 @@ public abstract class RepositoryPackage : Package {
                 : new DirectRepositoryPackage(parent, version);
     }
 
-    public abstract void ImportTo(ImportedPackage target);
+    public void ImportTo(ImportedPackage target) {
+        // ensure target directory exists
+        Directory.CreateDirectory(target.Path);
+        // remove any previous manifest
+        target.RemoveManifest();
+
+        // copy the resource directory
+        var resDir = new DirectoryInfo(ManifestResourceDirPath);
+        if (resDir.Exists) {
+            FsUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
+        }
+
+        // write the manifest
+        ImportManifestTo(target);
+    }
+
+    protected abstract void ImportManifestTo(ImportedPackage target);
 }
 
 [PublicAPI]
@@ -146,34 +165,20 @@ public sealed class DirectRepositoryPackage : RepositoryPackage {
     public DirectRepositoryPackage(RepositoryVersionedPackage parent, PackageVersion version)
             : base(parent, version, IOPath.Combine(parent.Path, version.ToString())) {}
 
-    public override void ImportTo(ImportedPackage target) {
-        // copy the resource directory
-        var resDir = new DirectoryInfo(ManifestResourceDirPath);
-        if (resDir.Exists) {
-            FsUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
-        }
-        // copy the manifest
+    protected override void ImportManifestTo(ImportedPackage target) {
         File.Copy(ManifestPath, target.ManifestPath);
     }
 }
 
 [PublicAPI]
 public sealed class TemplatedRepositoryPackage : RepositoryPackage {
-    internal const string TemplateDirName = ".template";
-
     [Hidden] public string TemplatePath => base.GetManifestPath(); // a bit too hacky?
     [Hidden] public override bool Exists => base.Exists && File.Exists(ManifestPath);
 
     public TemplatedRepositoryPackage(RepositoryVersionedPackage parent, PackageVersion version)
-            : base(parent, version, IOPath.Combine(parent.Path, TemplateDirName)) {}
+            : base(parent, version, parent.TemplateDirPath) {}
 
-    public override void ImportTo(ImportedPackage target) {
-        // copy the resource directory
-        var resDir = new DirectoryInfo(ManifestResourceDirPath);
-        if (resDir.Exists) {
-            FsUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
-        }
-        // write the manifest
+    protected override void ImportManifestTo(ImportedPackage target) {
         // TODO: figure out how to avoid calling .Substitute twice when first validating, and then importing the package
         TemplateFile.Substitute(TemplatePath, ManifestPath, target.ManifestPath);
     }

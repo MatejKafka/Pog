@@ -4,8 +4,8 @@
 	Version = '{{VERSION}}'
 
 	Install = @{
-		Url = {$V = $this.Version; ""}
-		Hash = ""
+		Url = {$V = $this.Version; ''}
+		Hash = ''
 	}
 
 	Enable = {

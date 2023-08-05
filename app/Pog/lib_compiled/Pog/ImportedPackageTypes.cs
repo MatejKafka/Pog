@@ -118,7 +118,7 @@ public sealed class ImportedPackage : Package {
     }
 
     // called while importing a new manifest
-    public void RemoveManifest() {
+    internal void RemoveManifest() {
         FsUtils.EnsureDeleteFile(ManifestPath);
         FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
     }

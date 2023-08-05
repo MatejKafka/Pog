@@ -20,9 +20,7 @@ public abstract class Package {
     [Hidden]
     public PackageManifest Manifest {
         get {
-            if (_manifest == null) {
-                ReloadManifest();
-            }
+            if (_manifest == null) ReloadManifest();
             return _manifest!;
         }
     }
@@ -40,7 +38,7 @@ public abstract class Package {
     /// <exception cref="PackageManifestParseException">Thrown if the package manifest file is not a valid PowerShell data file (.psd1).</exception>
     public void ReloadManifest() {
         if (!Exists) {
-            throw new DirectoryNotFoundException($"Tried to read package manifest of a non-existent package at '{Path}'.");
+            throw new DirectoryNotFoundException($"Tried to read the package manifest of a non-existent package at '{Path}'.");
         }
         _manifest = LoadManifest();
     }

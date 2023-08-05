@@ -18,10 +18,10 @@
 		'Enable-Pog'
 		'Export-Pog'
 
-		'Show-PogManifestHash'
-		'New-PogManifest'
-		'New-PogImportedPackage'
 		'Update-PogManifest'
+		'Show-PogManifestHash'
+		'New-PogPackage'
+		'New-PogImportedPackage'
 
 		'Confirm-PogRepositoryPackage'
 		'Confirm-PogPackage'
