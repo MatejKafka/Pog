@@ -40,4 +40,31 @@ public static class FileLockUtils {
     public static bool ContainsLockedFiles(string directory) {
         return EnumerateLockedFiles(directory).Any();
     }
+
+    /**
+     * Attempts to atomically move the directory at `srcPath` to `destinationPath`. Returns `true on success,
+     * `false` if the directory is locked, throws an exception for other error cases.
+     *
+     * <exception cref="SystemException"></exception>
+     */
+    [PublicAPI]
+    public static bool MoveDirectoryUnlocked(string srcPath, string destinationPath) {
+        using var handle = Win32.OpenDirectoryForMove(srcPath);
+        try {
+            Win32.MoveFileByHandle(handle, destinationPath);
+            return true; // move succeeded, no locks
+        } catch (SystemException e) {
+            // 0x80070005 = ERROR_ACCESS_DENIED
+            if (e.HResult == -2147024891) {
+                return false; // something in the directory is locked
+            }
+            throw;
+        }
+    }
+
+    [PublicAPI]
+    public static bool IsDirectoryLocked(string directoryPath) {
+        // move directory to itself; this returns false when the directory contains anything locked, and is a no-op otherwise
+        return !MoveDirectoryUnlocked(directoryPath, directoryPath);
+    }
 }

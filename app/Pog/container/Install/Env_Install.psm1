@@ -131,24 +131,13 @@ function PrepareNewAppDirectory($SrcDirectory, [scriptblock]$SetupScript, [switc
 
 function MoveOldAppDirectory {
 	Write-Debug "Moving the previous ./app directory to '$TMP_APP_RENAME_PATH'..."
-	while ($true) {
-		# try to move the ./app directory; this will either atomically succeed,
-		#  or we'll wait until locks inside the directory are released and retry
-		using_object {[Pog.Win32]::OpenDirectoryForMove((Resolve-VirtualPath ./app))} {
-			try {
-				[Pog.Win32]::MoveFileByHandle($_, (Resolve-VirtualPath $TMP_APP_RENAME_PATH))
-				break
-			} catch {
-				# Access Denied
-				if ($_.Exception.HResult -eq 0x80070005) {
-					# something inside the directory is locked
-					WaitForNoLockedFilesInAppDirectory
-					continue
-				} else {
-					throw
-				}
-			}
-		}
+	# try to move the ./app directory; this will either atomically succeed, or we'll list the offending processes and exit
+	if (-not [Pog.FileLockUtils]::MoveDirectoryUnlocked((Resolve-VirtualPath ./app), (Resolve-VirtualPath $TMP_APP_RENAME_PATH))) {
+		Write-Debug "The previous ./app directory seems to be used."
+		# FIXME: better message
+		Write-Host "The package seems to be in use, trying to find offending processes..."
+		# something inside the directory is locked
+		ThrowLockedFileList
 	}
 }
 
@@ -272,7 +261,9 @@ Export function Install-FromUrl {
 		# e.g. maybe the packaged program is running and holding a lock over a file inside
 		# if that would be the case, we would extract the package and then get
 		#  Acess Denied error, and user would waste his time waiting for the extraction all over again
-		WaitForNoLockedFilesInAppDirectory
+		if ([Pog.FileLockUtils]::IsDirectoryLocked((Resolve-VirtualPath ./app))) {
+			ThrowLockedFileList
+		}
 
 		# do not remove the ./app directory just yet; first, we'll download the new version,
 		#  and after all checks pass and we know we managed to set it up correctly,
