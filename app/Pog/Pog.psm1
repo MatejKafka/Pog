@@ -630,7 +630,7 @@ Export function Export-Pog {
 			foreach ($_ in $p.EnumerateExportedShortcuts()) {
 				$TargetPath = Join-Path $StartMenuDir $_.Name
 				if (Test-Path $TargetPath) {
-					if ([Pog.FileUtils]::FileContentEqual((Get-Item $TargetPath), $_)) {
+					if ([Pog.FsUtils]::FileContentEqual((Get-Item $TargetPath), $_)) {
 						Write-Verbose "Shortcut '$($_.BaseName)' is already exported from this package."
 						continue
 					}

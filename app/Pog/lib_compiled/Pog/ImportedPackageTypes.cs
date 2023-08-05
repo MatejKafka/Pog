@@ -52,7 +52,7 @@ public class ImportedPackageManager {
                 continue;
             }
             if (resolveName) {
-                packageName = FileUtils.GetResolvedChildName(root, packageName);
+                packageName = FsUtils.GetResolvedChildName(root, packageName);
             }
             return new ImportedPackage(packageName, IOPath.Combine(root, packageName), loadManifest);
         }
@@ -66,7 +66,7 @@ public class ImportedPackageManager {
         Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
 
         if (resolveName) {
-            packageName = FileUtils.GetResolvedChildName(packageRoot, packageName);
+            packageName = FsUtils.GetResolvedChildName(packageRoot, packageName);
         }
 
         var p = new ImportedPackage(packageName, IOPath.Combine(packageRoot, packageName), false);
@@ -82,7 +82,7 @@ public class ImportedPackageManager {
 
     // FIXME: this should probably return a set (or at least filter the packages to skip collisions)
     public IEnumerable<string> EnumeratePackageNames(string namePattern = "*") {
-        return PackageRoots.ValidPackageRoots.SelectMany(r => FileUtils.EnumerateNonHiddenDirectoryNames(r, namePattern));
+        return PackageRoots.ValidPackageRoots.SelectMany(r => FsUtils.EnumerateNonHiddenDirectoryNames(r, namePattern));
     }
 
     public IEnumerable<ImportedPackage> EnumeratePackages(bool loadManifest, string namePattern = "*") {
@@ -92,7 +92,7 @@ public class ImportedPackageManager {
     /// Assumes that the package root is valid.
     public IEnumerable<ImportedPackage> EnumeratePackages(string packageRoot, bool loadManifest, string namePattern = "*") {
         Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
-        return FileUtils.EnumerateNonHiddenDirectoryNames(packageRoot, namePattern)
+        return FsUtils.EnumerateNonHiddenDirectoryNames(packageRoot, namePattern)
                 // do not resolve name, it already has the correct casing
                 .Select(p => GetPackage(p, packageRoot, false, loadManifest));
     }
@@ -119,8 +119,8 @@ public sealed class ImportedPackage : Package {
 
     // called while importing a new manifest
     public void RemoveManifest() {
-        FileUtils.EnsureDeleteFile(ManifestPath);
-        FileUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
+        FsUtils.EnsureDeleteFile(ManifestPath);
+        FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
     }
 
     /// Enumerates full paths of all exported shortcuts.

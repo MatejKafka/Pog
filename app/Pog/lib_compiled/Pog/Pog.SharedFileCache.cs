@@ -71,7 +71,7 @@ public class SharedFileCache {
     public IEnumerable<CacheEntryInfo> EnumerateEntries(InvalidCacheEntryCb? invalidEntryCb = null) {
         // the last .Where is necessary to avoid race conditions (cache entry exists when entries are enumerated,
         //  but is deleted before `GetEntryInfoInner(...)` finishes)
-        return FileUtils.EnumerateNonHiddenDirectoryNames(Path)
+        return FsUtils.EnumerateNonHiddenDirectoryNames(Path)
                 .Select(entryKey => {
                     try {
                         return GetEntryInfoInner(entryKey);
@@ -140,7 +140,7 @@ public class SharedFileCache {
     private SafeFileHandle? LockEntryDirectory(string entryDirPath) {
         for (var i = 0;; i++) {
             try {
-                return Native.DirectoryUtils.OpenDirectoryReadOnly(entryDirPath);
+                return FsUtils.OpenDirectoryReadOnly(entryDirPath);
             } catch (FileNotFoundException) {
                 // yes, really, it's not DirectoryNotFoundException
                 // the entry does not exist
@@ -265,7 +265,7 @@ public class SharedFileCache {
         try {
             // it's not possible to atomically delete a directory; instead, we move it
             //  to a temporary directory and delete it there
-            h = Native.DirectoryUtils.OpenDirectoryForMove(srcPath);
+            h = FsUtils.OpenForMove(srcPath);
         } catch (FileNotFoundException) {
             // entry does not exist
             return;
@@ -278,7 +278,7 @@ public class SharedFileCache {
         using (h) {
             try {
                 // this atomically moves the directory
-                Native.DirectoryUtils.MoveFileByHandle(h, destinationPath);
+                FsUtils.MoveByHandle(h, destinationPath);
             } catch (UnauthorizedAccessException) {
                 // entry is currently in use
                 throw new CacheEntryInUseException(entryKey);
@@ -338,11 +338,11 @@ public class SharedFileCache {
 
         var targetPath = IOPath.Combine(Path, entryKey);
         // we close this handle after the method is done, similarly to GetEntryLocked
-        using var handle = Native.DirectoryUtils.OpenDirectoryForMove(newEntry.DirPath);
+        using var handle = FsUtils.OpenForMove(newEntry.DirPath);
 
         // move the entry into place
         try {
-            Native.DirectoryUtils.MoveFileByHandle(handle, targetPath);
+            FsUtils.MoveByHandle(handle, targetPath);
         } catch (SystemException e) {
             // 0x800700B7 = ERROR_ALREADY_EXISTS (-2147024713)
             // 0x80070005 = ERROR_ACCESS_DENIED (-2147024891)

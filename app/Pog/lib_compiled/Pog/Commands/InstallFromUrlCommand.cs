@@ -98,7 +98,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         _package = internalInfo.Package;
 
 
-        if (new[] {_p(TmpExtractionDirName), _newAppDirPath, _p(TmpDeleteDirName)}.Any(FileUtils.EnsureDeleteDirectory)) {
+        if (new[] {_p(TmpExtractionDirName), _newAppDirPath, _p(TmpDeleteDirName)}.Any(FsUtils.EnsureDeleteDirectory)) {
             WriteWarning("Removed orphaned tmp installer directories, probably from an interrupted previous install...");
         }
 
@@ -109,10 +109,10 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
             if (Directory.Exists(_appDirPath)) {
                 WriteWarning("Clearing an incomplete app directory from a previous interrupted install...");
                 // remove atomically, so that the user doesn't see a partially deleted app directory in case this is interrupted again
-                DirectoryUtils.DeleteDirectoryAtomically(_appDirPath, _p(TmpDeleteDirName));
+                FsUtils.DeleteDirectoryAtomically(_appDirPath, _p(TmpDeleteDirName));
             }
             WriteWarning("Restoring the previous app directory to recover from an interrupted install...");
-            DirectoryUtils.MoveDirectoryAtomically(_p(AppBackupDirName), _appDirPath);
+            FsUtils.MoveAtomically(_p(AppBackupDirName), _appDirPath);
         }
 
         if (Directory.Exists(_appDirPath)) {
@@ -130,7 +130,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
 
             // next, we check if we can move/delete the current ./app directory
             // e.g. maybe the packaged program is running and holding a lock over a file inside
-            if (DirectoryUtils.IsDirectoryLocked(_appDirPath)) {
+            if (FsUtils.IsDirectoryLocked(_appDirPath)) {
                 // show information about the locked files to the user, so that they can close the program
                 //  while the new version is downloading & extracting to save time
                 ShowLockedFileInfo(_appDirPath);
@@ -200,9 +200,9 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     }
 
     public void Dispose() {
-        FileUtils.EnsureDeleteDirectory(_p(TmpDeleteDirName));
-        FileUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
-        FileUtils.EnsureDeleteDirectory(_newAppDirPath);
+        FsUtils.EnsureDeleteDirectory(_p(TmpDeleteDirName));
+        FsUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
+        FsUtils.EnsureDeleteDirectory(_newAppDirPath);
         // do not attempt to delete AppBackupDirName here, it should be already cleaned up
         //  (and if it isn't, it probably also won't work here)
     }
@@ -241,7 +241,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
             usedDir.MoveTo(targetPath);
         } else {
             // TODO: handle existing target (overwrite?)
-            FileUtils.MoveDirectoryContents(usedDir, targetPath);
+            FsUtils.MoveDirectoryContents(usedDir, targetPath);
         }
     }
 
@@ -324,9 +324,9 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     /// <summary>Moves srcDir to the ./app directory. Ensures that there are no locked files in the previous
     /// ./app directory (if it exists), and moves it to backupDir.</summary>
     private void ReplaceAppDirectory(string srcDir, string targetAppDir, string backupDir) {
-        using var newAppDirHandle = DirectoryUtils.OpenDirectoryForMove(srcDir);
+        using var newAppDirHandle = FsUtils.OpenForMove(srcDir);
         try {
-            DirectoryUtils.MoveFileByHandle(newAppDirHandle, targetAppDir);
+            FsUtils.MoveByHandle(newAppDirHandle, targetAppDir);
             // success, targetAppDir did not originally exist, the new app directory is in place
             return;
         } catch (COMException e) {
@@ -343,16 +343,16 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         // get an unusable app if the operation fails/crashes, but it seems we cannot do any better than that
         using (var oldAppDirHandle = MoveOutOldAppDirectory(targetAppDir, backupDir)) {
             try {
-                DirectoryUtils.MoveFileByHandle(newAppDirHandle, targetAppDir);
+                FsUtils.MoveByHandle(newAppDirHandle, targetAppDir);
                 // success, the new app directory is in place
             } catch {
                 // at least attempt to move back the original app directory
-                DirectoryUtils.MoveFileByHandle(oldAppDirHandle, targetAppDir);
+                FsUtils.MoveByHandle(oldAppDirHandle, targetAppDir);
                 throw;
             }
         }
         // delete the backup app directory
-        Directory.Delete(backupDir, true);
+        FsUtils.DeleteDirectoryAtomically(backupDir, _p(TmpDeleteDirName));
     }
 
     private SafeFileHandle MoveOutOldAppDirectory(string appDirPath, string backupPath) {
@@ -360,7 +360,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         SafeFileHandle oldAppDirHandle;
         for (;; i++) {
             try {
-                oldAppDirHandle = DirectoryUtils.OpenDirectoryForMove(appDirPath);
+                oldAppDirHandle = FsUtils.OpenForMove(appDirPath);
                 break;
             } catch (FileLoadException) {
                 // used by another process, wait for unlock
@@ -371,7 +371,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         using (oldAppDirHandle) {
             for (;; i++) {
                 try {
-                    DirectoryUtils.MoveFileByHandle(oldAppDirHandle, backupPath);
+                    FsUtils.MoveByHandle(oldAppDirHandle, backupPath);
                     return oldAppDirHandle;
                 } catch (UnauthorizedAccessException) {
                     // a file inside the app directory is locked

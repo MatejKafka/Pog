@@ -24,7 +24,7 @@ public class Repository {
     }
 
     public IEnumerable<string> EnumeratePackageNames(string searchPattern = "*") {
-        return FileUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
+        return FsUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
     }
 
     public IEnumerable<RepositoryVersionedPackage> Enumerate(string searchPattern = "*") {
@@ -35,7 +35,7 @@ public class Repository {
     public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist) {
         Verify.PackageName(packageName);
         if (resolveName) {
-            packageName = FileUtils.GetResolvedChildName(Path, packageName);
+            packageName = FsUtils.GetResolvedChildName(Path, packageName);
         }
         var package = new RepositoryVersionedPackage(packageName, this);
         if (mustExist && !package.Exists) {
@@ -81,10 +81,10 @@ public class RepositoryVersionedPackage {
     public IEnumerable<string> EnumerateVersionStrings(string searchPattern = "*") {
         try {
             if (IsTemplated) {
-                return FileUtils.EnumerateNonHiddenFileNames(Path, searchPattern + ".psd1")
+                return FsUtils.EnumerateNonHiddenFileNames(Path, searchPattern + ".psd1")
                         .Select(IOPath.GetFileNameWithoutExtension);
             } else {
-                return FileUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
+                return FsUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
             }
         } catch (DirectoryNotFoundException) {
             return Enumerable.Empty<string>();
@@ -150,7 +150,7 @@ public sealed class DirectRepositoryPackage : RepositoryPackage {
         // copy the resource directory
         var resDir = new DirectoryInfo(ManifestResourceDirPath);
         if (resDir.Exists) {
-            FileUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
+            FsUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
         }
         // copy the manifest
         File.Copy(ManifestPath, target.ManifestPath);
@@ -171,7 +171,7 @@ public sealed class TemplatedRepositoryPackage : RepositoryPackage {
         // copy the resource directory
         var resDir = new DirectoryInfo(ManifestResourceDirPath);
         if (resDir.Exists) {
-            FileUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
+            FsUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
         }
         // write the manifest
         // TODO: figure out how to avoid calling .Substitute twice when first validating, and then importing the package
