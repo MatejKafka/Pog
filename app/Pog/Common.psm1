@@ -1,8 +1,8 @@
 # Requires -Version 7
 <# Module with opinionated, package-related support functions. #>
-using module ./Paths.psm1
-using module ./lib/Utils.psm1
-using module ./lib/Copy-CommandParameters.psm1
+using module .\Paths.psm1
+using module .\lib\Utils.psm1
+using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
 
