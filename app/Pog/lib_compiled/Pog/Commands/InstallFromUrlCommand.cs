@@ -243,6 +243,9 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
             // TODO: handle existing target (overwrite?)
             FsUtils.MoveDirectoryContents(usedDir, targetPath);
         }
+
+        // remove any unused files from the extraction dir
+        FsUtils.EnsureDeleteDirectory(extractionDir);
     }
 
     private DirectoryInfo GetExtractedSubdirectory(string extractedRootPath, string? subdirectory) {
