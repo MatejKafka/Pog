@@ -120,37 +120,9 @@ public static class FsUtils {
         return handle;
     }
 
-    public static unsafe void MoveByHandle(SafeFileHandle handle, string destinationPath,
-            bool replaceExistingFile = false) {
-        // source: https://github.com/microsoft/BuildXL/blob/d09e1c45d68a81ccabff3f32e0e31c855ee246f8/Public/Src/Utilities/Native/IO/Windows/FileSystem.Win.cs#L1605=
-
-        // we cannot use normal marshalling, because the FILE_RENAME_INFO struct has a variable-length string as the last member,
-        // and C# P/Invoke doesn't really support that, so we have to build the whole struct ourselves as a buffer.
-
-        // FILE_RENAME_INFO as we've defined it contains one character which is enough for a terminating null byte.
-        // Then, we need room for the actual characters.
-        int fileNameLengthInBytesExcludingNull = destinationPath.Length * sizeof(char);
-        int structSizeIncludingDestination = sizeof(Win32.FILE_RENAME_INFO) + fileNameLengthInBytesExcludingNull;
-
-        fixed (byte* b = new byte[structSizeIncludingDestination]) {
-            // fill out the struct members
-            var renameInfo = (Win32.FILE_RENAME_INFO*) b;
-            renameInfo->ReplaceIfExists = replaceExistingFile;
-            renameInfo->RootDirectory = IntPtr.Zero;
-            renameInfo->FileNameLengthInBytes = fileNameLengthInBytesExcludingNull + sizeof(char);
-
-            // copy the filename string to the struct
-            char* filenameBuffer = &renameInfo->FileName;
-            for (int i = 0; i < destinationPath.Length; i++) {
-                filenameBuffer[i] = destinationPath[i];
-            }
-            filenameBuffer[destinationPath.Length] = (char) 0;
-
-            const int fileRenameInformationClass = 3;
-            if (!Win32.SetFileInformationByHandle(handle, fileRenameInformationClass, renameInfo,
-                        structSizeIncludingDestination)) {
-                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-            }
+    public static void MoveByHandle(SafeFileHandle handle, string destinationPath, bool replaceExistingFile = false) {
+        if (!Win32.SetFileInformationByHandle_FileRenameInfo(handle, destinationPath, replaceExistingFile)) {
+            Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
         }
     }
 

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using JetBrains.Annotations;
@@ -26,12 +25,12 @@ public class FileLock : IDisposable {
     }
 
     /// Locks the whole file.
-    public static FileLock Lock(FileStream stream, Win32.LockFileFlags flags) {
-        return Lock(stream, flags, 0, ulong.MaxValue);
+    public static FileLock Lock(SafeFileHandle handle, Win32.LockFileFlags flags) {
+        return Lock(handle, flags, 0, ulong.MaxValue);
     }
 
-    public static FileLock Lock(FileStream stream, Win32.LockFileFlags flags, ulong position, ulong length) {
-        var regionLock = new FileLock(stream.SafeFileHandle!, position, length);
+    public static FileLock Lock(SafeFileHandle handle, Win32.LockFileFlags flags, ulong position, ulong length) {
+        var regionLock = new FileLock(handle, position, length);
         var success = Win32.LockFileEx(regionLock.Handle, flags, 0, regionLock.LengthLow, regionLock.LengthHigh,
                 ref regionLock.Overlapped);
         if (!success) {

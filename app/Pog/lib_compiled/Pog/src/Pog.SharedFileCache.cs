@@ -98,20 +98,26 @@ public class SharedFileCache {
     }
 
     private static SourcePackageMetadata[]? ReadMetadataFile(string metadataPath) {
+        FileStream stream;
         try {
-            using var stream = File.Open(metadataPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            // lock the whole file in a shared read-only mode
-            using var regionLock = Native.FileLock.Lock(stream, Native.Win32.LockFileFlags.WAIT, 0, ulong.MaxValue);
-            return EnumerateMetadataFileStream(stream).ToArray();
+            stream = File.Open(metadataPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         } catch (FileNotFoundException) {
             return null;
+        }
+
+        using (stream) {
+            // lock the whole file in a shared read-only mode
+            using var regionLock =
+                    Native.FileLock.Lock(stream.SafeFileHandle!, Native.Win32.LockFileFlags.WAIT, 0, ulong.MaxValue);
+            return EnumerateMetadataFileStream(stream).ToArray();
         }
     }
 
     private void AddPackageMetadata(string metadataPath, SourcePackageMetadata packageInfo) {
         using var stream = File.Open(metadataPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
         // lock the whole file in RW mode
-        using var regionLock = Native.FileLock.Lock(stream, Native.Win32.LockFileFlags.EXCLUSIVE_LOCK | Native.Win32.LockFileFlags.WAIT);
+        using var regionLock = Native.FileLock.Lock(stream.SafeFileHandle!,
+                Native.Win32.LockFileFlags.EXCLUSIVE_LOCK | Native.Win32.LockFileFlags.WAIT);
 
         // ensure that we're not adding a duplicate
         if (EnumerateMetadataFileStream(stream).Any(pm => pm == packageInfo)) {
