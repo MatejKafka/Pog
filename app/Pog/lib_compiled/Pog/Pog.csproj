@@ -33,16 +33,35 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+  
+  <!-- Use ILRepack to combine all dependencies into one assembly for the release build. This simplifies
+       loading and also shields us from dependency hell, which is especially problematic with PowerShell,
+       because it seemingly ignores `<bindingRedirect>` (see https://stackoverflow.com/a/69403558/14427275). -->
+  <Target Name="ILRepack" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <MergedAssembly>$(PublishDir)\_merged.dll</MergedAssembly>
+      <MergedOutputPath>$(SolutionDir)\$(ProjectName).dll</MergedOutputPath>
+    </PropertyGroup>
+    
+    <ItemGroup>
+      <!-- List of assemblies to be merged. -->
+      <AssemblyToMerge Include="$(PublishDir)\*.dll" Exclude="$(PublishDir)\System.Management.Automation.dll; $(MergedAssembly)" />
+    </ItemGroup>
 
-  <Target Name="ExportDLL-Release" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Message Text="Exporting '$(ProjectName).dll' to parent directory..." Importance="High" />
-    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(ProjectDir)..\$(ProjectName).dll" />
-    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(ProjectDir)..\$(ProjectName).dll-Help.xml" />
+    <Message Text="Running ILRepack..." Importance="High" />
+    <Exec Command="ILRepack.exe /out:&quot;$(MergedAssembly)&quot; @(AssemblyToMerge->'&quot;%(FullPath)&quot;', ' ')" WorkingDirectory="$(PublishDir)" />
+
+    <!-- Copy the merged DLL and the generated PowerShell help file. This is a separate step
+         to get better error messages when the output .dll is in use. -->
+    <Copy SourceFiles="$(MergedAssembly)" DestinationFiles="$(MergedOutputPath)" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(MergedOutputPath)-Help.xml" />
   </Target>
+
+  <!-- Export debug build to the root directory, together with the generated PowerShell help file. -->
   <Target Name="ExportDLL-Debug" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
     <Message Text="Exporting '$(ProjectName).dll' (Debug) to parent directory..." Importance="High" />
-    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(ProjectDir)..\$(ProjectName)_Debug.dll" />
-    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(ProjectDir)..\$(ProjectName)_Debug.dll-Help.xml" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(SolutionDir)\$(ProjectName)_Debug.dll" />
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(SolutionDir)\$(ProjectName)_Debug.dll-Help.xml" />
   </Target>
 
 </Project>
