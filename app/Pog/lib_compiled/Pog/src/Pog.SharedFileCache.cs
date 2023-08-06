@@ -18,7 +18,8 @@ public class InvalidCacheEntryException : Exception {
         EntryKey = entryKey;
     }
 
-    public InvalidCacheEntryException(string entryKey, string message) : base(message) {
+    public InvalidCacheEntryException(string entryKey, string message)
+            : base($"Invalid cache entry, {message}: '{entryKey}'") {
         EntryKey = entryKey;
     }
 }
@@ -173,16 +174,16 @@ public class SharedFileCache {
     private readonly record struct EntryContentInfo(FileInfo Metadata, FileInfo Entry);
 
     // Expects the entry to be already locked.
-    private EntryContentInfo? GetEntryContentInfo(string entryDirPath) {
+    private EntryContentInfo GetEntryContentInfo(string entryKey, string entryDirPath) {
         var files = new DirectoryInfo(entryDirPath).GetFiles();
         if (files.Length != 2) {
             // too many files
-            return null;
+            throw new InvalidCacheEntryException(entryKey, "entry contains extra files");
         }
 
         if (files[0].Name == MetadataFileName) return new EntryContentInfo(files[0], files[1]);
         if (files[1].Name == MetadataFileName) return new EntryContentInfo(files[1], files[0]);
-        return null; // missing metadata file;
+        throw new InvalidCacheEntryException(entryKey, "metadata file is missing");
     }
 
     /// <exception cref="InvalidCacheEntryException"></exception>
@@ -195,16 +196,12 @@ public class SharedFileCache {
             return null;
         }
 
-        var contentInfo = GetEntryContentInfo(entryDirPath);
-        if (contentInfo == null) {
-            throw new InvalidCacheEntryException(entryKey);
-        }
-        var (metadataInfo, entryInfo) = contentInfo.Value;
+        var (metadataInfo, entryInfo) = GetEntryContentInfo(entryKey, entryDirPath);
 
         var metadata = ReadMetadataFile(metadataInfo.FullName);
         if (metadata == null) {
             // metadata file has gone missing since the listing above?
-            throw new InvalidCacheEntryException(entryKey);
+            throw new InvalidCacheEntryException(entryKey, "metadata file has gone missing");
         }
 
         return new CacheEntryInfo(entryKey, entryInfo.FullName,
@@ -229,18 +226,14 @@ public class SharedFileCache {
             return null;
         }
 
-        var contentInfo = GetEntryContentInfo(entryDirPath);
-        if (contentInfo == null) {
-            throw new InvalidCacheEntryException(entryKey);
-        }
-        var (metadataInfo, entryInfo) = contentInfo.Value;
+        var (metadataInfo, entryInfo) = GetEntryContentInfo(entryKey, entryDirPath);
 
         FileStream readStream;
         try {
             readStream = File.Open(entryInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
         } catch (FileNotFoundException) {
             // the file has gone missing since the call to GetEntryContentInfo above, invalid entry
-            throw new InvalidCacheEntryException(entryKey);
+            throw new InvalidCacheEntryException(entryKey, "entry file has gone missing");
         }
 
         try {
@@ -249,7 +242,7 @@ public class SharedFileCache {
         } catch (FileNotFoundException) {
             readStream.Dispose();
             // the metadata file has gone missing, invalid entry
-            throw new InvalidCacheEntryException(entryKey);
+            throw new InvalidCacheEntryException(entryKey, "metadata file has gone missing");
         } catch {
             readStream.Dispose();
             throw;
