@@ -68,7 +68,7 @@ Export function Get-PogRepositoryPackage {
 			}
 			$ErrorActionPreference = "Stop"
 			if ($AllVersions) {
-				echo $c.Enumerate()
+				foreach ($p in $c.Enumerate()) {$p}
 			} else {
 				echo $c.GetLatestPackage()
 			}
@@ -108,9 +108,9 @@ Export function Get-PogPackage {
 		if (-not $PackageName) {
 			# do not eagerly load the manifest
 			if ($PackageRoot) {
-				echo $PACKAGE_ROOTS.EnumeratePackages($PackageRoot, $false)
+				foreach ($p in $PACKAGE_ROOTS.EnumeratePackages($PackageRoot, $false)) {$p}
 			} else {
-				echo $PACKAGE_ROOTS.EnumeratePackages($false)
+				foreach ($p in $PACKAGE_ROOTS.EnumeratePackages($false)) {$p}
 			}
 		} else {
 			$ErrorActionPreference = "Continue"
