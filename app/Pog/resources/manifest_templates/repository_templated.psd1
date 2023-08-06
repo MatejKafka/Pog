@@ -4,7 +4,7 @@
 	Version = '{{TEMPLATE:Version}}'
 
 	Install = @{
-		Url = {$V = $this.Version; ''}
+		Url = {$V = $this.Version; ""}
 		Hash = '{{TEMPLATE:Hash}}'
 	}
 
