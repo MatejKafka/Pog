@@ -104,5 +104,5 @@ https://github.com/miurahr/aqtinstall
 - substitute exe should correctly forward argv[0] (app name), so that e.g. ccache works
 - always check that we're in a filesystem provider, and then use .ProviderPath for native commands to support network share paths
 - manifest is not executed with strict mode
-- investigate whether application manifests could be used on the stub to disable display scaling for the target
+- investigate whether application manifests could be used on the stub to disable display scaling for the target, instead of modifying the manifest of the target directly
 - Create a versioning scheme for stub binary (overwrite exported command stub when an out-of-date version is detected)
