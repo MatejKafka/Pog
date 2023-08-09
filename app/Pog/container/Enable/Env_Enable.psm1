@@ -379,18 +379,7 @@ Export function Export-Shortcut {
 	# Shell object has different CWD, have to resolve all paths
 	$ShortcutPath = Resolve-VirtualPath ([Pog.PathConfig+PackagePaths]::ShortcutDirRelPath + "/$ShortcutName.lnk")
 
-	# TODO: does this special case make sense?
-	$Target = if ($TargetPath.Contains("/") -or $TargetPath.Contains("\")) {
-		# assume the target is a path
-		Resolve-Path $TargetPath
-	} else {
-		# assume the target is a command in env:PATH
-		$Cmd = Get-Command -CommandType Application $TargetPath -TotalCount 1 -ErrorAction SilentlyContinue
-		if ($null -eq $Cmd) {
-			throw "Cannot create shortcut to command '$TargetPath', as no such command is known by the system (present in env:PATH)."
-		}
-		Resolve-Path $Cmd.Source
-	}
+	$Target = Resolve-Path $TargetPath
 	Write-Debug "Resolved shortcut target: $Target"
 
 	$WorkingDirectory = if ($WorkingDirectory -eq $null) {
