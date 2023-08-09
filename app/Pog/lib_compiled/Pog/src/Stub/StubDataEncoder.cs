@@ -154,7 +154,7 @@ internal class StubDataEncoder {
     private void WriteUint(long n) {WriteUint((uint) n);}
     //@formatter:on
 
-    private void WriteEnvironmentVariables(Dictionary<string, string> envVars) {
+    private void WriteEnvironmentVariables(IDictionary<string, string> envVars) {
         // write entry count
         WriteUint(envVars.Count);
 

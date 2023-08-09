@@ -28,11 +28,12 @@ public static class PeResources {
         /// NOTE: You must NOT use the span after the Module instance is disposed, as it unmaps the resource from memory.
         /// </returns>
         /// <exception cref="ResourceNotFoundException">Resource does not exist.</exception>
-        public unsafe ReadOnlySpan<byte> GetResource(ResourceType resourceType, Win32.ResourceAtom resourceName) {
-            var resourceHandle = Win32.FindResource(_handle, resourceName, (ushort) resourceType);
+        public unsafe ReadOnlySpan<byte> GetResource(ResourceId id) {
+            var resourceHandle = Win32.FindResourceEx(_handle, (ushort)id.Type, id.Name, id.Language);
             if (resourceHandle == default) {
                 var hr = Marshal.GetHRForLastWin32Error();
-                if (!ResourceNotFoundException.ThrowForHResult(hr, resourceType, resourceName)) {
+                // TODO: handle id.Language
+                if (!ResourceNotFoundException.ThrowForHResult(hr, id.Type, id.Name)) {
                     Marshal.ThrowExceptionForHR(hr);
                 }
             }
@@ -55,15 +56,9 @@ public static class PeResources {
             return new ReadOnlySpan<byte>(resourcePtr, (int) resourceSize);
         }
 
-        /// <inheritdoc cref="GetResource(Pog.Native.PeResources.ResourceType,Win32.ResourceAtom)"/>
-        public ReadOnlySpan<byte> GetResource(ResourceId resourceId) {
-            return GetResource(resourceId.Type, resourceId.Name);
-        }
-
-        public bool TryGetResource(ResourceType resourceType, Win32.ResourceAtom resourceName,
-                out ReadOnlySpan<byte> resource) {
+        public bool TryGetResource(ResourceId id, out ReadOnlySpan<byte> resource) {
             try {
-                resource = GetResource(resourceType, resourceName);
+                resource = GetResource(id);
             } catch (ResourceNotFoundException) {
                 resource = default;
                 return false;
@@ -71,8 +66,40 @@ public static class PeResources {
             return true;
         }
 
-        public bool TryGetResource(ResourceId resourceId, out ReadOnlySpan<byte> resource) {
-            return TryGetResource(resourceId.Type, resourceId.Name, out resource);
+        public bool IterateResourceLanguages(ResourceId id, Func<ushort, bool> callback) {
+            return IterateResourceLanguages(id.Type, id.Name, callback);
+        }
+
+        /// <exception cref="ResourceTypeNotFoundException"></exception>
+        public bool IterateResourceLanguages(ResourceType resourceType, Win32.ResourceAtom resourceName,
+                Func<ushort, bool> callback) {
+            ExceptionDispatchInfo? exceptionFromCb = null;
+            var success = Win32.EnumResourceLanguages(_handle, (ushort) resourceType, resourceName, (_, _, _, lang, _) => {
+                try {
+                    return callback(lang);
+                } catch (Exception e) {
+                    // exceptions must not escape the enumeration callback, because .NET marshalling cannot propagate
+                    //  them through the native call
+                    exceptionFromCb = ExceptionDispatchInfo.Capture(e);
+                    return false;
+                }
+            }, 0);
+
+            if (success) {
+                return true;
+            }
+
+            var hr = Marshal.GetHRForLastWin32Error();
+            // 0x80073B02 = ERROR_RESOURCE_ENUM_USER_STOP, user stopped enumeration by returning false from callback
+            if (hr == -2147009790) {
+                // if exception occurred inside the callback, rethrow it with original stack trace
+                exceptionFromCb?.Throw();
+                // else return false
+                return false;
+            } else if (!ResourceNotFoundException.ThrowForHResult(hr, resourceType, resourceName)) {
+                Marshal.ThrowExceptionForHR(hr);
+            }
+            throw new InvalidOperationException("unreachable");
         }
 
         /// <exception cref="ResourceTypeNotFoundException"></exception>
@@ -139,6 +166,15 @@ public static class PeResources {
             throw new InvalidOperationException("unreachable");
         }
 
+        public List<ushort> GetResourceLanguages(ResourceType resourceType, Win32.ResourceAtom resourceName) {
+            var list = new List<ushort>();
+            IterateResourceLanguages(resourceType, resourceName, lang => {
+                list.Add(lang);
+                return true;
+            });
+            return list;
+        }
+
         public List<Win32.ResourceAtom> GetResourceNames(ResourceType resourceType) {
             var list = new List<Win32.ResourceAtom>();
             IterateResourceNames(resourceType, name => {
@@ -155,6 +191,17 @@ public static class PeResources {
                 return true;
             });
             return list;
+        }
+
+        public bool TryGetResourceLanguages(ResourceType resourceType, Win32.ResourceAtom resourceName,
+                out List<ushort> resourcesNames) {
+            try {
+                resourcesNames = GetResourceLanguages(resourceType, resourceName);
+                return true;
+            } catch (ResourceNotFoundException) {
+                resourcesNames = null!;
+                return false;
+            }
         }
 
         public bool TryGetResourceNames(ResourceType resourceType, out List<Win32.ResourceAtom> resourcesNames) {
@@ -178,9 +225,8 @@ public static class PeResources {
         }
     }
 
-    [PublicAPI]
     public class ResourceUpdater : IDisposable {
-        private Win32.ResourceUpdateSafeHandle _handle;
+        private readonly Win32.ResourceUpdateSafeHandle _handle;
 
         public ResourceUpdater(string pePath, bool deleteExistingResources = false) {
             _handle = Win32.BeginUpdateResource(pePath, deleteExistingResources);
@@ -201,37 +247,27 @@ public static class PeResources {
             _handle.CommitChanges();
         }
 
-        // = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
-        private const ushort NeutralLanguageId = 0;
-
-        public unsafe void SetResource(ResourceType resourceType, Win32.ResourceAtom resourceName,
-                ReadOnlySpan<byte> resource) {
+        [PublicAPI]
+        public unsafe void SetResource(ResourceId id, ReadOnlySpan<byte> resource) {
             fixed (byte* resourcePtr = resource) {
-                if (!Win32.UpdateResource(_handle, (ushort) resourceType, resourceName, NeutralLanguageId, resourcePtr,
+                if (!Win32.UpdateResource(_handle, (ushort) id.Type, id.Name, id.Language, resourcePtr,
                             (uint) resource.Length)) {
                     Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
                 }
             }
         }
 
-        /// <inheritdoc cref="SetResource(Pog.Native.PeResources.ResourceType,Win32.ResourceAtom,System.ReadOnlySpan{byte})"/>
-        public void SetResource(ResourceId resourceId, ReadOnlySpan<byte> resource) {
-            SetResource(resourceId.Type, resourceId.Name, resource);
+        /// <inheritdoc cref="SetResource(ResourceId, System.ReadOnlySpan{byte})"/>
+        public void SetResource(ResourceId resourceId, byte[] resource) => SetResource(resourceId, resource.AsSpan());
+
+        public void CopyResourceFrom(Module srcModule, ResourceId id) {
+            SetResource(id, srcModule.GetResource(id));
         }
 
-        public void CopyResourceFrom(Module srcModule, ResourceType resourceType, Win32.ResourceAtom resourceName) {
-            SetResource(resourceType, resourceName, srcModule.GetResource(resourceType, resourceName));
-        }
-
-        public unsafe void DeleteResource(ResourceType resourceType, Win32.ResourceAtom resourceName) {
-            if (!Win32.UpdateResource(_handle, (ushort) resourceType, resourceName, NeutralLanguageId, (void*) 0, 0)) {
+        public unsafe void DeleteResource(ResourceId id) {
+            if (!Win32.UpdateResource(_handle, (ushort) id.Type, id.Name, id.Language, (void*) 0, 0)) {
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
             }
-        }
-
-        /// <inheritdoc cref="DeleteResource(Pog.Native.PeResources.ResourceType,Win32.ResourceAtom)"/>
-        public void DeleteResource(ResourceId resourceId) {
-            DeleteResource(resourceId.Type, resourceId.Name);
         }
     }
 
@@ -261,6 +297,7 @@ public static class PeResources {
         }
     }
 
+    [PublicAPI]
     public class ResourceSectionNotFoundException : ResourceTypeNotFoundException {
         private ResourceSectionNotFoundException() :
                 base("The specified image file does not contain a resource section.") {}
@@ -299,15 +336,11 @@ public static class PeResources {
         Manifest = 24,
     }
 
-    public readonly struct ResourceId {
-        public readonly ResourceType Type;
-        public readonly Win32.ResourceAtom Name;
+    // = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
+    private const ushort NeutralLanguageId = 0;
 
-        public ResourceId(ResourceType type, Win32.ResourceAtom name) {
-            Type = type;
-            Name = name;
-        }
-    }
+    public readonly record struct ResourceId(ResourceType Type, Win32.ResourceAtom Name,
+            ushort Language = NeutralLanguageId);
 }
 
 [UsedImplicitly]

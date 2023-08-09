@@ -92,6 +92,34 @@ public static partial class Win32 {
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     public static extern HRSRC FindResource(FreeLibrarySafeHandle hModule, ResourceAtom lpName, ResourceAtom lpType);
 
+    /// <summary>Determines the location of the resource with the specified type, name, and language in the specified module.</summary>
+    /// <param name="hModule">
+    /// <para>Type: <b>HMODULE</b> A handle to the module whose portable executable file or an accompanying MUI file contains the resource. If this parameter is <b>NULL</b>, the function searches the module used to create the current process.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-findresourceexw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <param name="lpType">
+    /// <para>Type: <b>LPCTSTR</b> The resource type. Alternately, rather than a pointer, this parameter can be <a href="https://docs.microsoft.com/windows/desktop/api/winuser/nf-winuser-makeintresourcew">MAKEINTRESOURCE</a>(ID), where ID is the integer identifier of the given resource type. For standard resource types, see <a href="https://docs.microsoft.com/windows/desktop/menurc/resource-types">Resource Types</a>. For more information, see the Remarks section below.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-findresourceexw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <param name="lpName">
+    /// <para>Type: <b>LPCTSTR</b> The name of the resource. Alternately, rather than a pointer, this parameter can be <a href="https://docs.microsoft.com/windows/desktop/api/winuser/nf-winuser-makeintresourcew">MAKEINTRESOURCE</a>(ID), where ID is the integer identifier of the resource. For more information, see the Remarks section below.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-findresourceexw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <param name="wLanguage">
+    /// <para>Type: <b>WORD</b> The language of the resource. If this parameter is <c>MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)</c>, the current language associated with the calling thread is used. To specify a language other than the current language, use the <a href="https://docs.microsoft.com/windows/desktop/api/winnt/nf-winnt-makelangid">MAKELANGID</a> macro to create this parameter. For more information, see <b>MAKELANGID</b>.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-findresourceexw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <returns>
+    /// <para>Type: <b>HRSRC</b> If the function succeeds, the return value is a handle to the specified resource's information block. To obtain a handle to the resource, pass this handle to the <a href="/windows/desktop/api/libloaderapi/nf-libloaderapi-loadresource">LoadResource</a> function. If the function fails, the return value is <b>NULL</b>. To get extended error information, call <a href="/windows/desktop/api/errhandlingapi/nf-errhandlingapi-getlasterror">GetLastError</a>.</para>
+    /// </returns>
+    /// <remarks>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-findresourceexw">Learn more about this API from docs.microsoft.com</see>.</para>
+    /// </remarks>
+    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "FindResourceExW")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    public static extern HRSRC FindResourceEx(FreeLibrarySafeHandle hModule, ResourceAtom lpType, ResourceAtom lpName,
+            ushort wLanguage);
+
     /// <inheritdoc cref="LoadResource(HMODULE, HRSRC)"/>
     public static HGLOBAL LoadResource(SafeHandle? hModule, HRSRC hResInfo) {
         bool hModuleAddRef = false;
@@ -224,6 +252,57 @@ public static partial class Win32 {
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     public static extern BOOL EnumResourceNames(HMODULE hModule, ResourceAtom lpType,
             ENUMRESNAMEPROCW lpEnumFunc, nint lParam);
+
+    /// <inheritdoc cref="EnumResourceLanguages(HMODULE, ResourceAtom, ResourceAtom, ENUMRESLANGPROCW, nint)"/>
+    internal static unsafe BOOL EnumResourceLanguages(SafeHandle? hModule, ResourceAtom lpType, ResourceAtom lpName,
+            ENUMRESLANGPROCW lpEnumFunc, nint lParam) {
+        var hModuleAddRef = false;
+        try {
+            HMODULE hModuleLocal;
+            if (hModule != null) {
+                hModule.DangerousAddRef(ref hModuleAddRef);
+                hModuleLocal = (HMODULE) hModule.DangerousGetHandle();
+            } else
+                hModuleLocal = (HMODULE) new IntPtr(0L);
+            return EnumResourceLanguages(hModuleLocal, lpType, lpName, lpEnumFunc, lParam);
+        } finally {
+            if (hModuleAddRef)
+                hModule!.DangerousRelease();
+        }
+    }
+
+    /// <summary>Enumerates language-specific resources, of the specified type and name, associated with a binary module.</summary>
+    /// <param name="hModule">
+    /// <para>Type: <b>HMODULE</b> The handle to a module to be searched. Starting with Windows Vista, if this is a <a href="https://docs.microsoft.com/windows/desktop/Intl/mui-resource-management">language-neutral Portable Executable</a> (LN file), then appropriate .mui files (if any exist) are included in the search. If this is a specific .mui file, only that file is searched for resources.</para>
+    /// <para>If this parameter is <b>NULL</b>, that is equivalent to passing in a handle to the module used to create the current process.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//winbase/nf-winbase-enumresourcelanguagesw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <param name="lpType">
+    /// <para>Type: <b>LPCTSTR</b> The type of resource for which the language is being enumerated. Alternately, rather than a pointer, this parameter can be <a href="https://docs.microsoft.com/windows/desktop/api/winuser/nf-winuser-makeintresourcea">MAKEINTRESOURCE</a>(ID), where ID is an integer value representing a predefined resource type. For a list of predefined resource types, see <a href="https://docs.microsoft.com/windows/desktop/direct3d10/d3d10-graphics-programming-guide-resources-types">Resource Types</a>. For more information, see the Remarks section below.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//winbase/nf-winbase-enumresourcelanguagesw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <param name="lpName">
+    /// <para>Type: <b>LPCTSTR</b> The name of the resource for which the language is being enumerated. Alternately, rather than a pointer, this parameter can be <a href="https://docs.microsoft.com/windows/desktop/api/winuser/nf-winuser-makeintresourcea">MAKEINTRESOURCE</a>(ID), where ID is the integer identifier of the resource. For more information, see the Remarks section below.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//winbase/nf-winbase-enumresourcelanguagesw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <param name="lpEnumFunc">
+    /// <para>Type: <b>ENUMRESLANGPROC</b> A pointer to the callback function to be called for each enumerated resource language. For more information, see <a href="https://docs.microsoft.com/previous-versions/windows/desktop/legacy/ms648033(v=vs.85)">EnumResLangProc</a>.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//winbase/nf-winbase-enumresourcelanguagesw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <param name="lParam">
+    /// <para>Type: <b>LONG_PTR</b> An application-defined value passed to the callback function. This parameter can be used in error checking.</para>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//winbase/nf-winbase-enumresourcelanguagesw#parameters">Read more on docs.microsoft.com</see>.</para>
+    /// </param>
+    /// <returns>
+    /// <para>Type: <b>BOOL</b> Returns <b>TRUE</b> if successful or <b>FALSE</b> otherwise. To get extended error information, call <a href="/windows/desktop/api/errhandlingapi/nf-errhandlingapi-getlasterror">GetLastError</a>.</para>
+    /// </returns>
+    /// <remarks>
+    /// <para><see href="https://docs.microsoft.com/windows/win32/api//winbase/nf-winbase-enumresourcelanguagesw">Learn more about this API from docs.microsoft.com</see>.</para>
+    /// </remarks>
+    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "EnumResourceLanguagesW", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static extern BOOL EnumResourceLanguages(HMODULE hModule, ResourceAtom lpType, ResourceAtom lpName,
+            ENUMRESLANGPROCW lpEnumFunc, nint lParam);
 
     /// <inheritdoc cref="EnumResourceTypes(HMODULE, ENUMRESTYPEPROCW, nint)"/>
     public static bool EnumResourceTypes(SafeHandle? hModule, ENUMRESTYPEPROCW lpEnumFunc, nint lParam) {
@@ -497,6 +576,11 @@ public static partial class Win32 {
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     // ReSharper disable once InconsistentNaming, IdentifierTypo
     public delegate BOOL ENUMRESNAMEPROCW(HMODULE hModule, ResourceAtom lpType, ResourceAtom lpName, nint lParam);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    // ReSharper disable once InconsistentNaming, IdentifierTypo
+    public delegate BOOL ENUMRESLANGPROCW(HMODULE hModule, ResourceAtom lpType, ResourceAtom lpName, ushort wLanguage,
+            nint lParam);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     // ReSharper disable once InconsistentNaming, IdentifierTypo

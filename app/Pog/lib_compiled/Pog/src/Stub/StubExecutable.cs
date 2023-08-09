@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Pog.Native;
@@ -10,6 +11,8 @@ namespace Pog.Stub;
 
 // TODO: support tags ([noresolve], [resolve], [prepend], [append])
 // TODO: switch to stub data format with package-relative paths instead of absolute paths
+// TODO: when copying resources, shoud we also enumerate languages?
+
 
 // Required operations with stubs:
 // 1) create a new stub (or overwrite an existing one)
@@ -34,10 +37,11 @@ public class StubExecutable {
     public readonly string TargetPath;
     public readonly string? WorkingDirectory;
     public readonly string[]? Arguments;
-    public readonly Dictionary<string, string>? EnvironmentVariables;
+    public readonly IDictionary<string, string>? EnvironmentVariables;
 
     public StubExecutable(string targetPath, string? workingDirectory = null,
-            string[]? arguments = null, Dictionary<string, string>? environmentVariables = null) {
+            string[]? arguments = null, IDictionary<string, string>? environmentVariables = null) {
+        Debug.Assert(Path.IsPathRooted(targetPath));
         var targetExtension = Path.GetExtension(targetPath).ToLower();
         if (!SupportedTargetExtensions.Contains(targetExtension)) {
             throw new UnsupportedStubTargetTypeException(
@@ -167,7 +171,7 @@ public class StubExecutable {
     private static void CopyResources(PeResources.ResourceUpdater updater, PeResources.Module src, ResourceType type) {
         try {
             src.IterateResourceNames(type, name => {
-                updater.CopyResourceFrom(src, type, name);
+                updater.CopyResourceFrom(src, new(type, name));
                 return true;
             });
         } catch (PeResources.ResourceNotFoundException) {
@@ -178,7 +182,7 @@ public class StubExecutable {
     private static void RemoveResources(Lazy<PeResources.ResourceUpdater> updater, PeResources.Module dest, ResourceType type) {
         try {
             dest.IterateResourceNames(type, name => {
-                updater.Value.DeleteResource(type, name);
+                updater.Value.DeleteResource(new(type, name));
                 return true;
             });
         } catch (PeResources.ResourceTypeNotFoundException) {
@@ -197,12 +201,12 @@ public class StubExecutable {
 
         // copy all non-matching resources
         foreach (var name in srcNames) {
-            var srcResource = src.GetResource(type, name);
-            if (dest.TryGetResource(type, name, out var destResource) && srcResource.SequenceEqual(destResource)) {
+            var srcResource = src.GetResource(new(type, name));
+            if (dest.TryGetResource(new(type, name), out var destResource) && srcResource.SequenceEqual(destResource)) {
                 continue;
             }
             // missing resource, copy it
-            updater.Value.CopyResourceFrom(src, type, name);
+            updater.Value.CopyResourceFrom(src, new(type, name));
         }
 
         // check if stub has extra resources
@@ -210,7 +214,7 @@ public class StubExecutable {
             dest.IterateResourceNames(type, name => {
                 if (!srcNames.Contains(name)) {
                     // extra resource, delete it
-                    updater.Value.DeleteResource(type, name);
+                    updater.Value.DeleteResource(new(type, name));
                 }
                 return true;
             });
