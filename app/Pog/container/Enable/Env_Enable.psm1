@@ -139,6 +139,7 @@ function Set-Symlink {
 	# New-Item -Type SymbolicLink has a dumb issue with relative paths, so we use the .NET methods instead
 	#  https://github.com/PowerShell/PowerShell/issues/15235
 	if ($Target.PSIsContainer) {
+		# TODO: these were added in .NET 7, backport them
 		return [System.IO.Directory]::CreateSymbolicLink($LinkAbsPath, $TargetStr)
 	} else {
 		return [System.IO.File]::CreateSymbolicLink($LinkAbsPath, $TargetStr)
@@ -452,6 +453,7 @@ Export function Export-Shortcut {
 Export function Disable-DisplayScaling {
 	param(
 			[Parameter(Mandatory)]
+			[string]
 		$ExePath
 	)
 
@@ -459,23 +461,12 @@ Export function Disable-DisplayScaling {
 		throw "Cannot disable system display scaling - '${ExePath}' is not a file."
 	}
 
-	# converted back to string, as registry works with strings
-	$ExePath = [string](Resolve-Path $ExePath)
-	$RegPath = "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers\"
-
-	if (-not (Test-Path $RegPath)) {
-		$null = New-Item $RegPath
-	}
-
-	if ((Get-Item $RegPath).Property.Contains($ExePath)) {
-		$OldVal = Get-ItemPropertyValue -Path $RegPath -Name $ExePath
-		if (($OldVal -split "\s+").Contains("HIGHDPIAWARE")) {
-			Write-Verbose "System display scaling already disabled for '${ExePath}'."
-			return
-		}
-		$null = Set-ItemProperty -Path $RegPath -Name $ExePath -Value ($OldVal + " HIGHDPIAWARE")
+	# display scaling can be disabled using the application manifest of the executable
+	$Manifest = [Pog.Native.PeApplicationManifest]::new((Resolve-Path $ExePath))
+	if ($Manifest.EnsureDpiAware()) {
+		$Manifest.Save()
+		Write-Information "Disabled system display scaling for '${ExePath}'."
 	} else {
-		$null = New-ItemProperty -Path $RegPath -Name $ExePath -PropertyType String -Value "~ HIGHDPIAWARE"
+		Write-Verbose "System display scaling already disabled for '${ExePath}'."
 	}
-	Write-Information "Disabled system display scaling for '${ExePath}'."
 }
