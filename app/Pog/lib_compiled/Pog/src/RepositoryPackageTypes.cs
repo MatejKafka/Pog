@@ -58,8 +58,7 @@ public class RepositoryVersionedPackage {
     [Hidden] public bool Exists => Directory.Exists(Path);
     [Hidden] public bool IsTemplated => Directory.Exists(TemplateDirPath);
 
-    private const string TemplateDirName = ".template";
-    [Hidden] public string TemplateDirPath => IOPath.Combine(Path, TemplateDirName);
+    [Hidden] public string TemplateDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.RepositoryTemplateDirName);
 
     internal RepositoryVersionedPackage(Repository repository, string packageName) {
         Verify.Assert.PackageName(packageName);
@@ -99,10 +98,10 @@ public class RepositoryVersionedPackage {
     }
 
     public RepositoryPackage GetVersionPackage(PackageVersion version, bool mustExist) {
-        if (version.ToString() == TemplateDirName) {
+        if (version.ToString() == PathConfig.PackagePaths.RepositoryTemplateDirName) {
             // disallow creating this version, otherwise we couldn't distinguish between a templated and direct package types
             throw new InvalidPackageVersionException(
-                    $"Version of a package in the repository must not be '{TemplateDirName}'.");
+                    $"Version of a package in the repository must not be '{PathConfig.PackagePaths.RepositoryTemplateDirName}'.");
         }
 
         var package = GetPackage(version);

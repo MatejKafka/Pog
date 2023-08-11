@@ -37,6 +37,7 @@ public class PathConfig {
     public static class PackagePaths {
         public const string ManifestRelPath = "pog.psd1";
         public const string ManifestResourceRelPath = ".pog";
+        public const string RepositoryTemplateDirName = ".template";
 
         public const string ShortcutDirRelPath = ".";
         public const string CommandDirRelPath = "./.commands";
