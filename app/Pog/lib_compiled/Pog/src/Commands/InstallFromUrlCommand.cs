@@ -9,13 +9,14 @@ using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.Commands.Internal;
-using Pog.Native;
+using Pog.Commands.Utils;
+using Pog.Utils;
 
 namespace Pog.Commands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl", DefaultParameterSetName = "Archive")]
-public class InstallFromUrlCommand : PSCmdlet, IDisposable {
+public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     /// Source URL, from which the archive is downloaded. Redirects are supported.
     [Parameter(Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
     [Alias("Url")]
@@ -124,8 +125,7 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
                 var exception = new UserRefusedOverwriteException(
                         "Not installing, user refused to overwrite existing package installation." +
                         " Do not pass -Confirm to overwrite the existing installation without confirmation.");
-                ThrowTerminatingError(new ErrorRecord(exception, "UserRefusedOverwrite", ErrorCategory.OperationStopped,
-                        null));
+                ThrowTerminatingError(exception, "UserRefusedOverwrite", ErrorCategory.OperationStopped, null);
             }
 
             // next, we check if we can move/delete the current ./app directory
@@ -157,24 +157,20 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         }
 
         Debug.Assert(!NoArchive || Target != null);
-        var targetPath = Target == null
-                ? _newAppDirPath
-                : Path.GetFullPath(_newAppDirPath + '\\' + Target.TrimEnd('/', '\\'));
+        var targetPath = Target == null ? _newAppDirPath : JoinValidateSubdirectory(_newAppDirPath, Target);
 
-        if (!targetPath.StartsWith(_newAppDirPath + '\\') && targetPath != _newAppDirPath) {
+        if (targetPath == null) {
             // the target path escapes from the app directory
-            ThrowTerminatingError(new ErrorRecord(
-                    new ArgumentException(
-                            $"Argument passed to the -Target parameter must be a relative path that does not escape " +
-                            $"the app directory, got '{Target}'."),
-                    "TargetEscapesRoot", ErrorCategory.InvalidArgument, Target));
+            ThrowTerminatingArgumentError(Target, "TargetEscapesRoot",
+                    $"Argument passed to the -Target parameter must be a relative path that does not escape " +
+                    $"the app directory, got '{Target}'.");
+            throw new UnreachableException();
         }
 
         if (NoArchive) {
             if (targetPath == _newAppDirPath) {
-                ThrowTerminatingError(new ErrorRecord(new ArgumentException(
-                                $"Argument passed to the -Target parameter must contain the target file name, got '{Target}'"),
-                        "TargetResolvesToRoot", ErrorCategory.InvalidArgument, Target));
+                ThrowTerminatingArgumentError(Target, "TargetResolvesToRoot",
+                        $"Argument passed to the -Target parameter must contain the target file name, got '{Target}'");
             }
         }
 
@@ -212,6 +208,19 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
         return Path.Combine(_packageDirPath, relPath);
     }
 
+    /// <remarks>Assumes that both paths are resolved and cleaned.</remarks>
+    private static bool EscapesDirectory(string basePath, string validatedPath) {
+        return !validatedPath.StartsWith(basePath + '\\') && validatedPath != basePath;
+    }
+
+    private static string? JoinValidateSubdirectory(string basePath, string subdirectoryPath) {
+        var combined = Path.GetFullPath(basePath + '\\' + subdirectoryPath.TrimEnd('/', '\\'));
+        if (EscapesDirectory(basePath, combined)) {
+            return null;
+        }
+        return combined;
+    }
+
     private void InstallNoArchive(SharedFileCache.IFileLock downloadedFile, string targetPath) {
         // ensure that the parent directory exists
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
@@ -223,7 +232,8 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     private void InstallArchive(SharedFileCache.IFileLock downloadedFile, string targetPath) {
         // extract the archive to a temporary directory
         var extractionDir = _p(TmpExtractionDirName);
-        var cmd = new ExpandArchive7Zip(this, downloadedFile.Path, extractionDir, Subdirectory);
+        var cmd = new ExpandArchive7Zip(this, downloadedFile.Path, extractionDir,
+                Subdirectory == null ? null : new[] {Subdirectory});
         _currentRunningCmd = cmd;
         cmd.Invoke();
         _currentRunningCmd = null;
@@ -253,34 +263,47 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
             var root = new DirectoryInfo(extractedRootPath);
             // this only loads metadata for the first 2 files without iterating over the whole directory
             var entries = root.EnumerateFileSystemInfos().Take(2).ToArray();
-            if (entries.Length == 1 && (entries[0].Attributes & FileAttributes.Directory) != 0) {
+            if (entries.Length == 1 && entries[0] is DirectoryInfo newRoot) {
                 // single directory in archive root (as is common for Linux-style archives)
-                WriteDebug($"Archive root contains a single directory '{entries[0].Name}', using it for './app'.");
-                return (DirectoryInfo) entries[0];
+                WriteDebug($"Archive root contains a single directory '{newRoot.Name}', using it instead of the root.");
+                return newRoot;
             } else {
                 // no single subdirectory, multiple (or no) files in root (Windows-style archive)
-                WriteDebug("Archive root contains multiple items, using archive root directly for './app'.");
+                WriteDebug("Archive root contains multiple items, using the archive root directly.");
                 return root;
             }
         } else {
-            var subPath = Path.Combine(extractedRootPath, subdirectory);
+            // `subdirectory` may contain wildcards, resolve them
+            var resolvedPaths = GetResolvedProviderPathFromPSPath(Path.Combine(extractedRootPath, subdirectory), out _);
+            switch (resolvedPaths.Count) {
+                case > 1:
+                    // multiple matches
+                    var resolvedPathStr = string.Join(", ",
+                            resolvedPaths.Select(p => p.Substring(extractedRootPath.Length + 1)));
+                    ThrowTerminatingArgumentError(Subdirectory, "ArchiveSubdirectoryMultipleMatches",
+                            $"Subdirectory '{subdirectory}' requested in the package manifest resolved to multiple " +
+                            $"matching paths inside the archive: {resolvedPathStr}");
+                    break;
+                case 0:
+                    // subdirectory does not exist
+                    var exception = new DirectoryNotFoundException(
+                            $"Subdirectory '{subdirectory}' requested in the package manifest does not exist inside the archive.");
+                    ThrowTerminatingError(exception, "ArchiveSubdirectoryNotFound", ErrorCategory.InvalidData, subdirectory);
+                    break;
+            }
+
+            var subPath = resolvedPaths[0]!;
             WriteDebug($"Using passed path inside archive: {subPath}");
 
-            // test if the path exists in the extracted directory
-            DirectoryInfo sub = null!;
-            try {
-                sub = new(subPath);
-            } catch (DirectoryNotFoundException e) {
-                var dirStr = string.Join(", ",
-                        Directory.EnumerateFileSystemEntries(extractedRootPath)
-                                .Select(p => "'" + Path.GetFileName(p) + "'"));
-                var exception = new DirectoryNotFoundException(
-                        $"'-Subdirectory {subdirectory}' param was provided to 'Install-FromUrl' " +
-                        "in package manifest, but the directory does not exist inside the archive. " +
-                        $"Root of the archive contains the following items: {dirStr}", e);
-                ThrowTerminatingError(new ErrorRecord(exception, "ArchiveSubdirectoryNotFound", ErrorCategory.InvalidData,
-                        subdirectory));
+            if (EscapesDirectory(extractedRootPath, subPath)) {
+                ThrowTerminatingArgumentError(Subdirectory, "SubdirectoryEscapesRoot",
+                        $"Argument passed to the -Subdirectory parameter must be a relative path that does not escape " +
+                        $"the archive directory, got '{subdirectory}'.");
             }
+
+            // test if the path exists in the extracted directory
+            var sub = new DirectoryInfo(subPath);
+            if ((int) sub.Attributes == -1) {}
 
             if ((sub.Attributes & FileAttributes.Directory) == 0) {
                 // it's actually a file
@@ -298,17 +321,16 @@ public class InstallFromUrlCommand : PSCmdlet, IDisposable {
     private void PrepareExtractedSubdirectory(string subdirectoryPath, ScriptBlock? setupScript, bool nsisInstaller) {
         if (nsisInstaller) {
             // extracted NSIS installers contain this directory, typically it doesn't contain anything useful
-            var pluginDirPath = Path.Combine(subdirectoryPath, "$PLUGINDIR");
+            const string pluginDirName = "$PLUGINSDIR";
+            var pluginDirPath = Path.Combine(subdirectoryPath, pluginDirName);
             try {
                 Directory.Delete(pluginDirPath, true);
-                WriteDebug("Removed $PLUGINSDIR directory from the extracted NSIS installer archive.");
+                WriteDebug($"Removed '{pluginDirName}' directory from the extracted NSIS installer archive.");
             } catch (DirectoryNotFoundException e) {
                 var exception = new DirectoryNotFoundException(
-                        "'-NsisInstaller' flag was passed to 'Install-FromUrl' in package manifest, " +
-                        "but the directory '`$PLUGINSDIR' does not exist in the extracted path (NSIS self-extracting " +
-                        "archive should contain it).", e);
-                ThrowTerminatingError(new ErrorRecord(exception, "NsisPluginDirNotFound", ErrorCategory.InvalidData,
-                        pluginDirPath));
+                        $"'-NsisInstaller' flag was set in the package manifest, but the directory '{pluginDirName}' " +
+                        "does not exist in the extracted path (NSIS self-extracting archive should contain it).", e);
+                ThrowTerminatingError(exception, "NsisPluginDirNotFound", ErrorCategory.InvalidData, pluginDirPath);
             }
         }
 
