@@ -337,7 +337,6 @@ Export function Enable-Pog {
 
 			Write-Information "Enabling $($p.GetDescriptionString())..."
 			Invoke-Container Enable $p -InternalArguments $InternalArgs -PackageArguments $PackageParameters
-			Write-Information "Successfully enabled '$($p.PackageName)'."
 			if ($PassThru) {
 				echo $p
 			}
@@ -404,7 +403,6 @@ Export function Install-Pog {
 			Write-Information "Installing $($p.GetDescriptionString())..."
 			# FIXME: probably discard container output, it breaks -PassThru
 			Invoke-Container Install $p -InternalArguments $InternalArgs
-			Write-Information "Successfully installed '$($p.PackageName)'."
 			if ($PassThru) {
 				echo $p
 			}
