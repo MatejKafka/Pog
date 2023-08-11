@@ -143,7 +143,7 @@ Export function Add-EnvVar {
 #>
 Export function Add-EnvPath {
 	param(
-			[ValidateScript({Test-Path -PathType Container $_})]
+			[ValidateScript({Test-Path -PathType Container -LiteralPath $_})]
 			[Parameter(Mandatory)]
 			[string]
 		$Directory,
@@ -153,7 +153,7 @@ Export function Add-EnvPath {
 		$Systemwide
 	)
 
-	$AbsPath = Resolve-Path $Directory
+	$AbsPath = Resolve-VirtualPath $Directory
 	Add-EnvVar "Path" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
 }
 
@@ -168,7 +168,7 @@ Export function Add-EnvPath {
 #>
 Export function Add-EnvPSModulePath {
 	param(
-			[ValidateScript({Test-Path -PathType Container $_})]
+			[ValidateScript({Test-Path -PathType Container -LiteralPath $_})]
 			[Parameter(Mandatory)]
 			[string]
 		$Directory,
@@ -178,6 +178,6 @@ Export function Add-EnvPSModulePath {
 		$Systemwide
 	)
 
-	$AbsPath = Resolve-Path $Directory
+	$AbsPath = Resolve-VirtualPath $Directory
 	Add-EnvVar "PSModulePath" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
 }

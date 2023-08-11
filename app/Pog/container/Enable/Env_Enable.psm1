@@ -12,7 +12,6 @@ Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 Export-ModuleMember -Cmdlet Export-Command
 
 
-
 function SetupInternalState {
 	[CmdletBinding()]
 	param()
@@ -120,17 +119,16 @@ function Set-Symlink {
 	} else {
 		# get relative path from $LinkPath to $TargetPath for symlink
 		# use parent of $LinkPath, as relative symlinks are resolved from parent dir
-		[IO.Path]::GetRelativePath((Split-Path $LinkAbsPath), $Target)
+		[Pog.FsUtils]::GetRelativePath((Split-Path $LinkAbsPath), $Target)
 	}
 
 	if (Test-Path $LinkAbsPath) {
-		$Item = Get-Item $LinkAbsPath
-		if ($Item.Target -eq $TargetStr) {
+		if ($TargetStr -eq [Pog.FsUtils]::GetSymbolicLinkTarget($LinkAbsPath)) {
 			return $null # we already have a correct symlink
 		}
 
 		# not a correct item, delete and recreate
-		Remove-Item -Recurse $Item
+		Remove-Item -Recurse $LinkAbsPath
 	} else {
 		Assert-ParentDirectory $LinkAbsPath
 	}
@@ -138,12 +136,7 @@ function Set-Symlink {
 	Write-Debug "Creating symlink from '$LinkAbsPath' with target '$TargetStr'."
 	# New-Item -Type SymbolicLink has a dumb issue with relative paths, so we use the .NET methods instead
 	#  https://github.com/PowerShell/PowerShell/issues/15235
-	if ($Target.PSIsContainer) {
-		# TODO: these were added in .NET 7, backport them
-		return [System.IO.Directory]::CreateSymbolicLink($LinkAbsPath, $TargetStr)
-	} else {
-		return [System.IO.File]::CreateSymbolicLink($LinkAbsPath, $TargetStr)
-	}
+	[Pog.FsUtils]::CreateSymbolicLink($LinkAbsPath, $TargetStr, $Target.PSIsContainer)
 }
 
 enum ItemType {File; Directory}
@@ -191,10 +184,10 @@ Export function Set-SymlinkedPath {
 		}
 
 		$TestType = switch ($ItemType) {File {"Leaf"}; Directory {"Container"}}
+		$OriginalPathIsSymlink = (Test-Path $OriginalPath) -and $null -ne (Get-Item $OriginalPath).LinkType
 
 		# if orig exists and doesn't match expected item type
-		if ((Test-Path $OriginalPath) -and ($null -eq (Get-Item $OriginalPath).LinkType) `
-				-and -not (Test-Path -Type $TestType $OriginalPath)) {
+		if ((Test-Path $OriginalPath) -and -not $OriginalPathIsSymlink -and -not (Test-Path -Type $TestType $OriginalPath)) {
 			$OppositeType = switch ($ItemType) {File {[ItemType]::Directory}; Directory {[ItemType]::File}}
 			throw "Cannot symlink source path '$OriginalPath' to '$TargetPath' - expected '$ItemType', found '$OppositeType'."
 		}
@@ -212,14 +205,14 @@ Export function Set-SymlinkedPath {
 		if (-not (Test-Path $TargetPath)) {
 			Assert-ParentDirectory $TargetPath
 			# $OriginalPath exists and it's not a symlink
-			if ((Test-Path $OriginalPath) -and (Get-Item $OriginalPath).Target -eq $null) {
+			if ((Test-Path $OriginalPath) -and -not $OriginalPathIsSymlink) {
 				# TODO: check if $OriginalPath is being used by another process; block if it is so
 				# move it to target and then create symlink
 				Move-Item $OriginalPath $TargetPath
 			} else {
 				$null = New-Item $TargetPath -ItemType $ItemType
 			}
-		} elseif ($Merge -and $null -eq (Get-Item $OriginalPath).LinkType) {
+		} elseif ($Merge -and -not $OriginalPathIsSymlink) {
 			Write-Information "Merging directory $OriginalPath to $TargetPath..."
 			Merge-Directories $OriginalPath $TargetPath
 		}
@@ -278,9 +271,9 @@ Export function Assert-File {
 				throw "-DefaultContent must be either a script block, or a path to an existing template file, got '$($_.GetType())'."
 			})]
 		$DefaultContent = {},
-			# if file does exist and this is passed, the script block is ran with reference to the file
-			# NOTE: you have to save the output yourself (this was deemed more
-			#  robust and often more efficient solution than just returning the desired new content)
+			# If file does exist and this is passed, the script block is ran with reference to the file.
+			# NOTE: You have to save the output yourself (this was deemed a more robust and typically more efficient
+			#       solution than just returning the desired new content).
 			[Parameter(Position=2, ParameterSetName="ScriptBlocks")]
 			[scriptblock]
 		$ContentUpdater = $null,
@@ -292,9 +285,11 @@ Export function Assert-File {
 		$FixedContent = $null
 	)
 
-	$FixedContentStr = if ($FixedContent -is [scriptblock]) {$FixedContent.InvokeWithContext($null, @([psvariable]::new("_", (Resolve-VirtualPath $Path))))}
-			elseif ($FixedContent -is [string]) {$FixedContent}
-			else {$null}
+	$FixedContentStr = if ($FixedContent -is [scriptblock]) {
+		Invoke-DollarUnder $FixedContent (Resolve-VirtualPath $Path)
+	} elseif ($FixedContent -is [string]) {
+		$FixedContent
+	} else {$null}
 
 	if (Test-Path -Type Leaf $Path) {
 		if ($FixedContentStr) {
@@ -312,10 +307,17 @@ Export function Assert-File {
 			return
 		}
 
-		$File = Get-Item $Path
-		$null = $ContentUpdater.InvokeWithContext($null, @([psvariable]::new("_", $File)))
+		# if $Path points to a file symlink, work with the target (otherwise the change detection below would not work)
+		$ResolvedPath = Resolve-VirtualPath $Path
+		$PathTarget = [Pog.FsUtils]::GetSymbolicLinkTarget($ResolvedPath)
+		if ($PathTarget) {
+			$ResolvedPath = $PathTarget
+		}
 
-		$WasChanged = $File.LastWriteTime -ne (Get-Item $Path).LastWriteTime
+		$File = Get-Item $ResolvedPath
+		$null = Invoke-DollarUnder $ContentUpdater $File
+
+		$WasChanged = $File.LastWriteTime -ne (Get-Item $ResolvedPath).LastWriteTime
 		if ($WasChanged) {
 			Write-Information "File '$Path' updated."
 			Write-Debug ("^ For manifest writers: last write time of the file changed during " +`
@@ -341,12 +343,10 @@ Export function Assert-File {
 	# the first option is supported, because some apps have a builtin way to generate a default config directly
 	$NewContent = if ($FixedContentStr) {$FixedContentStr}
 		elseif ($DefaultContent -is [string]) {Copy-Item $DefaultContent $Path}
-		else {$DefaultContent.InvokeWithContext($null, @([psvariable]::new("_", (Resolve-VirtualPath $Path))))}
+		else {Invoke-DollarUnder $DefaultContent (Resolve-VirtualPath $Path)}
 
 	if (-not (Test-Path $Path)) {
-		# -NoNewline doesn't skip just the trailing newline, but all newlines;
-		#  so we add the newlines between manually and use -NoNewline to avoid the trailing newline
-		$NewContent | Join-String -Separator "`n" | Set-Content $Path -NoNewline
+		Set-Content $Path $NewContent
 	}
 	Write-Information "Created file '$Path'."
 }
@@ -380,22 +380,33 @@ Export function Export-Shortcut {
 	# Shell object has different CWD, have to resolve all paths
 	$ShortcutPath = Resolve-VirtualPath ([Pog.PathConfig+PackagePaths]::ShortcutDirRelPath + "/$ShortcutName.lnk")
 
-	$Target = Resolve-Path $TargetPath
+	$Target = Resolve-VirtualPath $TargetPath
+	if (-not [System.IO.File]::Exists($Target)) {
+		throw "Shortcut target does not exist: $Target"
+	}
+
 	Write-Debug "Resolved shortcut target: $Target"
 
-	$WorkingDirectory = if ($WorkingDirectory -eq $null) {
-		Resolve-Path (Split-Path $Target)
+	if ($WorkingDirectory -eq $null) {
+		$WorkingDirectory = Split-Path $Target
 	} else {
-		Resolve-Path $WorkingDirectory
+		$WorkingDirectory = Resolve-VirtualPath $WorkingDirectory
+		if (-not [System.IO.Directory]::Exists($WorkingDirectory)) {
+			throw "Shortcut working directory does not exist: $WorkingDirectory"
+		}
 	}
 
 	if ($IconPath -eq $null) {
 		$IconPath = $Target
+	} else {
+		$IconPath = Resolve-VirtualPath $IconPath
+		if (-not [System.IO.File]::Exists($IconPath)) {
+			throw "Shortcut icon does not exist: $IconPath"
+		}
 	}
-	$IconPath = Resolve-Path $IconPath
 
 	# support copying icon from another .lnk
-	if (".lnk" -eq (Split-Path -Extension $IconPath)) {
+	if (".lnk" -eq [System.IO.Path]::GetExtension($IconPath)) {
 		$Icon = $Shell.CreateShortcut($IconPath).IconLocation
 	} else {
 		# icon index 0 = first icon in the file
@@ -403,7 +414,7 @@ Export function Export-Shortcut {
 	}
 
 	if ($null -eq $Description) {
-		$Description = [string](Split-Path -LeafBase $TargetPath)
+		$Description = [System.IO.Path]::GetFileNameWithoutExtension($TargetPath)
 	}
 
 
@@ -423,25 +434,22 @@ Export function Export-Shortcut {
 
 	$S = $Shell.CreateShortcut($ShortcutPath)
 
-	if ((Test-Path $ShortcutPath) `
-			-and $S.TargetPath -eq $Target `
-			-and $S.Arguments -eq $CommandLine `
-			-and $S.WorkingDirectory -eq $WorkingDirectory `
-			-and $S.WindowStyle -eq 1 `
-			-and $S.IconLocation -eq $Icon `
-			-and $S.Description -eq $Description) {
-		Write-Verbose "Shortcut '$ShortcutName' is already configured."
-		return
-	}
-
 	if (Test-Path $ShortcutPath) {
-		Write-Verbose "Shortcut at '$ShortcutPath' already exists, reusing it..."
+		if ($S.TargetPath -eq $Target `
+				-and $S.Arguments -eq $CommandLine `
+				-and $S.WorkingDirectory -eq $WorkingDirectory `
+				-and $S.IconLocation -eq $Icon `
+				-and $S.Description -eq $Description) {
+			Write-Verbose "Shortcut '$ShortcutName' is already configured."
+			return
+		} else {
+			Write-Verbose "Shortcut at '$ShortcutPath' already exists, reusing it..."
+		}
 	}
 
 	$S.TargetPath = $Target
 	$S.Arguments = $CommandLine
 	$S.WorkingDirectory = $WorkingDirectory
-	$S.WindowStyle = 1 # default window style
 	$S.IconLocation = $Icon
 	$S.Description = $Description
 
@@ -457,16 +465,19 @@ Export function Disable-DisplayScaling {
 		$ExePath
 	)
 
-	if (-not (Test-Path -Type Leaf $ExePath)) {
-		throw "Cannot disable system display scaling - '${ExePath}' is not a file."
+	$OrigExePath = $ExePath
+	$ExePath = Resolve-VirtualPath $ExePath
+
+	if (-not [System.IO.File]::Exists($ExePath)) {
+		throw "Cannot disable system display scaling, target does not exist: ${OrigExePath}"
 	}
 
 	# display scaling can be disabled using the application manifest of the executable
-	$Manifest = [Pog.Native.PeApplicationManifest]::new((Resolve-Path $ExePath))
+	$Manifest = [Pog.Native.PeApplicationManifest]::new($ExePath)
 	if ($Manifest.EnsureDpiAware()) {
 		$Manifest.Save()
-		Write-Information "Disabled system display scaling for '${ExePath}'."
+		Write-Information "Disabled system display scaling for '${OrigExePath}'."
 	} else {
-		Write-Verbose "System display scaling already disabled for '${ExePath}'."
+		Write-Verbose "System display scaling already disabled for '${OrigExePath}'."
 	}
 }

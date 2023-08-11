@@ -10,6 +10,11 @@ Export function Resolve-VirtualPath {
 	return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 }
 
+Export function Invoke-DollarUnder {
+	param([Parameter(Mandatory)][scriptblock]$Sb, $DollarUnder)
+	return $Sb.InvokeWithContext($null, [psvariable[]]@([psvariable]::new("_", $DollarUnder)))
+}
+
 Export function using_object {
 	param(
 		[Parameter(Mandatory)][scriptblock]$ResourceSb,

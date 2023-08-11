@@ -6,6 +6,9 @@ using module .\Confirmations.psm1
 using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
+# re-export binary cmdlets from Pog.dll
+Export-ModuleMember -Cmdlet Export-Pog
+
 
 Export function Get-PogRepositoryPackage {
 	# .SYNOPSIS
@@ -211,9 +214,7 @@ Export function Clear-PogDownloadCache {
 	$SizeSum = 0
 	$Entries | sort Size -Descending | % {
 		$SizeSum += $_.Size
-		$SourceStr = $_.SourcePackages `
-			| % {$_.PackageName + $(if ($_.ManifestVersion) {" v$($_.ManifestVersion)"})} `
-			| Join-String -Separator ", "
+		$SourceStr = ($_.SourcePackages | % {$_.PackageName + $(if ($_.ManifestVersion) {" v$($_.ManifestVersion)"})}) -join ", "
 		Write-Host ("{0,10:F2} MB - {1}" -f @(($_.Size / 1MB), $SourceStr))
 	}
 
@@ -575,103 +576,6 @@ Export function Import-Pog {
 	}
 }
 
-Export function Export-Pog {
-	# .SYNOPSIS
-	#	Exports shortcuts and commands from the package.
-	# .DESCRIPTION
-	#	Exports shortcuts from the package to the start menu, and commands to an internal Pog directory that's available on $env:PATH.
-	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
-	[OutputType([Pog.ImportedPackage])]
-	param(
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
-			[Pog.ImportedPackage[]]
-		$Package,
-			### Name of the package to export. This is the target name, not necessarily the manifest app name.
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
-			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
-			[string[]]
-		$PackageName,
-			### Export shortcuts to the systemwide start menu for all users, instead of the user-specific start menu.
-			[switch]
-		$Systemwide,
-			### Return a [Pog.ImportedPackage] object with information about the package.
-			[switch]
-		$PassThru
-	)
-
-	begin {
-		$StartMenuDir = if ($Systemwide) {
-			[Pog.PathConfig]::StartMenuSystemExportDir
-		} else {
-			[Pog.PathConfig]::StartMenuUserExportDir
-		}
-
-		if (-not (Test-Path $StartMenuDir)) {
-			$null = New-Item -Type Directory $StartMenuDir
-		}
-	}
-
-	process {
-		$Packages = if ($Package) {$Package} else {& {
-			$ErrorActionPreference = "Continue"
-			foreach($pn in $PackageName) {
-				try {
-					$PACKAGE_ROOTS.GetPackage($pn, $true, $true)
-				} catch [Pog.ImportedPackageNotFoundException] {
-					$PSCmdlet.WriteError($_)
-				}
-			}
-		}}
-
-		foreach ($p in $Packages) {
-			foreach ($_ in $p.EnumerateExportedShortcuts()) {
-				$TargetPath = Join-Path $StartMenuDir $_.Name
-				if (Test-Path $TargetPath) {
-					if ([Pog.FsUtils]::FileContentEqual((Get-Item $TargetPath), $_)) {
-						Write-Verbose "Shortcut '$($_.BaseName)' is already exported from this package."
-						continue
-					}
-					Write-Warning "Overwriting existing shortcut '$($_.BaseName)'..."
-					Remove-Item -Force $TargetPath
-				}
-				Copy-Item $_ -Destination $TargetPath
-				Write-Information "Exported shortcut '$($_.BaseName)' from '$($p.PackageName)'."
-			}
-
-			# TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and warn the user if it's not
-			foreach ($Command in $p.EnumerateExportedCommands()) {
-				$TargetPath = Join-Path $PATH_CONFIG.ExportedCommandDir $Command.Name
-				$CmdName = $Command.BaseName
-
-				if ($Command.FullName -eq [Pog.Native.Symlink]::GetLinkTarget($TargetPath, $false)) {
-					Write-Verbose "Command '${CmdName}' is already exported from this package."
-					continue
-				}
-
-				$MatchingCommands = ls $PATH_CONFIG.ExportedCommandDir -File -Filter ($CmdName + ".*") `
-						| ? {$_.BaseName -eq $CmdName} # filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
-
-				# there should not be more than 1, if we've done this checking correctly
-				if (@($MatchingCommands).Count -gt 1) {
-					Write-Warning "Pog developers fucked something up, and there are multiple colliding commands. Plz send bug report."
-				}
-
-				if (@($MatchingCommands).Count -gt 0) {
-					Write-Warning "Overwriting existing command '${CmdName}'..."
-					Remove-Item -Force $MatchingCommands
-				}
-
-				[Pog.Native.Symlink]::CreateSymbolicLink($TargetPath, $Command.FullName, $false)
-				Write-Information "Exported command '${CmdName}' from '$($p.PackageName)'."
-			}
-
-			if ($PassThru) {
-				echo $p
-			}
-		}
-	}
-}
-
 # defined below
 Export alias pog Invoke-Pog
 
@@ -939,7 +843,7 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version,  [switch]
 
 	if ($Version -and @($Version).Count -ne @($GeneratedVersions).Count) {
 		$FoundVersions = $GeneratedVersions | % {$_.Version}
-		$MissingVersionsStr = $Version | ? {$_ -notin $FoundVersions} | Join-String -Separator ", "
+		$MissingVersionsStr = ($Version | ? {$_ -notin $FoundVersions}) -join ", "
 		throw "Some of the package versions passed in -Version were not found for package '$($c.PackageName)': $MissingVersionsStr " +`
 			"(Are you sure these versions exist?)"
 		return
@@ -955,7 +859,7 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version,  [switch]
 		$p = $c.GetVersionPackage($v.Version, $false)
 
 		$TemplateData = if ($g.Manifest.GenerateSb) {
-			$g.Manifest.GenerateSb.InvokeWithContext($null, @([psvariable]::new("_", $v.OriginalValue)))
+			Invoke-DollarUnder $g.Manifest.GenerateSb $v.OriginalValue
 		} else {
 			$v.OriginalValue # if no Generate block exists, forward the value emitted by ListVersions
 		}

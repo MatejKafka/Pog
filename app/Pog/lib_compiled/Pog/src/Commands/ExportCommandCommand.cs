@@ -96,15 +96,14 @@ public class ExportCommandCommand : PSCmdlet {
 
     private void ExportCommandSymlink(string cmdName, string rLinkPath, string rTargetPath) {
         if (File.Exists(rLinkPath)) {
-            // .GetLinkTarget(...) returns null if argument is not a symlink
-            if (rTargetPath == Native.Symlink.GetLinkTarget(rLinkPath)) {
+            if (rTargetPath == FsUtils.GetSymbolicLinkTarget(rLinkPath)) {
                 WriteVerbose($"Command {cmdName} is already exported as a symlink.");
                 return;
             }
             File.Delete(rLinkPath);
         }
         // TODO: add back support for relative paths
-        Native.Symlink.CreateSymbolicLink(rLinkPath, rTargetPath, false);
+        FsUtils.CreateSymbolicLink(rLinkPath, rTargetPath, isDirectory: false);
         WriteInformation($"Registered command '{cmdName}' using a symlink.", null);
     }
 

@@ -5,6 +5,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 using Pog.Native;
+using Polyfills;
+using PIO = Polyfills.System.IO;
 
 namespace Pog;
 
@@ -19,6 +21,22 @@ public static class FsUtils {
         return new DirectoryInfo(dirPath).EnumerateFiles(searchPattern)
                 .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden))
                 .Select(f => f.Name);
+    }
+
+    // this block of forwarding methods is here to allow simple usage from PowerShell
+    //  without having to load Polyfills.dll manually before usage
+
+    public static string GetRelativePath(string from, string to) {
+        return PIO.Path.GetRelativePath(from, to);
+    }
+
+    public static string? GetSymbolicLinkTarget(string linkPath) {
+        return PogExports.GetSymbolicLinkTarget(linkPath);
+    }
+
+    public static void CreateSymbolicLink(string path, string targetPath, bool isDirectory) {
+        if (isDirectory) PIO.Directory.CreateSymbolicLink(path, targetPath);
+        else PIO.File.CreateSymbolicLink(path, targetPath);
     }
 
     public static bool FileContentEqual(FileInfo f1, FileInfo f2) {
@@ -158,7 +176,7 @@ public static class FsUtils {
 
     /// It is not possible to atomically delete a directory. Instead, we use a temporary directory
     /// to first move it out of the way, and then delete it. Note that `tmpMovePath` must
-    /// be at same filesystem as `srcDirPath`.
+    /// be on the same filesystem as `srcDirPath`.
     public static void DeleteDirectoryAtomically(string srcDirPath, string tmpMovePath, bool ignoreNotFound = false) {
         try {
             MoveAtomically(srcDirPath, tmpMovePath);

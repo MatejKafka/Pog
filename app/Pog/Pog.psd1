@@ -10,14 +10,18 @@
 	#  but DefaultCommandPrefix has two issues – autoloading breaks (https://github.com/PowerShell/PowerShell/issues/12858),
 	#  and it does not seem possible to export unprefixed aliases
 
+	VariablesToExport = @()
 	AliasesToExport = @('pog')
+
+	CmdletsToExport = @(
+		'Export-Pog'
+	)
 
 	FunctionsToExport = @(
 		'Invoke-Pog'
 		'Import-Pog'
 		'Install-Pog'
 		'Enable-Pog'
-		'Export-Pog'
 
 		'Update-PogManifest'
 		'Show-PogManifestHash'
@@ -34,7 +38,4 @@
 		'Get-PogRoot'
 		'Edit-PogRootList'
 	)
-
-	VariablesToExport = @()
-	CmdletsToExport = @()
 }

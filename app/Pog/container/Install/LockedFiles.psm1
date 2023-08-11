@@ -69,7 +69,7 @@ function ListProcessesLockingFiles($DirPath) {
 	try {
 		# arguments with spaces must be manually quoted
 		$OFVProc = Start-Process -FilePath $OpenedFilesViewCmd -Wait -WindowStyle Hidden -PassThru `
-				-ArgumentList /sxml, "`"$OutFile`"", /nosort, /filefilter, "`"$(Resolve-Path $DirPath)`""
+				-ArgumentList /sxml, "`"$OutFile`"", /nosort, /filefilter, "`"$(Resolve-VirtualPath $DirPath)`""
 		if ($OFVProc.ExitCode -ne 0) {
 			throw "Could not list processes locking files in '$DirPath' (OpenedFilesView returned exit code '$($OFVProc.ExitCode)')."
 		}
