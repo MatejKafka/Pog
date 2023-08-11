@@ -1,4 +1,3 @@
-# Requires -Version 7
 using module .\..\..\lib\Utils.psm1
 # currently used by Install-FromUrl (TODO: port this dependency to C#)
 using module .\LockedFiles.psm1

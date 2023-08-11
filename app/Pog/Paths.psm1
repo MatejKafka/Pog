@@ -1,4 +1,3 @@
-# Requires -Version 7
 . $PSScriptRoot\lib\header.ps1
 
 $PATH_CONFIG = [Pog.InternalState]::PathConfig

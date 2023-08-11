@@ -1,4 +1,3 @@
-# Requires -Version 7
 using module .\Utils.psm1
 
 Describe "DynamicParams" {

@@ -1,4 +1,3 @@
-# Requires -Version 7
 using module .\Get-CallerPreference.psm1
 . $PSScriptRoot\header.ps1
 

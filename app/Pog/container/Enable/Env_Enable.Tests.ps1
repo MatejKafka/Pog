@@ -1,5 +1,3 @@
-# Requires -Version 7
-
 BeforeAll {
 	$Module = Import-Module -Force $PSScriptRoot\Env_Enable.psm1 -PassThru
 	# reset possible globally set values

@@ -1,4 +1,3 @@
-# Requires -Version 7
 . $PSScriptRoot\header.ps1
 
 Describe "Version parsing" {

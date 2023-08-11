@@ -1,4 +1,3 @@
-# Requires -Version 7
 @{
 	RootModule = 'Pog.psm1'
 	ModuleVersion = '0.2.0'

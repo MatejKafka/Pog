@@ -1,4 +1,3 @@
-# Requires -Version 7
 <#
 	.SYNOPSIS
 	A utility module for displaying confirmation dialogs to user and tracking

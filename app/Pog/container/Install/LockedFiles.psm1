@@ -1,4 +1,3 @@
-# Requires -Version 7
 using module .\..\..\lib\Utils.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 

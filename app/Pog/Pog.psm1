@@ -1,4 +1,3 @@
-# Requires -Version 7
 using module .\Paths.psm1
 using module .\lib\Utils.psm1
 using module .\Common.psm1
