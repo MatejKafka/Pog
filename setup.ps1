@@ -7,9 +7,8 @@ $PSDefaultParameterValues = @{
 }
 
 
-if ($PSVersionTable.PSVersion -lt "7.0") {
-    throw ("Pog currently requires at least PowerShell Core 7.0. " +`
-            "Support for PowerShell 5 and older PowerShell Core versions is in-progress.")
+if ($PSVersionTable.PSVersion -lt "5.0") {
+    throw "Pog requires at least PowerShell 5."
 }
 
 
@@ -31,6 +30,9 @@ function newdir($Dir) {
     $null = New-Item -Type Directory -Force $Dir
 }
 
+
+Write-Host "Unblocking Pog PowerShell files..."
+ls -Recurse $PSScriptRoot/app -File -Filter *.ps*1 | Unblock-File
 
 Write-Host "Setting up all directories required by Pog..."
 
@@ -74,11 +76,21 @@ if (-not (Test-Path $MANIFEST_REPO_PATH)) {
     Write-Host "Downloaded '$(@(ls -Directory $MANIFEST_REPO_PATH).Count)' package manifests."
 }
 
+
+# TODO: prompt before doing these user-wide changes
+
 Write-Host "Setting up PATH and PSModulePath..."
 # add Pog dir to PSModulePath
 Add-EnvPSModulePath (Resolve-Path "$PSScriptRoot\app")
 # add binary dir to PATH
 Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
+
+if ((Get-ExecutionPolicy -Scope CurrentUser) -notin @("RemoteSigned", "Unrestricted", "Bypass")) {
+    # since Pog is currently not signed, we need at least RemoteSigned to run
+    Write-Warning "Changing PowerShell execution policy for the current user to 'RemoteSigned'..."
+    # https://stackoverflow.com/questions/60541618/how-to-suppress-warning-message-from-script-when-calling-set-executionpolicy/60549569#60549569
+    try {Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force} catch [System.Security.SecurityException] {}
+}
 
 
 # ====================================================================================
