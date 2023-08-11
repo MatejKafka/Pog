@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
+using Pog.Utils;
 using IOPath = System.IO.Path;
 
 namespace Pog;
@@ -72,16 +73,14 @@ public class SharedFileCache {
     public IEnumerable<CacheEntryInfo> EnumerateEntries(InvalidCacheEntryCb? invalidEntryCb = null) {
         // the last .Where is necessary to avoid race conditions (cache entry exists when entries are enumerated,
         //  but is deleted before `GetEntryInfoInner(...)` finishes)
-        return FsUtils.EnumerateNonHiddenDirectoryNames(Path)
-                .Select(entryKey => {
-                    try {
-                        return GetEntryInfoInner(entryKey);
-                    } catch (InvalidCacheEntryException e) {
-                        invalidEntryCb?.Invoke(e);
-                        return null;
-                    }
-                })
-                .Where(e => e != null)!;
+        return FsUtils.EnumerateNonHiddenDirectoryNames(Path).SelectOptional(entryKey => {
+            try {
+                return GetEntryInfoInner(entryKey);
+            } catch (InvalidCacheEntryException e) {
+                invalidEntryCb?.Invoke(e);
+                return null;
+            }
+        });
     }
 
     // NOTE: this enumerable must never be publicly returned, we need to hold the read lock during the whole read
