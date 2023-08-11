@@ -17,7 +17,7 @@ if (-not (Test-Path Env:POG_DEBUG)) {
 	Import-Module $PSScriptRoot\..\lib_compiled\Pog.dll
 } else {
 	# load debug build of the compiled library
-	Import-Module $PSScriptRoot\..\lib_compiled\Pog_Debug.dll
+	Import-Module $PSScriptRoot\..\lib_compiled\Pog\bin\Debug\netstandard2.0\Pog.dll
 }
 
 

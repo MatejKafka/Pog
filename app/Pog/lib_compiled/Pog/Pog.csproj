@@ -57,11 +57,4 @@
     <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(MergedOutputPath)-Help.xml" />
   </Target>
 
-  <!-- Export debug build to the root directory, together with the generated PowerShell help file. -->
-  <Target Name="ExportDLL-Debug" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
-    <Message Text="Exporting '$(ProjectName).dll' (Debug) to parent directory..." Importance="High" />
-    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll" DestinationFiles="$(SolutionDir)\$(ProjectName)_Debug.dll" />
-    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(SolutionDir)\$(ProjectName)_Debug.dll-Help.xml" />
-  </Target>
-
 </Project>
