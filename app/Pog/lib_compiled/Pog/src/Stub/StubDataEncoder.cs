@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Pog.Native;
 
@@ -161,7 +162,10 @@ internal class StubDataEncoder {
         var nextHeaderPosition = _stream.Position;
         var nextDataPosition = nextHeaderPosition + envVars.Count * 4 * 2;
 
-        foreach (var e in envVars) {
+        // sort entries alphabetically, so that we get a consistent order
+        // this is important, because iteration order of dictionaries apparently differs between .NET Framework
+        //  and .NET Core, and we want the stubs to be consistent between powershell.exe and pwsh.exe
+        foreach (var e in envVars.OrderBy(e => e.Key)) {
             // write the key and value
             SeekAbs(nextDataPosition);
             var keyOffset = _stream.Position;
