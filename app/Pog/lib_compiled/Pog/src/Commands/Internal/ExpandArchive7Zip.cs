@@ -16,12 +16,10 @@ public class ExpandArchive7Zip : Command, IDisposable {
     private readonly string _targetPathOrig;
     /// <summary>
     /// <para type="description">
-    /// Subdirectory of the archive to extract instead of the whole archive. Note that this only acts as a filter,
-    /// so `TargetPath` still corresponds to the root directory of the archive.
+    /// If passed, only paths inside the archive matching at least one of the filters are extracted.
     /// </para>
     /// </summary>
-    private readonly string? _subdirectory = null;
-    private readonly string? _subdirectoryOrig;
+    private readonly string[]? _filterPatterns = null;
     private readonly int? _progressActivityId;
     private readonly string? _progressActivity;
     private readonly string? _progressDescription;
@@ -33,28 +31,23 @@ public class ExpandArchive7Zip : Command, IDisposable {
     private static readonly Regex ProgressPrintRegex = new(@"^\s*(\d{1,3})%\s+\S+.*$");
 
     public ExpandArchive7Zip(PSCmdlet cmdlet, string archivePath, string targetPath,
-            string? subdirectory = null, int? progressActivityId = null, string? progressActivity = null,
+            string[]? filterPatterns = null, int? progressActivityId = null, string? progressActivity = null,
             string? progressDescription = null) : base(cmdlet) {
         _archivePath = GetUnresolvedProviderPathFromPSPath(archivePath);
         _targetPath = GetUnresolvedProviderPathFromPSPath(targetPath);
         _targetPathOrig = targetPath;
-        _subdirectoryOrig = subdirectory;
         _progressActivityId = progressActivityId;
         _progressActivity = progressActivity;
         _progressDescription = progressDescription;
 
-        if (!string.IsNullOrEmpty(subdirectory)) {
+        _filterPatterns = filterPatterns?.Select(p => {
             // normalize slashes
-            subdirectory = subdirectory!.Replace('/', '\\');
-            // strip leading `.\`, 7zip does not like it
-            if (subdirectory.StartsWith(".\\")) {
-                subdirectory = subdirectory.Substring(2);
+            var norm = p.Replace('/', '\\');
+            if (norm.Split('\\').Any(s => s is "." or "..")) {
+                throw new ArgumentException($"Archive filter pattern must not contain '.' or '..', got '{p}'.");
             }
-            if (subdirectory.Split('\\').Any(s => s is "." or "..")) {
-                throw new ArgumentException("Archive subdirectory path must not contain '.' or '..'.");
-            }
-            _subdirectory = subdirectory;
-        }
+            return norm;
+        }).ToArray();
     }
 
     public void Invoke() {
@@ -63,7 +56,7 @@ public class ExpandArchive7Zip : Command, IDisposable {
         }
 
         WriteDebug($"Extracting archive using 7zip... (source: '{_archivePath}', target: '{_targetPath}')");
-        _process = new Process {StartInfo = SetupProcessStartInfo(_archivePath, _targetPath, _subdirectory)};
+        _process = new Process {StartInfo = SetupProcessStartInfo(_archivePath, _targetPath, _filterPatterns)};
 
         var completed = false;
         var errorStrSb = new StringBuilder();
@@ -116,17 +109,9 @@ public class ExpandArchive7Zip : Command, IDisposable {
             throw new Failed7ZipArchiveExtractionException($"Could not extract archive:{errorStrSb}");
         }
 
-        if (!Directory.Exists(_targetPath)) {
-            if (_subdirectoryOrig != null) {
-                // there does not seem to be any simple way to check whether this is really the cause,
-                //  but I haven't encountered any other reason why the directory would not be created
-                throw new DirectoryNotFoundException(
-                        $"The archive does not contain the requested subdirectory '{_subdirectoryOrig}'.");
-            } else {
-                throw new InternalError(
-                        "Could not extract archive: '7zip' indicated success, but the extracted directory is missing.");
-            }
-        }
+        // ensure the target directory exists (if the archive was empty or the filter pattern excluded everything,
+        //  7zip won't create the target directory)
+        Directory.CreateDirectory(_targetPath);
     }
 
     private void CleanupTargetDir() {
@@ -160,7 +145,7 @@ public class ExpandArchive7Zip : Command, IDisposable {
         return "\"" + arg.Replace("\"", "\\\"").Replace("%", "%Q%") + "\"";
     }
 
-    private ProcessStartInfo SetupProcessStartInfo(string archivePath, string targetPath, string? subdirectory) {
+    private ProcessStartInfo SetupProcessStartInfo(string archivePath, string targetPath, string[]? filterPatterns) {
         if (archivePath.EndsWith(".tar.gz") || archivePath.EndsWith(".tgz")) {
             // 7zip extracts .tar.gz in two steps – first invocation outputs a .tar, which has to be extracted a second time
             // to avoid using a temporary file, we pipe 2 instances of 7zip together
@@ -177,9 +162,8 @@ public class ExpandArchive7Zip : Command, IDisposable {
                         + " -tgzip" // require input to be .tar.gz
                         + " -bsp2" // print progress prints to stderr, where we can capture them; we must use stderr,
                         //            because stdout is occupied by the actual output
-                        + " -spd" // disable wildcard matching for file names
                         + $" | {path7Z} x {QuoteArgumentCmd("-o" + targetPath)}"
-                        + (subdirectory == null ? "" : $" {QuoteArgumentCmd(subdirectory)}")
+                        + (filterPatterns == null ? "" : " " + string.Join(" ", filterPatterns.Select(QuoteArgumentCmd)))
                         + " -si" // read from stdin
                         + " -ttar" // assume stdin is .tar
                         + " -aoa" // overwrite existing files
@@ -202,16 +186,15 @@ public class ExpandArchive7Zip : Command, IDisposable {
                 FileName = InternalState.PathConfig.Path7Zip,
                 Arguments =
                         $"x {Win32Args.EscapeArgument(archivePath)} {Win32Args.EscapeArgument("-o" + targetPath)}"
-                        + (subdirectory == null ? "" : $" {Win32Args.EscapeArgument(subdirectory)}")
+                        + (filterPatterns == null ? "" : $" {Win32Args.EscapeArguments(filterPatterns)}")
                         + " -bso0" // disable normal output
                         + " -bsp2" // enable progress prints to stderr (cannot use stdout for consistency with .tar.gz extraction above)
                         + " -aoa" // automatically overwrite existing files (should not usually occur, unless
                         //           the archive is a bit malformed, but NSIS installers occasionally do it for some reason)
-                        + " -stxPE" // refuse to extract PE binaries, unless they're recognized as a self-contained installer like NSIS;
+                        + " -stxPE", // refuse to extract PE binaries, unless they're recognized as a self-contained installer like NSIS;
                         //             otherwise, if a package downloaded the program executable directly and forgot to pass -NoArchive,
                         //             7zip would extract the PE segments, which is not very useful
-                        + " -spd", // disable wildcard matching for file names
-                UseShellExecute = false,
+                        UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true, // we must capture stderr, otherwise it would fight with pwsh output
             };

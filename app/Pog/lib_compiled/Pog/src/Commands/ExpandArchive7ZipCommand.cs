@@ -19,12 +19,11 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
     [Parameter(Mandatory = true, Position = 1)] public string TargetPath = null!;
     /// <summary>
     /// <para type="description">
-    /// Subdirectory of the archive to extract instead of the whole archive. Note that this only acts as a filter,
-    /// so `TargetPath` still corresponds to the root directory of the archive.
+    /// If passed, only paths inside the archive matching at least one of the filters are extracted.
     /// </para>
     /// </summary>
     [Parameter]
-    public string? Subdirectory;
+    public string[]? Filter;
 
     [Parameter] public int? ProgressActivityId;
     [Parameter] public string? ProgressActivity;
@@ -35,7 +34,7 @@ public class ExpandArchive7ZipCommand : PSCmdlet, IDisposable {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        _command = new ExpandArchive7Zip(this, ArchivePath, TargetPath, Subdirectory,
+        _command = new ExpandArchive7Zip(this, ArchivePath, TargetPath, Filter,
                 ProgressActivityId, ProgressActivity, ProgressDescription);
         _command.Invoke();
     }
