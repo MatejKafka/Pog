@@ -19,7 +19,7 @@ public class PackageGeneratorManifest {
 
     internal PackageGeneratorManifest(string generatorPath) {
         Path = generatorPath;
-        Raw = PackageManifest.LoadManifest(generatorPath);
+        Raw = PackageManifestParser.LoadManifest(generatorPath);
 
         var listVersions = Raw["ListVersions"] ?? throw new InvalidGeneratorManifestException(
                 $"Package generator is missing the required 'ListVersions' ScriptBlock, at '{Path}'.");

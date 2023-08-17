@@ -1,6 +1,5 @@
 using module .\Paths.psm1
 using module .\lib\Utils.psm1
-using module .\Common.psm1
 using module .\Confirmations.psm1
 using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
@@ -233,6 +232,50 @@ Export function Clear-PogDownloadCache {
 }
 
 
+# takes a package name, and returns all static parameters of a selected setup script as a runtime parameter dictionary
+# keyword-only, no positional arguments; aliases are supported
+function Copy-ManifestParameters {
+	[CmdletBinding(DefaultParameterSetName = "Manifest")]
+	param(
+			[Parameter(Mandatory, ParameterSetName = "Manifest", Position = 0)]
+			[Pog.PackageManifest]
+		$Manifest,
+			# either Install or Enable
+			[Parameter(Mandatory, ParameterSetName = "Manifest", Position = 1)]
+			[string]
+		$PropertyName,
+			[Parameter(Mandatory, ParameterSetName = "ScriptBlock")]
+			[ScriptBlock]
+		$ScriptBlock,
+			[string]
+		$NamePrefix = ""
+	)
+
+	if ($PSCmdlet.ParameterSetName -eq "Manifest") {
+		if (-not $Manifest.Raw.ContainsKey($PropertyName) -or $Manifest.Raw[$PropertyName] -isnot [scriptblock]) {
+			# not a script block, doesn't have parameters
+			return @{
+				Parameters = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
+				ExtractFn = {return @{}}
+			}
+		}
+
+		$Sb = $Manifest.Raw[$PropertyName]
+	} else {
+		$Sb = $ScriptBlock
+	}
+
+	# we cannot extract parameters directly from a scriptblock
+	# instead, we'll turn it into a temporary function and use Get-Command to read the parameters
+	# see https://github.com/PowerShell/PowerShell/issues/13774
+
+	# this is only set in local scope, no need to clean up
+	$function:TmpFn = $Sb
+	$FnInfo = Get-Command -Type Function TmpFn
+
+	return Copy-CommandParameters $FnInfo -NoPositionAttribute -NamePrefix $NamePrefix
+}
+
 Export function Enable-Pog {
 	# .SYNOPSIS
 	#	Enables an installed package to allow external usage.
@@ -323,7 +366,7 @@ Export function Enable-Pog {
 		}}
 
 		foreach ($p in $Packages) {
-			Confirm-Manifest $p.Manifest
+			$p.EnsureManifestIsLoaded()
 
 			if (-not $p.Manifest.Raw.ContainsKey("Enable")) {
 				Write-Information "Package '$($p.PackageName)' does not have an Enable block."
@@ -387,7 +430,7 @@ Export function Install-Pog {
 		}}
 
 		foreach ($p in $Packages) {
-			Confirm-Manifest $p.Manifest
+			$p.EnsureManifestIsLoaded()
 
 			if (-not $p.Manifest.Raw.ContainsKey("Install")) {
 				Write-Information "Package '$($p.PackageName)' does not have an Install block."
@@ -413,6 +456,7 @@ function ConfirmManifestOverwrite([Pog.ImportedPackage]$p, $TargetPackageRoot, [
 	$OrigManifest = $null
 	try {
 		# try to load the (possibly) existing manifest
+		# TODO: maybe add a method to only load the name and version from the manifest and skip full validation?
 		$p.ReloadManifest()
 		$OrigManifest = $p.Manifest
 	} catch [System.IO.DirectoryNotFoundException] {
@@ -424,7 +468,7 @@ function ConfirmManifestOverwrite([Pog.ImportedPackage]$p, $TargetPackageRoot, [
 		Write-Warning ("A package directory already exists at '$($p.Path)'," `
 				+ " but it doesn't seem to contain a package manifest." `
 				+ " All directories in a package root should be packages with a valid manifest.")
-	} catch [Pog.PackageManifestParseException] {
+	} catch [Pog.PackageManifestParseException], [Pog.InvalidPackageManifestStructureException] {
 		# the package has a manifest, but it's invalid (probably corrupted)
 		Write-Warning ("Found an existing package manifest in '$($p.Path)', but it's not valid." `
 				+ " Call 'Confirm-PogPackage `"$($p.PackageName)`"' to get more detailed information.")
@@ -564,9 +608,6 @@ Export function Import-Pog {
 
 			Write-Information "Initialized '$($p.Path)' with package manifest '$($SrcPackage.PackageName)' (version '$($SrcPackage.Version)')."
 			if ($PassThru) {
-				# reload to remove the previous cached manifest
-				# the imported manifest was validated, this should not throw
-				$p.ReloadManifest()
 				echo $p
 			}
 		}
@@ -1066,17 +1107,12 @@ Export function Confirm-PogRepositoryPackage {
 			} catch [Pog.PackageManifestParseException] {
 				AddIssue $_
 				return
+			} catch [Pog.InvalidPackageManifestStructureException] {
+				AddIssue $_
+				return
 			} catch {
 				AddIssue $_
 				return
-			}
-
-			try {
-				Confirm-Manifest $p.Manifest $p.PackageName $p.Version -IsRepositoryManifest
-			} catch {
-				AddIssue ("Validation of package manifest '$($p.PackageName)', version '$($p.Version)' from local repository failed." +`
-						"`nPath: $($p.ManifestPath)" +`
-						"`n" + $_.ToString().Replace("`t", "     - "))
 			}
 		}
 	}
@@ -1086,7 +1122,7 @@ Export function Confirm-PogRepositoryPackage {
 	}
 }
 
-# TODO: expand to really check whole package, not just manifest, then update Install-Pog and Enable-Pog to use this instead of Confirm-Manifest
+# TODO: expand to really check whole package, not just manifest, then update Install-Pog and Enable-Pog to use this
 #  when switched, figure out what to do about the forced manifest reload (we do not want to load the manifest multiple times)
 Export function Confirm-PogPackage {
 	# .SYNOPSIS
@@ -1111,23 +1147,11 @@ Export function Confirm-PogPackage {
 	}
 
 	process {
-		$Packages = if ($Package) {
-			foreach ($p in $Package) {
-				try {
-					# re-read manifest to have it up-to-date and revalidated
-					$p.ReloadManifest()
-					$p
-				} catch {
-					# unwrap the actual exception, otherwise we would get a MethodInvocationException instead,
-					#  which has a less readable error message
-					AddIssue $_.Exception.InnerException.Message
-				}
-			}
-		} else {& {
+		$Packages = if ($Package) {$Package} else {& {
 			$ErrorActionPreference = "Continue"
 			foreach($pn in $PackageName) {
 				try {
-					$PACKAGE_ROOTS.GetPackage($pn, $true, $true)
+					$PACKAGE_ROOTS.GetPackage($pn, $true, $false)
 				} catch [Pog.ImportedPackageNotFoundException] {
 					Set-Variable NoIssues $false -Scope 1
 					$PSCmdlet.WriteError($_)
@@ -1142,9 +1166,9 @@ Export function Confirm-PogPackage {
 		foreach ($p in $Packages) {
 			Write-Verbose "Validating imported package manifest '$($p.PackageName)' at '$($p.ManifestPath)'..."
 			try {
-				Confirm-Manifest $p.Manifest
+				$p.ReloadManifest()
 			} catch {
-				AddIssue "Validation of imported package manifest '$($p.PackageName)' at '$($p.ManifestPath)' failed: $_"
+				AddIssue $_.Exception.InnerException.Message
 				return
 			}
 		}

@@ -167,6 +167,10 @@ public sealed class DirectRepositoryPackage : RepositoryPackage {
     protected override void ImportManifestTo(ImportedPackage target) {
         File.Copy(ManifestPath, target.ManifestPath);
     }
+
+    protected override PackageManifest LoadManifest() {
+        return new PackageManifest(ManifestPath, owningPackage: this);
+    }
 }
 
 [PublicAPI]
@@ -187,6 +191,7 @@ public sealed class TemplatedRepositoryPackage : RepositoryPackage {
     }
 
     protected override PackageManifest LoadManifest() {
-        return new PackageManifest(ManifestPath, ManifestTemplateFile.Substitute(TemplatePath, ManifestPath));
+        var manifestStr = ManifestTemplateFile.Substitute(TemplatePath, ManifestPath);
+        return new PackageManifest(ManifestPath, manifestStr, owningPackage: this);
     }
 }

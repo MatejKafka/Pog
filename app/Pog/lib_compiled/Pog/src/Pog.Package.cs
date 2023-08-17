@@ -16,11 +16,11 @@ public abstract class Package {
     // TODO: make this public?
     internal string ManifestResourceDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestResourceRelPath);
 
-    private PackageManifest? _manifest;
+    protected PackageManifest? _manifest;
     [Hidden]
     public PackageManifest Manifest {
         get {
-            if (_manifest == null) ReloadManifest();
+            EnsureManifestIsLoaded();
             return _manifest!;
         }
     }
@@ -33,9 +33,15 @@ public abstract class Package {
         _manifest = manifest;
     }
 
-    /// <exception cref="DirectoryNotFoundException">Thrown if the package directory does not exist.</exception>
-    /// <exception cref="PackageManifestNotFoundException">Thrown if the package manifest file does not exist.</exception>
-    /// <exception cref="PackageManifestParseException">Thrown if the package manifest file is not a valid PowerShell data file (.psd1).</exception>
+    /// <inheritdoc cref="ReloadManifest"/>
+    public void EnsureManifestIsLoaded() {
+        if (_manifest == null) ReloadManifest();
+    }
+
+    /// <exception cref="DirectoryNotFoundException">The package directory does not exist.</exception>
+    /// <exception cref="PackageManifestNotFoundException">The package manifest file does not exist.</exception>
+    /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
+    /// <exception cref="InvalidPackageManifestStructureException">The package manifest is a valid data file, but the structure is not valid.</exception>
     public void ReloadManifest() {
         if (!Exists) {
             throw new DirectoryNotFoundException($"Tried to read the package manifest of a non-existent package at '{Path}'.");
@@ -47,7 +53,5 @@ public abstract class Package {
         return IOPath.Combine(Path, PathConfig.PackagePaths.ManifestRelPath);
     }
 
-    protected virtual PackageManifest LoadManifest() {
-        return new PackageManifest(ManifestPath);
-    }
+    protected abstract PackageManifest LoadManifest();
 }

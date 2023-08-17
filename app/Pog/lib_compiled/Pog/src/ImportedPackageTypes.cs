@@ -112,7 +112,7 @@ public sealed class ImportedPackage : Package {
     internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, path) {
         Verify.Assert.PackageName(packageName);
         if (loadManifest) {
-            // load the manifest to (partially) validate it and ensure the getters won't throw
+            // load the manifest to validate it and ensure the getters won't throw
             ReloadManifest();
         }
     }
@@ -121,6 +121,8 @@ public sealed class ImportedPackage : Package {
     internal void RemoveManifest() {
         FsUtils.EnsureDeleteFile(ManifestPath);
         FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
+        // invalidate the current loaded manifest
+        _manifest = null;
     }
 
     /// Enumerates full paths of all exported shortcuts.
@@ -149,9 +151,13 @@ public sealed class ImportedPackage : Package {
         }
     }
 
+    protected override PackageManifest LoadManifest() {
+        return new PackageManifest(ManifestPath);
+    }
+
     public string GetDescriptionString() {
         var versionStr = Manifest.Version != null ? $", version '{Manifest.Version}'" : "";
-        if (Manifest.IsPrivate) {
+        if (Manifest.Private) {
             return $"private package '{PackageName}'{versionStr}";
         } else if (Manifest.Name == PackageName) {
             return $"package '{Manifest.Name}'{versionStr}";
