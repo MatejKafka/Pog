@@ -21,15 +21,18 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     [Parameter(Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
     [Alias("Url")]
     public string SourceUrl = null!;
+
     /// SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but a warning is printed.
     [Parameter(ValueFromPipelineByPropertyName = true)]
     [Alias("Hash")]
     [Verify.Sha256Hash]
     public string? ExpectedHash;
+
     /// If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored.
     [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
     [Verify.FilePath]
     public string? Subdirectory;
+
     /// If passed, the extracted directory is moved to "./app/$Target", instead of directly to ./app.
     [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
     // make Target mandatory when NoArchive is set, otherwise the name of the binary would be controlled by the server
@@ -37,11 +40,13 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "NoArchive")]
     [Verify.FilePath]
     public string? Target;
+
     /// Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
     /// Set this to `Browser` to use a browser user agent string (currently Firefox).
     /// Set this to `Wget` to use wget user agent string.
     [Parameter(ValueFromPipelineByPropertyName = true)]
     public DownloadParameters.UserAgentType UserAgent = DownloadParameters.UserAgentType.PowerShell;
+
     /// If you need to modify the extracted archive (e.g. remove some files), pass a scriptblock, which receives
     /// a path to the extracted directory as its only argument. All modifications to the extracted files should be
     /// done in this scriptblock – this ensures that the ./app directory is not left in an inconsistent state
@@ -49,12 +54,14 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
     [Alias("Setup")]
     public ScriptBlock? SetupScript;
+
     // TODO: auto-detect NSIS installers and remove the flag?
     /// Pass this if the retrieved file is an NSIS installer
     /// Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
     /// NOTE: NSIS installers may do some initial config, which is not ran when extracted directly.
     [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
     public SwitchParameter NsisInstaller;
+
     /// If passed, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted.
     // this parameter must be mandatory, otherwise it is ignored when piping input objects and the default "Archive"
     //  parameter set is used instead
