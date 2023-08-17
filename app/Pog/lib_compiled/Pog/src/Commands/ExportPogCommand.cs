@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
+using Pog.PSAttributes;
 using Pog.Utils;
 
 namespace Pog.Commands;
@@ -22,6 +23,7 @@ public class ExportPogCommand : PSCmdlet {
 
     /// Name of the package to export. This is the target name, not necessarily the manifest app name.
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline = true)]
+    [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[] PackageName = null!;
 
     /// Export shortcuts to the system-wide start menu for all users, instead of the user-specific start menu.
