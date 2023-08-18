@@ -49,12 +49,15 @@ class DynamicCommandParameters : System.Management.Automation.RuntimeDefinedPara
 # source: https://social.technet.microsoft.com/Forums/en-US/21fb4dd5-360d-4c76-8afc-1ad0bd3ff71a/reuse-function-parameters
 # I made some modifications and extensions.
 Export function Copy-CommandParameters {
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "CommandInfo")]
     [OutputType([DynamicCommandParameters])]
     param(
-            [Parameter(Mandatory, ValueFromPipeline)]
+            [Parameter(Mandatory, Position = 0, ValueFromPipeline, ParameterSetName = "CommandInfo")]
             [System.Management.Automation.CommandInfo]
         $CommandInfo,
+            [Parameter(Mandatory, Position = 0, ValueFromPipeline, ParameterSetName = "ScriptBlock")]
+            [scriptblock]
+        $ScriptBlock,
             [string]
         $NamePrefix = "",
             [switch]
@@ -75,14 +78,25 @@ Export function Copy-CommandParameters {
     }
 
     process {
-        while ($CommandInfo.CommandType -eq "Alias") {
-            # resolve alias
-            $CommandInfo = $CommandInfo.ResolvedCommand
+        if ($ScriptBlock) {
+            # we cannot extract parameters directly from a scriptblock
+            # instead, we'll turn it into a temporary function and use Get-Command to read the parameters
+            # see https://github.com/PowerShell/PowerShell/issues/13774
+
+            # this is only set in local scope, no need to clean up
+            $function:TmpFn = $ScriptBlock
+            $CommandInfo = Get-Command -Type Function TmpFn
+        } else {
+            while ($CommandInfo.CommandType -eq "Alias") {
+                # resolve alias
+                $CommandInfo = $CommandInfo.ResolvedCommand
+            }
+
+            if ($null -eq $CommandInfo.Parameters) {
+                throw "Cannot copy parameters from command '$($CommandInfo.Name)', no parameters are accessible (this may happen e.g. for native executables)."
+            }
         }
 
-        if ($null -eq $CommandInfo.Parameters) {
-            throw "Cannot copy parameters from command '$($CommandInfo.Name)', no parameters are accessible (this may happen e.g. for native executables)."
-        }
         $ParameterDictionary = $CommandInfo.Parameters
         # module context is used to set correct scope for attributes taking a scriptblock like ValidateScript and ArgumentCompleter
         # this is only really relevant for functions (cmdlets shouldn't have problems with scope, attributes in script param() block

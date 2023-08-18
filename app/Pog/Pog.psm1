@@ -232,50 +232,6 @@ Export function Clear-PogDownloadCache {
 }
 
 
-# takes a package name, and returns all static parameters of a selected setup script as a runtime parameter dictionary
-# keyword-only, no positional arguments; aliases are supported
-function Copy-ManifestParameters {
-	[CmdletBinding(DefaultParameterSetName = "Manifest")]
-	param(
-			[Parameter(Mandatory, ParameterSetName = "Manifest", Position = 0)]
-			[Pog.PackageManifest]
-		$Manifest,
-			# either Install or Enable
-			[Parameter(Mandatory, ParameterSetName = "Manifest", Position = 1)]
-			[string]
-		$PropertyName,
-			[Parameter(Mandatory, ParameterSetName = "ScriptBlock")]
-			[ScriptBlock]
-		$ScriptBlock,
-			[string]
-		$NamePrefix = ""
-	)
-
-	if ($PSCmdlet.ParameterSetName -eq "Manifest") {
-		if (-not $Manifest.Raw.ContainsKey($PropertyName) -or $Manifest.Raw[$PropertyName] -isnot [scriptblock]) {
-			# not a script block, doesn't have parameters
-			return @{
-				Parameters = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
-				ExtractFn = {return @{}}
-			}
-		}
-
-		$Sb = $Manifest.Raw[$PropertyName]
-	} else {
-		$Sb = $ScriptBlock
-	}
-
-	# we cannot extract parameters directly from a scriptblock
-	# instead, we'll turn it into a temporary function and use Get-Command to read the parameters
-	# see https://github.com/PowerShell/PowerShell/issues/13774
-
-	# this is only set in local scope, no need to clean up
-	$function:TmpFn = $Sb
-	$FnInfo = Get-Command -Type Function TmpFn
-
-	return Copy-CommandParameters $FnInfo -NoPositionAttribute -NamePrefix $NamePrefix
-}
-
 Export function Enable-Pog {
 	# .SYNOPSIS
 	#	Enables an installed package to allow external usage.
@@ -325,7 +281,12 @@ Export function Enable-Pog {
 			# don't throw here, just return, the issue will be handled in the begin{} block
 			try {$PACKAGE_ROOTS.GetPackage($ParsedPackageName, $true, $true)} catch {return}
 		}
-		$CopiedParams = Copy-ManifestParameters $p.Manifest Enable -NamePrefix "_"
+
+		$CopiedParams = if ($null -eq $p.Manifest.Enable) {
+			[DynamicCommandParameters]::new($NamePrefix) # behave as if the scriptblock had no parameters
+		} else {
+			Copy-CommandParameters $p.Manifest.Enable -NoPositionAttribute -NamePrefix "_"
+		}
 		return $CopiedParams
 	}
 
