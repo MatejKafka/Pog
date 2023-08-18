@@ -22,7 +22,7 @@ function SetupInternalState {
 <# This function is called after the container setup is finished to run the Enable script. #>
 Export function __main {
 	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
-	param($Manifest, $PackageArguments)
+	param([Pog.PackageManifest]$Manifest, $PackageArguments)
 
 	SetupInternalState
 

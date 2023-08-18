@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -15,59 +14,11 @@ using Pog.Utils;
 namespace Pog.Commands;
 
 [PublicAPI]
-[Cmdlet(VerbsLifecycle.Install, "FromUrl", DefaultParameterSetName = "Archive")]
+[Cmdlet(VerbsLifecycle.Install, "FromUrl")]
 public class InstallFromUrlCommand : PogCmdlet, IDisposable {
-    /// Source URL, from which the archive is downloaded. Redirects are supported.
-    [Parameter(Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
-    [Alias("Url")]
-    public string SourceUrl = null!;
-
-    /// SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but a warning is printed.
-    [Parameter(ValueFromPipelineByPropertyName = true)]
-    [Alias("Hash")]
-    [Verify.Sha256Hash]
-    public string? ExpectedHash;
-
-    /// If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored.
-    [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
-    [Verify.FilePath]
-    public string? Subdirectory;
-
-    /// If passed, the extracted directory is moved to "./app/$Target", instead of directly to ./app.
-    [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
-    // make Target mandatory when NoArchive is set, otherwise the name of the binary would be controlled by the server
-    //  we're downloading from, making the resulting package no longer reproducible based on just the hash
-    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "NoArchive")]
-    [Verify.FilePath]
-    public string? Target;
-
-    /// Some servers (e.g. Apache Lounge) dislike PowerShell user agent string for some reason.
-    /// Set this to `Browser` to use a browser user agent string (currently Firefox).
-    /// Set this to `Wget` to use wget user agent string.
-    [Parameter(ValueFromPipelineByPropertyName = true)]
-    public DownloadParameters.UserAgentType UserAgent = DownloadParameters.UserAgentType.PowerShell;
-
-    /// If you need to modify the extracted archive (e.g. remove some files), pass a scriptblock, which receives
-    /// a path to the extracted directory as its only argument. All modifications to the extracted files should be
-    /// done in this scriptblock – this ensures that the ./app directory is not left in an inconsistent state
-    /// in case of a crash during installation.
-    [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
-    [Alias("Setup")]
-    public ScriptBlock? SetupScript;
-
-    // TODO: auto-detect NSIS installers and remove the flag?
-    /// Pass this if the retrieved file is an NSIS installer
-    /// Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
-    /// NOTE: NSIS installers may do some initial config, which is not ran when extracted directly.
-    [Parameter(ValueFromPipelineByPropertyName = true, ParameterSetName = "Archive")]
-    public SwitchParameter NsisInstaller;
-
-    /// If passed, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted.
-    // this parameter must be mandatory, otherwise it is ignored when piping input objects and the default "Archive"
-    //  parameter set is used instead
-    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "NoArchive")]
-    public SwitchParameter NoArchive;
-
+    // created while parsing the package manifest
+    [Parameter(Mandatory = true, ValueFromPipeline = true)]
+    public PackageInstallParameters Params = null!;
 
     private const string AppDirName = "app";
     /// Temporary directory where the previous ./app directory is moved when installing
@@ -87,7 +38,7 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     private string _appDirPath = null!;
     private string _newAppDirPath = null!;
     private bool _allowOverwrite = false;
-    private DownloadParameters _downloadParameters = null!;
+    private bool _lowPriorityDownload;
     private Package _package = null!;
 
 
@@ -100,9 +51,8 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
 
         // read download parameters from the global container info variable
         var internalInfo = Container.ContainerInternalInfo.GetCurrent(this);
-        var lowPriorityDownload = (bool) internalInfo.InternalArguments["DownloadLowPriority"];
+        _lowPriorityDownload = (bool) internalInfo.InternalArguments["DownloadLowPriority"];
         _allowOverwrite = (bool) internalInfo.InternalArguments["AllowOverwrite"];
-        _downloadParameters = new DownloadParameters(UserAgent, lowPriorityDownload);
         _package = internalInfo.Package;
 
 
@@ -154,40 +104,50 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
-        // hash should always be uppercase
-        ExpectedHash = ExpectedHash?.ToUpper();
-        if (ExpectedHash == null) {
-            WriteWarning($"Downloading a file from '{SourceUrl}', but no checksum was provided in the package." +
+        var url = Params.ResolveUrl();
+
+        if (Params.ExpectedHash == null) {
+            WriteWarning($"Downloading a file from '{url}', but no checksum was provided in the package." +
                          " This means that we cannot be sure if the downloaded file is the same one the package author intended." +
                          " This may or may not be a problem on its own, but it's a better style to include a checksum," +
                          " and it improves security and reproducibility.");
         }
 
-        Debug.Assert(!NoArchive || Target != null);
-        var targetPath = Target == null ? _newAppDirPath : JoinValidateSubdirectory(_newAppDirPath, Target);
+        var target = Params switch {
+            PackageInstallParametersNoArchive pna => pna.Target,
+            PackageInstallParametersArchive pa => pa.Target,
+            _ => throw new UnreachableException(),
+        };
+        var targetPath = target == null ? _newAppDirPath : JoinValidateSubdirectory(_newAppDirPath, target);
 
         if (targetPath == null) {
             // the target path escapes from the app directory
-            ThrowTerminatingArgumentError(Target, "TargetEscapesRoot",
+            ThrowTerminatingArgumentError(target, "TargetEscapesRoot",
                     $"Argument passed to the -Target parameter must be a relative path that does not escape " +
-                    $"the app directory, got '{Target}'.");
+                    $"the app directory, got '{target}'.");
             throw new UnreachableException();
         }
 
-        if (NoArchive) {
+        if (Params is PackageInstallParametersNoArchive) {
             if (targetPath == _newAppDirPath) {
-                ThrowTerminatingArgumentError(Target, "TargetResolvesToRoot",
-                        $"Argument passed to the -Target parameter must contain the target file name, got '{Target}'");
+                ThrowTerminatingArgumentError(target, "TargetResolvesToRoot",
+                        $"Argument passed to the -Target parameter must contain the target file name, got '{target}'");
             }
         }
 
+        var downloadParameters = new DownloadParameters(Params.UserAgent, _lowPriorityDownload);
         using var downloadedFile = InvokeFileDownload.Invoke(
-                this, SourceUrl, ExpectedHash, _downloadParameters, _package, false);
+                this, url, Params.ExpectedHash, downloadParameters, _package, false);
 
-        if (NoArchive) {
-            InstallNoArchive(downloadedFile, targetPath);
-        } else {
-            InstallArchive(downloadedFile, targetPath);
+        switch (Params) {
+            case PackageInstallParametersNoArchive:
+                InstallNoArchive(downloadedFile, targetPath);
+                break;
+            case PackageInstallParametersArchive a:
+                InstallArchive(a, downloadedFile, targetPath);
+                break;
+            default:
+                throw new UnreachableException();
         }
     }
 
@@ -236,19 +196,20 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
         File.Copy(downloadedFile.Path, targetPath, true);
     }
 
-    private void InstallArchive(SharedFileCache.IFileLock downloadedFile, string targetPath) {
+    private void InstallArchive(PackageInstallParametersArchive param,
+            SharedFileCache.IFileLock downloadedFile, string targetPath) {
         // extract the archive to a temporary directory
         var extractionDir = _p(TmpExtractionDirName);
         var cmd = new ExpandArchive7Zip(this, downloadedFile.Path, extractionDir,
-                Subdirectory == null ? null : new[] {Subdirectory});
+                param.Subdirectory == null ? null : new[] {param.Subdirectory});
         _currentRunningCmd = cmd;
         cmd.Invoke();
         _currentRunningCmd = null;
         downloadedFile.Dispose();
 
         // find and prepare the used subdirectory
-        var usedDir = GetExtractedSubdirectory(extractionDir, Subdirectory);
-        PrepareExtractedSubdirectory(usedDir.FullName, SetupScript, NsisInstaller);
+        var usedDir = GetExtractedSubdirectory(extractionDir, param.Subdirectory);
+        PrepareExtractedSubdirectory(usedDir.FullName, param.SetupScript, param.NsisInstaller);
 
         // move `usedDir` to the new app directory
         if (!Directory.Exists(targetPath)) {
@@ -287,7 +248,7 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
                     // multiple matches
                     var resolvedPathStr = string.Join(", ",
                             resolvedPaths.Select(p => p.Substring(extractedRootPath.Length + 1)));
-                    ThrowTerminatingArgumentError(Subdirectory, "ArchiveSubdirectoryMultipleMatches",
+                    ThrowTerminatingArgumentError(subdirectory, "ArchiveSubdirectoryMultipleMatches",
                             $"Subdirectory '{subdirectory}' requested in the package manifest resolved to multiple " +
                             $"matching paths inside the archive: {resolvedPathStr}");
                     break;
@@ -303,7 +264,7 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
             WriteDebug($"Using passed path inside archive: {subPath}");
 
             if (EscapesDirectory(extractedRootPath, subPath)) {
-                ThrowTerminatingArgumentError(Subdirectory, "SubdirectoryEscapesRoot",
+                ThrowTerminatingArgumentError(subdirectory, "SubdirectoryEscapesRoot",
                         $"Argument passed to the -Subdirectory parameter must be a relative path that does not escape " +
                         $"the archive directory, got '{subdirectory}'.");
             }

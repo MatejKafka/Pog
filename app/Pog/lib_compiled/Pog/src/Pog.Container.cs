@@ -66,7 +66,7 @@ public class Container : IDisposable {
                     Write-Warning ('Cleanup failed: ' + $_)
                 }
             }
-        ").AddArgument(_package.Manifest.Raw).AddArgument(_packageArguments);
+        ").AddArgument(_package.Manifest).AddArgument(_packageArguments);
 
         // don't accept any input, write output to `outputCollection`
         return _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);

@@ -329,7 +329,7 @@ Export function Enable-Pog {
 		foreach ($p in $Packages) {
 			$p.EnsureManifestIsLoaded()
 
-			if (-not $p.Manifest.Raw.ContainsKey("Enable")) {
+			if (-not $p.Manifest.Enable) {
 				Write-Information "Package '$($p.PackageName)' does not have an Enable block."
 				continue
 			}
@@ -393,7 +393,7 @@ Export function Install-Pog {
 		foreach ($p in $Packages) {
 			$p.EnsureManifestIsLoaded()
 
-			if (-not $p.Manifest.Raw.ContainsKey("Install")) {
+			if (-not $p.Manifest.Install) {
 				Write-Information "Package '$($p.PackageName)' does not have an Install block."
 				continue
 			}
@@ -686,7 +686,7 @@ Export function Show-PogManifestHash {
 			throw "Validation of the repository package failed (see warnings above)."
 		}
 
-		if (-not $p.Manifest.Raw.ContainsKey("Install")) {
+		if (-not $p.Manifest.Install) {
 			Write-Information "Package '$($p.PackageName)' does not have an Install block."
 			continue
 		}

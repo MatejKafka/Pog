@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -42,6 +43,11 @@ public class InvalidPackageManifestStructureException : Exception {
 
     public override string Message =>
             $"Package manifest at '{ManifestPath}' has invalid structure:\n\t" + string.Join("\n\t", Issues);
+}
+
+/// <summary>Package manifest had a ScriptBlock as the 'Install.Url' property, but it did not return a valid URL.</summary>
+public class InvalidPackageManifestUrlScriptBlockException : Exception {
+    public InvalidPackageManifestUrlScriptBlockException(string message) : base(message) {}
 }
 
 [PublicAPI]
@@ -164,6 +170,7 @@ public record PackageManifest {
     };
 
     private PackageInstallParameters? ParseInstallHashtable(HashtableParser parser) {
+        // If set, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted.
         var noArchive = parser.ParseScalar<bool>("NoArchive", false) ?? false;
 
         var sourceUrl = parser.GetProperty("Url", true, "string | ScriptBlock");
@@ -180,6 +187,8 @@ public record PackageManifest {
         if (expectedHash != null && !Verify.Is.Sha256Hash(expectedHash)) {
             parser.AddValidityIssue("Hash", expectedHash, "expected a SHA-256 hash (64 character hex string)");
         }
+        // hash should always be uppercase
+        expectedHash = expectedHash?.ToUpperInvariant();
 
         var userAgentStr = parser.ParseScalar<string>("UserAgent", false);
         DownloadParameters.UserAgentType userAgent;
@@ -205,15 +214,15 @@ public record PackageManifest {
                 SourceUrl = sourceUrl!,
                 ExpectedHash = expectedHash,
                 UserAgent = userAgent,
-                Target = target,
+                // if null, we will throw an exception anyway
+                Target = target!,
             };
         } else {
             parsed = new PackageInstallParametersArchive {
                 SourceUrl = sourceUrl!,
                 ExpectedHash = expectedHash,
                 UserAgent = userAgent,
-                // if null, we will throw an exception anyway
-                Target = target!,
+                Target = target,
                 Subdirectory = subdirectory,
                 NsisInstaller = parser.ParseScalar<bool>("NsisInstaller", false) ?? false,
                 SetupScript = parser.ParseScalar<ScriptBlock>("SetupScript", false),
@@ -236,7 +245,7 @@ public record PackageManifest {
             };
 }
 
-public record PackageInstallParameters {
+public abstract record PackageInstallParameters {
     /// Source URL, from which the archive is downloaded. Redirects are supported.
     public object SourceUrl = null!;
 
@@ -247,11 +256,41 @@ public record PackageInstallParameters {
     /// Set this to `Browser` to use a browser user agent string (currently Firefox).
     /// Set this to `Wget` to use wget user agent string.
     public DownloadParameters.UserAgentType UserAgent;
+
+    /// <summary>
+    /// If <see cref="SourceUrl"/> is a ScriptBlock, this method invokes it and returns the resulting URL,
+    /// otherwise returns the static URL. Note that this method executes potentially untrusted code from the manifest.
+    /// </summary>
+    ///
+    /// <exception cref="InvalidPackageManifestUrlScriptBlockException"></exception>
+    public string ResolveUrl() {
+        if (SourceUrl is string s) {
+            return s; // static string, just return
+        }
+
+        Debug.Assert(SourceUrl is ScriptBlock);
+        var sb = (ScriptBlock) SourceUrl;
+
+        // TODO: shouldn't we use .GetNewClosure() here?
+        var resolvedUrlObj = sb.InvokeReturnAsIs();
+
+        if (resolvedUrlObj is PSObject pso) {
+            resolvedUrlObj = pso.BaseObject;
+        }
+        if (resolvedUrlObj is not string resolvedUrl) {
+            throw new InvalidPackageManifestUrlScriptBlockException(
+                    "ScriptBlock for the source URL ('Install.Url' property in the package manifest) must " +
+                    $"return a string, got '{resolvedUrlObj?.GetType().ToString() ?? "null"}'");
+        }
+        return resolvedUrl;
+    }
 }
 
 public record PackageInstallParametersNoArchive : PackageInstallParameters {
+    // mandatory when NoArchive is set, otherwise the name of the binary would be controlled by the server
+    //  we're downloading from, making the resulting package no longer reproducible based on just the hash
     /// The downloaded file is moved to `./app/$Target`. The path must include the file name.
-    public string? Target;
+    public string Target = null!;
 }
 
 public record PackageInstallParametersArchive : PackageInstallParameters {
@@ -259,7 +298,7 @@ public record PackageInstallParametersArchive : PackageInstallParameters {
     public string? Subdirectory;
 
     /// If passed, the extracted directory is moved to `./app/$Target`, instead of directly to `./app`.
-    public string Target = null!;
+    public string? Target;
 
     /// If you need to modify the extracted archive (e.g. remove some files), pass a scriptblock, which receives
     /// a path to the extracted directory as its only argument. All modifications to the extracted files should be
