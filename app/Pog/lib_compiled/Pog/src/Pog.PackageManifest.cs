@@ -259,8 +259,13 @@ public abstract record PackageInstallParameters {
 
     /// <summary>
     /// If <see cref="SourceUrl"/> is a ScriptBlock, this method invokes it and returns the resulting URL,
-    /// otherwise returns the static URL. Note that this method executes potentially untrusted code from the manifest.
+    /// otherwise returns the static URL.
     /// </summary>
+    ///
+    /// <remarks>
+    /// NOTE: This method executes potentially untrusted code from the manifest.
+    /// NOTE: This method must be executed inside a container environment.
+    /// </remarks>
     ///
     /// <exception cref="InvalidPackageManifestUrlScriptBlockException"></exception>
     public string ResolveUrl() {

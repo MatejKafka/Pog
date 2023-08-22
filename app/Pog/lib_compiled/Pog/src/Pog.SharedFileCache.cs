@@ -341,13 +341,10 @@ public class SharedFileCache {
         // move the entry into place
         try {
             FsUtils.MoveByHandle(handle, targetPath);
-        } catch (SystemException e) {
+        } catch (SystemException e) when (e.HResult is -2147024713 or -2147024891) {
             // 0x800700B7 = ERROR_ALREADY_EXISTS (-2147024713)
             // 0x80070005 = ERROR_ACCESS_DENIED (-2147024891)
-            if (e.HResult is -2147024713 or -2147024891) {
-                throw new CacheEntryAlreadyExistsException(entryKey);
-            }
-            throw;
+            throw new CacheEntryAlreadyExistsException(entryKey);
         }
 
         var entryFilePath = IOPath.Combine(targetPath, newEntry.EntryFileName);

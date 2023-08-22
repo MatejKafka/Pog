@@ -180,9 +180,8 @@ public static class FsUtils {
     public static void DeleteDirectoryAtomically(string srcDirPath, string tmpMovePath, bool ignoreNotFound = false) {
         try {
             MoveAtomically(srcDirPath, tmpMovePath);
-        } catch (FileNotFoundException) {
-            if (ignoreNotFound) return;
-            throw;
+        } catch (FileNotFoundException) when (ignoreNotFound) {
+            return;
         }
         ForceDeleteDirectory(tmpMovePath);
     }

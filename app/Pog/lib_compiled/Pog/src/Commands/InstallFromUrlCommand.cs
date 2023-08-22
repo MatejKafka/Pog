@@ -322,11 +322,8 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
             FsUtils.MoveByHandle(newAppDirHandle, targetAppDir);
             // success, targetAppDir did not originally exist, the new app directory is in place
             return;
-        } catch (COMException e) {
-            // -2147024713 (0x800700B7) = target already exists
-            if (e.HResult != -2147024713) {
-                throw;
-            }
+        } catch (COMException e) when (e.HResult == -2147024713) {
+            // -2147024713 (0x800700B7) = target already exists, ignore
         }
 
         // the target app directory already exists, so we need to replace it
