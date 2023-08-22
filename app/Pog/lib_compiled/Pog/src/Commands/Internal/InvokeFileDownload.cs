@@ -3,7 +3,13 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading;
+using System.Threading.Tasks;
 using JetBrains.Annotations;
+using Pog.Commands.Utils;
+using Pog.Utils.Http;
 
 namespace Pog.Commands.Internal;
 
@@ -27,7 +33,7 @@ public record DownloadParameters(
     }
 }
 
-public class InvokeFileDownload : Command {
+public class InvokeFileDownload : StoppableCommand {
     private string _sourceUrl = null!;
     private string? _expectedHash;
     private DownloadParameters _downloadParameters = null!;
@@ -142,6 +148,32 @@ public class InvokeFileDownload : Command {
         }
     }
 
+    private static readonly Lazy<HttpClient> Client = new();
+
+    private record struct DownloadTarget(Uri FinalUri, ContentDispositionHeaderValue ContentDisposition);
+
+    /// Resolves the passed URI and returns the final URI and Content-Disposition header after redirects.
+    /// <exception cref="HttpRequestException"></exception>
+    private static async Task<DownloadTarget> ResolveFinalDownloadTargetAsync(CancellationToken token, Uri originalUri,
+            DownloadParameters downloadParameters, bool useGetMethod = false) {
+        using var request = new HttpRequestMessage(useGetMethod ? HttpMethod.Get : HttpMethod.Head, originalUri);
+        if (downloadParameters.GetUserAgentHeaderString() is {} userAgentStr) {
+            request.Headers.Add("User-Agent", userAgentStr);
+        }
+
+        var completion = useGetMethod ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
+        // disposing the response resets the connection, refusing the body of the request
+        using var response = await Client.Value.SendAsync(request, completion, token);
+
+        if (response.IsSuccessStatusCode) {
+            return new DownloadTarget(response.RequestMessage.RequestUri, response.Content.Headers.ContentDisposition);
+        } else {
+            // if HEAD requests got an error, retry with the GET method to check if it's
+            //  an actual issue or the server is just dumb and blocks HEAD requests
+            return await ResolveFinalDownloadTargetAsync(token, originalUri, downloadParameters, true);
+        }
+    }
+
     /// <summary>Downloads the file from $SrcUrl to $TargetDir.</summary>
     /// <returns>Full path of the downloaded file.</returns>
     /// <remarks>
@@ -163,10 +195,28 @@ public class InvokeFileDownload : Command {
     ///    just slow in general, since curl followed by a separate hash check is faster
     /// </remarks>
     private string DownloadFile(string sourceUrl, string destinationDirPath, DownloadParameters downloadParameters) {
+        var activityStr = $"Installing '{_package.PackageName}'";
+
+        // BITS powershell module has issues with resolving URLs with query strings (apparently, it assumes everything after
+        // the last / is a file name) and it uses just the source URL instead of the final URL or Content-Disposition,
+        // so we resolve the file name ourselves
+        DownloadTarget downloadTarget;
+        using (new CmdletProgressBar(WriteProgress, null, activityStr, $"Resolving '{sourceUrl}'...")) {
+            downloadTarget = ResolveFinalDownloadTargetAsync(CancellationToken, new Uri(sourceUrl), downloadParameters)
+                    .GetAwaiter().GetResult(); // this should be ok, PowerShell cmdlets internally do it the same way
+        }
+
+        var (resolvedUrl, contentDisposition) = downloadTarget;
+        var target = $"{destinationDirPath}\\{HttpFileNameParser.GetDownloadedFileName(resolvedUrl, contentDisposition)}";
+
+        WriteDebug($"Resolved URL: {resolvedUrl}");
+        WriteDebug($"Resolved target: {target}");
+
         var bitsParams = new Hashtable {
-            {"Source", sourceUrl},
-            {"Destination", destinationDirPath},
-            {"Description", $"Downloading '{sourceUrl}' to '{destinationDirPath}'."},
+            {"Source", resolvedUrl},
+            {"Destination", target},
+            {"DisplayName", activityStr},
+            {"Description", $"Downloading '{sourceUrl}'..."},
             // passing -Dynamic allows BITS to communicate with badly-mannered servers that don't support HEAD requests,
             //  Content-Length headers,...; see https://docs.microsoft.com/en-us/windows/win32/api/bits5_0/ne-bits5_0-bits_job_property_id),
             //  section BITS_JOB_PROPERTY_DYNAMIC_CONTENT
@@ -178,9 +228,6 @@ public class InvokeFileDownload : Command {
             WriteDebug($"Using a spoofed user agent: {userAgentStr}");
             bitsParams["CustomHeaders"] = "User-Agent: " + userAgentStr;
         }
-
-        // FIXME: BITS does not respect content-disposition HTTP headers, so the downloaded file name may be nonsense (like "stable" for VS Code);
-        //  probably go back to using `iwr` to retrieve the final URL, file name,... and only use BITS for the final download
 
         // invoke BITS; it's possible to invoke it directly using the .NET API, but that seems overly complex for now
         StartBitsTransferSb.InvokeReturnAsIs(bitsParams);
