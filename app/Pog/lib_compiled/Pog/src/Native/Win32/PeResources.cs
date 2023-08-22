@@ -115,7 +115,7 @@ public static partial class Win32 {
     /// <remarks>
     /// <para><see href="https://docs.microsoft.com/windows/win32/api//libloaderapi/nf-libloaderapi-findresourceexw">Learn more about this API from docs.microsoft.com</see>.</para>
     /// </remarks>
-    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "FindResourceExW")]
+    [DllImport("KERNEL32.dll", ExactSpelling = true, EntryPoint = "FindResourceExW", SetLastError = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     public static extern HRSRC FindResourceEx(FreeLibrarySafeHandle hModule, ResourceAtom lpType, ResourceAtom lpName,
             ushort wLanguage);
