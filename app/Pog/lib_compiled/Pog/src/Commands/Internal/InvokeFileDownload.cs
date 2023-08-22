@@ -149,6 +149,19 @@ public class InvokeFileDownload : Command {
     /// Invoke-WebRequest was used in some cases, and it was potentially faster for small files for cold downloads (BITS
     /// service takes some time to initialize when not used for a while), but the added complexity does not seem to be worth it.
     /// </remarks>>
+    /// <remarks>
+    /// I experimented with different download tools: iwr, curl, BITS, aria2
+    ///  - iwr is quite slow; internally, it uses HttpClient, so I'm assuming using it directly will also be slow
+    ///  - BITS, curl and aria2 are roughly the same speed, with curl being the fastest by ~10%
+    ///    (download test with 'VS Code' followed by SHA-256 hash validation, aria2 11.9s, curl 10.6s, BITS 11.3s)
+    ///  - BITS should in theory be a bit better mannered on heavily loaded systems, but I haven't experimented with it,
+    ///    except for the `-Priority Low` parameter
+    ///  - BITS does not support Content-Disposition, and it takes the filename from the original source URL,
+    ///    but messes up if it contains a query string and fails while trying to create an invalid file name;
+    ///    if the .NET module was used directly instead of the PowerShell cmdlets, this might not be an issue
+    ///  - aria2 supports validating the checksum, but either it does so after the file is downloaded or it's
+    ///    just slow in general, since curl followed by a separate hash check is faster
+    /// </remarks>
     private string DownloadFile(string sourceUrl, string destinationDirPath, DownloadParameters downloadParameters) {
         var bitsParams = new Hashtable {
             {"Source", sourceUrl},
@@ -161,20 +174,9 @@ public class InvokeFileDownload : Command {
             {"Priority", downloadParameters.LowPriorityDownload ? "Low" : "Foreground"},
         };
 
-        switch (downloadParameters.UserAgent) {
-            case DownloadParameters.UserAgentType.PowerShell:
-                break;
-            case DownloadParameters.UserAgentType.Browser:
-                WriteDebug("Using fake browser (Firefox) user agent.");
-                bitsParams["CustomHeaders"] =
-                        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:105.0) Gecko/20100101 Firefox/105.0";
-                break;
-            case DownloadParameters.UserAgentType.Wget:
-                WriteDebug("Using fake wget user agent.");
-                bitsParams["CustomHeaders"] = "User-Agent: Wget/1.20.3 (linux-gnu)";
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+        if (downloadParameters.GetUserAgentHeaderString() is {} userAgentStr) {
+            WriteDebug($"Using a spoofed user agent: {userAgentStr}");
+            bitsParams["CustomHeaders"] = "User-Agent: " + userAgentStr;
         }
 
         // FIXME: BITS does not respect content-disposition HTTP headers, so the downloaded file name may be nonsense (like "stable" for VS Code);
