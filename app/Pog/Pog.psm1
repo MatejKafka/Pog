@@ -641,18 +641,18 @@ Export function Show-PogManifestHash {
 	# .DESCRIPTION
 	#	Download all resources specified in the package manifest, store them in the download cache and show the SHA-256 hash.
 	#	This cmdlet is useful for retrieving the archive hash when writing a package manifest.
-	[CmdletBinding()]
+	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
 	param(
-			# ValueFromPipelineByPropertyName lets us avoid having to define a separate $Package parameter
-			# TODO: add support for an array of package names, similarly to other commands
-
-			### Name of the repository package to retrieve.
-			[Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
+			[Pog.Package[]] # accept even imported packages
+		$Package,
+			### Name of the package to install. This is the target name, not necessarily the manifest app name.
+			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageNameCompleter])]
-			[string]
+			[string[]]
 		$PackageName,
 			### Version of the package to retrieve. By default, the latest version is used.
-			[Parameter(ValueFromPipelineByPropertyName)]
+			[Parameter(Position = 1, ParameterSetName = "PackageName")]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
 			[Pog.PackageVersion]
 		$Version,
@@ -665,38 +665,54 @@ Export function Show-PogManifestHash {
 	# TODO: add -PassThru to return structured object instead of Write-Host pretty-print
 
 	process {
-		$c = try {
-			$REPOSITORY.GetPackage($PackageName, $true, $true)
-		} catch [Pog.RepositoryPackageNotFoundException] {
-			$PSCmdlet.WriteError($_)
-			return
-		}
-		# get the resolved name, so that the casing is correct
-		$PackageName = $c.PackageName
-
-		$p = if (-not $Version) {
-			# find latest version
-			$c.GetLatestPackage()
-		} else {
-			$c.GetVersionPackage($Version, $true)
-		}
-
-        # this forces a manifest load on $p
-		if (-not (Confirm-PogRepositoryPackage $p)) {
-			throw "Validation of the repository package failed (see warnings above)."
-		}
-
-		if (-not $p.Manifest.Install) {
-			Write-Information "Package '$($p.PackageName)' does not have an Install block."
-			continue
+		$Packages = if ($Package) {$Package} else {
+			foreach ($n in $PackageName) {& {
+				$ErrorActionPreference = "Continue"
+				# resolve package name and version to a package
+				$c = try {
+					$REPOSITORY.GetPackage($n, $true, $true)
+				} catch [Pog.RepositoryPackageNotFoundException] {
+					$PSCmdlet.WriteError($_)
+					continue
+				}
+				if (-not $Version) {
+					# find latest version
+					$c.GetLatestPackage()
+				} else {
+					try {
+						$c.GetVersionPackage($Version, $true)
+					} catch [Pog.RepositoryPackageVersionNotFoundException] {
+						$PSCmdlet.WriteError($_)
+						continue
+					}
+				}
+			}}
 		}
 
-		$InternalArgs = @{
-			AllowOverwrite = $true # not used
-			DownloadLowPriority = [bool]$LowPriority
-		}
+		foreach ($p in $Packages) {
+			# this forces a manifest load on $p
+			if ($p -is [Pog.ImportedPackage]) {
+				if (-not (Confirm-PogPackage $p)) {
+					throw "Validation of the package failed (see warnings above)."
+				}
+			} else { # Pog.RepositoryPackage
+				if (-not (Confirm-PogRepositoryPackage $p)) {
+					throw "Validation of the repository package failed (see warnings above)."
+				}
+			}
 
-		Invoke-Container GetInstallHash $p -InternalArguments $InternalArgs
+			if (-not $p.Manifest.Install) {
+				Write-Information "Package '$($p.PackageName)' does not have an Install block."
+				continue
+			}
+
+			$InternalArgs = @{
+				AllowOverwrite = $true # not used
+				DownloadLowPriority = [bool]$LowPriority
+			}
+
+			Invoke-Container GetInstallHash $p -InternalArguments $InternalArgs
+		}
 	}
 }
 
