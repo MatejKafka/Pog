@@ -11,7 +11,7 @@ namespace Pog.Commands.Internal;
 /// <remarks>
 /// Note that if a subclass of this invokes `ThrowTerminatingError`, it terminates the calling cmdlet immediately.
 /// </remarks>
-public class Command {
+public abstract class Command {
     protected readonly PSCmdlet Cmdlet;
 
     protected Command(PSCmdlet cmdlet) {
@@ -22,6 +22,7 @@ public class Command {
     protected void WriteVerbose(string text) => Cmdlet.WriteVerbose(text);
     protected void WriteWarning(string text) => Cmdlet.WriteWarning(text);
     protected void WriteError(ErrorRecord errorRecord) => Cmdlet.WriteError(errorRecord);
+    protected void WriteProgress(ProgressRecord progressRecord) => Cmdlet.WriteProgress(progressRecord);
 
     protected void WriteInformation(object messageData, string[]? tags = null) {
         Cmdlet.WriteInformation(messageData, tags);
