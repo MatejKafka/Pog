@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -21,10 +20,10 @@ public class PeApplicationManifest {
     private XElement? _xml;
 
     /// <exception cref="PeResources.ResourceNotFoundException">The PE binary does not have an associated manifest.</exception>
-    public PeApplicationManifest(string pePath) {
+    public PeApplicationManifest(string pePath, PeResources.Module? module = null) {
         PePath = pePath;
 
-        if (LoadEmbeddedManifest(pePath) is var (id, embedded)) {
+        if (LoadEmbeddedManifest(pePath, module) is var (id, embedded)) {
             _srcId = id;
             _xml = embedded;
         } else if (LoadExternalManifest(pePath) is {} external) {
@@ -97,8 +96,12 @@ public class PeApplicationManifest {
         return manager;
     }
 
-    private static unsafe (PeResources.ResourceId, XElement)? LoadEmbeddedManifest(string pePath) {
-        using var module = new PeResources.Module(pePath);
+    private static unsafe (PeResources.ResourceId, XElement)? LoadEmbeddedManifest(
+            string pePath, PeResources.Module? module = null) {
+
+        // open a Module if there's not an existing one and dispose it at the end of scope
+        using var newModule = module != null ? null : new PeResources.Module(pePath);
+        module = (module ?? newModule)!;
 
         var id = FindEmbeddedManifest(module);
         if (id == null) {
