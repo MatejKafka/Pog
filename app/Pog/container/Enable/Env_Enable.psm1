@@ -284,8 +284,10 @@ Export function Assert-File {
 		$FixedContent = $null
 	)
 
+	$ResolvedPath = Resolve-VirtualPath $Path
+
 	$FixedContentStr = if ($FixedContent -is [scriptblock]) {
-		Invoke-DollarUnder $FixedContent (Resolve-VirtualPath $Path)
+		Invoke-DollarUnder $FixedContent $ResolvedPath $ResolvedPath
 	} elseif ($FixedContent -is [string]) {
 		$FixedContent
 	} else {$null}
@@ -314,7 +316,7 @@ Export function Assert-File {
 		}
 
 		$File = Get-Item $ResolvedPath
-		$null = Invoke-DollarUnder $ContentUpdater $File
+		$null = Invoke-DollarUnder $ContentUpdater $File $File
 
 		$WasChanged = $File.LastWriteTime -ne (Get-Item $ResolvedPath).LastWriteTime
 		if ($WasChanged) {
@@ -342,7 +344,7 @@ Export function Assert-File {
 	# the first option is supported, because some apps have a builtin way to generate a default config directly
 	$NewContent = if ($FixedContentStr) {$FixedContentStr}
 		elseif ($DefaultContent -is [string]) {Copy-Item $DefaultContent $Path}
-		else {Invoke-DollarUnder $DefaultContent (Resolve-VirtualPath $Path)}
+		else {Invoke-DollarUnder $DefaultContent $ResolvedPath $ResolvedPath}
 
 	if (-not (Test-Path $Path)) {
 		Set-Content $Path $NewContent
