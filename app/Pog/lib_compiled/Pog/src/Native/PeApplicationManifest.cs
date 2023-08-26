@@ -72,10 +72,17 @@ public class PeApplicationManifest {
             dpiAwarenessNode.SetValue("PerMonitorV2");
         }
 
+        var gdiScalingNode = Find("/asmv3:application/asmv3:windowsSettings/ws2017:gdiScaling");
+        // no need to add gdiScaling if it does not exist
+        if (gdiScalingNode != null && NodeContainsValue(gdiScalingNode, "true")) {
+            changed = true;
+            gdiScalingNode.SetValue("false");
+        }
+
         return changed;
     }
 
-    private static bool NodeContainsValue(XElement e, IEnumerable<string> values) {
+    private static bool NodeContainsValue(XElement e, params string[] values) {
         return values.Any(v => e.Value.IndexOf(v, StringComparison.InvariantCultureIgnoreCase) >= 0);
     }
 
@@ -86,6 +93,7 @@ public class PeApplicationManifest {
         manager.AddNamespace("asmv3", "urn:schemas-microsoft-com:asm.v3");
         manager.AddNamespace("ws2005", "http://schemas.microsoft.com/SMI/2005/WindowsSettings");
         manager.AddNamespace("ws2016", "http://schemas.microsoft.com/SMI/2016/WindowsSettings");
+        manager.AddNamespace("ws2017", "http://schemas.microsoft.com/SMI/2017/WindowsSettings");
         return manager;
     }
 
