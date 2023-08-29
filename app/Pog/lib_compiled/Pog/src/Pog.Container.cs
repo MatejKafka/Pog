@@ -35,12 +35,12 @@ public class Container : IDisposable {
     /// To read the output streams, use the <see cref="Streams"/> property after <see cref="BeginInvoke"/> was called.
     /// </param>
     /// <param name="streamConfig">Configuration for output stream preference variables.</param>
-    public Container(ContainerType containerType, Package package, Hashtable internalArguments, Hashtable? packageArguments,
+    public Container(ContainerType containerType, Package package, Hashtable? internalArguments, Hashtable? packageArguments,
             PSHost? host, OutputStreamConfig streamConfig) {
         _containerType = containerType;
         _package = package;
         // TODO: validate that internalArguments match containerType
-        _internalArguments = internalArguments;
+        _internalArguments = internalArguments ?? new Hashtable();
         _packageArguments = packageArguments ?? new Hashtable();
 
         _ps.Runspace = GetInitializedRunspace(host, streamConfig);

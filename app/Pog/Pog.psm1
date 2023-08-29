@@ -124,9 +124,6 @@ Export function Enable-Pog {
 			[Parameter(Position = 1)]
 			[Hashtable]
 		$PackageParameters = @{},
-			### Allow overriding existing commands without confirmation.
-			[switch]
-		$Force,
 			### Return a [Pog.ImportedPackage] object with information about the enabled package.
 			[switch]
 		$PassThru
@@ -203,12 +200,8 @@ Export function Enable-Pog {
 				continue
 			}
 
-			$InternalArgs = @{
-				AllowOverwrite = [bool]$Force
-			}
-
 			Write-Information "Enabling $($p.GetDescriptionString())..."
-			Invoke-Container Enable $p -InternalArguments $InternalArgs -PackageArguments $PackageParameters
+			Invoke-Container Enable $p -PackageArguments $PackageParameters
 			if ($PassThru) {
 				echo $p
 			}

@@ -12,8 +12,8 @@ namespace Pog.Commands;
 public class InvokeContainerCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public Container.ContainerType ContainerType;
     [Parameter(Mandatory = true, Position = 1)] public Package Package = null!;
-    [Parameter(Mandatory = true)] public Hashtable InternalArguments = null!;
-    [Parameter] public Hashtable PackageArguments = new();
+    [Parameter] public Hashtable? InternalArguments;
+    [Parameter] public Hashtable? PackageArguments;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();

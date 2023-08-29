@@ -9,8 +9,8 @@ namespace Pog.Commands.Internal;
 public class InvokeContainer : EnumerableCommand<PSObject> {
     [Parameter(Mandatory = true)] public Container.ContainerType ContainerType;
     [Parameter(Mandatory = true)] public Package Package = null!;
-    [Parameter(Mandatory = true)] public Hashtable InternalArguments = null!;
-    [Parameter] public Hashtable PackageArguments = new();
+    [Parameter] public Hashtable? InternalArguments;
+    [Parameter] public Hashtable? PackageArguments;
 
     private Container? _container;
 
