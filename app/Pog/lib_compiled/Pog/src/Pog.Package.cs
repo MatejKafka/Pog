@@ -16,7 +16,7 @@ public abstract class Package {
     // TODO: make this public?
     internal string ManifestResourceDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestResourceRelPath);
 
-    protected PackageManifest? _manifest;
+    private PackageManifest? _manifest;
     [Hidden]
     public PackageManifest Manifest {
         get {
@@ -36,6 +36,10 @@ public abstract class Package {
     /// <inheritdoc cref="ReloadManifest"/>
     public void EnsureManifestIsLoaded() {
         if (_manifest == null) ReloadManifest();
+    }
+
+    protected void InvalidateManifest() {
+        _manifest = null;
     }
 
     /// <exception cref="DirectoryNotFoundException">The package directory does not exist.</exception>

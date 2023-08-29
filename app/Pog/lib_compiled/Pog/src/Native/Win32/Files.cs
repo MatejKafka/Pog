@@ -5,6 +5,8 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
+// ReSharper disable SuggestVarOrType_BuiltInTypes
+
 namespace Pog.Native;
 
 [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -71,7 +73,7 @@ public static partial class Win32 {
         FileRenameInfoEx,
         FileCaseSensitiveInfo,
         FileNormalizedNameInfo,
-        MaximumFileInfoByHandleClass
+        MaximumFileInfoByHandleClass,
     }
 
     [Flags]

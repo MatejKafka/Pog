@@ -22,7 +22,7 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
     private readonly string _versionString;
 
     public enum DevVersionType {
-        Nightly = 0, Preview = 1, Alpha = 2, Beta = 3, Rc = 4
+        Nightly = 0, Preview = 1, Alpha = 2, Beta = 3, Rc = 4,
     }
 
     private static readonly Regex VersionRegex = new(@"^(?<Main>\d+(\.\d+)*)(?<Dev>.*)$", RegexOptions.Compiled);
@@ -119,7 +119,7 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         if (v2.Dev.Length == 0) return -1;
 
         // both have dev suffix and the same semi-semver, compare dev suffixes
-        foreach (var (p1, p2) in (ZipLongest(v1.Dev, v2.Dev, -1, -1))) {
+        foreach (var (p1, p2) in ZipLongest(v1.Dev, v2.Dev, -1, -1)) {
             // here's the fun part, because the dev suffixes are quite free-style
             // each possible version field type has an internal ordering
             // if both fields have a different type, the following priorities are used:
@@ -134,7 +134,7 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
             }
 
             var typeOrder = new Dictionary<Type, int> {
-                {typeof(string), 0}, {typeof(DevVersionType), 1}, {typeof(int), 2}
+                {typeof(string), 0}, {typeof(DevVersionType), 1}, {typeof(int), 2},
             };
             var o1 = typeOrder[p1.GetType()];
             var o2 = typeOrder[p2.GetType()];

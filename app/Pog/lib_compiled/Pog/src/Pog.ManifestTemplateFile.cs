@@ -191,7 +191,7 @@ public static class ManifestTemplateFile {
                 } else {
                     throw new ArgumentException(
                             "Only string or numeric keys are supported while serializing a hashtable or other " +
-                            $"dictionaries, got '{(key.GetType())}'.");
+                            $"dictionaries, got '{key.GetType()}'.");
                 }
                 Write(" = ");
                 Serialize(value);

@@ -122,7 +122,7 @@ public sealed class ImportedPackage : Package {
         FsUtils.EnsureDeleteFile(ManifestPath);
         FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
         // invalidate the current loaded manifest
-        _manifest = null;
+        InvalidateManifest();
     }
 
     /// Enumerates full paths of all exported shortcuts.

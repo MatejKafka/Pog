@@ -46,11 +46,11 @@ public class Container : IDisposable {
         _ps.Runspace = GetInitializedRunspace(host, streamConfig);
     }
 
-    public IAsyncResult BeginInvoke(PSDataCollection<PSObject> outputCollection) {
-        // __main and __cleanup should be exported by each container environment; store them into a variable,
-        //  and then remove them from the global scope, so that the manifest does not see them
-        // the `finally` block is called even on exit
-        _ps.AddScript(@"
+    // __main and __cleanup should be exported by each container environment; store them into a variable,
+    //  and then remove them from the global scope, so that the manifest does not see them
+    // the `finally` block is called even on exit
+    private const string ContainerInvokeSbStr =
+            """
             $mainSb = (Get-Command __main).ScriptBlock
             $cleanupSb = (Get-Command __cleanup).ScriptBlock
             Remove-Item Function:__main, Function:__cleanup
@@ -66,8 +66,10 @@ public class Container : IDisposable {
                     Write-Warning ('Cleanup failed: ' + $_)
                 }
             }
-        ").AddArgument(_package.Manifest).AddArgument(_packageArguments);
+            """;
 
+    public IAsyncResult BeginInvoke(PSDataCollection<PSObject> outputCollection) {
+        _ps.AddScript(ContainerInvokeSbStr).AddArgument(_package.Manifest).AddArgument(_packageArguments);
         // don't accept any input, write output to `outputCollection`
         return _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);
     }
@@ -163,9 +165,8 @@ public class Container : IDisposable {
         // $VerbosePreference is set globally, so we'd need to overwrite it, and then set it back,
         //  as it interacts weirdly with -Verbose:$false, which apparently doesn't work here for some reason;
         //  it seems as the cleanest solution to do `4>$null`, which just hides the Verbose stream altogether
-        iss.Commands.Add(new SessionStateFunctionEntry("Import-Module", @"
-            Microsoft.PowerShell.Core\Import-Module @Args 4>$null
-        "));
+        iss.Commands.Add(new SessionStateFunctionEntry("Import-Module",
+                @"Microsoft.PowerShell.Core\Import-Module @Args 4>$null"));
 
         return iss;
     }

@@ -7,7 +7,7 @@ namespace Pog;
 public static class InternalState {
     private static string GetRootDirPath() {
         const string libDirName = @"\lib_compiled\";
-        var assemblyPath = Assembly.GetExecutingAssembly().Location!;
+        var assemblyPath = Assembly.GetExecutingAssembly().Location;
         var i = assemblyPath.LastIndexOf(libDirName, StringComparison.InvariantCultureIgnoreCase);
         if (i < 0) {
             throw new Exception("Could not find the root module directory, cannot initialize Pog.dll.");

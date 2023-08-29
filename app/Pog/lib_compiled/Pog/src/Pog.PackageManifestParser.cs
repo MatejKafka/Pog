@@ -41,6 +41,7 @@ internal static class PackageManifestParser {
     /// instead of the scriptblock itself, so it's double wrapped. Before this is fixed upstream, we have to go through
     /// the manifest and unwrap any scriptblock we find.
     /// TODO: report these findings upstream
+    // ReSharper disable once SuggestBaseTypeForParameter
     private static void UnwrapHashtableScriptBlocks(Hashtable hashtable) {
         // use .Keys to avoid exception from modifying an iterated-over Hashtable
         foreach (var key in hashtable.Keys.Cast<object>().ToList()) {

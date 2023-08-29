@@ -49,8 +49,7 @@ public class ContainerEnableInternalState {
             throw new InvalidOperationException(
                     $"${StateVariableName} variable is missing, Pog package manifests must be executed inside the Pog environment.");
         }
-        var containerState = containerStateVar.Value as ContainerEnableInternalState;
-        if (containerState == null) {
+        if (containerStateVar.Value is not ContainerEnableInternalState containerState) {
             throw new InvalidOperationException(
                     $"${StateVariableName} is not of type {nameof(ContainerEnableInternalState)}");
         }

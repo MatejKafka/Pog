@@ -6,6 +6,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 
+#pragma warning disable CS1574 // XML comment has cref attribute that could not be resolved
+// ReSharper disable SuggestVarOrType_BuiltInTypes
+// ReSharper disable RedundantSuppressNullableWarningExpression
+// ReSharper disable InconsistentNaming
+
 namespace Pog.Native;
 
 /// <content>
@@ -254,7 +259,7 @@ public static partial class Win32 {
             ENUMRESNAMEPROCW lpEnumFunc, nint lParam);
 
     /// <inheritdoc cref="EnumResourceLanguages(HMODULE, ResourceAtom, ResourceAtom, ENUMRESLANGPROCW, nint)"/>
-    internal static unsafe BOOL EnumResourceLanguages(SafeHandle? hModule, ResourceAtom lpType, ResourceAtom lpName,
+    internal static BOOL EnumResourceLanguages(SafeHandle? hModule, ResourceAtom lpType, ResourceAtom lpName,
             ENUMRESLANGPROCW lpEnumFunc, nint lParam) {
         var hModuleAddRef = false;
         try {
@@ -454,7 +459,7 @@ public static partial class Win32 {
 
         public bool Equals(BOOL other) => this.Value == other.Value;
 
-        public override bool Equals(object obj) => obj is BOOL other && this.Equals(other);
+        public override bool Equals(object? obj) => obj is BOOL other && this.Equals(other);
 
         public override int GetHashCode() => this.Value.GetHashCode();
         public BOOL(bool value) => this.Value = value ? 1 : 0;
@@ -477,7 +482,7 @@ public static partial class Win32 {
 
         public bool Equals(HMODULE other) => this.Value == other.Value;
 
-        public override bool Equals(object obj) => obj is HMODULE other && this.Equals(other);
+        public override bool Equals(object? obj) => obj is HMODULE other && this.Equals(other);
 
         public override int GetHashCode() => this.Value.GetHashCode();
     }
@@ -493,7 +498,7 @@ public static partial class Win32 {
 
         public bool Equals(HRSRC other) => this.Value == other.Value;
 
-        public override bool Equals(object obj) => obj is HRSRC other && this.Equals(other);
+        public override bool Equals(object? obj) => obj is HRSRC other && this.Equals(other);
 
         public override int GetHashCode() => this.Value.GetHashCode();
     }
@@ -513,7 +518,7 @@ public static partial class Win32 {
 
         public bool Equals(HGLOBAL other) => this.Value == other.Value;
 
-        public override bool Equals(object obj) => obj is HGLOBAL other && this.Equals(other);
+        public override bool Equals(object? obj) => obj is HGLOBAL other && this.Equals(other);
 
         public override int GetHashCode() => this.Value.GetHashCode();
     }

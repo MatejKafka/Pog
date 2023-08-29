@@ -148,7 +148,7 @@ public record PackageManifest {
         return parsed;
     }
 
-    public enum PackageArchitecture { Any, X64, X86, ARM64 }
+    public enum PackageArchitecture { Any, X64, X86, Arm64 }
 
     private PackageArchitecture[]? ParseArchitecture(HashtableParser parser, string[] raw) {
         var parsed = new PackageArchitecture[raw.Length];
@@ -166,7 +166,7 @@ public record PackageManifest {
         {"*", PackageArchitecture.Any},
         {"x86", PackageArchitecture.X86},
         {"x64", PackageArchitecture.X64},
-        {"arm64", PackageArchitecture.ARM64},
+        {"arm64", PackageArchitecture.Arm64},
     };
 
     private PackageInstallParameters? ParseInstallHashtable(HashtableParser parser) {
