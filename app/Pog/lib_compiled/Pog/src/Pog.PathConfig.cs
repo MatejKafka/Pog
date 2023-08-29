@@ -42,6 +42,23 @@ public class PathConfig {
         public const string ShortcutDirRelPath = ".";
         public const string CommandDirRelPath = "./.commands";
         public const string ShortcutStubDirRelPath = "./.commands/shortcuts";
+
+        internal const string AppDirName = "app";
+        internal const string CacheDirName = "cache";
+        internal const string LogDirName = "logs";
+        internal const string DataDirName = "data";
+        internal const string ConfigDirName = "config";
+
+        /// Temporary directory where the previous ./app directory is moved when installing
+        /// a new version to support rollback in case of a failed install.
+        internal const string AppBackupDirName = ".POG_INTERNAL_app_old";
+        /// Temporary directory used for archive extraction.
+        internal const string TmpExtractionDirName = ".POG_INTERNAL_install_tmp";
+        /// Temporary directory where the new app directory is composed for multi-source installs before moving it in place.
+        internal const string NewAppDirName = ".POG_INTERNAL_app_new";
+        /// Temporary path where a deleted directory is first moved so that the delete
+        /// is an atomic operation with respect to the original location.
+        internal const string TmpDeleteDirName = ".POG_INTERNAL_delete_tmp";
     }
 
     /// Directory where exported shortcuts from packages are copied (system-wide).

@@ -177,14 +177,24 @@ public static class FsUtils {
     /// It is not possible to atomically delete a directory. Instead, we use a temporary directory
     /// to first move it out of the way, and then delete it. Note that `tmpMovePath` must
     /// be on the same filesystem as `srcDirPath`.
-    public static void DeleteDirectoryAtomically(string srcDirPath, string tmpMovePath, bool ignoreNotFound = false) {
-        try {
-            MoveAtomically(srcDirPath, tmpMovePath);
-        } catch (FileNotFoundException) when (ignoreNotFound) {
-            return;
-        }
+    public static void DeleteDirectoryAtomically(string srcDirPath, string tmpMovePath) {
+        MoveAtomically(srcDirPath, tmpMovePath);
         ForceDeleteDirectory(tmpMovePath);
     }
+
+    /// <inheritdoc cref="DeleteDirectoryAtomically"/>
+    public static bool EnsureDeleteDirectoryAtomically(string srcDirPath, string tmpMovePath) {
+        try {
+            MoveAtomically(srcDirPath, tmpMovePath);
+        } catch (FileNotFoundException) {
+            return false;
+        } catch (DirectoryNotFoundException) {
+            return false;
+        }
+        ForceDeleteDirectory(tmpMovePath);
+        return true;
+    }
+
 
     /// Attempts to atomically move the directory at `srcPath` to `destinationPath`. Returns `true on success,
     /// `false` if the directory is locked, throws an exception for other error cases.

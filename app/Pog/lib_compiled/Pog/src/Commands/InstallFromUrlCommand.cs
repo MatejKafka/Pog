@@ -19,22 +19,13 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
     [Parameter(Mandatory = true, ValueFromPipeline = true)]
     public PackageInstallParameters Params = null!;
 
-    private const string AppDirName = "app";
-    /// Temporary directory where the previous ./app directory is moved when installing
-    /// a new version to support rollback in case of a failed install.
-    private const string AppBackupDirName = ".POG_INTERNAL_app_old";
-    /// Temporary directory used for archive extraction.
-    private const string TmpExtractionDirName = ".POG_INTERNAL_install_tmp";
-    /// Temporary directory where the new app directory is composed for multi-source installs before moving it in place.
-    private const string NewAppDirName = ".POG_INTERNAL_app_new";
-    /// Temporary directory where a deleted directory is first moved so that the delete
-    /// is an atomic operation with respect to the original location.
-    private const string TmpDeleteDirName = ".POG_INTERNAL_delete_tmp";
-
-
     private string _packageDirPath = null!;
     private string _appDirPath = null!;
     private string _newAppDirPath = null!;
+    private string _oldAppDirPath = null!;
+    private string _extractionDirPath = null!;
+    private string _tmpDeletePath = null!;
+
     private bool _allowOverwrite = false;
     private bool _lowPriorityDownload;
     private Package _package = null!;
@@ -44,8 +35,11 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
     protected override void BeginProcessing() {
         base.BeginProcessing();
         _packageDirPath = SessionState.Path.CurrentLocation.ProviderPath;
-        _appDirPath = _p(AppDirName);
-        _newAppDirPath = _p(NewAppDirName);
+        _appDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.AppDirName}";
+        _newAppDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.NewAppDirName}";
+        _oldAppDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.AppBackupDirName}";
+        _extractionDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.TmpExtractionDirName}";
+        _tmpDeletePath = $@"{_packageDirPath}\{PathConfig.PackagePaths.TmpDeleteDirName}";
 
         // read download parameters from the global container info variable
         var internalInfo = Container.ContainerInternalInfo.GetCurrent(this);
@@ -54,21 +48,21 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
         _package = internalInfo.Package;
 
 
-        if (new[] {_p(TmpExtractionDirName), _newAppDirPath, _p(TmpDeleteDirName)}.Any(FsUtils.EnsureDeleteDirectory)) {
+        if (new[] {_extractionDirPath, _newAppDirPath, _tmpDeletePath}.Any(FsUtils.EnsureDeleteDirectory)) {
             WriteWarning("Removed orphaned tmp installer directories, probably from an interrupted previous install...");
         }
 
-        if (Directory.Exists(_p(AppBackupDirName))) {
+        if (Directory.Exists(_oldAppDirPath)) {
             // the installation has been interrupted before it cleaned up; to be safe, always revert to the previous version,
             //  in case we add some post-install steps after the ./app directory is moved in place, because otherwise if we
             //  would keep the new version, we'd have to check that the follow-up steps all finished
             if (Directory.Exists(_appDirPath)) {
                 WriteWarning("Clearing an incomplete app directory from a previous interrupted install...");
                 // remove atomically, so that the user doesn't see a partially deleted app directory in case this is interrupted again
-                FsUtils.DeleteDirectoryAtomically(_appDirPath, _p(TmpDeleteDirName));
+                FsUtils.DeleteDirectoryAtomically(_appDirPath, _tmpDeletePath);
             }
             WriteWarning("Restoring the previous app directory to recover from an interrupted install...");
-            FsUtils.MoveAtomically(_p(AppBackupDirName), _appDirPath);
+            FsUtils.MoveAtomically(_oldAppDirPath, _appDirPath);
         }
 
         if (Directory.Exists(_appDirPath)) {
@@ -97,8 +91,8 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
     }
 
     /// Here, the actual download &amp; extraction is done.
-    /// Each retrieved archive is extracted into <see cref="TmpExtractionDirName"/> and the relevant subdirectory is then
-    /// moved into its target name at <see cref="NewAppDirName"/>.
+    /// Each retrieved archive is extracted into <see cref="_extractionDirPath"/> and the relevant subdirectory is then
+    /// moved into its target name at <see cref="_newAppDirPath"/>.
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
@@ -156,22 +150,17 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
     /// here, we install the new ./app directory created during extraction
     protected override void EndProcessing() {
         base.EndProcessing();
-        ReplaceAppDirectory(_newAppDirPath, _appDirPath, _p(AppBackupDirName));
+        ReplaceAppDirectory(_newAppDirPath, _appDirPath, _oldAppDirPath);
     }
 
     public new void Dispose() {
         base.Dispose();
 
-        FsUtils.EnsureDeleteDirectory(_p(TmpDeleteDirName));
-        FsUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
+        FsUtils.EnsureDeleteDirectory(_tmpDeletePath);
+        FsUtils.EnsureDeleteDirectory(_extractionDirPath);
         FsUtils.EnsureDeleteDirectory(_newAppDirPath);
         // do not attempt to delete AppBackupDirName here, it should be already cleaned up
         //  (and if it isn't, it probably also won't work here)
-    }
-
-    /// Resolve a package-relative path to an absolute path.
-    private string _p(string relPath) {
-        return Path.Combine(_packageDirPath, relPath);
     }
 
     /// <remarks>Assumes that both paths are resolved and cleaned.</remarks>
@@ -197,19 +186,17 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
 
     private void InstallArchive(PackageInstallParametersArchive param,
             SharedFileCache.IFileLock downloadedFile, string targetPath) {
-        string extractionDir;
         using (downloadedFile) {
             // extract the archive to a temporary directory
-            extractionDir = _p(TmpExtractionDirName);
             InvokePogCommand(new ExpandArchive7Zip(this) {
                 ArchivePath = downloadedFile.Path,
-                TargetPath = extractionDir,
+                TargetPath = _extractionDirPath,
                 Filter = param.Subdirectory == null ? null : new[] {param.Subdirectory},
             });
         }
 
         // find and prepare the used subdirectory
-        var usedDir = GetExtractedSubdirectory(extractionDir, param.Subdirectory);
+        var usedDir = GetExtractedSubdirectory(_extractionDirPath, param.Subdirectory);
         PrepareExtractedSubdirectory(usedDir.FullName, param.SetupScript, param.NsisInstaller);
 
         // move `usedDir` to the new app directory
@@ -224,7 +211,7 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
         }
 
         // remove any unused files from the extraction dir
-        FsUtils.EnsureDeleteDirectory(extractionDir);
+        FsUtils.EnsureDeleteDirectory(_extractionDirPath);
     }
 
     private DirectoryInfo GetExtractedSubdirectory(string extractedRootPath, string? subdirectory) {
@@ -343,7 +330,7 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
             }
         }
         // delete the backup app directory
-        FsUtils.DeleteDirectoryAtomically(backupDir, _p(TmpDeleteDirName));
+        FsUtils.DeleteDirectoryAtomically(backupDir, _tmpDeletePath);
     }
 
     private SafeFileHandle MoveOutOldAppDirectory(string appDirPath, string backupPath) {
