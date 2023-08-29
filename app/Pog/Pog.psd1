@@ -16,6 +16,7 @@
 		'Install-Pog'
 		'Export-Pog'
 		'Disable-Pog'
+		'Uninstall-Pog'
 
 		'Get-PogRepositoryPackage'
 		'Get-PogPackage'
