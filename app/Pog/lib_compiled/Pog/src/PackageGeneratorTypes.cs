@@ -19,22 +19,29 @@ public class GeneratorRepository {
         Path = generatorRepositoryDirPath;
     }
 
+    public IEnumerable<string> EnumerateGeneratorFileNames(string searchPattern = "*") {
+        return FsUtils.EnumerateNonHiddenFileNames(Path, searchPattern + ".psd1");
+    }
+
     public IEnumerable<string> EnumerateGeneratorNames(string searchPattern = "*") {
-        return FsUtils.EnumerateNonHiddenFileNames(Path, searchPattern + ".psd1")
-                .Select(IOPath.GetFileNameWithoutExtension);
+        return EnumerateGeneratorFileNames(searchPattern).Select(IOPath.GetFileNameWithoutExtension);
     }
 
     public IEnumerable<PackageGenerator> Enumerate(string searchPattern = "*") {
-        var repo = this;
-        return EnumerateGeneratorNames(searchPattern).Select(p => new PackageGenerator(repo, p));
+        return EnumerateGeneratorFileNames(searchPattern)
+                .Select(mn => new PackageGenerator(IOPath.Combine(Path, mn), IOPath.GetFileNameWithoutExtension(mn)));
     }
 
     public PackageGenerator GetPackage(string packageName, bool resolveName, bool mustExist) {
         Verify.PackageName(packageName);
+
+        var manifestName = $"{packageName}.psd1";
         if (resolveName) {
-            packageName = FsUtils.GetResolvedChildName(Path, packageName);
+            manifestName = FsUtils.GetResolvedChildName(Path, manifestName);
+            packageName = IOPath.GetFileNameWithoutExtension(manifestName);
         }
-        var package = new PackageGenerator(this, packageName);
+
+        var package = new PackageGenerator(IOPath.Combine(Path, manifestName), packageName);
         if (mustExist && !package.Exists) {
             throw new PackageGeneratorNotFoundException(
                     $"Package generator '{package.PackageName}' does not exist, expected path: {package.Path}");
@@ -58,8 +65,8 @@ public class PackageGenerator {
         }
     }
 
-    internal PackageGenerator(GeneratorRepository repository, string packageName) {
-        Path = IOPath.Combine(repository.Path, $"{packageName}.psd1");
+    internal PackageGenerator(string generatorPath, string packageName) {
+        Path = generatorPath;
         PackageName = packageName;
     }
 

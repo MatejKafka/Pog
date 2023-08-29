@@ -48,7 +48,7 @@ public static class FsUtils {
     public static string GetResolvedChildName(string parent, string childName) {
         Verify.Assert.FileName(childName);
         try {
-            return new DirectoryInfo(parent).EnumerateDirectories(childName).Single().Name;
+            return new DirectoryInfo(parent).EnumerateFileSystemInfos(childName).Single().Name;
         } catch (InvalidOperationException) {
             // the child does not exist yet, return the name as-is
             return childName;
