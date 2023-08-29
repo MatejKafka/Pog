@@ -15,6 +15,11 @@
 	CmdletsToExport = @(
 		'Install-Pog'
 		'Export-Pog'
+
+		'Get-PogRepositoryPackage'
+		'Get-PogPackage'
+
+		'Get-PogRoot'
 	)
 
 	FunctionsToExport = @(
@@ -29,12 +34,9 @@
 
 		'Confirm-PogRepositoryPackage'
 		'Confirm-PogPackage'
-		'Get-PogRepositoryPackage'
-		'Get-PogPackage'
 
 		'Clear-PogDownloadCache'
 
-		'Get-PogRoot'
 		'Edit-PogRootList'
 	)
 }

@@ -56,6 +56,17 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         WriteInformation(message, null);
     }
 
+    protected void WriteObjectEnumerable<T>(IEnumerable<T> enumerable) {
+        foreach (var o in enumerable) {
+            WriteObject(o);
+        }
+    }
+
+    protected void WriteError(Exception exception, string errorId, ErrorCategory errorCategory,
+            object? targetObject) {
+        WriteError(new ErrorRecord(exception, errorId, errorCategory, targetObject));
+    }
+
     protected void ThrowTerminatingError(Exception exception, string errorId, ErrorCategory errorCategory,
             object? targetObject) {
         ThrowTerminatingError(new ErrorRecord(exception, errorId, errorCategory, targetObject));

@@ -5,141 +5,10 @@ using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
 # re-export binary cmdlets from Pog.dll
-Export-ModuleMember -Cmdlet Install-Pog, Export-Pog
+Export-ModuleMember -Cmdlet `
+	Install-Pog, Export-Pog, `
+	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot
 
-
-Export function Get-PogRepositoryPackage {
-	# .SYNOPSIS
-	#	Lists packages available in the package repository.
-	# .DESCRIPTION
-	#	The `Get-PogRepositoryPackage` cmdlet lists packages from the package repository.
-	#	Each package is represented by a single `Pog.RepositoryPackage` instance. By default, only the latest version
-	#	of each package is returned. If you want to list all available versions, use the `-AllVersions` switch parameter.
-	[CmdletBinding(DefaultParameterSetName="Version")]
-	[OutputType([Pog.RepositoryPackage])]
-	param(
-			### Names of packages to return. If not passed, all repository packages are returned.
-			[Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageNameCompleter])]
-			[string[]]
-		$PackageName,
-			# TODO: figure out how to remove this parameter when -PackageName is an array
-
-			### Return only a single package with the given version. An exception is thrown if the version is not found.
-			[Parameter(Position=1, ParameterSetName="Version")]
-			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
-			[Pog.PackageVersion]
-		$Version,
-			### Return all available versions of each repository package. By default, only the latest one is returned.
-			[Parameter(ParameterSetName="AllVersions")]
-			[switch]
-		$AllVersions
-	)
-
-	begin {
-		if ($Version) {
-			if ($MyInvocation.ExpectingInput) {throw "-Version must not be passed together with pipeline input."}
-			if (-not $PackageName) {throw "-Version must not be passed without also passing -PackageName."}
-			if (@($PackageName).Count -gt 1) {throw "-Version must not be passed when -PackageName contains multiple package names."}
-
-			try {
-				return $REPOSITORY.GetPackage($PackageName, $true, $true).GetVersionPackage($Version, $true)
-			} catch [Pog.RepositoryPackageNotFoundException], [Pog.RepositoryPackageVersionNotFoundException] {
-				$PSCmdlet.ThrowTerminatingError($_)
-			}
-		}
-
-		# by default, return all available packages
-		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $MyInvocation.ExpectingInput) {
-			$PackageName = $REPOSITORY.EnumeratePackageNames()
-		}
-	}
-
-	process {
-		if ($Version) {return} # already processed
-		foreach ($pn in $PackageName) {& {
-			$ErrorActionPreference = "Continue"
-			try {
-				# TODO: use Enumerate($pn) to support wildcards and handle arrays in the rest of the code
-				#  same for Get-PogPackage
-				$c = $REPOSITORY.GetPackage($pn, $true, $true)
-			} catch [Pog.RepositoryPackageNotFoundException], [Pog.InvalidPackageNameException] {
-				$PSCmdlet.WriteError($_)
-				continue
-			}
-			$ErrorActionPreference = "Stop"
-			if ($AllVersions) {
-				foreach ($p in $c.Enumerate()) {$p}
-			} else {
-				echo $c.GetLatestPackage()
-			}
-		}}
-	}
-}
-
-Export function Get-PogPackage {
-	# .SYNOPSIS
-	#	Lists installed packages.
-	# .DESCRIPTION
-	#	The `Get-PogPackage` cmdlet lists installed packages. Each package is represented by a single `Pog.ImportedPackage` instance.
-	#	By default, packages from all package roots are returned, unless the `-PackageRoot` parameter is set.
-	[CmdletBinding()]
-	[OutputType([Pog.ImportedPackage])]
-	param(
-			### Names of installed packages to return. If not passed, all installed packages are returned.
-			[Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
-			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
-			[string[]]
-		$PackageName,
-			### Path to the content root in which to list packages. If not passed, installed packages from all package roots are returned.
-			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
-			[string]
-		$PackageRoot
-	)
-
-	process {
-		if ($PackageRoot) {
-			$PackageRoot = try {
-				$PACKAGE_ROOTS.ResolveValidPackageRoot($PackageRoot)
-			} catch [Pog.PackageRootNotValidException] {
-				$PSCmdlet.ThrowTerminatingError($_)
-			}
-		}
-
-		if (-not $PackageName) {
-			# do not eagerly load the manifest
-			if ($PackageRoot) {
-				foreach ($p in $PACKAGE_ROOTS.EnumeratePackages($PackageRoot, $false)) {$p}
-			} else {
-				foreach ($p in $PACKAGE_ROOTS.EnumeratePackages($false)) {$p}
-			}
-		} else {
-			$ErrorActionPreference = "Continue"
-			foreach ($p in $PackageName) {
-				try {
-					if ($PackageRoot) {
-						# do not eagerly load the manifest ---------------------\/
-						echo $PACKAGE_ROOTS.GetPackage($p, $PackageRoot, $true, $false)
-					} else {
-						# do not eagerly load the manifest -------\/
-						echo $PACKAGE_ROOTS.GetPackage($p, $true, $false)
-					}
-				} catch [Pog.ImportedPackageNotFoundException], [Pog.InvalidPackageNameException] {
-					$PSCmdlet.WriteError($_)
-				}
-			}
-		}
-	}
-}
-
-Export function Get-PogRoot {
-	# .SYNOPSIS
-	#	Returns a list of all registered package roots, even obsolete (non-existent) ones.
-	[CmdletBinding()]
-	[OutputType([string])]
-	param()
-	return $PACKAGE_ROOTS.PackageRoots.AllPackageRoots
-}
 
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
 #  to get the file updates right from a concurrency perspective
@@ -447,7 +316,7 @@ Export function Import-Pog {
 			$PACKAGE_ROOTS.DefaultPackageRoot
 		} else {
 			try {$PACKAGE_ROOTS.ResolveValidPackageRoot($TargetPackageRoot)}
-			catch [Pog.PackageRootNotValidException] {
+			catch [Pog.InvalidPackageRootException] {
 				$PSCmdlet.ThrowTerminatingError($_)
 			}
 		}
@@ -491,7 +360,7 @@ Export function Import-Pog {
 			}
 
 			# don't load the manifest yet (may not be valid, will be loaded in ConfirmManifestOverwrite)
-			$p = $PACKAGE_ROOTS.GetPackage($ResolvedTargetName, $TargetPackageRoot, $true, $false)
+			$p = $PACKAGE_ROOTS.GetPackage($ResolvedTargetName, $TargetPackageRoot, $true, $false, $false)
 
 			if (-not (ConfirmManifestOverwrite $p $TargetPackageRoot $SrcPackage -Force:$Force)) {
 				Write-Information "Skipping import of package '$($p.PackageName)'."
@@ -722,12 +591,12 @@ Export function New-PogImportedPackage {
 			$PACKAGE_ROOTS.DefaultPackageRoot
 		} else {
 			try {$PACKAGE_ROOTS.ResolveValidPackageRoot($PackageRoot)}
-			catch [Pog.PackageRootNotValidException] {
+			catch [Pog.InvalidPackageRootException] {
 				$PSCmdlet.ThrowTerminatingError($_)
 			}
 		}
 
-		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $PackageRoot, $false, $false)
+		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $PackageRoot, $false, $false, $false)
 		if ($p.Exists) {
 			throw "Package already exists: $($p.Path)"
 		}

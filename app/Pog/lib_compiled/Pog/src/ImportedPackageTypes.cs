@@ -13,8 +13,8 @@ public class ImportedPackageNotFoundException : DirectoryNotFoundException {
     public ImportedPackageNotFoundException(string message) : base(message) {}
 }
 
-public class PackageRootNotValidException : ArgumentException {
-    public PackageRootNotValidException(string message) : base(message) {}
+public class InvalidPackageRootException : ArgumentException {
+    public InvalidPackageRootException(string message) : base(message) {}
 }
 
 [PublicAPI]
@@ -34,10 +34,10 @@ public class ImportedPackageManager {
             return normalized;
         }
         if (PackageRoots.MissingPackageRoots.Contains(normalized)) {
-            throw new PackageRootNotValidException(
+            throw new InvalidPackageRootException(
                     $"The passed package root is registered, but the directory is missing: {path}");
         } else {
-            throw new PackageRootNotValidException($"The passed package root is not registered: {path}");
+            throw new InvalidPackageRootException($"The passed package root is not registered: {path}");
         }
     }
 
@@ -61,7 +61,8 @@ public class ImportedPackageManager {
     }
 
     /// Assumes that the package root is valid.
-    public ImportedPackage GetPackage(string packageName, string packageRoot, bool resolveName, bool loadManifest) {
+    public ImportedPackage GetPackage(string packageName, string packageRoot,
+            bool resolveName, bool loadManifest, bool mustExist) {
         Verify.PackageName(packageName);
         Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
 
@@ -71,10 +72,12 @@ public class ImportedPackageManager {
 
         var p = new ImportedPackage(packageName, IOPath.Combine(packageRoot, packageName), false);
 
-        if (loadManifest) {
-            if (!p.Exists) {
-                throw new ImportedPackageNotFoundException($"Package '{p.PackageName}' at '{p.Path}' does not exist");
-            }
+        if (mustExist && !p.Exists) {
+            throw new ImportedPackageNotFoundException(
+                    $"Could not find package '{p.PackageName}' at package root '{packageRoot}'. Searched path: {p.Path}");
+        }
+
+        if (loadManifest && p.Exists) {
             p.ReloadManifest();
         }
         return p;
@@ -94,7 +97,7 @@ public class ImportedPackageManager {
         Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
         return FsUtils.EnumerateNonHiddenDirectoryNames(packageRoot, namePattern)
                 // do not resolve name, it already has the correct casing
-                .Select(p => GetPackage(p, packageRoot, false, loadManifest));
+                .Select(p => GetPackage(p, packageRoot, false, loadManifest, false));
     }
 }
 
