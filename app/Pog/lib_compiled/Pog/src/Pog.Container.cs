@@ -156,6 +156,7 @@ public class Container : IDisposable {
                 ContainerType.Enable => Path.Combine(containerDir, @"Enable\Env_Enable.psm1"),
                 ContainerType.Install => Path.Combine(containerDir, @"Install\Env_Install.psm1"),
                 ContainerType.GetInstallHash => Path.Combine(containerDir, @"Install\Env_GetInstallHash.psm1"),
+                ContainerType.Disable => Path.Combine(containerDir, @"Enable\Env_Disable.psm1"),
                 _ => throw new ArgumentOutOfRangeException(nameof(_containerType), _containerType, null),
             },
         });
@@ -172,7 +173,7 @@ public class Container : IDisposable {
     }
 
     /// Enum of supported container environments.
-    public enum ContainerType { Install, GetInstallHash, Enable }
+    public enum ContainerType { Install, GetInstallHash, Enable, Disable }
 
     [PublicAPI]
     public record OutputStreamConfig(ActionPreference Progress, ActionPreference Warning,

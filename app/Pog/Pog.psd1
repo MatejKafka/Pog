@@ -15,6 +15,7 @@
 	CmdletsToExport = @(
 		'Install-Pog'
 		'Export-Pog'
+		'Disable-Pog'
 
 		'Get-PogRepositoryPackage'
 		'Get-PogPackage'

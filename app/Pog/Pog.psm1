@@ -6,7 +6,7 @@ using module .\lib\Copy-CommandParameters.psm1
 
 # re-export binary cmdlets from Pog.dll
 Export-ModuleMember -Cmdlet `
-	Install-Pog, Export-Pog, `
+	Install-Pog, Export-Pog, Disable-Pog, `
 	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot
 
 
