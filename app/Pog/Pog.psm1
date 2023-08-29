@@ -5,7 +5,7 @@ using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
 # re-export binary cmdlets from Pog.dll
-Export-ModuleMember -Cmdlet Export-Pog
+Export-ModuleMember -Cmdlet Install-Pog, Export-Pog
 
 
 Export function Get-PogRepositoryPackage {
@@ -340,72 +340,6 @@ Export function Enable-Pog {
 
 			Write-Information "Enabling $($p.GetDescriptionString())..."
 			Invoke-Container Enable $p -InternalArguments $InternalArgs -PackageArguments $PackageParameters
-			if ($PassThru) {
-				echo $p
-			}
-		}
-	}
-}
-
-Export function Install-Pog {
-	# .SYNOPSIS
-	#	Downloads and extracts package files.
-	# .DESCRIPTION
-	#	Downloads and extracts package files, populating the ./app directory of the package. Downloaded files
-	#	are cached, so repeated installs only require internet connection for the initial download.
-	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
-	[OutputType([Pog.ImportedPackage])]
-	param(
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
-			[Pog.ImportedPackage[]]
-		$Package,
-			### Name of the package to install. This is the target name, not necessarily the manifest app name.
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
-			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
-			[string[]]
-		$PackageName,
-			### If some version of the package is already installed, prompt before overwriting
-			### with the current version according to the manifest.
-			[switch]
-		$Confirm,
-			### Download files with low priority, which results in better network responsiveness
-			### for other programs, but possibly slower download speed.
-			[switch]
-		$LowPriority,
-			### Return a [Pog.ImportedPackage] object with information about the installed package.
-			[switch]
-		$PassThru
-	)
-
-	# TODO: do this in parallel (even for packages passed as array)
-	process {
-		$Packages = if ($Package) {$Package} else {& {
-			$ErrorActionPreference = "Continue"
-			foreach($pn in $PackageName) {
-				try {
-					$PACKAGE_ROOTS.GetPackage($pn, $true, $true)
-				} catch [Pog.ImportedPackageNotFoundException] {
-					$PSCmdlet.WriteError($_)
-				}
-			}
-		}}
-
-		foreach ($p in $Packages) {
-			$p.EnsureManifestIsLoaded()
-
-			if (-not $p.Manifest.Install) {
-				Write-Information "Package '$($p.PackageName)' does not have an Install block."
-				continue
-			}
-
-			$InternalArgs = @{
-				AllowOverwrite = -not [bool]$Confirm
-				DownloadLowPriority = [bool]$LowPriority
-			}
-
-			Write-Information "Installing $($p.GetDescriptionString())..."
-			# FIXME: probably discard container output, it breaks -PassThru
-			Invoke-Container Install $p -InternalArguments $InternalArgs
 			if ($PassThru) {
 				echo $p
 			}

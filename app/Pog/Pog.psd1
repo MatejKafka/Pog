@@ -13,13 +13,13 @@
 	AliasesToExport = @('pog')
 
 	CmdletsToExport = @(
+		'Install-Pog'
 		'Export-Pog'
 	)
 
 	FunctionsToExport = @(
 		'Invoke-Pog'
 		'Import-Pog'
-		'Install-Pog'
 		'Enable-Pog'
 
 		'Update-PogManifest'
