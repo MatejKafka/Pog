@@ -1,5 +1,6 @@
 ﻿using System.Management.Automation;
 using JetBrains.Annotations;
+using Pog.Commands.Common;
 using Pog.Commands.Internal;
 
 namespace Pog.Commands;
@@ -15,7 +16,7 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "FileDownload", DefaultParameterSetName = "Hash")]
 [OutputType(typeof(InvokeFileDownload.TmpFileLock), typeof(SharedFileCache.CacheEntryLock))]
-public class InvokeFileDownloadCommand : PSCmdlet {
+public class InvokeFileDownloadCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string SourceUrl = null!;
 
     [Parameter(ParameterSetName = "Hash")]
@@ -30,8 +31,12 @@ public class InvokeFileDownloadCommand : PSCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        ExpectedHash = ExpectedHash?.ToUpper();
-
-        WriteObject(InvokeFileDownload.Invoke(this, SourceUrl, ExpectedHash, DownloadParameters, Package, StoreInCache));
+        WriteObject(InvokePogCommand(new InvokeFileDownload(this) {
+            SourceUrl = SourceUrl,
+            ExpectedHash = ExpectedHash?.ToUpperInvariant(),
+            DownloadParameters = DownloadParameters,
+            Package = Package,
+            StoreInCache = StoreInCache,
+        }));
     }
 }

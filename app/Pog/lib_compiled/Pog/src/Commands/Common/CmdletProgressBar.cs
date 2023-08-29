@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Management.Automation;
 
-namespace Pog.Commands.Utils;
+namespace Pog.Commands.Common;
 
 public class CmdletProgressBar : IDisposable {
     // when progress print activity ID is not set explicitly, use an auto-incrementing ID
@@ -11,14 +11,14 @@ public class CmdletProgressBar : IDisposable {
     private readonly Action<ProgressRecord> _writeProgressFn;
     private readonly ProgressRecord _progressRecord;
 
-    public CmdletProgressBar(Action<ProgressRecord> writeProgressFn, int? activityId, string activity, string description) {
+    public CmdletProgressBar(Action<ProgressRecord> writeProgressFn, ProgressActivity metadata) {
         _writeProgressFn = writeProgressFn;
-        _progressRecord = new ProgressRecord(activityId ?? _nextActivityId++, activity, description);
-        writeProgressFn(_progressRecord);
+        _progressRecord = new ProgressRecord(metadata.Id ?? _nextActivityId++, metadata.Activity,
+                metadata.Description);
+        _writeProgressFn(_progressRecord);
     }
 
-    public CmdletProgressBar(Cmdlet cmdlet, int? activityId, string activity, string description)
-            : this(cmdlet.WriteProgress, activityId, activity, description) {}
+    public CmdletProgressBar(Cmdlet cmdlet, ProgressActivity metadata) : this(cmdlet.WriteProgress, metadata) {}
 
     public void Update(int percentComplete) {
         _progressRecord.PercentComplete = percentComplete;
@@ -30,4 +30,6 @@ public class CmdletProgressBar : IDisposable {
         _progressRecord.RecordType = ProgressRecordType.Completed;
         _writeProgressFn(_progressRecord);
     }
+
+    public record struct ProgressActivity(int? Id = null, string? Activity = null, string? Description = null);
 }

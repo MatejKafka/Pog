@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
-using Pog.PSAttributes;
 using Pog.Utils;
 
 namespace Pog.Commands;
@@ -14,22 +12,11 @@ namespace Pog.Commands;
 /// Exports shortcuts from the package to the start menu, and commands to an internal Pog directory that's available on $env:PATH.
 /// </para>
 /// </summary>
-[PublicAPI]
-[Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = "PackageName")]
-[OutputType(typeof(ImportedPackage))]
-public class ExportPogCommand : PSCmdlet {
-    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "Package", ValueFromPipeline = true)]
-    public ImportedPackage[] Package = null!;
-
-    /// Name of the package to export. This is the target name, not necessarily the manifest app name.
-    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline = true)]
-    [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
-    public string[] PackageName = null!;
-
+[UsedImplicitly]
+[Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = PackageNamePS)]
+public class ExportPogCommand : ImportedPackageCommand {
     /// Export shortcuts to the system-wide start menu for all users, instead of the user-specific start menu.
     [Parameter] public SwitchParameter Systemwide;
-    /// Return a [Pog.ImportedPackage] object with information about the package.
-    [Parameter] public SwitchParameter PassThru;
 
     private string _startMenuDir = null!;
 
@@ -41,29 +28,9 @@ public class ExportPogCommand : PSCmdlet {
         Directory.CreateDirectory(_startMenuDir);
     }
 
-    private IEnumerable<ImportedPackage> GetImportedPackages(IEnumerable<string> packageNames) {
-        return packageNames.SelectOptional(pn => {
-            try {
-                return InternalState.ImportedPackageManager.GetPackage(pn, true, true);
-            } catch (ImportedPackageNotFoundException e) {
-                WriteError(new ErrorRecord(e, "PackageNotFound", ErrorCategory.InvalidArgument, pn));
-                return null;
-            }
-        });
-    }
-
-    protected override void ProcessRecord() {
-        base.ProcessRecord();
-
-        var packages = ParameterSetName == "PackageName" ? GetImportedPackages(PackageName).ToArray() : Package;
-        foreach (var p in packages) {
-            ExportShortcuts(p);
-            ExportCommands(p);
-
-            if (PassThru) {
-                WriteObject(p);
-            }
-        }
+    protected override void ProcessPackage(ImportedPackage package) {
+        ExportShortcuts(package);
+        ExportCommands(package);
     }
 
     private void ExportShortcuts(ImportedPackage p) {

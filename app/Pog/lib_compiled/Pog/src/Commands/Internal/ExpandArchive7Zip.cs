@@ -5,42 +5,36 @@ using System.Linq;
 using System.Management.Automation;
 using System.Text;
 using System.Text.RegularExpressions;
-using Pog.Commands.Utils;
+using Pog.Commands.Common;
 using Pog.Native;
 
 namespace Pog.Commands.Internal;
 
-public class ExpandArchive7Zip : Command, IDisposable {
-    private readonly string _archivePath;
-    private readonly string _targetPath;
-    private readonly string _targetPathOrig;
+public class ExpandArchive7Zip : VoidCommand, IDisposable {
+    [Parameter(Mandatory = true)] public string ArchivePath = null!;
+    [Parameter(Mandatory = true)] public string TargetPath = null!;
+    [Parameter] public string? RawTargetPath;
     /// <summary>
     /// <para type="description">
     /// If passed, only paths inside the archive matching at least one of the filters are extracted.
     /// </para>
     /// </summary>
-    private readonly string[]? _filterPatterns = null;
-    private readonly int? _progressActivityId;
-    private readonly string? _progressActivity;
-    private readonly string? _progressDescription;
+    [Parameter] public string[]? Filter = null;
+    [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
 
+    private string[]? _filterPatterns;
     private Process? _process;
+    private bool _stopping = false;
 
     // 7z.exe progress print pattern
     // e.g. ' 34% 10 - glib-2.dll'
     private static readonly Regex ProgressPrintRegex = new(@"^\s*(\d{1,3})%\s+\S+.*$");
 
-    public ExpandArchive7Zip(PSCmdlet cmdlet, string archivePath, string targetPath,
-            string[]? filterPatterns = null, int? progressActivityId = null, string? progressActivity = null,
-            string? progressDescription = null) : base(cmdlet) {
-        _archivePath = GetUnresolvedProviderPathFromPSPath(archivePath);
-        _targetPath = GetUnresolvedProviderPathFromPSPath(targetPath);
-        _targetPathOrig = targetPath;
-        _progressActivityId = progressActivityId;
-        _progressActivity = progressActivity;
-        _progressDescription = progressDescription;
+    public ExpandArchive7Zip(PogCmdlet cmdlet) : base(cmdlet) {}
 
-        _filterPatterns = filterPatterns?.Select(p => {
+    public override void Invoke() {
+        RawTargetPath ??= TargetPath;
+        _filterPatterns = Filter?.Select(p => {
             // normalize slashes
             var norm = p.Replace('/', '\\');
             if (norm.Split('\\').Any(s => s is "." or "..")) {
@@ -48,21 +42,21 @@ public class ExpandArchive7Zip : Command, IDisposable {
             }
             return norm;
         }).ToArray();
-    }
 
-    public void Invoke() {
-        if (Directory.Exists(_targetPath)) {
-            throw new IOException($"Target directory already exists: '{_targetPathOrig}'", -2146232800);
+        if (Directory.Exists(TargetPath)) {
+            throw new IOException($"Target directory already exists: '{RawTargetPath}'", -2146232800);
         }
 
-        WriteDebug($"Extracting archive using 7zip... (source: '{_archivePath}', target: '{_targetPath}')");
-        _process = new Process {StartInfo = SetupProcessStartInfo(_archivePath, _targetPath, _filterPatterns)};
+        WriteDebug($"Extracting archive using 7zip... (source: '{ArchivePath}', target: '{TargetPath}')");
+        _process = new Process {StartInfo = SetupProcessStartInfo(ArchivePath, TargetPath, _filterPatterns)};
+
+
+        ProgressActivity.Activity ??= "Extracting archive with 7zip";
+        ProgressActivity.Description ??= $"Extracting archive '{Path.GetFileName(ArchivePath)}'...";
+        using var progressBar = new CmdletProgressBar(Cmdlet, ProgressActivity);
 
         var completed = false;
         var errorStrSb = new StringBuilder();
-        var progressBar = new CmdletProgressBar(
-                Cmdlet, _progressActivityId, _progressActivity ?? "Extracting archive with 7zip",
-                _progressDescription ?? $"Extracting archive '{Path.GetFileName(_archivePath)}'...");
         try {
             _process.Start();
             // FIXME: we should probably be draining stdout somewhere, just in case 7zip decides to write something to it
@@ -85,7 +79,6 @@ public class ExpandArchive7Zip : Command, IDisposable {
             // ignore
             // this is often (but not always) triggered on Ctrl-c, when the loop above tries to write to a closed pipeline
         } finally {
-            progressBar.Dispose();
             if (!completed) {
                 CleanupTargetDir();
             }
@@ -95,6 +88,11 @@ public class ExpandArchive7Zip : Command, IDisposable {
         if (stdout != "") {
             // there shouldn't be anything written on stdout
             WriteWarning(stdout);
+        }
+
+        if (_stopping) {
+            // signal that we were stopped by the user
+            throw new PipelineStoppedException();
         }
 
         if (_process.ExitCode != 0) {
@@ -111,15 +109,17 @@ public class ExpandArchive7Zip : Command, IDisposable {
 
         // ensure the target directory exists (if the archive was empty or the filter pattern excluded everything,
         //  7zip won't create the target directory)
-        Directory.CreateDirectory(_targetPath);
+        Directory.CreateDirectory(TargetPath);
     }
 
     private void CleanupTargetDir() {
-        FsUtils.EnsureDeleteDirectory(_targetPath);
+        FsUtils.EnsureDeleteDirectory(TargetPath);
     }
 
     /// Should be called when Ctrl-c is pressed by the user.
     public override void StopProcessing() {
+        base.StopProcessing();
+        _stopping = true;
         // the 7z process also receives Ctrl-c, so we don't need to kill it manually, just wait for exit
         // ideally, we would cancel the ReadLine() call above, but the StreamReader API doesn't support
         //  cancellation until .NET 7; however, 7z seems to exit reliably on receiving Ctrl-c, so this works
@@ -192,9 +192,9 @@ public class ExpandArchive7Zip : Command, IDisposable {
                         + " -aoa" // automatically overwrite existing files (should not usually occur, unless
                         //           the archive is a bit malformed, but NSIS installers occasionally do it for some reason)
                         + " -stxPE", // refuse to extract PE binaries, unless they're recognized as a self-contained installer like NSIS;
-                        //             otherwise, if a package downloaded the program executable directly and forgot to pass -NoArchive,
-                        //             7zip would extract the PE segments, which is not very useful
-                        UseShellExecute = false,
+                //             otherwise, if a package downloaded the program executable directly and forgot to pass -NoArchive,
+                //             7zip would extract the PE segments, which is not very useful
+                UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true, // we must capture stderr, otherwise it would fight with pwsh output
             };

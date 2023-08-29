@@ -8,14 +8,13 @@ using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.Commands.Internal;
-using Pog.Commands.Utils;
 using Pog.Utils;
 
 namespace Pog.Commands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
-public class InstallFromUrlCommand : PogCmdlet, IDisposable {
+public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
     // created while parsing the package manifest
     [Parameter(Mandatory = true, ValueFromPipeline = true)]
     public PackageInstallParameters Params = null!;
@@ -33,7 +32,6 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     private const string TmpDeleteDirName = ".POG_INTERNAL_delete_tmp";
 
 
-    private Command? _currentRunningCmd;
     private string _packageDirPath = null!;
     private string _appDirPath = null!;
     private string _newAppDirPath = null!;
@@ -136,8 +134,12 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
         }
 
         var downloadParameters = new DownloadParameters(Params.UserAgent, _lowPriorityDownload);
-        using var downloadedFile = InvokeFileDownload.Invoke(
-                this, url, Params.ExpectedHash, downloadParameters, _package, false);
+        using var downloadedFile = InvokePogCommand(new InvokeFileDownload(this) {
+            SourceUrl = url,
+            ExpectedHash = Params.ExpectedHash,
+            DownloadParameters = downloadParameters,
+            Package = _package,
+        });
 
         switch (Params) {
             case PackageInstallParametersNoArchive:
@@ -157,12 +159,9 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
         ReplaceAppDirectory(_newAppDirPath, _appDirPath, _p(AppBackupDirName));
     }
 
-    protected override void StopProcessing() {
-        base.StopProcessing();
-        _currentRunningCmd?.StopProcessing();
-    }
+    public new void Dispose() {
+        base.Dispose();
 
-    public void Dispose() {
         FsUtils.EnsureDeleteDirectory(_p(TmpDeleteDirName));
         FsUtils.EnsureDeleteDirectory(_p(TmpExtractionDirName));
         FsUtils.EnsureDeleteDirectory(_newAppDirPath);
@@ -198,14 +197,16 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
 
     private void InstallArchive(PackageInstallParametersArchive param,
             SharedFileCache.IFileLock downloadedFile, string targetPath) {
-        // extract the archive to a temporary directory
-        var extractionDir = _p(TmpExtractionDirName);
-        var cmd = new ExpandArchive7Zip(this, downloadedFile.Path, extractionDir,
-                param.Subdirectory == null ? null : new[] {param.Subdirectory});
-        _currentRunningCmd = cmd;
-        cmd.Invoke();
-        _currentRunningCmd = null;
-        downloadedFile.Dispose();
+        string extractionDir;
+        using (downloadedFile) {
+            // extract the archive to a temporary directory
+            extractionDir = _p(TmpExtractionDirName);
+            InvokePogCommand(new ExpandArchive7Zip(this) {
+                ArchivePath = downloadedFile.Path,
+                TargetPath = extractionDir,
+                Filter = param.Subdirectory == null ? null : new[] {param.Subdirectory},
+            });
+        }
 
         // find and prepare the used subdirectory
         var usedDir = GetExtractedSubdirectory(extractionDir, param.Subdirectory);

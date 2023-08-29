@@ -3,12 +3,8 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Threading;
-using System.Threading.Tasks;
 using JetBrains.Annotations;
-using Pog.Commands.Utils;
+using Pog.Commands.Common;
 using Pog.Utils.Http;
 
 namespace Pog.Commands.Internal;
@@ -33,36 +29,28 @@ public record DownloadParameters(
     }
 }
 
-public class InvokeFileDownload : StoppableCommand {
-    private string _sourceUrl = null!;
-    private string? _expectedHash;
-    private DownloadParameters _downloadParameters = null!;
-    private Package _package = null!;
-    private bool _storeInCache = false;
+public class InvokeFileDownload : ScalarCommand<SharedFileCache.IFileLock> {
+    [Parameter(Mandatory = true)] public string SourceUrl = null!;
+    [Parameter(Mandatory = true)] public string? ExpectedHash;
+    [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
+    [Parameter(Mandatory = true)] public Package Package = null!;
+    [Parameter] public bool StoreInCache = false;
 
-    public static SharedFileCache.IFileLock Invoke(PSCmdlet cmdlet, string sourceUrl, string? expectedHash,
-            DownloadParameters downloadParameters, Package package, bool storeInCache) {
-        Debug.Assert(!(expectedHash != null && storeInCache));
-        return new InvokeFileDownload(cmdlet) {
-            _sourceUrl = sourceUrl,
-            _expectedHash = expectedHash,
-            _downloadParameters = downloadParameters,
-            _package = package,
-            _storeInCache = storeInCache,
-        }.DoInvoke();
-    }
-
-    private InvokeFileDownload(PSCmdlet cmdlet) : base(cmdlet) {}
+    public InvokeFileDownload(PogCmdlet cmdlet) : base(cmdlet) {}
 
     // TODO: handle `InvalidCacheEntryException` everywhere
-    private SharedFileCache.IFileLock DoInvoke() {
-        WriteVerbose($"Retrieving file from '{_sourceUrl}' (or local cache)...");
+    public override SharedFileCache.IFileLock Invoke() {
+        Debug.Assert(ExpectedHash == null || !StoreInCache);
+        // hash must be uppercase
+        Debug.Assert(ExpectedHash == null || ExpectedHash == ExpectedHash.ToUpperInvariant());
 
-        if (_expectedHash != null) {
-            WriteDebug($"Checking if we have a cached copy for '{_expectedHash}'...");
-            var entryLock = GetEntryLockedWithCleanup(_expectedHash, _package);
+        WriteVerbose($"Retrieving file from '{SourceUrl}' (or local cache)...");
+
+        if (ExpectedHash != null) {
+            WriteDebug($"Checking if we have a cached copy for '{ExpectedHash}'...");
+            var entryLock = GetEntryLockedWithCleanup(ExpectedHash, Package);
             if (entryLock != null) {
-                WriteInformation($"File retrieved from the local cache: '{_sourceUrl}'");
+                WriteInformation($"File retrieved from the local cache: '{SourceUrl}'");
                 // do not validate the hash; it was already validated once when the entry was first downloaded;
                 //  most archives and binaries already have a checksum that's verified during extraction/execution,
                 //  which should be enough to detect accidental corruption of the stored file
@@ -74,7 +62,7 @@ public class InvokeFileDownload : StoppableCommand {
             WriteVerbose("No hash provided, cannot use the local cache.");
         }
 
-        WriteInformation($"Downloading file from '{_sourceUrl}'.");
+        WriteInformation($"Downloading file from '{SourceUrl}'.");
 
         // TODO: hold a handle to the tmp directory during download, so that another process can safely delete stale entries
         //  (typically after a crash) without accidentally deleting a live entry
@@ -82,24 +70,27 @@ public class InvokeFileDownload : StoppableCommand {
         Directory.CreateDirectory(downloadDirPath);
         WriteDebug($"Using temporary directory '{downloadDirPath}'.");
         try {
-            var downloadedFilePath = DownloadFile(_sourceUrl, downloadDirPath, _downloadParameters);
+            var downloadedFilePath = DownloadFile(SourceUrl, downloadDirPath, DownloadParameters);
 
-            if (_expectedHash == null && !_storeInCache) {
+            if (ExpectedHash == null && !StoreInCache) {
                 WriteVerbose("Returning the downloaded file directly.");
                 return new TmpFileLock(downloadedFilePath, downloadDirPath, File.OpenRead(downloadedFilePath));
             }
 
-            var hash = GetFileHash7ZipCommand.Invoke(downloadedFilePath);
-            if (_expectedHash != null && hash != _expectedHash) {
+            var hash = InvokePogCommand(new GetFileHash7Zip(Cmdlet) {
+                Path = downloadedFilePath,
+            });
+
+            if (ExpectedHash != null && hash != ExpectedHash) {
                 // incorrect hash
                 ThrowTerminatingError(new ErrorRecord(
-                        new IncorrectFileHashException($"Incorrect hash for the file downloaded from '{_sourceUrl}'"
-                                                       + $" (expected: '{_expectedHash}', real: '{hash}')."),
-                        "IncorrectHash", ErrorCategory.InvalidResult, _sourceUrl));
+                        new IncorrectFileHashException($"Incorrect hash for the file downloaded from '{SourceUrl}'"
+                                                       + $" (expected: '{ExpectedHash}', real: '{hash}')."),
+                        "IncorrectHash", ErrorCategory.InvalidResult, SourceUrl));
             }
 
             WriteVerbose($"Adding the downloaded file to the local cache under the key '{hash}'.");
-            return AddEntryToCache(hash, InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, _package));
+            return AddEntryToCache(hash, InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, Package));
         } catch {
             FsUtils.EnsureDeleteDirectory(downloadDirPath);
             throw;
@@ -113,7 +104,7 @@ public class InvokeFileDownload : StoppableCommand {
                 return InternalState.DownloadCache.AddEntryLocked(hash, entry);
             } catch (CacheEntryAlreadyExistsException) {
                 WriteVerbose("File is already cached.");
-                var entryLock = GetEntryLockedWithCleanup(hash, _package);
+                var entryLock = GetEntryLockedWithCleanup(hash, Package);
                 if (entryLock == null) {
                     continue; // retry
                 }
@@ -148,32 +139,6 @@ public class InvokeFileDownload : StoppableCommand {
         }
     }
 
-    private static readonly Lazy<HttpClient> Client = new();
-
-    private record struct DownloadTarget(Uri FinalUri, ContentDispositionHeaderValue ContentDisposition);
-
-    /// Resolves the passed URI and returns the final URI and Content-Disposition header after redirects.
-    /// <exception cref="HttpRequestException"></exception>
-    private static async Task<DownloadTarget> ResolveFinalDownloadTargetAsync(CancellationToken token, Uri originalUri,
-            DownloadParameters downloadParameters, bool useGetMethod = false) {
-        using var request = new HttpRequestMessage(useGetMethod ? HttpMethod.Get : HttpMethod.Head, originalUri);
-        if (downloadParameters.GetUserAgentHeaderString() is {} userAgentStr) {
-            request.Headers.Add("User-Agent", userAgentStr);
-        }
-
-        var completion = useGetMethod ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
-        // disposing the response resets the connection, refusing the body of the request
-        using var response = await Client.Value.SendAsync(request, completion, token);
-
-        if (response.IsSuccessStatusCode) {
-            return new DownloadTarget(response.RequestMessage.RequestUri, response.Content.Headers.ContentDisposition);
-        } else {
-            // if HEAD requests got an error, retry with the GET method to check if it's
-            //  an actual issue or the server is just dumb and blocks HEAD requests
-            return await ResolveFinalDownloadTargetAsync(token, originalUri, downloadParameters, true);
-        }
-    }
-
     /// <summary>Downloads the file from $SrcUrl to $TargetDir.</summary>
     /// <returns>Full path of the downloaded file.</returns>
     /// <remarks>
@@ -195,16 +160,16 @@ public class InvokeFileDownload : StoppableCommand {
     ///    just slow in general, since curl followed by a separate hash check is faster
     /// </remarks>
     private string DownloadFile(string sourceUrl, string destinationDirPath, DownloadParameters downloadParameters) {
-        var activityStr = $"Installing '{_package.PackageName}'";
+        var activityStr = $"Installing '{Package.PackageName}'";
 
         // BITS powershell module has issues with resolving URLs with query strings (apparently, it assumes everything after
         // the last / is a file name) and it uses just the source URL instead of the final URL or Content-Disposition,
         // so we resolve the file name ourselves
-        DownloadTarget downloadTarget;
-        using (new CmdletProgressBar(WriteProgress, null, activityStr, $"Resolving '{sourceUrl}'...")) {
-            downloadTarget = ResolveFinalDownloadTargetAsync(CancellationToken, new Uri(sourceUrl), downloadParameters)
-                    .GetAwaiter().GetResult(); // this should be ok, PowerShell cmdlets internally do it the same way
-        }
+        var downloadTarget = InvokePogCommand(new ResolveDownloadTarget(Cmdlet) {
+            OriginalUri = new Uri(sourceUrl),
+            DownloadParameters = downloadParameters,
+            ProgressActivity = new() {Activity = activityStr},
+        });
 
         var (resolvedUrl, contentDisposition) = downloadTarget;
         var target = $"{destinationDirPath}\\{HttpFileNameParser.GetDownloadedFileName(resolvedUrl, contentDisposition)}";

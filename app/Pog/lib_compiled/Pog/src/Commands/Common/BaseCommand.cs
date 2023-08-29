@@ -1,6 +1,8 @@
-﻿using System.Management.Automation;
+﻿using System.Collections.Generic;
+using System.Management.Automation;
+using System.Management.Automation.Host;
 
-namespace Pog.Commands.Internal;
+namespace Pog.Commands.Common;
 
 /// <summary>
 /// This class (and subclasses) exist because some internal cmdlets are invoked both from PowerShell,
@@ -11,12 +13,21 @@ namespace Pog.Commands.Internal;
 /// <remarks>
 /// Note that if a subclass of this invokes `ThrowTerminatingError`, it terminates the calling cmdlet immediately.
 /// </remarks>
-public abstract class Command {
-    protected readonly PSCmdlet Cmdlet;
+public abstract class BaseCommand {
+    protected readonly PogCmdlet Cmdlet;
 
-    protected Command(PSCmdlet cmdlet) {
+    protected BaseCommand(PogCmdlet cmdlet) {
         Cmdlet = cmdlet;
     }
+
+    // forward calls to the cmdlet
+    protected void InvokePogCommand(VoidCommand cmd) => Cmdlet.InvokePogCommand(cmd);
+    protected T InvokePogCommand<T>(ScalarCommand<T> cmd) => Cmdlet.InvokePogCommand(cmd);
+    protected IEnumerable<T> InvokePogCommand<T>(EnumerableCommand<T> cmd) => Cmdlet.InvokePogCommand(cmd);
+
+    public virtual void StopProcessing() {}
+
+    protected PSHost Host => Cmdlet.Host;
 
     protected void WriteDebug(string text) => Cmdlet.WriteDebug(text);
     protected void WriteVerbose(string text) => Cmdlet.WriteVerbose(text);
@@ -31,5 +42,4 @@ public abstract class Command {
     protected void ThrowTerminatingError(ErrorRecord errorRecord) => Cmdlet.ThrowTerminatingError(errorRecord);
     protected string GetUnresolvedProviderPathFromPSPath(string path) => Cmdlet.GetUnresolvedProviderPathFromPSPath(path);
 
-    public virtual void StopProcessing() {}
 }
