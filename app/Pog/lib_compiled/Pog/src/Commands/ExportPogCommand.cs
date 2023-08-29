@@ -13,7 +13,7 @@ namespace Pog.Commands;
 /// </para>
 /// </summary>
 [PublicAPI]
-[Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = PackageNamePS)]
+[Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = DefaultPS)]
 public class ExportPogCommand : ImportedPackageCommand {
     /// <summary><para type="description">
     /// Export shortcuts to the system-wide start menu for all users, instead of the user-specific start menu.

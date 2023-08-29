@@ -12,8 +12,8 @@ namespace Pog.Commands;
 /// are cached, so repeated installs only require internet connection for the initial download.
 /// </para>
 /// </summary>
-[UsedImplicitly]
-[Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = PackageNamePS)]
+[PublicAPI]
+[Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = DefaultPS)]
 public class InstallPogCommand : ImportedPackageCommand {
     /// <summary><para type="description">
     /// If some version of the package is already installed, prompt before overwriting
@@ -29,24 +29,20 @@ public class InstallPogCommand : ImportedPackageCommand {
     protected override void ProcessPackage(ImportedPackage package) {
         package.EnsureManifestIsLoaded();
         if (package.Manifest.Install == null) {
-            WriteInformation($"Package '{package.PackageName}' does not have an Install block.", null);
+            WriteInformation($"Package '{package.PackageName}' does not have an Install block.");
             return;
         }
 
-        WriteInformation($"Installing {package.GetDescriptionString()}...", null);
+        WriteInformation($"Installing {package.GetDescriptionString()}...");
 
-        var it = InvokePogCommand(new InvokeContainer(this) {
+        // FIXME: probably discard container output, it breaks -PassThru
+        WriteObjectEnumerable(InvokePogCommand(new InvokeContainer(this) {
             ContainerType = Container.ContainerType.Install,
             Package = package,
             InternalArguments = new Hashtable {
                 {"AllowOverwrite", !Confirm},
-                {"DownloadLowPriority", (bool)LowPriority},
+                {"DownloadLowPriority", (bool) LowPriority},
             },
-        });
-
-        // FIXME: probably discard container output, it breaks -PassThru
-        foreach (var o in it) {
-            WriteObject(o);
-        }
+        }));
     }
 }
