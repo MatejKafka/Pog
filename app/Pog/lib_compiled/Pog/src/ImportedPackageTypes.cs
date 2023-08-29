@@ -128,6 +128,28 @@ public sealed class ImportedPackage : Package {
         InvalidateManifest();
     }
 
+    public bool RemoveExportedShortcuts() {
+        // shortcut dir is the root of the package, delete the shortcuts one-by-one instead of deleting the whole directory
+        var deleted = false;
+        foreach (var shortcut in EnumerateExportedShortcuts()) {
+            shortcut.Delete();
+            deleted = true;
+        }
+        return deleted;
+    }
+
+    public bool RemoveExportedCommands() {
+        return DeleteDirectoryRel(PathConfig.PackagePaths.CommandDirRelPath);
+    }
+
+    public bool RemoveShortcutStubs() {
+        return DeleteDirectoryRel(PathConfig.PackagePaths.ShortcutStubDirRelPath);
+    }
+
+    private bool DeleteDirectoryRel(string relDirPath) {
+        return FsUtils.EnsureDeleteDirectory(IOPath.Combine(Path, relDirPath));
+    }
+
     /// Enumerates full paths of all exported shortcuts.
     public IEnumerable<FileInfo> EnumerateExportedShortcuts() {
         return EnumerateFilesRel(PathConfig.PackagePaths.ShortcutDirRelPath, "*.lnk");

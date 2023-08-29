@@ -36,13 +36,19 @@ public class InstallPogCommand : ImportedPackageCommand {
         WriteInformation($"Installing {package.GetDescriptionString()}...");
 
         // FIXME: probably discard container output, it breaks -PassThru
-        WriteObjectEnumerable(InvokePogCommand(new InvokeContainer(this) {
+        var it = InvokePogCommand(new InvokeContainer(this) {
             ContainerType = Container.ContainerType.Install,
             Package = package,
             InternalArguments = new Hashtable {
                 {"AllowOverwrite", !Confirm},
                 {"DownloadLowPriority", (bool) LowPriority},
             },
-        }));
+        });
+
+        // Install scriptblock should not output anything, show a warning
+        foreach (var o in it) {
+            WriteWarning($"INSTALL: {o}");
+        }
+
     }
 }
