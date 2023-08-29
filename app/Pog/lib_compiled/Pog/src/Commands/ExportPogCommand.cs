@@ -12,10 +12,12 @@ namespace Pog.Commands;
 /// Exports shortcuts from the package to the start menu, and commands to an internal Pog directory that's available on $env:PATH.
 /// </para>
 /// </summary>
-[UsedImplicitly]
+[PublicAPI]
 [Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = PackageNamePS)]
 public class ExportPogCommand : ImportedPackageCommand {
+    /// <summary><para type="description">
     /// Export shortcuts to the system-wide start menu for all users, instead of the user-specific start menu.
+    /// </para></summary>
     [Parameter] public SwitchParameter Systemwide;
 
     private string _startMenuDir = null!;

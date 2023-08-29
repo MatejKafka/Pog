@@ -18,11 +18,9 @@ public class Failed7ZipArchiveExtractionException : Exception {
 public class ExpandArchive7ZipCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string ArchivePath = null!;
     [Parameter(Mandatory = true, Position = 1)] public string TargetPath = null!;
-    /// <summary>
-    /// <para type="description">
+    /// <summary><para type="description">
     /// If passed, only paths inside the archive matching at least one of the filters are extracted.
-    /// </para>
-    /// </summary>
+    /// </para></summary>
     [Parameter] public string[]? Filter;
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
 

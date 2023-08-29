@@ -15,12 +15,16 @@ public abstract class ImportedPackageCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = "Package", ValueFromPipeline = true)]
     public ImportedPackage[] Package = null!;
 
+    /// <summary><para type="description">
     /// Name of the package. This is the target name, not necessarily the manifest app name.
+    /// </para></summary>
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline = true)]
     [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[] PackageName = null!;
 
+    /// <summary><para type="description">
     /// Return a [Pog.ImportedPackage] object with information about the package.
+    /// </para></summary>
     [Parameter] public SwitchParameter PassThru;
 
     private IEnumerable<ImportedPackage> EnumerateResolvedPackages(IEnumerable<string> packageNames) {

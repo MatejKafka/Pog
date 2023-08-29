@@ -15,11 +15,15 @@ namespace Pog.Commands;
 [UsedImplicitly]
 [Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = PackageNamePS)]
 public class InstallPogCommand : ImportedPackageCommand {
+    /// <summary><para type="description">
     /// If some version of the package is already installed, prompt before overwriting
     /// with the current version according to the manifest.
+    /// </para></summary>
     [Parameter] public SwitchParameter Confirm;
+    /// <summary><para type="description">
     /// Download files with low priority, which results in better network responsiveness
     /// for other programs, but possibly slower download speed.
+    /// </para></summary>
     [Parameter] public SwitchParameter LowPriority;
 
     protected override void ProcessPackage(ImportedPackage package) {
