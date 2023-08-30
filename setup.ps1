@@ -1,7 +1,6 @@
 Set-StrictMode -Version Latest
 
 $ErrorActionPreference = "Stop"
-$InformationPreference = "Continue"
 $PSDefaultParameterValues = @{
     "*:ErrorAction" = "Stop"
 }
@@ -54,49 +53,9 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
     Set-Content $ROOT_FILE_PATH -Value $DefaultContentRoot
 }
 
-# TODO: when a more comprehensive support for remote repository is implemented, update this
-$MANIFEST_REPO_PATH = Resolve-VirtualPath "$PSScriptRoot/data/manifests"
-if (-not (Test-Path $MANIFEST_REPO_PATH)) {
-    # manifest repository is not initialized, download it
-    Write-Host "Downloading package manifests from 'https://github.com/MatejKafka/PogPackages'..."
-    if (Get-Command git -ErrorAction Ignore) {
-        Write-Host "Cloning using git..."
-        git clone https://github.com/MatejKafka/PogPackages $MANIFEST_REPO_PATH --depth 1 --quiet
-    } else {
-        $ExtractedPath = "${env:TEMP}\PogPackages-$(New-Guid)"
-        $ArchivePath = "${ExtractedPath}.zip"
-        try {
-            Invoke-WebRequest "https://github.com/MatejKafka/PogPackages/archive/refs/heads/main.zip" -OutFile $ArchivePath
-            Expand-Archive $ArchivePath -DestinationPath $ExtractedPath -Force
-            Move-Item $ExtractedPath\* $MANIFEST_REPO_PATH -Force
-        } finally {
-            Remove-Item -Force -ErrorAction Ignore $ArchivePath
-        }
-    }
-    Write-Host "Downloaded '$(@(ls -Directory $MANIFEST_REPO_PATH).Count)' package manifests."
-}
-
-
-# TODO: prompt before doing these user-wide changes
-
-Write-Host "Setting up PATH and PSModulePath..."
-# add Pog dir to PSModulePath
-Add-EnvPSModulePath (Resolve-Path "$PSScriptRoot\app")
-# add binary dir to PATH
-Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
-
-if ((Get-ExecutionPolicy -Scope CurrentUser) -notin @("RemoteSigned", "Unrestricted", "Bypass")) {
-    # since Pog is currently not signed, we need at least RemoteSigned to run
-    Write-Warning "Changing PowerShell execution policy for the current user to 'RemoteSigned'..."
-    # https://stackoverflow.com/questions/60541618/how-to-suppress-warning-message-from-script-when-calling-set-executionpolicy/60549569#60549569
-    try {Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force} catch [System.Security.SecurityException] {}
-}
-
-
 # ====================================================================================
 # now, we should be ready to import Pog
-Write-Host "Importing Pog...`n"
-Import-Module Pog
+Import-Module $PSScriptRoot\app\Pog
 
 try {
     $7z, $ofv = Get-PogPackage 7zip, OpenedFilesView
@@ -129,6 +88,53 @@ if (-not (Test-Path "$PSScriptRoot\data\package_bin\OpenedFilesView.exe")) {
     throw "Setup of 'OpenedFilesView' was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
     return
 }
+
+Write-Host ""
+
+
+# we download the package repository after enabling 7zip to be able to use it for extraction
+# TODO: when a more comprehensive support for remote repository is implemented, update this
+$MANIFEST_REPO_PATH = Resolve-VirtualPath "$PSScriptRoot/data/manifests"
+if (-not (Test-Path $MANIFEST_REPO_PATH)) {
+    # manifest repository is not initialized, download it
+    Write-Host "Downloading package manifests from 'https://github.com/MatejKafka/PogPackages'..."
+    if (Get-Command git -ErrorAction Ignore) {
+        Write-Host "Cloning using git..."
+        git clone https://github.com/MatejKafka/PogPackages $MANIFEST_REPO_PATH --depth 1 --quiet
+    } else {
+        $TmpDir = "${env:TEMP}\PogPackages-$(New-Guid)"
+        $ExtractedPath = "$TmpDir\PogPackages"
+        try {
+            # use internal functions for download and extraction
+            Import-Module $PSScriptRoot\app\Pog\lib_compiled\Pog.dll
+
+            $ArchivePath = Invoke-FileDownload "https://github.com/MatejKafka/PogPackages/archive/refs/heads/main.zip" $TmpDir
+            # Expand-Archive in powershell.exe is incredibly slow for small files, so we use 7zip
+            Expand-Archive7Zip $ArchivePath $ExtractedPath
+            Move-Item $ExtractedPath\* $MANIFEST_REPO_PATH -Force
+        } finally {
+            Remove-Item $TmpDir -Recurse -Force -ErrorAction Ignore
+        }
+    }
+    Write-Host "Downloaded '$(@(ls -Directory $MANIFEST_REPO_PATH).Count)' package manifests."
+}
+
+
+# TODO: prompt before doing these user-wide changes
+
+Write-Host "Setting up PATH and PSModulePath..."
+# add Pog dir to PSModulePath
+Add-EnvPSModulePath (Resolve-Path "$PSScriptRoot\app")
+# add binary dir to PATH
+Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
+
+if ((Get-ExecutionPolicy -Scope CurrentUser) -notin @("RemoteSigned", "Unrestricted", "Bypass")) {
+    # since Pog is currently not signed, we need at least RemoteSigned to run
+    Write-Warning "Changing PowerShell execution policy for the current user to 'RemoteSigned'..."
+    # https://stackoverflow.com/questions/60541618/how-to-suppress-warning-message-from-script-when-calling-set-executionpolicy/60549569#60549569
+    try {Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force} catch [System.Security.SecurityException] {}
+}
+
 
 Write-Host ""
 
