@@ -28,6 +28,11 @@ public static class HttpFileNameParser {
         var lastSegment = resolvedUri.Segments.LastOrDefault();
         fileName ??= SanitizeDownloadedFileName(HttpUtility.UrlDecode(lastSegment));
 
+        if (fileName == null && resolvedUri.Segments.Length == 1 && resolvedUri.Segments[0] == "/") {
+            // empty path, assume that the actual file is `index.html`
+            fileName = "index.html";
+        }
+
         // use the hostname
         fileName ??= SanitizeDownloadedFileName(resolvedUri.Host);
 
