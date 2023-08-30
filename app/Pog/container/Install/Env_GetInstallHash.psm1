@@ -15,7 +15,7 @@ Export function __main {
         $Url = $Installer.ResolveUrl()
         $DownloadParams = [Pog.Commands.Internal.DownloadParameters]::new($Installer.UserAgent)
 
-        $LockedFile = Invoke-FileDownload $Url -DownloadParameters $DownloadParams -StoreInCache -Package $global:_Pog.Package
+        $LockedFile = Invoke-CachedFileDownload $Url -DownloadParameters $DownloadParams -StoreInCache -Package $global:_Pog.Package
         # we don't need the lock, we're only interested in the hash
         $LockedFile.Unlock()
         $Hash = $LockedFile.EntryKey

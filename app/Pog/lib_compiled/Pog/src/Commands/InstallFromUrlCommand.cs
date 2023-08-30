@@ -128,7 +128,7 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
         }
 
         var downloadParameters = new DownloadParameters(Params.UserAgent, _lowPriorityDownload);
-        using var downloadedFile = InvokePogCommand(new InvokeFileDownload(this) {
+        using var downloadedFile = InvokePogCommand(new InvokeCachedFileDownload(this) {
             SourceUrl = url,
             ExpectedHash = Params.ExpectedHash,
             DownloadParameters = downloadParameters,
