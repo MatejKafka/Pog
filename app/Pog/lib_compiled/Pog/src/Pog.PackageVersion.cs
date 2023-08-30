@@ -151,13 +151,20 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         return 0;
     }
 
+    public static bool operator ==(PackageVersion? v1, PackageVersion? v2) => v1?.Equals(v2) ?? v2 is null;
+    public static bool operator !=(PackageVersion? v1, PackageVersion? v2) => !(v1 == v2);
+    public static bool operator <(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) < 0;
+    public static bool operator >(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) > 0;
+    public static bool operator >=(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) >= 0;
+    public static bool operator <=(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) <= 0;
+
     public override bool Equals(object? obj) {
         if (obj is string str && Equals(str)) return true;
         return obj is PackageVersion other && Equals(other);
     }
 
-    public bool Equals(PackageVersion v2) {
-        return _versionString == v2._versionString;
+    public bool Equals(PackageVersion? v2) {
+        return _versionString == v2?._versionString;
     }
 
     public bool Equals(string v2) {
