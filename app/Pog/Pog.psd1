@@ -21,6 +21,8 @@
 		'Get-PogRepositoryPackage'
 		'Get-PogPackage'
 
+		'Clear-PogDownloadCache'
+
 		'Get-PogRoot'
 	)
 
@@ -36,8 +38,6 @@
 
 		'Confirm-PogRepositoryPackage'
 		'Confirm-PogPackage'
-
-		'Clear-PogDownloadCache'
 
 		'Edit-PogRootList'
 	)

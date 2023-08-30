@@ -7,7 +7,8 @@ using module .\lib\Copy-CommandParameters.psm1
 # re-export binary cmdlets from Pog.dll
 Export-ModuleMember -Cmdlet `
 	Install-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
-	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot
+	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot, `
+	Clear-PogDownloadCache
 
 
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
@@ -19,85 +20,6 @@ Export function Edit-PogRootList {
 	Write-Information "Each line should contain a single absolute path to the package root directory."
 	# this opens the file for editing in a text editor (it's a .txt file)
 	Start-Process $Path
-}
-
-Export function Clear-PogDownloadCache {
-	# .SYNOPSIS
-	#	Removes all cached package archives in the local download cache that are older than the specified date.
-	# .DESCRIPTION
-	#   The `Clear-PogDownloadCache` cmdlet lists all package archives stored in the local download cache, which are older than the specified date.
-	#   After confirmation, the archives are deleted. If an archive is currently used (the package is currently being installed), a warning
-	#   is printed, but the matching remaining entries are deleted.
-	[CmdletBinding(DefaultParameterSetName = "Days")]
-	param(
-			[Parameter(Mandatory, ParameterSetName = "Date", Position = 0)]
-			[DateTime]
-		$DateBefore,
-			[Parameter(ParameterSetName = "Days", Position = 0)]
-			[int]
-		$DaysBefore = 0,
-			### Do not prompt for confirmation and delete the cache entries immediately.
-			[switch]
-		$Force
-	)
-
-	if ($PSCmdlet.ParameterSetName -eq "Days") {
-		$DateBefore = [DateTime]::Now.AddDays(-$DaysBefore)
-	}
-
-	$Entries = $DOWNLOAD_CACHE.EnumerateEntries({param($err)
-		Write-Warning "Invalid cache entry encountered, deleting...: $($err.EntryKey)"
-		try {$DOWNLOAD_CACHE.DeleteEntry($err.EntryKey)} catch [Pog.CacheEntryInUseException] {
-			Write-Warning "Cannot delete the invalid entry, it is currently in use."
-		}
-	}) | ? {$_.LastUseTime -le $DateBefore <# keep recently used entries #>}
-
-	if (@($Entries).Count -eq 0) {
-		if ($Force) {
-			Write-Information "No package archives older than '$($DateBefore.ToString())' found, nothing to remove."
-			return
-		} else {
-			throw "No cached package archives downloaded before '$($DateBefore.ToString())' found."
-		}
-	}
-
-	if ($Force) {
-		# do not check for confirmation
-		$SizeSum = 0
-		$DeletedCount = 0
-		$Entries | % {
-			$ErrorActionPreference = "Continue"
-			$SizeSum += $_.Size
-			$DeletedCount += 1
-			try {$DOWNLOAD_CACHE.DeleteEntry($_)}
-			catch [Pog.CacheEntryInUseException] {$PSCmdlet.WriteError($_)}
-		}
-		Write-Information ("Removed $DeletedCount package archive" + $(if ($DeletedCount -eq 1) {""} else {"s"}) +`
-						   ", freeing ~{0:F} GB of space." -f ($SizeSum / 1GB))
-		return
-	}
-
-	# print the cache entry list
-	$SizeSum = 0
-	$Entries | sort Size -Descending | % {
-		$SizeSum += $_.Size
-		$SourceStr = ($_.SourcePackages | % {$_.PackageName + $(if ($_.ManifestVersion) {" v$($_.ManifestVersion)"})}) -join ", "
-		Write-Host ("{0,10:F2} MB - {1}" -f @(($_.Size / 1MB), $SourceStr))
-	}
-
-	$Title = "Remove the listed package archives, freeing ~{0:F} GB of space?" -f ($SizeSum / 1GB)
-	$Message = "This will not affect already installed applications. Reinstallation of an application may take longer," + `
-		" as it will have to be downloaded again."
-	if (Confirm-Action $Title $Message) {
-		# delete the entries
-		$Entries | % {
-			$ErrorActionPreference = "Continue"
-			try {$DOWNLOAD_CACHE.DeleteEntry($_)}
-			catch [Pog.CacheEntryInUseException] {$PSCmdlet.WriteError($_)}
-		}
-	} else {
-		Write-Host "No package archives were removed."
-	}
 }
 
 

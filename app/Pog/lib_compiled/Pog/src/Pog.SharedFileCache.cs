@@ -204,7 +204,7 @@ public class SharedFileCache {
         }
 
         return new CacheEntryInfo(entryKey, entryInfo.FullName,
-                entryInfo.Length, metadataInfo.LastWriteTime, metadata);
+                (ulong)entryInfo.Length, metadataInfo.LastWriteTime, metadata);
     }
 
     /// <summary>
@@ -363,12 +363,12 @@ public class SharedFileCache {
         public readonly string EntryKey;
         public readonly string Path;
         /// Size of the cache entry, in bytes.
-        public readonly long Size;
+        public readonly ulong Size;
         public readonly DateTime LastUseTime;
         /// List of metadata about packages that used this cache entry.
         public readonly SourcePackageMetadata[] SourcePackages;
 
-        internal CacheEntryInfo(string entryKey, string path, long size, DateTime lastUseTime,
+        internal CacheEntryInfo(string entryKey, string path, ulong size, DateTime lastUseTime,
                 SourcePackageMetadata[] sourcePackages) {
             Verify.Assert.FileName(entryKey);
             EntryKey = entryKey;
