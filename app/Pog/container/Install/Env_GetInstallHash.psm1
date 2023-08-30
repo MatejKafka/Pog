@@ -5,8 +5,6 @@
 Export function __main {
     param([Pog.PackageManifest]$Manifest, $PackageArguments)
 
-    [string[]]$Hashes = @()
-
     $First = $true
 	foreach ($Installer in $Manifest.Install) {
         if (-not $First) {
@@ -21,7 +19,8 @@ Export function __main {
         # we don't need the lock, we're only interested in the hash
         $LockedFile.Unlock()
         $Hash = $LockedFile.EntryKey
-        $Hashes += $Hash
+        # output the hash, since we cannot use Set-Clipboard in the container in powershell.exe (it uses MTA, STA is needed for OLE calls)
+        echo $Hash
 
         Write-Host "Hash for the file at '$Url' (copied to clipboard):"
         Write-Host "$Hash" -ForegroundColor White
@@ -34,8 +33,6 @@ Export function __main {
             }
         }
     }
-
-    $Hashes -join "`n" | Set-Clipboard
 }
 
 <# This function is called after __main finishes. #>

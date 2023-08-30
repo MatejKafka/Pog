@@ -507,7 +507,9 @@ Export function Show-PogManifestHash {
 				DownloadLowPriority = [bool]$LowPriority
 			}
 
-			Invoke-Container GetInstallHash $p -InternalArguments $InternalArgs
+			# see Env_GetInstallHash for why we send the hashes out from the container
+			$Hashes = Invoke-Container GetInstallHash $p -InternalArguments $InternalArgs
+    		$Hashes -join "`n" | Set-Clipboard
 		}
 	}
 }
