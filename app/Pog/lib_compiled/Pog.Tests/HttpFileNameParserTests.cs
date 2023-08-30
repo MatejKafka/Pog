@@ -18,7 +18,7 @@ public class HttpFileNameParserTests {
         TestSingle("header", "https://host/segment", "attachment; filename=header");
         TestSingle("segment", "https://host/segment");
         TestSingle("segment", "https://host/segment", "attachment; filename=_");
-        TestSingle("host", "https://host/");
+        TestSingle("index.html", "https://host/");
         TestSingle("host", "https://host/_", "attachment; filename=_");
     }
 
