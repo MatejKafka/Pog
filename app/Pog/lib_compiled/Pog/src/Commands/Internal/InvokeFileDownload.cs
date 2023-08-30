@@ -3,6 +3,8 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
+using System.Threading;
+using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.Utils.Http;
@@ -29,14 +31,25 @@ public record DownloadParameters(
     }
 }
 
-public class InvokeFileDownload : ScalarCommand<SharedFileCache.IFileLock> {
+public class InvokeFileDownload : ScalarCommand<SharedFileCache.IFileLock>, IDisposable {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string? ExpectedHash;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
     [Parameter(Mandatory = true)] public Package Package = null!;
     [Parameter] public bool StoreInCache = false;
 
+    private readonly CancellationTokenSource _stopping = new();
+
     public InvokeFileDownload(PogCmdlet cmdlet) : base(cmdlet) {}
+
+    public void Dispose() {
+        _stopping.Dispose();
+    }
+
+    public override void StopProcessing() {
+        base.StopProcessing();
+        _stopping.Cancel();
+    }
 
     // TODO: handle `InvalidCacheEntryException` everywhere
     public override SharedFileCache.IFileLock Invoke() {
@@ -70,7 +83,7 @@ public class InvokeFileDownload : ScalarCommand<SharedFileCache.IFileLock> {
         Directory.CreateDirectory(downloadDirPath);
         WriteDebug($"Using temporary directory '{downloadDirPath}'.");
         try {
-            var downloadedFilePath = DownloadFile(SourceUrl, downloadDirPath, DownloadParameters);
+            var downloadedFilePath = DownloadFile(new Uri(SourceUrl), downloadDirPath, DownloadParameters);
 
             if (ExpectedHash == null && !StoreInCache) {
                 WriteVerbose("Returning the downloaded file directly.");
@@ -159,29 +172,34 @@ public class InvokeFileDownload : ScalarCommand<SharedFileCache.IFileLock> {
     ///  - aria2 supports validating the checksum, but either it does so after the file is downloaded or it's
     ///    just slow in general, since curl followed by a separate hash check is faster
     /// </remarks>
-    private string DownloadFile(string sourceUrl, string destinationDirPath, DownloadParameters downloadParameters) {
-        var activityStr = $"Installing '{Package.PackageName}'";
-
+    private string DownloadFile(Uri sourceUrl, string destinationDirPath, DownloadParameters downloadParameters) {
         // BITS powershell module has issues with resolving URLs with query strings (apparently, it assumes everything after
-        // the last / is a file name) and it uses just the source URL instead of the final URL or Content-Disposition,
-        // so we resolve the file name ourselves
-        var downloadTarget = InvokePogCommand(new ResolveDownloadTarget(Cmdlet) {
-            OriginalUri = new Uri(sourceUrl),
-            DownloadParameters = downloadParameters,
-            ProgressActivity = new() {Activity = activityStr},
-        });
+        //  the last / is a file name) and it uses just the source URL instead of the final URL or Content-Disposition,
+        //  so we resolve the file name ourselves
 
-        var (resolvedUrl, contentDisposition) = downloadTarget;
-        var target = $"{destinationDirPath}\\{HttpFileNameParser.GetDownloadedFileName(resolvedUrl, contentDisposition)}";
+        // originally, filename and final URL was resolved before BITS was invoked, but that causes extra latency,
+        //  because BITS has to reopen a new connection for the download, so we now do the resolution and download
+        //  in parallel and reconcile them at the end; that's non-ideal, since we're duplicating work, but works
+        //  well-enough for now
 
-        WriteDebug($"Resolved URL: {resolvedUrl}");
-        WriteDebug($"Resolved target: {target}");
+        var origUrlFileName = HttpFileNameParser.GetDownloadedFileName(sourceUrl, null);
+        var tmpDownloadTarget = $"{destinationDirPath}\\{origUrlFileName}";
+
+        Task<ResolveDownloadTarget.DownloadTarget>? resolverTask = null;
+        if (Path.GetExtension(origUrlFileName) is ".zip" or ".7z" or ".exe" or ".tgz" ||
+            origUrlFileName.EndsWith(".tar.gz")) {
+            // original URL seems to have a sensible filename extension, assume it's correct and do not try
+            //  to resolve the final filename
+        } else {
+            // run the resolver in parallel to the download
+            resolverTask = ResolveDownloadTarget.ResolveFinalDownloadTargetAsync(_stopping.Token, sourceUrl, downloadParameters);
+        }
 
         var bitsParams = new Hashtable {
-            {"Source", resolvedUrl},
-            {"Destination", target},
-            {"DisplayName", activityStr},
-            {"Description", $"Downloading '{sourceUrl}'..."},
+            {"Source", sourceUrl.OriginalString},
+            {"Destination", tmpDownloadTarget},
+            {"DisplayName", $"Installing '{Package.PackageName}'"},
+            {"Description", $"Downloading '{sourceUrl.OriginalString}'..."},
             // passing -Dynamic allows BITS to communicate with badly-mannered servers that don't support HEAD requests,
             //  Content-Length headers,...; see https://docs.microsoft.com/en-us/windows/win32/api/bits5_0/ne-bits5_0-bits_job_property_id),
             //  section BITS_JOB_PROPERTY_DYNAMIC_CONTENT
@@ -196,10 +214,35 @@ public class InvokeFileDownload : ScalarCommand<SharedFileCache.IFileLock> {
 
         // invoke BITS; it's possible to invoke it directly using the .NET API, but that seems overly complex for now
         StartBitsTransferSb.InvokeReturnAsIs(bitsParams);
-        // download finished, find the file path
-        var files = Directory.GetFiles(destinationDirPath);
-        Debug.Assert(files.Length == 1);
-        return files[0];
+
+        Debug.Assert(File.Exists(tmpDownloadTarget));
+
+        if (resolverTask == null) {
+            // original filename is "good enough", use it
+            return tmpDownloadTarget;
+        } else {
+            // retrieve the resolved target
+            ResolveDownloadTarget.DownloadTarget target;
+            try {
+                // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
+                target = resolverTask.GetAwaiter().GetResult();
+            } catch (TaskCanceledException) {
+                throw new PipelineStoppedException();
+            }
+
+            var (httpHeadSupported, resolvedUrl, contentDisposition) = target;
+            var resolvedFileName = HttpFileNameParser.GetDownloadedFileName(resolvedUrl, contentDisposition);
+            var resolvedTarget = $"{destinationDirPath}\\{resolvedFileName}";
+
+            if (!httpHeadSupported) {
+                WriteDebug("Server seems to not support HEAD requests.");
+            }
+            WriteDebug($"Resolved target: {resolvedTarget}");
+
+            // rename the downloaded file
+            File.Move(tmpDownloadTarget, resolvedTarget);
+            return resolvedTarget;
+        }
     }
 
     private static readonly ScriptBlock StartBitsTransferSb =
