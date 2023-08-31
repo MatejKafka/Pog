@@ -1,9 +1,9 @@
 ﻿using System.IO;
 using System.Management.Automation;
-using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 using Pog.Utils;
 
-namespace Pog.Commands.Internal;
+namespace Pog.InnerCommands;
 
 public class DisablePog : VoidCommand {
     [Parameter(Mandatory = true)] public ImportedPackage Package = null!;

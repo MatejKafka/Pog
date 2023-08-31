@@ -1,6 +1,6 @@
 ﻿using System.Management.Automation;
 using JetBrains.Annotations;
-using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 
 namespace Pog.Commands;
 

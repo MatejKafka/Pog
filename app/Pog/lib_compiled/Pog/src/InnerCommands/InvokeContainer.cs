@@ -2,9 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
-using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 
-namespace Pog.Commands.Internal;
+namespace Pog.InnerCommands;
 
 public class InvokeContainer : EnumerableCommand<PSObject> {
     [Parameter(Mandatory = true)] public Container.ContainerType ContainerType;

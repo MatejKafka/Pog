@@ -7,7 +7,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using JetBrains.Annotations;
-using Pog.Commands.Internal;
+using Pog.InnerCommands;
 
 namespace Pog;
 

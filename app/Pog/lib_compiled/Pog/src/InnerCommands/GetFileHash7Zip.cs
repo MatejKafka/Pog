@@ -4,8 +4,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Management.Automation;
 using System.Text.RegularExpressions;
 using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 
-namespace Pog.Commands.Internal;
+namespace Pog.InnerCommands;
 
 public class Failed7ZipHashCalculationException : Exception {
     public Failed7ZipHashCalculationException(string message) : base(message) {}

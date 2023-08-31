@@ -6,9 +6,11 @@ using System.Management.Automation;
 using System.Text;
 using System.Text.RegularExpressions;
 using Pog.Commands.Common;
+using Pog.Commands.InternalCommands;
+using Pog.InnerCommands.Common;
 using Pog.Native;
 
-namespace Pog.Commands.Internal;
+namespace Pog.InnerCommands;
 
 public class ExpandArchive7Zip : VoidCommand, IDisposable {
     [Parameter(Mandatory = true)] public string ArchivePath = null!;

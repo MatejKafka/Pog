@@ -5,14 +5,15 @@ using System.Management.Automation;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
-using Pog.Commands.Internal;
+using Pog.InnerCommands;
+using Pog.InnerCommands.Common;
 using Pog.Utils;
 
 namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
-public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
+public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     // created while parsing the package manifest
     [Parameter(Mandatory = true, ValueFromPipeline = true)]
     public PackageInstallParameters Params = null!;

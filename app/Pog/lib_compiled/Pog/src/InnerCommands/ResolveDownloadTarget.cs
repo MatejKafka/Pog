@@ -5,8 +5,9 @@ using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 
-namespace Pog.Commands.Internal;
+namespace Pog.InnerCommands;
 
 internal class ResolveDownloadTarget : ScalarCommand<ResolveDownloadTarget.DownloadTarget>, IDisposable {
     [Parameter(Mandatory = true)] public Uri OriginalUri = null!;
@@ -48,7 +49,8 @@ internal class ResolveDownloadTarget : ScalarCommand<ResolveDownloadTarget.Downl
         using var response = await Client.Value.SendAsync(request, completion, token);
 
         if (response.IsSuccessStatusCode) {
-            return new DownloadTarget(!useGetMethod, response.RequestMessage.RequestUri, response.Content.Headers.ContentDisposition);
+            return new DownloadTarget(!useGetMethod, response.RequestMessage.RequestUri,
+                    response.Content.Headers.ContentDisposition);
         } else {
             // if HEAD requests got an error, retry with the GET method to check if it's
             //  an actual issue or the server is just dumb and blocks HEAD requests
@@ -56,5 +58,6 @@ internal class ResolveDownloadTarget : ScalarCommand<ResolveDownloadTarget.Downl
         }
     }
 
-    public record struct DownloadTarget(bool ServerSupportsHead, Uri FinalUri, ContentDispositionHeaderValue ContentDisposition);
+    public record struct DownloadTarget(bool ServerSupportsHead, Uri FinalUri,
+            ContentDispositionHeaderValue ContentDisposition);
 }

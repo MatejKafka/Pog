@@ -2,7 +2,7 @@
 using System.Management.Automation;
 using System.Management.Automation.Host;
 
-namespace Pog.Commands.Common;
+namespace Pog.InnerCommands.Common;
 
 /// <summary>
 /// This class (and subclasses) exist because some internal cmdlets are invoked both from PowerShell,
@@ -41,5 +41,4 @@ public abstract class BaseCommand {
 
     protected void ThrowTerminatingError(ErrorRecord errorRecord) => Cmdlet.ThrowTerminatingError(errorRecord);
     protected string GetUnresolvedProviderPathFromPSPath(string path) => Cmdlet.GetUnresolvedProviderPathFromPSPath(path);
-
 }

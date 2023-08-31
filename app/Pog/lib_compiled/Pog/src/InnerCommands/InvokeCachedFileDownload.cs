@@ -4,8 +4,9 @@ using System.IO;
 using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 
-namespace Pog.Commands.Internal;
+namespace Pog.InnerCommands;
 
 [PublicAPI]
 public record DownloadParameters(DownloadParameters.UserAgentType UserAgent = default, bool LowPriorityDownload = false) {

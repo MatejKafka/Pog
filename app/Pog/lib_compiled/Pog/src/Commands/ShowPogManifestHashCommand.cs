@@ -2,7 +2,7 @@
 using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
-using Pog.Commands.Internal;
+using Pog.InnerCommands;
 
 namespace Pog.Commands;
 

@@ -1,9 +1,10 @@
 ﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
-using Pog.Commands.Internal;
+using Pog.InnerCommands;
+using Pog.InnerCommands.Common;
 
-namespace Pog.Commands;
+namespace Pog.Commands.InternalCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "FileHash7Zip")]

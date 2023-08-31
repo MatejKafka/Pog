@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Pog.Commands.Common;
+namespace Pog.InnerCommands.Common;
 
 public abstract class VoidCommand : BaseCommand {
     protected VoidCommand(PogCmdlet cmdlet) : base(cmdlet) {}

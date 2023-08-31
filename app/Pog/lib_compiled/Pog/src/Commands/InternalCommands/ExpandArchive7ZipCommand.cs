@@ -2,9 +2,10 @@
 using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
-using Pog.Commands.Internal;
+using Pog.InnerCommands;
+using Pog.InnerCommands.Common;
 
-namespace Pog.Commands;
+namespace Pog.Commands.InternalCommands;
 
 public class Failed7ZipArchiveExtractionException : Exception {
     public Failed7ZipArchiveExtractionException(string message) : base(message) {}

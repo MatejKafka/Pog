@@ -6,9 +6,10 @@ using System.Management.Automation;
 using System.Threading;
 using System.Threading.Tasks;
 using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 using Pog.Utils.Http;
 
-namespace Pog.Commands.Internal;
+namespace Pog.InnerCommands;
 
 public class InvokeFileDownload : ScalarCommand<string>, IDisposable {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;

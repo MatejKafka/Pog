@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Management.Automation;
 
-namespace Pog.Commands.Common;
+namespace Pog.InnerCommands.Common;
 
 public class PogCmdlet : PSCmdlet, IDisposable {
     private HashSet<BaseCommand>? _currentlyExecutingCommands;
