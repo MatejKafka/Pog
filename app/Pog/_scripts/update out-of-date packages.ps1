@@ -1,6 +1,6 @@
 Get-PogPackage
     | ? {
-        if (-not $_.Version) {return $false}
+        if (-not $_.Version -or -not $_.ManifestName) {return $false}
         $r = Get-PogRepositoryPackage $_.ManifestName -ErrorAction Ignore
         return $r -and $r.Version -gt $_.Version
     }
