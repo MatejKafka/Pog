@@ -42,7 +42,7 @@ Export function __cleanup {
 	$InternalState = [Pog.ContainerEnableInternalState]::GetCurrent($PSCmdlet)
 
 	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutStubs.Count -gt 0) {
-		Write-Verbose "Removing stale shortcuts..."
+		Write-Debug "Removing stale shortcuts..."
 		$InternalState.StaleShortcuts | % {
 			Remove-Item $_
 			Write-Information "Removed stale shortcut '$_'."
@@ -51,7 +51,7 @@ Export function __cleanup {
 	}
 
 	if ($InternalState.StaleCommands.Count -gt 0) {
-		Write-Verbose "Removing stale commands..."
+		Write-Debug "Removing stale commands..."
 		$InternalState.StaleCommands | % {
 			Remove-Item $_
 			Write-Information "Removed stale command '$_'."
@@ -73,7 +73,7 @@ function Assert-ParentDirectory {
 	}
 }
 
-Export function Merge-Directories {
+function MergeDirectories {
 	param(
 			[Parameter(Mandatory)]
 		$SrcDir,
@@ -213,7 +213,7 @@ Export function Set-SymlinkedPath {
 			}
 		} elseif ($Merge -and -not $OriginalPathIsSymlink) {
 			Write-Information "Merging directory $OriginalPath to $TargetPath..."
-			Merge-Directories $OriginalPath $TargetPath
+			MergeDirectories $OriginalPath $TargetPath
 		}
 
 		$result = Set-Symlink $OriginalPath $TargetPath
