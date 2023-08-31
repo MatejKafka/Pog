@@ -149,8 +149,7 @@ function ConfirmManifestOverwrite([Pog.ImportedPackage]$p, $TargetPackageRoot, [
 				+ " All directories in a package root should be packages with a valid manifest.")
 	} catch [Pog.PackageManifestParseException], [Pog.InvalidPackageManifestStructureException] {
 		# the package has a manifest, but it's invalid (probably corrupted)
-		Write-Warning ("Found an existing package manifest in '$($p.Path)', but it's not valid." `
-				+ " Call 'Confirm-PogPackage `"$($p.PackageName)`"' to get more detailed information.")
+		Write-Warning ("Found an existing package manifest in '$($p.Path)', but it is not valid.")
 	}
 
 	if (-not $Force) {
@@ -238,10 +237,8 @@ Export function Import-Pog {
 	}
 
 	process {
-		if ($Package) {
-			$SrcPackages = $Package
-		} else {
-			$SrcPackages = foreach ($n in $PackageName) {& {
+		$SrcPackages = if ($Package) {$Package} else {
+			foreach ($n in $PackageName) {& {
 				$ErrorActionPreference = "Continue"
 				# resolve package name and version to a package
 				$c = try {
@@ -250,16 +247,17 @@ Export function Import-Pog {
 					$PSCmdlet.WriteError($_)
 					continue
 				}
-				if (-not $Version) {
-					# find latest version
-					$c.GetLatestPackage()
-				} else {
-					try {
+
+				try {
+					if (-not $Version) {
+						# find latest version
+						$c.GetLatestPackage()
+					} else {
 						$c.GetVersionPackage($Version, $true)
-					} catch [Pog.RepositoryPackageVersionNotFoundException] {
-						$PSCmdlet.WriteError($_)
-						continue
 					}
+				} catch [Pog.RepositoryPackageVersionNotFoundException] {
+					$PSCmdlet.WriteError($_)
+					continue
 				}
 			}}
 		}

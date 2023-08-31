@@ -13,7 +13,7 @@ public class Failed7ZipHashCalculationException : Exception {
 
 public class GetFileHash7Zip : ScalarCommand<string>, IDisposable {
     [Parameter(Mandatory = true)] public string Path = null!;
-    [Parameter] public HashAlgorithm Algorithm = HashAlgorithm.SHA256;
+    [Parameter] public HashAlgorithm Algorithm = default;
 
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
 
@@ -117,7 +117,8 @@ public class GetFileHash7Zip : ScalarCommand<string>, IDisposable {
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     public enum HashAlgorithm {
-        CRC32, CRC64, SHA1, SHA256,
+        // SHA256 is `default(T)`
+        SHA256 = 0, CRC32, CRC64, SHA1,
     }
 
     private static int GetExpectedHashLength(HashAlgorithm algorithm) {

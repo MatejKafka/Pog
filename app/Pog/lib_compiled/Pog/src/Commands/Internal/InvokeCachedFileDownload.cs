@@ -8,12 +8,11 @@ using Pog.Commands.Common;
 namespace Pog.Commands.Internal;
 
 [PublicAPI]
-public record DownloadParameters(
-        DownloadParameters.UserAgentType UserAgent = DownloadParameters.UserAgentType.PowerShell,
-        bool LowPriorityDownload = false) {
+public record DownloadParameters(DownloadParameters.UserAgentType UserAgent = default, bool LowPriorityDownload = false) {
     [PublicAPI]
     public enum UserAgentType {
-        PowerShell, Browser, Wget,
+        // PowerShell is `default(T)`
+        PowerShell = 0, Browser, Wget,
     }
 
     internal string? GetUserAgentHeaderString() {
@@ -33,6 +32,7 @@ public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock>
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
     [Parameter(Mandatory = true)] public Package Package = null!;
     [Parameter] public bool StoreInCache = false;
+    [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
 
     public InvokeCachedFileDownload(PogCmdlet cmdlet) : base(cmdlet) {}
 
@@ -68,11 +68,12 @@ public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock>
         Directory.CreateDirectory(downloadDirPath);
         WriteDebug($"Using temporary directory '{downloadDirPath}'.");
         try {
+            ProgressActivity.Activity ??= $"Installing '{Package.PackageName}'";
             var downloadedFilePath = InvokePogCommand(new InvokeFileDownload(Cmdlet) {
                 SourceUrl = SourceUrl,
                 DownloadParameters = DownloadParameters,
                 DestinationDirPath = downloadDirPath,
-                ProgressActivity = new() {Activity = $"Installing '{Package.PackageName}'"},
+                ProgressActivity = ProgressActivity,
             });
 
             if (ExpectedHash == null && !StoreInCache) {

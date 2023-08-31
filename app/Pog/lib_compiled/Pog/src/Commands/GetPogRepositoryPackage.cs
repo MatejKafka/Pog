@@ -61,9 +61,9 @@ public class GetPogRepositoryPackage : PogCmdlet {
             try {
                 WriteObject(_packages.GetPackage(PackageName![0], true, true).GetVersionPackage(Version, true));
             } catch (RepositoryPackageNotFoundException e) {
-                ThrowTerminatingError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, PackageName![0]);
+                WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, PackageName![0]);
             } catch (RepositoryPackageVersionNotFoundException e) {
-                ThrowTerminatingError(e, "PackageVersionNotFound", ErrorCategory.ObjectNotFound, Version);
+                WriteError(e, "PackageVersionNotFound", ErrorCategory.ObjectNotFound, Version);
             }
         }
     }
@@ -92,6 +92,8 @@ public class GetPogRepositoryPackage : PogCmdlet {
                     }
                 } catch (RepositoryPackageNotFoundException e) {
                     WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, pn);
+                } catch (RepositoryPackageVersionNotFoundException e) {
+                    WriteError(e, "PackageVersionNotFound", ErrorCategory.ObjectNotFound, pn);
                 } catch (InvalidPackageNameException e) {
                     WriteError(e, "InvalidPackageName", ErrorCategory.InvalidArgument, pn);
                 }

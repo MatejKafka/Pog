@@ -6,7 +6,7 @@ using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Stub;
 
-namespace Pog.Commands;
+namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Command", DefaultParameterSetName = StubPS)]

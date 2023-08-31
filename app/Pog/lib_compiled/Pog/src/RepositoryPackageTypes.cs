@@ -113,9 +113,14 @@ public class RepositoryVersionedPackage {
         return package;
     }
 
-    public RepositoryPackage? GetLatestPackage() {
+    public RepositoryPackage GetLatestPackage() {
         var latestVersion = EnumerateVersionStrings().Select(v => new PackageVersion(v)).Max();
-        return latestVersion == null ? null : GetPackage(latestVersion);
+        if (latestVersion != null) {
+            return GetPackage(latestVersion);
+        } else {
+            throw new RepositoryPackageVersionNotFoundException(
+                    $"Package '{PackageName}' in the repository does not have any versions, expected path: {Path}");
+        }
     }
 
     private RepositoryPackage GetPackage(PackageVersion version) {

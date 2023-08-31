@@ -30,14 +30,14 @@ public class ClearPogDownloadCacheCommand : PogCmdlet {
     [Parameter]
     public SwitchParameter Force;
 
-    private SharedFileCache Cache => InternalState.DownloadCache;
+    private readonly SharedFileCache _cache = InternalState.DownloadCache;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
         var limitDate = ParameterSetName == DatePS ? DateBefore : DateTime.Now.AddDays(-(double) DaysBefore);
 
-        var entries = Cache.EnumerateEntries(OnInvalidCacheEntry)
+        var entries = _cache.EnumerateEntries(OnInvalidCacheEntry)
                 // skip recently used entries
                 .Where(e => e.LastUseTime < limitDate)
                 .ToArray();
@@ -84,7 +84,7 @@ public class ClearPogDownloadCacheCommand : PogCmdlet {
 
     private bool DeleteEntry(SharedFileCache.CacheEntryInfo entry) {
         try {
-            Cache.DeleteEntry(entry);
+            _cache.DeleteEntry(entry);
             return true;
         } catch (CacheEntryInUseException e) {
             WriteError(e, "EntryInUse", ErrorCategory.ResourceBusy, entry);
@@ -95,7 +95,7 @@ public class ClearPogDownloadCacheCommand : PogCmdlet {
     private void OnInvalidCacheEntry(InvalidCacheEntryException e) {
         WriteWarning($"Invalid cache entry encountered, deleting...: {e.EntryKey}");
         try {
-            Cache.DeleteEntry(e.EntryKey);
+            _cache.DeleteEntry(e.EntryKey);
         } catch (CacheEntryInUseException) {
             WriteWarning("Cannot delete the invalid entry, it is currently in use.");
         }

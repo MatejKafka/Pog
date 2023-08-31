@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Management.Automation;
 using JetBrains.Annotations;
+using Pog.Commands.Common;
 using Pog.Commands.Internal;
 
 namespace Pog.Commands;
@@ -35,7 +36,6 @@ public class InstallPogCommand : ImportedPackageCommand {
 
         WriteInformation($"Installing {package.GetDescriptionString()}...");
 
-        // FIXME: probably discard container output, it breaks -PassThru
         var it = InvokePogCommand(new InvokeContainer(this) {
             ContainerType = Container.ContainerType.Install,
             Package = package,
@@ -45,10 +45,9 @@ public class InstallPogCommand : ImportedPackageCommand {
             },
         });
 
-        // Install scriptblock should not output anything, show a warning
+        // Install container should not output anything, show a warning
         foreach (var o in it) {
             WriteWarning($"INSTALL: {o}");
         }
-
     }
 }

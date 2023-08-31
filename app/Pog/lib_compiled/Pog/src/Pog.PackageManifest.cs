@@ -193,7 +193,7 @@ public record PackageManifest {
         var userAgentStr = parser.ParseScalar<string>("UserAgent", false);
         DownloadParameters.UserAgentType userAgent;
         if (userAgentStr == null) {
-            userAgent = DownloadParameters.UserAgentType.PowerShell; // default value
+            userAgent = default;
         } else if (!_userAgentMap.TryGetValue(userAgentStr, out userAgent)) {
             parser.AddValidityIssue("UserAgent", userAgentStr, $"supported values: {string.Join(", ", _userAgentMap.Keys)}");
         }

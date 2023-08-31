@@ -1,16 +1,14 @@
 ﻿using System;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
-using System.Management.Automation.Host;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.Commands.Internal;
 using Pog.Utils;
 
-namespace Pog.Commands;
+namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
@@ -66,11 +64,7 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
         }
 
         if (Directory.Exists(_appDirPath)) {
-            var shouldContinue = ConfirmOverwrite("Overwrite existing package installation?",
-                    "Package seems to be already installed. Do you want to overwrite the current installation" +
-                    " (./app subdirectory)?\nConfiguration and other package data will be kept.");
-
-            if (!shouldContinue) {
+            if (!ConfirmOverwrite()) {
                 var exception = new UserRefusedOverwriteException(
                         "Not installing, user refused to overwrite existing package installation." +
                         " Do not pass -Confirm to overwrite the existing installation without confirmation.");
@@ -376,18 +370,11 @@ public class InstallFromUrlCommand : Common.PogCmdlet, IDisposable {
         return false;
     }
 
-    private bool ConfirmOverwrite(string title, string message) {
-        return _allowOverwrite || Confirm(title, message);
-    }
-
-    private bool Confirm(string title, string message) {
-        // TODO: when the Confirmations module is ported to C#, use it here
-        var options = new Collection<ChoiceDescription> {new("&Yes"), new("&No")};
-        return Host.UI.PromptForChoice(title, message, options, 0) switch {
-            0 => true,
-            1 => false,
-            _ => throw new InvalidDataException(),
-        };
+    private bool ConfirmOverwrite() {
+        return _allowOverwrite || ShouldContinue(
+                "Package seems to be already installed. Do you want to overwrite the current installation" +
+                " (./app subdirectory)?\nConfiguration and other package data will be kept.",
+                "Overwrite existing package installation?");
     }
 
     public class UserRefusedOverwriteException : Exception {
