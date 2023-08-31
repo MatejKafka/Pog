@@ -46,20 +46,16 @@ public class Container : IDisposable {
         _ps.Runspace = GetInitializedRunspace(host, streamConfig);
     }
 
-    // __main and __cleanup should be exported by each container environment; store them into a variable,
-    //  and then remove them from the global scope, so that the manifest does not see them
+    // __main and __cleanup should be exported by each container environment
     // the `finally` block is called even on exit
     private const string ContainerInvokeSbStr =
             """
-            $mainSb = (Get-Command __main).ScriptBlock
-            $cleanupSb = (Get-Command __cleanup).ScriptBlock
-            Remove-Item Function:__main, Function:__cleanup
             try {
-                & $mainSb @Args
+                __main @Args
             } finally {
                 Write-Debug 'Cleaning up...'
                 try {
-                    & $cleanupSb
+                    __cleanup
                     Write-Debug 'Cleanup finished.'
                 } catch {
                     # don't throw, we'd lose the original exception
