@@ -5,6 +5,7 @@
 Export function __main {
     param([Pog.PackageManifest]$Manifest, $PackageArguments)
 
+    $Hashes = @()
     $First = $true
 	foreach ($Installer in $Manifest.Install) {
         if (-not $First) {
@@ -12,27 +13,24 @@ Export function __main {
         }
         $First = $false
 
-        $Url = $Installer.ResolveUrl()
-        $DownloadParams = [Pog.Commands.Internal.DownloadParameters]::new($Installer.UserAgent)
+        $HashInfo = Get-UrlHash $Installer.ResolveUrl() -UserAgent $Installer.UserAgent
+        $Hashes += $HashInfo.Hash
 
-        $LockedFile = Invoke-CachedFileDownload $Url -DownloadParameters $DownloadParams -StoreInCache -Package $global:_Pog.Package
-        # we don't need the lock, we're only interested in the hash
-        $LockedFile.Unlock()
-        $Hash = $LockedFile.EntryKey
-        # output the hash, since we cannot use Set-Clipboard in the container in powershell.exe (it uses MTA, STA is needed for OLE calls)
-        echo $Hash
-
-        Write-Host "Hash for the file at '$Url' (copied to clipboard):"
-        Write-Host "$Hash" -ForegroundColor White
+        Write-Host "Hash for the file at '$($HashInfo.Url)' (copied to clipboard):"
+        Write-Host $HashInfo.Hash -ForegroundColor White
 
         if ($Installer.ExpectedHash) {
-            if ($Installer.ExpectedHash -eq $Hash) {
+            if ($Installer.ExpectedHash -eq $HashInfo.Hash) {
                 Write-Host "Matches the expected hash specified in the manifest." -ForegroundColor Green
             } else {
                 throw "The retrieved hash does not match the expected hash specified in the manifest (expected: '$($Installer.ExpectedHash)')."
             }
         }
     }
+
+    # we cannot use Set-Clipboard in the container in powershell.exe (it throws an exception that it needs STA for OLE)
+    # this ported class from pwsh has a workaround
+    [Pog.Native.Clipboard]::SetText($Hashes -join "`n")
 }
 
 <# This function is called after __main finishes. #>

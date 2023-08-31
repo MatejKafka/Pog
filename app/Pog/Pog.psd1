@@ -21,6 +21,7 @@
 		'Get-PogRepositoryPackage'
 		'Get-PogPackage'
 
+		'Show-PogManifestHash'
 		'Clear-PogDownloadCache'
 
 		'Get-PogRoot'
@@ -32,7 +33,6 @@
 		'Enable-Pog'
 
 		'Update-PogManifest'
-		'Show-PogManifestHash'
 		'New-PogPackage'
 		'New-PogImportedPackage'
 

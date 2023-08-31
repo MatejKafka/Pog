@@ -8,7 +8,7 @@ using module .\lib\Copy-CommandParameters.psm1
 Export-ModuleMember -Cmdlet `
 	Install-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
 	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot, `
-	Clear-PogDownloadCache
+	Clear-PogDownloadCache, Show-PogManifestHash
 
 
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
@@ -350,89 +350,6 @@ Export function Invoke-Pog {
 	}
 }
 
-
-Export function Show-PogManifestHash {
-	# .SYNOPSIS
-	#	Download resources for the given package and show SHA-256 hashes.
-	# .DESCRIPTION
-	#	Download all resources specified in the package manifest, store them in the download cache and show the SHA-256 hash.
-	#	This cmdlet is useful for retrieving the archive hash when writing a package manifest.
-	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
-	param(
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
-			[Pog.Package[]] # accept even imported packages
-		$Package,
-			### Name of the package to install. This is the target name, not necessarily the manifest app name.
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
-			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageNameCompleter])]
-			[string[]]
-		$PackageName,
-			### Version of the package to retrieve. By default, the latest version is used.
-			[Parameter(Position = 1, ParameterSetName = "PackageName")]
-			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
-			[Pog.PackageVersion]
-		$Version,
-			### Download files with low priority, which results in better network responsiveness
-			### for other programs, but possibly slower download speed.
-			[switch]
-		$LowPriority
-	)
-
-	# TODO: add -PassThru to return structured object instead of Write-Host pretty-print
-
-	process {
-		$Packages = if ($Package) {$Package} else {
-			foreach ($n in $PackageName) {& {
-				$ErrorActionPreference = "Continue"
-				# resolve package name and version to a package
-				$c = try {
-					$REPOSITORY.GetPackage($n, $true, $true)
-				} catch [Pog.RepositoryPackageNotFoundException] {
-					$PSCmdlet.WriteError($_)
-					continue
-				}
-				if (-not $Version) {
-					# find latest version
-					$c.GetLatestPackage()
-				} else {
-					try {
-						$c.GetVersionPackage($Version, $true)
-					} catch [Pog.RepositoryPackageVersionNotFoundException] {
-						$PSCmdlet.WriteError($_)
-						continue
-					}
-				}
-			}}
-		}
-
-		foreach ($p in $Packages) {
-			# this forces a manifest load on $p
-			if ($p -is [Pog.ImportedPackage]) {
-				if (-not (Confirm-PogPackage $p)) {
-					throw "Validation of the package failed (see warnings above)."
-				}
-			} else { # Pog.RepositoryPackage
-				if (-not (Confirm-PogRepositoryPackage $p)) {
-					throw "Validation of the repository package failed (see warnings above)."
-				}
-			}
-
-			if (-not $p.Manifest.Install) {
-				Write-Information "Package '$($p.PackageName)' does not have an Install block."
-				continue
-			}
-
-			$InternalArgs = @{
-				AllowOverwrite = $true # not used
-				DownloadLowPriority = [bool]$LowPriority
-			}
-
-			# see Env_GetInstallHash for why we send the hashes out from the container
-			$Hashes = Invoke-Container GetInstallHash $p -InternalArguments $InternalArgs
-    		$Hashes -join "`n" | Set-Clipboard
-		}
-	}
-}
 
 <# Ad-hoc template format used to create default manifests in the following 2 functions. #>
 function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {
