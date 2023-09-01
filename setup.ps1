@@ -10,6 +10,12 @@ if ($PSVersionTable.PSVersion -lt "5.0") {
     throw "Pog requires at least PowerShell 5."
 }
 
+# need to call unblock before importing any modules
+Write-Host "Unblocking Pog PowerShell files..."
+& {
+    gi $PSScriptRoot/app/Pog/lib_compiled/*
+    ls -Recurse $PSScriptRoot/app -File -Filter *.ps*1
+ } | Unblock-File
 
 # these modules only use library functions, so it is safe to import them even during setup
 Import-Module $PSScriptRoot/app/Pog/container/container_lib/Environment
@@ -28,10 +34,6 @@ function newdir($Dir) {
     Write-Host "Creating directory '$Dir'."
     $null = New-Item -Type Directory -Force $Dir
 }
-
-
-Write-Host "Unblocking Pog PowerShell files..."
-ls -Recurse $PSScriptRoot/app -File -Filter *.ps*1 | Unblock-File
 
 Write-Host "Setting up all directories required by Pog..."
 
