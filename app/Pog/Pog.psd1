@@ -20,6 +20,8 @@
 
 		'Get-PogRepositoryPackage'
 		'Get-PogPackage'
+		'Confirm-PogPackage'
+		'Confirm-PogRepositoryPackage'
 
 		'Show-PogManifestHash'
 		'Clear-PogDownloadCache'
@@ -35,9 +37,6 @@
 		'Update-PogManifest'
 		'New-PogPackage'
 		'New-PogImportedPackage'
-
-		'Confirm-PogRepositoryPackage'
-		'Confirm-PogPackage'
 
 		'Edit-PogRootList'
 	)
