@@ -50,8 +50,8 @@ public static class ManifestTemplateFile {
         return ast;
     }
 
-    private static readonly Regex TemplateSubstitutionRegex =
-            new(@"^{{TEMPLATE:(\p{L}[\p{L}0-9]*)}}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex TemplateSubstitutionRegex = new(@"^{{TEMPLATE:(\p{L}[\p{L}0-9]*)}}$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static IEnumerable<(string, StringToken)> EnumerateTemplateKeys(IEnumerable<Token> tokens) {
         foreach (var token in tokens.OfType<StringToken>()) {
@@ -167,8 +167,8 @@ public static class ManifestTemplateFile {
             SerializeDictionary(d.Cast<DictionaryEntry>());
         }
 
-        private static readonly Regex UnquotedHashtableKeyRegex =
-                new(@"^\p{L}[\p{L}0-9]*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex UnquotedHashtableKeyRegex = new(@"^\p{L}[\p{L}0-9]*$",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         private void SerializeDictionary(IEnumerable<DictionaryEntry> e) {
             Write("@{");

@@ -1,9 +1,9 @@
-﻿using IOPath = System.IO.Path;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
+using IOPath = System.IO.Path;
 
 namespace Pog;
 
@@ -59,6 +59,7 @@ public class RepositoryVersionedPackage {
     [Hidden] public bool IsTemplated => Directory.Exists(TemplateDirPath);
 
     [Hidden] public string TemplateDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.RepositoryTemplateDirName);
+    internal string TemplatePath => IOPath.Combine(TemplateDirPath, PathConfig.PackagePaths.ManifestRelPath);
 
     internal RepositoryVersionedPackage(Repository repository, string packageName) {
         Verify.Assert.PackageName(packageName);

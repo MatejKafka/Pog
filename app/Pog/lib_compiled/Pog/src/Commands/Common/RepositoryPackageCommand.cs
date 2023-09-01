@@ -5,7 +5,6 @@ using Pog.Utils;
 namespace Pog.Commands.Common;
 
 [PublicAPI]
-// type parameter to give flexibility in either only accepting RepositoryPackage, or also ImportedPackage
 public abstract class RepositoryPackageCommand : PackageCommandBase {
     protected const string PackagePS = "Package";
     protected const string PackageNamePS = "PackageName";

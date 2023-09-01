@@ -11,12 +11,14 @@ using Pog.InnerCommands;
 
 namespace Pog;
 
-public class PackageManifestNotFoundException : FileNotFoundException {
+public interface IPackageManifestException {}
+
+public class PackageManifestNotFoundException : FileNotFoundException, IPackageManifestException {
     internal PackageManifestNotFoundException(string message, string fileName) : base(message, fileName) {}
 }
 
 [PublicAPI]
-public class PackageManifestParseException : ParseException {
+public class PackageManifestParseException : ParseException, IPackageManifestException {
     public readonly string ManifestPath;
 
     internal PackageManifestParseException(string manifestPath, string message) : base(message) {
@@ -32,7 +34,7 @@ public class PackageManifestParseException : ParseException {
 }
 
 [PublicAPI]
-public class InvalidPackageManifestStructureException : Exception {
+public class InvalidPackageManifestStructureException : Exception, IPackageManifestException {
     public readonly string ManifestPath;
     public readonly List<string> Issues;
 
@@ -46,7 +48,7 @@ public class InvalidPackageManifestStructureException : Exception {
 }
 
 /// <summary>Package manifest had a ScriptBlock as the 'Install.Url' property, but it did not return a valid URL.</summary>
-public class InvalidPackageManifestUrlScriptBlockException : Exception {
+public class InvalidPackageManifestUrlScriptBlockException : Exception, IPackageManifestException {
     public InvalidPackageManifestUrlScriptBlockException(string message) : base(message) {}
 }
 
