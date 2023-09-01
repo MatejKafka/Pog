@@ -34,9 +34,9 @@ public static class FsUtils {
         return PogExports.GetSymbolicLinkTarget(linkPath);
     }
 
-    public static void CreateSymbolicLink(string path, string targetPath, bool isDirectory) {
-        if (isDirectory) PIO.Directory.CreateSymbolicLink(path, targetPath);
-        else PIO.File.CreateSymbolicLink(path, targetPath);
+    public static FileSystemInfo CreateSymbolicLink(string path, string targetPath, bool isDirectory) {
+        if (isDirectory) return PIO.Directory.CreateSymbolicLink(path, targetPath);
+        else return PIO.File.CreateSymbolicLink(path, targetPath);
     }
 
     public static bool FileContentEqual(FileInfo f1, FileInfo f2) {

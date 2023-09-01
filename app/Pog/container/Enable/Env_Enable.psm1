@@ -135,7 +135,7 @@ function Set-Symlink {
 	Write-Debug "Creating symlink from '$LinkAbsPath' with target '$TargetStr'."
 	# New-Item -Type SymbolicLink has a dumb issue with relative paths, so we use the .NET methods instead
 	#  https://github.com/PowerShell/PowerShell/issues/15235
-	[Pog.FsUtils]::CreateSymbolicLink($LinkAbsPath, $TargetStr, $Target.PSIsContainer)
+	return [Pog.FsUtils]::CreateSymbolicLink($LinkAbsPath, $TargetStr, $Target.PSIsContainer)
 }
 
 enum ItemType {File; Directory}
