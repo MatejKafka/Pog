@@ -297,7 +297,8 @@ Export function Assert-File {
 			if ((Get-Content -Raw $Path) -eq $FixedContentStr) {
 				Write-Verbose "File '$Path' exists with already correct content."
 			} else {
-				Set-Content -Path $Path -Value $FixedContentStr -NoNewline
+				# -NoNewline also skips newline between lines, not just the terminating newline
+				Set-Content $Path ($FixedContentStr -join "`n") -NoNewline
 				Write-Information "File '$Path' updated."
 			}
 			return
@@ -347,7 +348,7 @@ Export function Assert-File {
 		else {Invoke-DollarUnder $DefaultContent $ResolvedPath $ResolvedPath}
 
 	if (-not (Test-Path $Path)) {
-		Set-Content $Path $NewContent
+		Set-Content $Path ($NewContent -join "`n") -NoNewline
 	}
 	Write-Information "Created file '$Path'."
 }
