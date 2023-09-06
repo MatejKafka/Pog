@@ -72,14 +72,18 @@ public record PackageManifest {
     [Hidden]
     public readonly Hashtable Raw;
 
+    /// <inheritdoc cref="PackageManifest(string, string?, RepositoryPackage?)"/>
+    public PackageManifest(string manifestPath) : this(manifestPath, null) {}
+
     /// <param name="manifestPath">Path to the manifest file.</param>
     /// <param name="manifestStr">
     /// If passed, the manifest is parsed from the string and <paramref name="manifestPath"/> is only used to improve error reporting.
     /// </param>
     /// <param name="owningPackage">If parsing a repository manifest, this should be the package that owns the manifest.</param>
     ///
-    /// <exception cref="PackageManifestNotFoundException">Thrown if the package manifest file does not exist.</exception>
-    /// <exception cref="PackageManifestParseException">Thrown if the package manifest file is not a valid PowerShell data file (.psd1).</exception>
+    /// <exception cref="PackageManifestNotFoundException">The package manifest file does not exist.</exception>
+    /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
+    /// <exception cref="InvalidPackageManifestStructureException">The package manifest was correctly parsed, but has invalid structure.</exception>
     internal PackageManifest(string manifestPath, string? manifestStr = null, RepositoryPackage? owningPackage = null) {
         Path = manifestPath;
         Raw = PackageManifestParser.LoadManifest(manifestPath, manifestStr);
