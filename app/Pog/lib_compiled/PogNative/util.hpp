@@ -6,7 +6,7 @@
 #include <array>
 
 #ifndef NDEBUG
-#define DBG_LOG(...) fwprintf(stderr, __VA_ARGS__)
+#define DBG_LOG(...) fwprintf(stderr, "[LOG] " __VA_ARGS__)
 #else
 #define DBG_LOG(...) if (false) fwprintf(stderr, "[LOG] " __VA_ARGS__)
 #endif

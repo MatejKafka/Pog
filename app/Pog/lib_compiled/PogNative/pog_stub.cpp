@@ -1,4 +1,4 @@
-// heavily inspired by https://github.com/schemea/scoop-better-shim/blob/master/shim.c
+// inspired by https://github.com/schemea/scoop-better-shim/blob/master/shim.c
 
 #include <Windows.h>
 #include <cassert>
@@ -122,6 +122,33 @@ HANDLE create_child_job() {
     return job_handle;
 }
 
+class ProcThreadAttributeList {
+private:
+    std::byte* attribute_list_;
+public:
+    ProcThreadAttributeList() {
+        SIZE_T size;
+        // get the attribute list size; do not check for error here, it's expected that we'll get one
+        InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+
+        attribute_list_ = new std::byte[size];
+        CHECK_ERROR_B(InitializeProcThreadAttributeList(*this, 1, 0, &size));
+    }
+
+    ~ProcThreadAttributeList() {
+        DeleteProcThreadAttributeList(*this);
+        delete[] attribute_list_;
+    }
+
+    operator LPPROC_THREAD_ATTRIBUTE_LIST() { // NOLINT(google-explicit-constructor)
+        return (LPPROC_THREAD_ATTRIBUTE_LIST)attribute_list_;
+    }
+
+    void add_attribute(DWORD_PTR attribute, void* attr_value, size_t attr_size) {
+        CHECK_ERROR_B(UpdateProcThreadAttribute(*this, 0, attribute, attr_value, attr_size, nullptr, nullptr));
+    }
+};
+
 struct ChildHandles {
     HANDLE job;
     HANDLE process;
@@ -133,19 +160,22 @@ struct ChildHandles {
 };
 
 ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wchar_t* working_directory) {
-    STARTUPINFO startup_info{.cb = sizeof(startup_info)};
-    PROCESS_INFORMATION process_info{};
-    DWORD flags = INHERIT_PARENT_AFFINITY | CREATE_SUSPENDED;
-
-    // assign the child to a job so that the child is killed if this stub process dies
+    // create a job object to wrap the child in
     auto job_handle = create_child_job();
-    CHECK_ERROR_B(CreateProcess(target, command_line, nullptr, nullptr, true, flags,
-                                nullptr, working_directory, &startup_info, &process_info));
 
-    // assign the child to the job and resume it
-    CHECK_ERROR_B(AssignProcessToJobObject(job_handle, process_info.hProcess));
-    CHECK_ERROR_V((DWORD)-1, ResumeThread(process_info.hThread));
-    // we don't need the thread handle anymore, close it
+    // assign the spawned process to the job (https://devblogs.microsoft.com/oldnewthing/20230209-00/?p=107812)
+    ProcThreadAttributeList attr_list{};
+    attr_list.add_attribute(PROC_THREAD_ATTRIBUTE_JOB_LIST, &job_handle, sizeof(job_handle));
+
+    STARTUPINFOEX startup_info{.StartupInfo = {.cb = sizeof(startup_info)}, .lpAttributeList = attr_list};
+    PROCESS_INFORMATION process_info;
+
+    // spawn the process
+    CHECK_ERROR_B(CreateProcess(
+            target, command_line, nullptr, nullptr, true, INHERIT_PARENT_AFFINITY | EXTENDED_STARTUPINFO_PRESENT,
+            nullptr, working_directory, &startup_info.StartupInfo, &process_info));
+
+    // we don't need the thread handle, close it
     CHECK_ERROR_B(CloseHandle(process_info.hThread));
 
     return {.job = job_handle, .process = process_info.hProcess};
