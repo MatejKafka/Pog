@@ -355,41 +355,40 @@ Export function Assert-File {
 
 
 Export function Export-Shortcut {
-	[CmdletBinding()]
+	[CmdletBinding(PositionalBinding = $false)]
 	param(
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, Position = 0)]
 			[string]
 		$ShortcutName,
-			[Parameter(Mandatory)]
+			[Parameter(Mandatory, Position = 1)]
 			[string]
 		$TargetPath,
-			[Alias("Arguments")]
-			[string[]]
-		$ArgumentList,
-		$WorkingDirectory,
+
 			[Alias("Icon")]
 		$IconPath,
 		$Description,
+
+		$WorkingDirectory,
+			[Alias("Arguments")]
+			[string[]]
+		$ArgumentList,
     		[Alias("Environment")]
     		[Hashtable]
 		$EnvironmentVariables
 	)
-
-	# shortcut takes a command line string, not an argument array
-	$CommandLine = if ($ArgumentList) {[Pog.Native.Win32Args]::EscapeArguments($ArgumentList)} else {""}
 
 	$Shell = New-Object -ComObject "WScript.Shell"
 	# Shell object has different CWD, have to resolve all paths
 	$ShortcutPath = Resolve-VirtualPath ([Pog.PathConfig+PackagePaths]::ShortcutDirRelPath + "/$ShortcutName.lnk")
 
 	$Target = Resolve-VirtualPath $TargetPath
-	if (-not [System.IO.File]::Exists($Target)) {
+	if (-not (Test-Path $Target)) {
 		throw "Shortcut target does not exist: $Target"
 	}
 
 	Write-Debug "Resolved shortcut target: $Target"
 
-	if ($WorkingDirectory -eq $null) {
+	if (-not $WorkingDirectory) {
 		$WorkingDirectory = Split-Path $Target
 	} else {
 		$WorkingDirectory = Resolve-VirtualPath $WorkingDirectory
@@ -398,7 +397,7 @@ Export function Export-Shortcut {
 		}
 	}
 
-	if ($IconPath -eq $null) {
+	if (-not $IconPath) {
 		$IconPath = $Target
 	} else {
 		$IconPath = Resolve-VirtualPath $IconPath
@@ -408,27 +407,31 @@ Export function Export-Shortcut {
 	}
 
 	# support copying icon from another .lnk
-	if (".lnk" -eq [System.IO.Path]::GetExtension($IconPath)) {
-		$Icon = $Shell.CreateShortcut($IconPath).IconLocation
+	$Icon = if (".lnk" -eq [System.IO.Path]::GetExtension($IconPath)) {
+		$Shell.CreateShortcut($IconPath).IconLocation
 	} else {
 		# icon index 0 = first icon in the file
-		$Icon = [string]$IconPath + ",0"
+		[string]$IconPath + ",0"
 	}
 
-	if ($null -eq $Description) {
+	if (-not $Description) {
+		# TODO: copy description from versioninfo resource of the target
 		$Description = [System.IO.Path]::GetFileNameWithoutExtension($TargetPath)
 	}
 
 
-	if ($EnvironmentVariables) {
-		Write-Debug "Creating a hidden stub to set environment variables..."
+	if ($ArgumentList -or $EnvironmentVariables) {
+		Write-Debug "Creating a hidden stub to set arguments and environment..."
 		# if -EnvironmentVariables was used, create a hidden command and point the shortcut to it,
 		#  since shortcuts cannot set environment variables
+		# if -ArgumentList was passed, also create it, because if someone creates a file association by selecting
+		#  the shortcut, the command line is lost (yeah, Windows are kinda stupid sometimes)
 		$Target = Export-Command -_InternalDoNotUse_Shortcut -PassThru `
-			$ShortcutName $TargetPath -EnvironmentVariables $EnvironmentVariables `
+			$ShortcutName $TargetPath `
+			-EnvironmentVariables $EnvironmentVariables `
+			-ArgumentList $ArgumentList `
 			-Verbose:$false -Debug:$false -InformationAction SilentlyContinue
 	}
-
 
 	# this shortcut was refreshed, not stale, remove it
 	# noop when not present
@@ -438,7 +441,7 @@ Export function Export-Shortcut {
 
 	if (Test-Path $ShortcutPath) {
 		if ($S.TargetPath -eq $Target `
-				-and $S.Arguments -eq $CommandLine `
+				-and $S.Arguments -eq "" `
 				-and $S.WorkingDirectory -eq $WorkingDirectory `
 				-and $S.IconLocation -eq $Icon `
 				-and $S.Description -eq $Description) {
@@ -450,7 +453,7 @@ Export function Export-Shortcut {
 	}
 
 	$S.TargetPath = $Target
-	$S.Arguments = $CommandLine
+	$S.Arguments = ""
 	$S.WorkingDirectory = $WorkingDirectory
 	$S.IconLocation = $Icon
 	$S.Description = $Description
