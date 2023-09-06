@@ -139,15 +139,20 @@ public class ExportCommandCommand : PSCmdlet {
         }
     }
 
+    private string ResolveEnvironmentVariableValue(object valueObj) {
+        var value = valueObj.ToString();
+        // if value looks like a relative path, resolve it
+        // TODO: add more controls using annotations
+        return value.StartsWith("./") || value.StartsWith(".\\") ? GetUnresolvedProviderPathFromPSPath(value) : value;
+    }
+
     private Dictionary<string, string> ResolveEnvironmentVariables(Hashtable envVars) {
-        return envVars.Cast<DictionaryEntry>().ToDictionary(entry => entry.Key!.ToString(), entry => {
-            var value = entry.Value?.ToString() ?? "";
-            // if value looks like a relative path, resolve it
-            // TODO: add more controls using annotations
-            if (value.StartsWith("./") || value.StartsWith(".\\")) {
-                value = GetUnresolvedProviderPathFromPSPath(value);
-            }
-            return value;
-        });
+        return envVars.Cast<DictionaryEntry>().ToDictionary(
+                entry => entry.Key!.ToString(),
+                entry => entry.Value switch {
+                    null => "",
+                    IEnumerable<object> e => string.Join(";", e.Select(ResolveEnvironmentVariableValue)),
+                    _ => ResolveEnvironmentVariableValue(entry.Value),
+                });
     }
 }
