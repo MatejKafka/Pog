@@ -5,14 +5,12 @@ using System.IO;
 using System.Linq;
 using Pog.Native;
 using Pog.Utils;
-using ResourceType = Pog.Native.PeResources.ResourceType;
 
 namespace Pog.Stub;
 
 // TODO: support tags ([noresolve], [resolve], [prepend], [append])
 // TODO: switch to stub data format with package-relative paths instead of absolute paths
 // TODO: when copying resources, shoud we also enumerate languages?
-
 
 // Required operations with stubs:
 // 1) create a new stub (or overwrite an existing one)
@@ -23,12 +21,14 @@ namespace Pog.Stub;
 //    - read target resources, compare with the hash stored in the stub
 public class StubExecutable {
     // stub data are stored as an RCDATA resource at index 1
-    private static readonly PeResources.ResourceId StubDataResourceId = new(ResourceType.RcData, 1);
+    private static readonly PeResources.ResourceId StubDataResourceId = new(PeResources.ResourceType.RcData, 1);
     // TODO: bring back ResourceType.Manifest, but it will require some amount of parsing
     //  e.g. Firefox declares required assemblies, which the stub doesn't see, so it fails
     /// List of resource types which are copied from target to the stub.
-    private static readonly ResourceType[] CopiedResourceTypes =
-            {ResourceType.Icon, ResourceType.IconGroup, ResourceType.Version/*, ResourceType.Manifest*/};
+    private static readonly PeResources.ResourceType[] CopiedResourceTypes = {
+        PeResources.ResourceType.Icon, PeResources.ResourceType.IconGroup,
+        PeResources.ResourceType.Version /*, ResourceType.Manifest*/
+    };
     /// List of supported target extensions. All listed extensions can be invoked directly by `CreateProcess(...)`.
     private static readonly string[] SupportedTargetExtensions = {".exe", ".com", ".cmd", ".bat"};
 
@@ -51,7 +51,11 @@ public class StubExecutable {
 
         // .cmd/.bat file handler seems to use argv[0] as the target passed to `cmd.exe /c` not lpApplicationName,
         //  which results in an infinite process spawning loop when the original argv[0] is retained
-        ReplaceArgv0 = targetExtension is ".cmd" or ".bat";
+        //ReplaceArgv0 = targetExtension is ".cmd" or ".bat";
+
+        // keeping the stub argv[0] surprisingly caused quite a lot of hard-to-debug issues, so just unconditionally
+        //  overwrite it for now
+        ReplaceArgv0 = true;
         TargetPath = targetPath;
         WorkingDirectory = workingDirectory;
         Arguments = arguments;
@@ -168,7 +172,8 @@ public class StubExecutable {
     }
 
     /// Copies resources of given `type`, assumes that the destination binary does not have any resources of type `type`.
-    private static void CopyResources(PeResources.ResourceUpdater updater, PeResources.Module src, ResourceType type) {
+    private static void CopyResources(PeResources.ResourceUpdater updater, PeResources.Module src,
+            PeResources.ResourceType type) {
         try {
             src.IterateResourceNames(type, name => {
                 updater.CopyResourceFrom(src, new(type, name));
@@ -179,7 +184,8 @@ public class StubExecutable {
         }
     }
 
-    private static void RemoveResources(Lazy<PeResources.ResourceUpdater> updater, PeResources.Module dest, ResourceType type) {
+    private static void RemoveResources(Lazy<PeResources.ResourceUpdater> updater, PeResources.Module dest,
+            PeResources.ResourceType type) {
         try {
             dest.IterateResourceNames(type, name => {
                 updater.Value.DeleteResource(new(type, name));
@@ -192,8 +198,9 @@ public class StubExecutable {
 
     /// Ensures that `dest` has the same resources of type `type` as `src`. Copies all missing resources, deletes any extra resources.
     /// Only instantiates `updater` if something needs to be copied.
-    private static void UpdateResources(Lazy<PeResources.ResourceUpdater> updater, PeResources.Module dest, PeResources.Module src,
-            ResourceType type) {
+    private static void UpdateResources(Lazy<PeResources.ResourceUpdater> updater, PeResources.Module dest,
+            PeResources.Module src,
+            PeResources.ResourceType type) {
         // list resources of `type` in src
         if (!src.TryGetResourceNames(type, out var srcNames)) {
             srcNames = new();
