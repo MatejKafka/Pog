@@ -192,6 +192,7 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
 
         // find and prepare the used subdirectory
         var usedDir = GetExtractedSubdirectory(_extractionDirPath, param.Subdirectory);
+        WriteDebug($"Resolved source directory: {usedDir}");
         PrepareExtractedSubdirectory(usedDir.FullName, param.SetupScript, param.NsisInstaller);
 
         // move `usedDir` to the new app directory
@@ -244,7 +245,6 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
             }
 
             var subPath = resolvedPaths[0]!;
-            WriteDebug($"Using passed path inside archive: {subPath}");
 
             if (EscapesDirectory(extractedRootPath, subPath)) {
                 ThrowTerminatingArgumentError(subdirectory, "SubdirectoryEscapesRoot",
