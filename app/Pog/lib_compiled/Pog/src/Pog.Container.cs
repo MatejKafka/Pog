@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections;
-using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
@@ -149,10 +148,10 @@ public class Container : IDisposable {
             // setup environment for package manifest script
             // each environment module must provide functions `__main` and `__cleanup`
             _containerType switch {
-                ContainerType.Enable => Path.Combine(containerDir, @"Enable\Env_Enable.psm1"),
-                ContainerType.Install => Path.Combine(containerDir, @"Install\Env_Install.psm1"),
-                ContainerType.GetInstallHash => Path.Combine(containerDir, @"Install\Env_GetInstallHash.psm1"),
-                ContainerType.Disable => Path.Combine(containerDir, @"Enable\Env_Disable.psm1"),
+                ContainerType.Enable => $@"{containerDir}\Enable\Env_Enable.psm1",
+                ContainerType.Disable => $@"{containerDir}\Enable\Env_Disable.psm1",
+                ContainerType.Install => $@"{containerDir}\Install\Env_Install.psm1",
+                ContainerType.GetInstallHash => $@"{containerDir}\Install\Env_GetInstallHash.psm1",
                 _ => throw new ArgumentOutOfRangeException(nameof(_containerType), _containerType, null),
             },
         });

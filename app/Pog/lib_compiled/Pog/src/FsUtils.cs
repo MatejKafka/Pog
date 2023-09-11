@@ -106,11 +106,12 @@ public static class FsUtils {
     /// Assumes that <paramref name="targetDir"/> exists.
     public static void MoveDirectoryContents(DirectoryInfo srcDir, string targetDir) {
         foreach (var entry in srcDir.EnumerateFileSystemInfos()) {
+            var targetPath = Path.Combine(targetDir, entry.Name);
             // shrug, not all .NET APIs are nice...
-            if (entry is FileInfo file)
-                file.MoveTo(Path.Combine(targetDir, entry.Name));
-            else if (entry is DirectoryInfo dir) {
-                dir.MoveTo(Path.Combine(targetDir, entry.Name));
+            if (entry is FileInfo file) {
+                file.MoveTo(targetPath);
+            } else if (entry is DirectoryInfo dir) {
+                dir.MoveTo(targetPath);
             }
         }
     }

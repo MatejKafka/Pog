@@ -95,25 +95,26 @@ public class PathConfig {
     // if any new paths are added here, also add them to setup.ps1 in the root directory
 
     public PathConfig(string rootDirPath) :
-            this(Path.Combine(rootDirPath, "app/Pog"), Path.Combine(rootDirPath, "data"), Path.Combine(rootDirPath, "cache")) {}
+            this($"{rootDirPath}\\app\\Pog", $"{rootDirPath}\\data", $"{rootDirPath}\\cache") {}
 
     public PathConfig(string appRootDirPath, string dataRootDirPath, string cacheRootDirPath) {
         _appRootDir = appRootDirPath;
         _dataRootDir = dataRootDirPath;
         _cacheRootDir = cacheRootDirPath;
-        PackageRoots = new PackageRootConfig(Path.Combine(_dataRootDir, "package_roots.txt"));
 
-        ContainerDir = Path.Combine(_appRootDir, "container");
-        CompiledLibDir = Path.Combine(_appRootDir, "lib_compiled");
-        ExecutableStubPath = Path.Combine(CompiledLibDir, "PogExecutableStubTemplate.exe");
+        PackageRoots = new PackageRootConfig($"{_dataRootDir}\\package_roots.txt");
 
-        ExportedCommandDir = Path.Combine(_dataRootDir, "package_bin");
-        ManifestRepositoryDir = Path.Combine(_dataRootDir, "manifests");
-        ManifestGeneratorDir = Path.Combine(_dataRootDir, "manifest_generators");
+        ContainerDir = $"{_appRootDir}\\container";
+        CompiledLibDir = $"{_appRootDir}\\lib_compiled";
+        ExecutableStubPath = $"{CompiledLibDir}\\PogExecutableStubTemplate.exe";
 
-        DownloadCacheDir = Path.Combine(_cacheRootDir, "download_cache");
-        DownloadTmpDir = Path.Combine(_cacheRootDir, "download_tmp");
+        ExportedCommandDir = $"{_dataRootDir}\\package_bin";
+        ManifestRepositoryDir = $"{_dataRootDir}\\manifests";
+        ManifestGeneratorDir = $"{_dataRootDir}\\manifest_generators";
 
-        Path7Zip = Path.Combine(ExportedCommandDir, "7z.exe");
+        DownloadCacheDir = $"{_cacheRootDir}\\download_cache";
+        DownloadTmpDir = $"{_cacheRootDir}\\download_tmp";
+
+        Path7Zip = $"{ExportedCommandDir}\\7z.exe";
     }
 }
