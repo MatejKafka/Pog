@@ -54,7 +54,7 @@ Export function Set-EnvVar {
 		Write-Verbose "'env:$VarName' already set to '$Value' $TargetReadable."
 		# the var might be set in system, but our process might have the old/no value
 		# this ensures that after this call, value of $env:VarName is up to date
-		Update-EnvVar $VarName
+		[Environment]::SetEnvironmentVariable($VarName, $Value, [System.EnvironmentVariableTarget]::Process)
 		return
 	}
 
@@ -64,7 +64,25 @@ Export function Set-EnvVar {
 
 	Write-Warning "Setting environment variable 'env:$VarName' to '$Value' $TargetReadable..."
 	[Environment]::SetEnvironmentVariable($VarName, $Value, $Target)
-	Update-EnvVar $VarName
+	# also set the variable for the current process
+	[Environment]::SetEnvironmentVariable($VarName, $Value, [System.EnvironmentVariableTarget]::Process)
+}
+
+function CombineEnvValues($OldValue, $AddedValue, [switch]$Prepend) {
+	if ($Prepend) {
+		return $AddedValue + [IO.Path]::PathSeparator + $OldValue
+	} else {
+		return $OldValue + [IO.Path]::PathSeparator + $AddedValue
+	}
+}
+
+function AddToProcessEnv($VarName, $Value, [switch]$Prepend) {
+	# this may not match the position of the added global env var exactly, but better than nothing
+	$ProcessEnv = [Environment]::GetEnvironmentVariable($VarName, [System.EnvironmentVariableTarget]::Process)
+	if (-not $ProcessEnv.Split([IO.Path]::PathSeparator).Contains($Value)) {
+		$ProcessEnv = CombineEnvValues $ProcessEnv $Value -Prepend:$Prepend
+		[Environment]::SetEnvironmentVariable($VarName, $ProcessEnv, [System.EnvironmentVariableTarget]::Process)
+	}
 }
 
 <#
@@ -75,7 +93,7 @@ Export function Set-EnvVar {
 .PARAMETER Value
 	Value to add.
 .PARAMETER Systemwide
-	If set, system environemnt variable will be set. Otherwise, user environment variable will be set.
+	If set, system environment variable will be set. Otherwise, user environment variable will be set.
 #>
 Export function Add-EnvVar {
 	param(
@@ -108,7 +126,7 @@ Export function Add-EnvVar {
 		Write-Verbose "Value '$Value' already present in 'env:$VarName' $TargetReadable."
 		# the var might be set in system, but our process might have the old/no value
 		# this ensures that after this call, value of $env:VarName is up to date
-		Update-EnvVar $VarName
+		AddToProcessEnv $VarName $Value -Prepend:$Prepend
 		return
 	}
 
@@ -118,14 +136,12 @@ Export function Add-EnvVar {
 
 	Write-Warning "Adding '$Value' to 'env:$VarName' $TargetReadable..."
 
-	$NewValue = if ($Prepend) {
-		$Value + [IO.Path]::PathSeparator + $OldValue
-	} else {
-		$OldValue + [IO.Path]::PathSeparator + $Value
-	}
-
+	$NewValue = CombineEnvValues $OldValue $Value -Prepend:$Prepend
 	[Environment]::SetEnvironmentVariable($VarName, $NewValue, $Target)
-	Update-EnvVar $VarName
+
+	# also set the variable for the current process
+	# do not reload the variable, since that could remove process-scope modifications
+	AddToProcessEnv $VarName $Value -Prepend:$Prepend
 
 	$Verb = if ($Prepend) {"Prepended"} else {"Appended"}
 	Write-Information "$Verb '$Value' to 'env:$VarName'."
