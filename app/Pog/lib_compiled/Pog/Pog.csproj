@@ -3,9 +3,12 @@
   <PropertyGroup>
     <Version>0.5.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-  </PropertyGroup>
 
-  <PropertyGroup>
+    <!-- If publishing, use a release build by default. -->
+    <PublishRelease>true</PublishRelease>
+    <!-- This is needed for XmlDoc2CmdletDoc to generate a PowerShell documentation file. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
     <LangVersion>default</LangVersion>
     <Nullable>enable</Nullable>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -15,12 +18,15 @@
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
-    <DocumentationFile>bin\Debug\Pog.xml</DocumentationFile>
     <DebugType>full</DebugType>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <DocumentationFile>bin\Release\Pog.xml</DocumentationFile>
+    <Platform>AnyCPU</Platform>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,20 +51,30 @@
        loading and also shields us from dependency hell, which is especially problematic with PowerShell,
        because it seemingly ignores `<bindingRedirect>` (see https://stackoverflow.com/a/69403558/14427275). -->
   <Target Name="ILRepack" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <!-- Resolve publish dir before passing to ILRepack. -->
+    <ConvertToAbsolutePath Paths="$(PublishDir)">
+      <Output TaskParameter="AbsolutePaths" PropertyName="AbsPublishDir"/>
+    </ConvertToAbsolutePath>
+
     <PropertyGroup>
-      <MergedAssembly>$(PublishDir)\_merged.dll</MergedAssembly>
-      <MergedOutputPath>$(SolutionDir)\$(ProjectName).dll</MergedOutputPath>
-      <MainAssembly>$(PublishDir)\Pog.dll</MainAssembly>
+      <MergedOutputPath>$(ProjectDir)\..\$(ProjectName).dll</MergedOutputPath>
+      <MergedAssembly>$(AbsPublishDir)\_merged.dll</MergedAssembly>
+      <MainAssembly>$(AbsPublishDir)\Pog.dll</MainAssembly>
     </PropertyGroup>
 
     <ItemGroup>
       <!-- List of assemblies to be merged. -->
-      <AssemblyToMerge Include="$(PublishDir)\*.dll" Exclude="$(PublishDir)\System.Management.Automation.dll;$(MainAssembly);$(MergedAssembly)"/>
+      <AssemblyToMerge Include="$(AbsPublishDir)\*.dll" Exclude="$(AbsPublishDir)\System.Management.Automation.dll;$(MainAssembly);$(MergedAssembly)"/>
     </ItemGroup>
 
+    <PropertyGroup>
+      <IlRepackFlags>/ndebug /union /parallel /xmldocs</IlRepackFlags>
+      <AssemblyListArg>&quot;$(MainAssembly)&quot; @(AssemblyToMerge->'&quot;%(FullPath)&quot;', ' ')</AssemblyListArg>
+    </PropertyGroup>
+
     <Message Text="Running ILRepack..." Importance="High"/>
-    <Exec Command="ILRepack.exe /ndebug /out:&quot;$(MergedAssembly)&quot; &quot;$(MainAssembly)&quot; @(AssemblyToMerge->'&quot;%(FullPath)&quot;', ' ')"
-          WorkingDirectory="$(PublishDir)"/>
+    <Exec Command="ILRepack.exe $(IlRepackFlags) /out:&quot;$(MergedAssembly)&quot; $(AssemblyListArg)"
+          WorkingDirectory="$(AbsPublishDir)"/>
 
     <!-- Copy the merged DLL and the generated PowerShell help file. This is a separate step
          to get better error messages when the output .dll is in use. -->
