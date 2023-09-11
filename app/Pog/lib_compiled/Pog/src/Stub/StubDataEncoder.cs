@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Pog.Native;
 
@@ -62,6 +64,7 @@ namespace Pog.Stub;
  *    The name and value offsets point to strings, placed anywhere in the stub.
  */
 internal class StubDataEncoder {
+    public const uint CurrentStubDataVersion = 1;
     private static readonly Encoding Encoding = Encoding.Unicode;
     private const ushort NullTerminator = 0;
     private const int HeaderSize = 6 * 4;
@@ -72,6 +75,12 @@ internal class StubDataEncoder {
     private StubDataEncoder() {
         _stream = new MemoryStream(256);
         _writer = new BinaryWriter(_stream);
+    }
+
+    public static uint ParseVersion(ReadOnlySpan<byte> stubData) {
+        Debug.Assert(stubData.Length > sizeof(uint));
+        // version is the first uint in the header
+        return Unsafe.ReadUnaligned<uint>(ref MemoryMarshal.GetReference(stubData));
     }
 
     public static Span<byte> EncodeStub(StubExecutable stub) {
@@ -117,7 +126,7 @@ internal class StubDataEncoder {
 
         // go back and write the header
         SeekAbs(0);
-        WriteUint(1); // version
+        WriteUint(CurrentStubDataVersion); // version
         WriteUint(stub.ReplaceArgv0 ? 1 : 0); // flags
         WriteUint(targetOffset);
         WriteUint(stub.WorkingDirectory == null ? 0 : wdOffset);

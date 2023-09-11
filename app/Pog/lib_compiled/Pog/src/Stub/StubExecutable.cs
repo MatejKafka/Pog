@@ -10,15 +10,16 @@ namespace Pog.Stub;
 
 // TODO: support tags ([noresolve], [resolve], [prepend], [append])
 // TODO: switch to stub data format with package-relative paths instead of absolute paths
-// TODO: when copying resources, shoud we also enumerate languages?
+// TODO: when copying PE resources, should we also enumerate languages?
 
 // Required operations with stubs:
 // 1) create a new stub (or overwrite an existing one)
 //    - store encoded stub data in RCDATA#1
+//    - copy PE resources from target
 // 2) TODO: get owning package of a stub
 // 3) check if the configuration of a stub matches an expected one
 //    - encode stub data and compare with stored stub data
-//    - read target resources, compare with the hash stored in the stub
+//    - read target PE resources, compare with already copied PE resources in the stub
 public class StubExecutable {
     // stub data are stored as an RCDATA resource at index 1
     private static readonly PeResources.ResourceId StubDataResourceId = new(PeResources.ResourceType.RcData, 1);
@@ -68,10 +69,12 @@ public class StubExecutable {
 
     /// Ensures that the stub at stubPath is up-to-date.
     /// <returns>true if anything changed, false if stub is up-to-date</returns>
+    /// <exception cref="OutdatedStubException"></exception>
     public bool UpdateStub(string stubPath, string? resourceSrcPath = null) {
         return IsTargetPeBinary() ? UpdateStubExe(stubPath, resourceSrcPath) : UpdateStubOther(stubPath, resourceSrcPath);
     }
 
+    /// <exception cref="OutdatedStubException"></exception>
     private bool UpdateStubExe(string stubPath, string? resourceSrcPath) {
         // copy subsystem from the target binary
         var targetSubsystem = PeSubsystem.GetSubsystem(TargetPath);
@@ -85,6 +88,7 @@ public class StubExecutable {
     }
 
     /// Updater method for targets that are not PE binaries, and don't have a subsystem and resources.
+    /// <exception cref="OutdatedStubException"></exception>
     private bool UpdateStubOther(string stubPath, string? resourceSrcPath) {
         // assume a console subsystem
         var originalSubsystem = PeSubsystem.SetSubsystem(stubPath, PeSubsystem.WindowsSubsystem.WindowsCui);
@@ -97,6 +101,7 @@ public class StubExecutable {
         return subsystemChanged || updatedResources;
     }
 
+    /// <exception cref="OutdatedStubException"></exception>
     private bool UpdateStubResources(string stubPath, string? resourceSrcPath) {
         var stubData = StubDataEncoder.EncodeStub(this);
 
@@ -108,18 +113,26 @@ public class StubExecutable {
         using var resourceSrc = resourceSrcPath == null ? null : new PeResources.Module(resourceSrcPath);
 
         // `stub` must be closed before `.CommitChanges()` is called
-        using (var stub = new PeResources.Module(stubPath)) {
-            if (!IsStubDataUpToDate(stub, stubData)) {
-                stubUpdater.Value.SetResource(StubDataResourceId, stubData);
+        using (var stubModule = new PeResources.Module(stubPath)) {
+            // ensure stub data is up to date
+            switch (CompareStubData(stubModule, stubData)) {
+                case StubDataStatus.Changed:
+                case StubDataStatus.NoStubData:
+                    stubUpdater.Value.SetResource(StubDataResourceId, stubData);
+                    break;
+                case StubDataStatus.OldVersion:
+                    // if the exe has outdated stub data, the exe itself is outdated
+                    throw new OutdatedStubException("Stub executable expects an older version of stub data, " +
+                                                    "replace it with an up-to-date version of the stub executable.");
             }
 
             foreach (var resourceType in CopiedResourceTypes) {
                 if (resourceSrc != null) {
                     // ensure copied resources are up-to-date with target
-                    UpdateResources(stubUpdater, stub, resourceSrc, resourceType);
+                    UpdateResources(stubUpdater, stubModule, resourceSrc, resourceType);
                 } else {
                     // delete any previously copied resources
-                    RemoveResources(stubUpdater, stub, resourceType);
+                    RemoveResources(stubUpdater, stubModule, resourceType);
                 }
             }
         }
@@ -132,8 +145,16 @@ public class StubExecutable {
         return stubUpdater.IsValueCreated;
     }
 
-    private static bool IsStubDataUpToDate(PeResources.Module stub, Span<byte> stubData) {
-        return stub.TryGetResource(StubDataResourceId, out var currentStubData) && stubData.SequenceEqual(currentStubData);
+    private enum StubDataStatus { Same, Changed, NoStubData, OldVersion }
+
+    private static StubDataStatus CompareStubData(PeResources.Module stub, Span<byte> newStubData) {
+        if (!stub.TryGetResource(StubDataResourceId, out var currentStubData)) {
+            return StubDataStatus.NoStubData;
+        }
+        if (StubDataEncoder.ParseVersion(currentStubData) != StubDataEncoder.CurrentStubDataVersion) {
+            return StubDataStatus.OldVersion;
+        }
+        return newStubData.SequenceEqual(currentStubData) ? StubDataStatus.Same : StubDataStatus.Changed;
     }
 
     private void WriteNewStubResources(string stubPath, string? resourceSrcPath) {
@@ -232,5 +253,9 @@ public class StubExecutable {
 
     public class UnsupportedStubTargetTypeException : ArgumentException {
         public UnsupportedStubTargetTypeException(string message) : base(message) {}
+    }
+
+    public class OutdatedStubException : Exception {
+        public OutdatedStubException(string message) : base(message) {}
     }
 }

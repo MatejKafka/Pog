@@ -75,9 +75,17 @@ public class ExportCommandCommand : PSCmdlet {
         foreach (var cmdName in CommandName) {
             var rLinkPath = Path.Combine(commandDirPath, cmdName + linkExtension);
             if (useSymlink) {
-                ExportCommandSymlink(cmdName, rLinkPath, rTargetPath);
+                if (ExportCommandSymlink(cmdName, rLinkPath, rTargetPath)) {
+                    WriteInformation($"Registered command '{cmdName}' using a symlink.", null);
+                } else {
+                    WriteVerbose($"Command {cmdName} is already exported as a symlink.");
+                }
             } else {
-                ExportCommandStubExecutable(cmdName, rLinkPath, rTargetPath);
+                if (ExportCommandStubExecutable(cmdName, rLinkPath, rTargetPath)) {
+                    WriteInformation($"Registered command '{cmdName}' using a stub executable.", null);
+                } else {
+                    WriteVerbose($"Command {cmdName} is already exported as a stub executable.");
+                }
             }
 
             // mark this command as not stale
@@ -94,20 +102,19 @@ public class ExportCommandCommand : PSCmdlet {
         }
     }
 
-    private void ExportCommandSymlink(string cmdName, string rLinkPath, string rTargetPath) {
+    private bool ExportCommandSymlink(string cmdName, string rLinkPath, string rTargetPath) {
         if (File.Exists(rLinkPath)) {
             if (rTargetPath == FsUtils.GetSymbolicLinkTarget(rLinkPath)) {
-                WriteVerbose($"Command {cmdName} is already exported as a symlink.");
-                return;
+                return false;
             }
             File.Delete(rLinkPath);
         }
         // TODO: add back support for relative paths
         FsUtils.CreateSymbolicLink(rLinkPath, rTargetPath, isDirectory: false);
-        WriteInformation($"Registered command '{cmdName}' using a symlink.", null);
+        return true;
     }
 
-    private void ExportCommandStubExecutable(string cmdName, string rLinkPath, string rTargetPath) {
+    private bool ExportCommandStubExecutable(string cmdName, string rLinkPath, string rTargetPath) {
         var rWorkingDirectory = WorkingDirectory == null ? null : GetUnresolvedProviderPathFromPSPath(WorkingDirectory)!;
         var rMetadataSource = MetadataSource == null ? null : GetUnresolvedProviderPathFromPSPath(MetadataSource);
 
@@ -125,18 +132,22 @@ public class ExportCommandCommand : PSCmdlet {
             if ((new FileInfo(rLinkPath).Attributes & FileAttributes.ReparsePoint) != 0) {
                 // reparse point, not an ordinary file, remove
                 File.Delete(rLinkPath);
-            } else if (stub.UpdateStub(rLinkPath, rMetadataSource)) {
-                // stub was changed
-                WriteInformation($"Registered command '{cmdName}' using a stub executable.", null);
+                WriteDebug("Overwriting symlink with a stub executable...");
             } else {
-                WriteVerbose($"Command {cmdName} is already exported as a stub executable.");
+                try {
+                    return stub.UpdateStub(rLinkPath, rMetadataSource);
+                } catch (StubExecutable.OutdatedStubException) {
+                    // outdated stub exe, overwrite the stub with a new version
+                    File.Delete(rLinkPath);
+                    WriteDebug("Old stub executable, replacing with an up-to-date one...");
+                }
             }
-        } else {
-            // copy empty stub to rLinkPath
-            File.Copy(InternalState.PathConfig.ExecutableStubPath, rLinkPath);
-            stub.WriteNewStub(rLinkPath, rMetadataSource);
-            WriteInformation($"Registered command '{cmdName}' using a stub executable.", null);
         }
+
+        // copy empty stub to rLinkPath
+        File.Copy(InternalState.PathConfig.ExecutableStubPath, rLinkPath);
+        stub.WriteNewStub(rLinkPath, rMetadataSource);
+        return true;
     }
 
     private string ResolveEnvironmentVariableValue(object valueObj) {
