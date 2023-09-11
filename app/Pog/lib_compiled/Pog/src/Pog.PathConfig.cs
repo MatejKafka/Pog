@@ -74,6 +74,7 @@ public class PathConfig {
     public readonly string ContainerDir;
     public readonly string CompiledLibDir;
     public readonly string ExecutableStubPath;
+    public readonly string VcRedistDir;
 
     public readonly string ExportedCommandDir;
     public readonly string ManifestRepositoryDir;
@@ -107,6 +108,7 @@ public class PathConfig {
         ContainerDir = $"{_appRootDir}\\container";
         CompiledLibDir = $"{_appRootDir}\\lib_compiled";
         ExecutableStubPath = $"{CompiledLibDir}\\PogExecutableStubTemplate.exe";
+        VcRedistDir = $"{CompiledLibDir}\\vc_redist";
 
         ExportedCommandDir = $"{_dataRootDir}\\package_bin";
         ManifestRepositoryDir = $"{_dataRootDir}\\manifests";

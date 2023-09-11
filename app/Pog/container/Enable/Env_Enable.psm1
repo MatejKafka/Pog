@@ -374,7 +374,9 @@ Export function Export-Shortcut {
 		$ArgumentList,
     		[Alias("Environment")]
     		[Hashtable]
-		$EnvironmentVariables
+		$EnvironmentVariables,
+			[switch]
+		$VcRedist
 	)
 
 	$Shell = New-Object -ComObject "WScript.Shell"
@@ -420,7 +422,7 @@ Export function Export-Shortcut {
 	}
 
 
-	if ($ArgumentList -or $EnvironmentVariables) {
+	if ($ArgumentList -or $EnvironmentVariables -or $VcRedist) {
 		Write-Debug "Creating a hidden stub to set arguments and environment..."
 		# if -EnvironmentVariables was used, create a hidden command and point the shortcut to it,
 		#  since shortcuts cannot set environment variables
@@ -430,6 +432,7 @@ Export function Export-Shortcut {
 			$ShortcutName $TargetPath `
 			-EnvironmentVariables $EnvironmentVariables `
 			-ArgumentList $ArgumentList `
+			-VcRedist:$VcRedist `
 			-Verbose:$false -Debug:$false -InformationAction SilentlyContinue
 	}
 

@@ -44,6 +44,7 @@ public class ExportCommandCommand : PSCmdlet {
     /// Useful when the manifest wants to invoke the binary during Enable (e.g. initial config generation in Syncthing).
     [Parameter] public SwitchParameter PassThru;
     [Parameter(ParameterSetName = SymlinkPS)] public SwitchParameter Symlink;
+    [Parameter(ParameterSetName = StubPS)] public SwitchParameter VcRedist;
 
     // ReSharper disable once InconsistentNaming
     // TODO: figure out some way to avoid this parameter without duplicating this cmdlet
@@ -134,9 +135,21 @@ public class ExportCommandCommand : PSCmdlet {
                     "MetadataSourceNotFound", ErrorCategory.InvalidArgument, MetadataSource));
         }
 
+        var resolvedEnvVars = EnvironmentVariables == null ? null : ResolveEnvironmentVariables(EnvironmentVariables);
+        if (VcRedist) {
+            // add the Pog vcredist dir to PATH
+            resolvedEnvVars ??= new();
+            var pathI = resolvedEnvVars.FindIndex(e => e.Key == "PATH");
+            if (pathI == -1) {
+                resolvedEnvVars.Add(new("PATH", new[] {InternalState.PathConfig.VcRedistDir, "%PATH%"}));
+            } else {
+                var path = resolvedEnvVars[pathI];
+                resolvedEnvVars[pathI] = new(path.Key, path.Value.Prepend(InternalState.PathConfig.VcRedistDir).ToArray());
+            }
+        }
+
         // TODO: argument and env resolution
-        var stub = new StubExecutable(rTargetPath, rWorkingDirectory, ArgumentList,
-                EnvironmentVariables == null ? null : ResolveEnvironmentVariables(EnvironmentVariables));
+        var stub = new StubExecutable(rTargetPath, rWorkingDirectory, ArgumentList, resolvedEnvVars);
 
         if (File.Exists(rLinkPath)) {
             if ((new FileInfo(rLinkPath).Attributes & FileAttributes.ReparsePoint) != 0) {

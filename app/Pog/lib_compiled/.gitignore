@@ -1,3 +1,7 @@
+# directory with VC redistributable DLLs
+/vc_redist/*
+!/vc_redist/README.txt
+
 /.idea/
 /lib_compiled.sln.DotSettings.user
 
