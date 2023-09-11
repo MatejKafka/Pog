@@ -1,43 +1,46 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Version>0.5.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <LangVersion>default</LangVersion>
     <Nullable>enable</Nullable>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>1701;1702;IL2121;CS1591</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DocumentationFile>bin\Debug\Pog.xml</DocumentationFile>
     <DebugType>full</DebugType>
-    <NoWarn>1701;1702;IL2121;CS1591</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DocumentationFile>bin\Release\Pog.xml</DocumentationFile>
-    <NoWarn>1701;1702;IL2121;CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Polyfills\Polyfills.csproj" />
+    <ProjectReference Include="..\Polyfills\Polyfills.csproj"/>
   </ItemGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="IsExternalInit" Version="1.0.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="JetBrains.Annotations" Version="2023.2.0" />
-    <PackageReference Include="PowerShellStandard.Library" Version="7.0.0-preview.1" />
-    <PackageReference Include="System.Text.Json" Version="6.0.6" />
+    <PackageReference Include="JetBrains.Annotations" Version="2023.2.0"/>
+    <PackageReference Include="PowerShellStandard.Library" Version="7.0.0-preview.1"/>
+    <PackageReference Include="System.Text.Json" Version="6.0.6"/>
     <PackageReference Include="XmlDoc2CmdletDoc" Version="0.3.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-  
+
   <!-- Use ILRepack to combine all dependencies into one assembly for the release build. This simplifies
        loading and also shields us from dependency hell, which is especially problematic with PowerShell,
        because it seemingly ignores `<bindingRedirect>` (see https://stackoverflow.com/a/69403558/14427275). -->
@@ -45,20 +48,22 @@
     <PropertyGroup>
       <MergedAssembly>$(PublishDir)\_merged.dll</MergedAssembly>
       <MergedOutputPath>$(SolutionDir)\$(ProjectName).dll</MergedOutputPath>
+      <MainAssembly>$(PublishDir)\Pog.dll</MainAssembly>
     </PropertyGroup>
-    
+
     <ItemGroup>
       <!-- List of assemblies to be merged. -->
-      <AssemblyToMerge Include="$(PublishDir)\*.dll" Exclude="$(PublishDir)\System.Management.Automation.dll; $(MergedAssembly)" />
+      <AssemblyToMerge Include="$(PublishDir)\*.dll" Exclude="$(PublishDir)\System.Management.Automation.dll;$(MainAssembly);$(MergedAssembly)"/>
     </ItemGroup>
 
-    <Message Text="Running ILRepack..." Importance="High" />
-    <Exec Command="ILRepack.exe /out:&quot;$(MergedAssembly)&quot; @(AssemblyToMerge->'&quot;%(FullPath)&quot;', ' ')" WorkingDirectory="$(PublishDir)" />
+    <Message Text="Running ILRepack..." Importance="High"/>
+    <Exec Command="ILRepack.exe /ndebug /out:&quot;$(MergedAssembly)&quot; &quot;$(MainAssembly)&quot; @(AssemblyToMerge->'&quot;%(FullPath)&quot;', ' ')"
+          WorkingDirectory="$(PublishDir)"/>
 
     <!-- Copy the merged DLL and the generated PowerShell help file. This is a separate step
          to get better error messages when the output .dll is in use. -->
-    <Copy SourceFiles="$(MergedAssembly)" DestinationFiles="$(MergedOutputPath)" />
-    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(MergedOutputPath)-Help.xml" />
+    <Copy SourceFiles="$(MergedAssembly)" DestinationFiles="$(MergedOutputPath)"/>
+    <Copy SourceFiles="$(TargetDir)$(ProjectName).dll-Help.xml" DestinationFiles="$(MergedOutputPath)-Help.xml"/>
   </Target>
 
 </Project>
