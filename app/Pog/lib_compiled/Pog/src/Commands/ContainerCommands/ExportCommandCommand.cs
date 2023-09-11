@@ -1,10 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Stub;
+using Pog.Utils;
 
 namespace Pog.Commands.ContainerCommands;
 
@@ -30,9 +32,10 @@ public class ExportCommandCommand : PSCmdlet {
     [Alias("Arguments")]
     public string[]? ArgumentList;
 
+    // use IDictionary so that caller can use [ordered] if order is important
     [Parameter(ParameterSetName = StubPS)]
     [Alias("Environment")]
-    public Hashtable? EnvironmentVariables;
+    public IDictionary? EnvironmentVariables;
 
     [Parameter(ParameterSetName = StubPS)]
     [Verify.FilePath]
@@ -157,20 +160,29 @@ public class ExportCommandCommand : PSCmdlet {
         return true;
     }
 
-    private string ResolveEnvironmentVariableValue(object valueObj) {
+    private string? ResolveEnvironmentVariableValue(object? valueObj) {
+        if (valueObj == null) {
+            return null;
+        }
         var value = valueObj.ToString();
         // if value looks like a relative path, resolve it
         // TODO: add more controls using annotations
         return value.StartsWith("./") || value.StartsWith(".\\") ? GetUnresolvedProviderPathFromPSPath(value) : value;
     }
 
-    private Dictionary<string, string> ResolveEnvironmentVariables(Hashtable envVars) {
-        return envVars.Cast<DictionaryEntry>().ToDictionary(
-                entry => entry.Key!.ToString(),
-                entry => entry.Value switch {
-                    null => "",
-                    IEnumerable<object> e => string.Join(";", e.Select(ResolveEnvironmentVariableValue)),
-                    _ => ResolveEnvironmentVariableValue(entry.Value),
-                });
+    private List<KeyValuePair<string, string[]>> ResolveEnvironmentVariables(IDictionary envVars) {
+        // if `envVars` is not a SortedDictionary, sort entries alphabetically, so that we get a consistent order
+        // this is important, because iteration order of dictionaries apparently differs between .NET Framework
+        //  and .NET Core, and we want the stubs to be consistent between powershell.exe and pwsh.exe
+        var envEnumerable = envVars is IOrderedDictionary
+                ? envVars.Cast<DictionaryEntry>()
+                : envVars.Cast<DictionaryEntry>().OrderBy(e => e.Key);
+
+        return envEnumerable.Select(e => new KeyValuePair<string, string[]>(e.Key!.ToString(), e.Value switch {
+            // this does not match strings (char is not an object)
+            IEnumerable<object> enumerable => enumerable.SelectOptional(ResolveEnvironmentVariableValue)
+                    .ToArray(),
+            _ => new[] {ResolveEnvironmentVariableValue(e.Value) ?? ""},
+        })).ToList();
     }
 }

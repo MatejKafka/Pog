@@ -38,10 +38,10 @@ public class StubExecutable {
     public readonly string TargetPath;
     public readonly string? WorkingDirectory;
     public readonly string[]? Arguments;
-    public readonly IDictionary<string, string>? EnvironmentVariables;
+    public readonly (string, EnvVarTemplate)[]? EnvironmentVariables;
 
     public StubExecutable(string targetPath, string? workingDirectory = null,
-            string[]? arguments = null, IDictionary<string, string>? environmentVariables = null) {
+            string[]? arguments = null, IEnumerable<KeyValuePair<string, string[]>>? environmentVariables = null) {
         Debug.Assert(Path.IsPathRooted(targetPath));
         var targetExtension = Path.GetExtension(targetPath).ToLower();
         if (!SupportedTargetExtensions.Contains(targetExtension)) {
@@ -60,7 +60,13 @@ public class StubExecutable {
         TargetPath = targetPath;
         WorkingDirectory = workingDirectory;
         Arguments = arguments;
-        EnvironmentVariables = environmentVariables;
+        EnvironmentVariables = environmentVariables?.Select(e => {
+            if (e.Key.Contains("=")) {
+                throw new InvalidEnvironmentVariableNameException(
+                        $"Invalid stub executable environment variable name, contains '=': {e.Key}");
+            }
+            return (e.Key, new EnvVarTemplate(e.Value));
+        }).ToArray();
     }
 
     private bool IsTargetPeBinary() {
@@ -257,5 +263,57 @@ public class StubExecutable {
 
     public class OutdatedStubException : Exception {
         public OutdatedStubException(string message) : base(message) {}
+    }
+
+    public class InvalidEnvironmentVariableNameException : Exception {
+        public InvalidEnvironmentVariableNameException(string message) : base(message) {}
+    }
+
+    public class EnvVarTemplate {
+        public record struct Segment(bool IsEnvVarName, bool NewSegment, string String);
+
+        public readonly List<Segment> Segments = new();
+
+        public EnvVarTemplate(IEnumerable<string> rawValueList) {
+            foreach (var v in rawValueList) {
+                ParseSingleValue(v);
+            }
+
+            if (Segments.Count == 0) {
+                // set value to empty string
+                Segments.Add(new Segment(false, true, ""));
+            }
+        }
+
+        private void ParseSingleValue(string value) {
+            var parts = value.Split('%');
+            var isEnvVarName = true;
+            var first = true;
+            foreach (var p in parts) {
+                isEnvVarName = !isEnvVarName;
+                if (isEnvVarName && p.Contains("=")) {
+                    throw new InvalidEnvironmentVariableNameException(
+                            $"Invalid stub executable environment variable name, contains '=': {p}");
+                }
+
+                if (p == "") {
+                    if (isEnvVarName) {
+                        // %%, replace with a literal %
+                        Segments.Add(new Segment(false, first, "%"));
+                        first = false;
+                    } else {
+                        // empty string, skip (e.g. %HOME%%VAR%)
+                    }
+                } else {
+                    Segments.Add(new Segment(isEnvVarName, first, p));
+                    first = false;
+                }
+            }
+
+            if (isEnvVarName) {
+                throw new InvalidEnvironmentVariableNameException(
+                        $"Unterminated environment variable name in the following value (odd number of '%'): {value}");
+            }
+        }
     }
 }

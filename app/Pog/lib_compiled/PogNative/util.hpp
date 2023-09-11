@@ -6,7 +6,7 @@
 #include <array>
 
 #ifndef NDEBUG
-#define DBG_LOG(...) fwprintf(stderr, "[LOG] " __VA_ARGS__)
+#define DBG_LOG(...) fwprintf(stderr, L"[LOG] " __VA_ARGS__)
 #else
 #define DBG_LOG(...) if (false) fwprintf(stderr, "[LOG] " __VA_ARGS__)
 #endif
@@ -66,3 +66,15 @@ void panic_on_exception(Thunk thunk) {
         exit(100);
     }
 }
+
+/// Checks if enum f1 used as a bitfield contains some of the flags in f2.
+template<typename EnumT>
+inline bool has_flag(EnumT f1, EnumT f2) {
+    using T = std::underlying_type_t<EnumT>;
+    return ((T)f1 & (T)f2) != 0;
+}
+
+#define HAS_FLAG(e, f) has_flag(e, decltype(e)::f)
+
+// align `ptr` up to get an address aligned to alignof(type)
+#define ALIGN_UP(type, ptr) ((type*)((((uintptr_t)(ptr)) + (alignof(type) - 1)) & (~(alignof(type) - 1))))

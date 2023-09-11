@@ -16,6 +16,9 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 # enable LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
+# use sanitizers in debug build
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /fsanitize=address")
+
 
 add_executable(PogExecutableStubTemplate pog_stub.cpp)
 # export release build binary to lib_compiled dir
