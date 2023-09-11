@@ -2,8 +2,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Management.Automation;
 using System.Linq;
+using System.Management.Automation;
 
 namespace Pog;
 
@@ -40,25 +40,33 @@ public static class Verify {
 
     public class PackageNameAttribute : ValidateArgumentsAttribute {
         protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            PackageName((string) arguments);
+            ValidateList<string>(arguments, PackageName);
         }
     }
 
     public class Sha256HashAttribute : ValidateArgumentsAttribute {
         protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            Sha256Hash((string) arguments);
+            ValidateList<string>(arguments, Sha256Hash);
         }
     }
 
     public class FileNameAttribute : ValidateArgumentsAttribute {
         protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            FileName((string) arguments);
+            ValidateList<string>(arguments, FileName);
         }
     }
 
     public class FilePathAttribute : ValidateArgumentsAttribute {
         protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            FilePath((string) arguments);
+            ValidateList<string>(arguments, FilePath);
+        }
+    }
+
+    private static void ValidateList<T>(object arguments, Action<T> validator) {
+        if (arguments is T[] list) {
+            foreach (var item in list) validator(item);
+        } else {
+            validator((T) arguments);
         }
     }
 

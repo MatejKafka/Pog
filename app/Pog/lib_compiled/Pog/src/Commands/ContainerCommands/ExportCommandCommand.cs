@@ -14,16 +14,17 @@ public class ExportCommandCommand : PSCmdlet {
     private const string SymlinkPS = "Symlink";
     private const string StubPS = "Stub";
 
-    [Parameter(Mandatory = true, Position = 0)] public string[] CommandName = null!;
-    [Parameter(Mandatory = true, Position = 1)] public string TargetPath = null!;
+    [Parameter(Mandatory = true, Position = 0)]
+    [Verify.FileName]
+    public string[] CommandName = null!;
 
-    /// Useful when the manifest wants to invoke the binary during Enable (e.g. initial config generation in Syncthing).
-    [Parameter]
-    public SwitchParameter PassThru;
+    [Parameter(Mandatory = true, Position = 1)]
+    [Verify.FilePath]
+    public string TargetPath = null!;
 
-    [Parameter(ParameterSetName = SymlinkPS)] public SwitchParameter Symlink;
-
-    [Parameter(ParameterSetName = StubPS)] public string? WorkingDirectory;
+    [Parameter(ParameterSetName = StubPS)]
+    [Verify.FilePath]
+    public string? WorkingDirectory;
 
     [Parameter(ParameterSetName = StubPS)]
     [Alias("Arguments")]
@@ -33,7 +34,13 @@ public class ExportCommandCommand : PSCmdlet {
     [Alias("Environment")]
     public Hashtable? EnvironmentVariables;
 
-    [Parameter(ParameterSetName = StubPS)] public string? MetadataSource;
+    [Parameter(ParameterSetName = StubPS)]
+    [Verify.FilePath]
+    public string? MetadataSource;
+
+    /// Useful when the manifest wants to invoke the binary during Enable (e.g. initial config generation in Syncthing).
+    [Parameter] public SwitchParameter PassThru;
+    [Parameter(ParameterSetName = SymlinkPS)] public SwitchParameter Symlink;
 
     // ReSharper disable once InconsistentNaming
     // TODO: figure out some way to avoid this parameter without duplicating this cmdlet
