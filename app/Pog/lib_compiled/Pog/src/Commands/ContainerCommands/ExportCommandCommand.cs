@@ -92,13 +92,13 @@ public class ExportCommandCommand : PSCmdlet {
             var rLinkPath = Path.Combine(commandDirPath, cmdName + linkExtension);
             if (useSymlink) {
                 if (ExportCommandSymlink(cmdName, rLinkPath, rTargetPath)) {
-                    WriteInformation($"Registered command '{cmdName}' using a symlink.", null);
+                    WriteInformation($"Exported command '{cmdName}' using a symlink.", null);
                 } else {
                     WriteVerbose($"Command {cmdName} is already exported as a symlink.");
                 }
             } else {
                 if (ExportCommandStubExecutable(cmdName, rLinkPath, rTargetPath)) {
-                    WriteInformation($"Registered command '{cmdName}' using a stub executable.", null);
+                    WriteInformation($"Exported command '{cmdName}' using a stub executable.", null);
                 } else {
                     WriteVerbose($"Command {cmdName} is already exported as a stub executable.");
                 }
