@@ -40,8 +40,8 @@ public class StubExecutable {
     public readonly string[]? Arguments;
     public readonly (string, EnvVarTemplate)[]? EnvironmentVariables;
 
-    public StubExecutable(string targetPath, string? workingDirectory = null,
-            string[]? arguments = null, IEnumerable<KeyValuePair<string, string[]>>? environmentVariables = null) {
+    public StubExecutable(string targetPath, string? workingDirectory = null, string[]? arguments = null,
+            IEnumerable<KeyValuePair<string, string[]>>? environmentVariables = null, bool replaceArgv0 = false) {
         Debug.Assert(Path.IsPathRooted(targetPath));
         var targetExtension = Path.GetExtension(targetPath).ToLower();
         if (!SupportedTargetExtensions.Contains(targetExtension)) {
@@ -52,11 +52,7 @@ public class StubExecutable {
 
         // .cmd/.bat file handler seems to use argv[0] as the target passed to `cmd.exe /c` not lpApplicationName,
         //  which results in an infinite process spawning loop when the original argv[0] is retained
-        //ReplaceArgv0 = targetExtension is ".cmd" or ".bat";
-
-        // keeping the stub argv[0] surprisingly caused quite a lot of hard-to-debug issues, so just unconditionally
-        //  overwrite it for now
-        ReplaceArgv0 = true;
+        ReplaceArgv0 = replaceArgv0 || targetExtension is ".cmd" or ".bat";
         TargetPath = targetPath;
         WorkingDirectory = workingDirectory;
         Arguments = arguments;

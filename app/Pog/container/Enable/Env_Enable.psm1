@@ -433,6 +433,7 @@ Export function Export-Shortcut {
 			-EnvironmentVariables $EnvironmentVariables `
 			-ArgumentList $ArgumentList `
 			-VcRedist:$VcRedist `
+			-ReplaceArgv0 `
 			-Verbose:$false -Debug:$false -InformationAction SilentlyContinue
 	}
 
