@@ -19,9 +19,8 @@ public record DownloadParameters(DownloadParameters.UserAgentType UserAgent = de
     internal string? GetUserAgentHeaderString() {
         return UserAgent switch {
             UserAgentType.PowerShell => null,
-            UserAgentType.Browser =>
-                    "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:105.0) Gecko/20100101 Firefox/105.0",
-            UserAgentType.Wget => "User-Agent: Wget/1.20.3 (linux-gnu)",
+            UserAgentType.Browser => "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0",
+            UserAgentType.Wget => "Wget/1.20.3 (linux-gnu)",
             _ => throw new ArgumentOutOfRangeException(),
         };
     }
