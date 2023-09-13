@@ -221,6 +221,18 @@ public class ConfirmPogRepositoryPackageCommand : PogCmdlet {
             AddIssue($"Non-matching version '{p.Manifest.Version}' in the package manifest for " +
                      $"package '{p.PackageName}', version '{p.Version}.");
         }
+
+        if (p.Manifest.Install is {} installParams) {
+            foreach (var ip in installParams) {
+                if (ip.ExpectedHash == null) {
+                    AddIssue($"Missing checksum in package '{p.PackageName}', version '{p.Version}'. " +
+                             "This means that during installation, Pog cannot verify if the downloaded file is the same" +
+                             "one that the package author intended. This may or may not be a problem on its own, but " +
+                             "it's a better style to include a checksum, and it improves security and reproducibility. " +
+                             "Additionally, Pog can cache downloaded files if the checksum is provided.");
+                }
+            }
+        }
     }
 
     private void ValidateManifestDirectory(string packageInfoStr, string templateDirPath) {

@@ -93,13 +93,6 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
 
         var url = Params.ResolveUrl();
 
-        if (Params.ExpectedHash == null) {
-            WriteWarning($"Downloading a file from '{url}', but no checksum was provided in the package." +
-                         " This means that we cannot be sure if the downloaded file is the same one the package author intended." +
-                         " This may or may not be a problem on its own, but it's a better style to include a checksum," +
-                         " and it improves security and reproducibility.");
-        }
-
         var target = Params switch {
             PackageInstallParametersNoArchive pna => pna.Target,
             PackageInstallParametersArchive pa => pa.Target,
