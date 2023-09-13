@@ -61,19 +61,13 @@ private:
         }
     };
 
-private:
-    const wchar_t* var_name;
-    const EnvSegmentHeader* first_segment;
-
 public:
-    StubDataEnvironmentVariable(const wchar_t* var_name, void* start_ptr)
-            : var_name(var_name), first_segment((const EnvSegmentHeader*)start_ptr) {}
+    static void get_value(void* start_ptr, WcharPtrCallback auto value_cb) {
+        auto first_segment = (const EnvSegmentHeader*)start_ptr;
 
-    template<typename Callback>
-    void get_value(Callback value_cb) requires WcharPtrCallback<Callback> {
         // fast path for the most common case of a single segment
         if (HAS_FLAG(first_segment->flags, LAST_SEGMENT)) {
-            get_single_segment_value(value_cb);
+            get_single_segment_value(first_segment, value_cb);
             return;
         }
 
@@ -117,19 +111,17 @@ public:
     }
 
 private:
-    template<typename Callback>
-    void get_single_segment_value(Callback value_cb) {
-        if (HAS_FLAG(first_segment->flags, ENV_VAR_NAME)) {
-            if (!read_env_var(var_name, [&](auto env_value) { value_cb(env_value.data()); })) {
+    static void get_single_segment_value(const EnvSegmentHeader* segment, auto value_cb) {
+        if (HAS_FLAG(segment->flags, ENV_VAR_NAME)) {
+            if (!read_env_var(segment->str(), [&](auto env_value) { value_cb(env_value.data()); })) {
                 value_cb(L""); // env var does not exist
             }
         } else {
-            value_cb(first_segment->str());
+            value_cb(segment->str());
         }
     }
 
-    template<typename Callback>
-    static bool read_env_var(const wchar_t* var_name, Callback callback) {
+    static bool read_env_var(const wchar_t* var_name, auto callback) {
         constexpr size_t env_var_buffer_size = 32'767; // max size of env var
         wchar_t env_var_buffer[env_var_buffer_size];
         auto ret = GetEnvironmentVariable(var_name, env_var_buffer, env_var_buffer_size);
@@ -178,8 +170,7 @@ public:
                                  read_uint(header().argument_offset)};
     }
 
-    template<typename Callback>
-    void enumerate_environment_variables(Callback callback) const requires EnvironmentVariableCallback<Callback> {
+    void enumerate_environment_variables(EnvironmentVariableCallback auto callback) const {
         if (header().environment_offset == 0) return;
         auto count = read_uint(header().environment_offset);
 
@@ -188,7 +179,7 @@ public:
         while (it != end) {
             auto* name = read_wstring(*it++);
             auto value_offset = *it++;
-            StubDataEnvironmentVariable{name, (void*)&buffer[value_offset]}.get_value([&](auto value) {
+            StubDataEnvironmentVariable::get_value((void*)&buffer[value_offset], [&](auto value) {
                 callback(name, value);
             });
         }
