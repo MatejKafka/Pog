@@ -25,7 +25,7 @@ concept WcharPtrCallback = requires(Callback cb, const wchar_t* str) { cb(str); 
 template<typename Callback>
 concept EnvironmentVariableCallback = requires(Callback cb, const wchar_t* str) { cb(str, str); };
 
-enum class StubFlag : uint16_t { REPLACE_ARGV0 = 1 };
+enum class StubFlag : uint16_t { REPLACE_ARGV0 = 1, LOOKUP_TARGET_IN_PATH = 2, };
 enum class EnvVarTokenFlag : uint16_t { ENV_VAR_NAME = 1, NEW_LIST_ITEM = 2, LAST_SEGMENT = 4, };
 
 struct StubHeader {

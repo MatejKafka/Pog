@@ -35,6 +35,9 @@ public class StubExecutable {
 
     /// If true, argv[0] is always replaced with TargetPath, otherwise the path to the stub is kept as argv[0].
     public readonly bool ReplaceArgv0;
+    // target must be a full path, accepting command names in PATH is not easily doable, because we need to know the target
+    //  subsystem to configure the stub; we could try to resolve the path, copy the subsystem and hope that it doesn't
+    //  change, but that's kinda fragile
     public readonly string TargetPath;
     public readonly string? WorkingDirectory;
     public readonly string[]? Arguments;

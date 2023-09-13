@@ -8,7 +8,7 @@
 #ifndef NDEBUG
 #define DBG_LOG(...) fwprintf(stderr, L"[LOG] " __VA_ARGS__)
 #else
-#define DBG_LOG(...) if (false) fwprintf(stderr, "[LOG] " __VA_ARGS__)
+#define DBG_LOG(...) if (false) fwprintf(stderr, L"[LOG] " __VA_ARGS__)
 #endif
 
 // https://artificial-mind.net/blog/2020/09/26/dont-deduce

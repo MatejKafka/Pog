@@ -71,7 +71,7 @@ namespace Pog.Stub;
  *  After each segment, padding is optionally inserted to align it to `sizeof(uint)`.
  */
 internal class StubDataEncoder {
-    public const ushort CurrentStubDataVersion = 2;
+    public const ushort CurrentStubDataVersion = 3;
     private static readonly Encoding Encoding = Encoding.Unicode;
     private const ushort NullTerminator = 0;
     private const int HeaderSize = 2 * 2 + 4 * 4;
@@ -115,7 +115,7 @@ internal class StubDataEncoder {
 
         // go back and write the header
         SeekAbs(0);
-        WriteUshort(CurrentStubDataVersion); // version
+        WriteUshort(CurrentStubDataVersion); // version, must be the first (see ParseVersion)
         WriteUshort((ushort) (stub.ReplaceArgv0 ? StubFlags.ReplaceArgv0 : 0)); // flags
         WriteUint(targetOffset);
         WriteUint(wdOffset);
