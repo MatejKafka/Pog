@@ -140,6 +140,7 @@ public class ExportCommandCommand : PSCmdlet {
                     "MetadataSourceNotFound", ErrorCategory.InvalidArgument, MetadataSource));
         }
 
+        var resolvedArgs = ArgumentList == null ? null : ResolveArguments(ArgumentList);
         var resolvedEnvVars = EnvironmentVariables == null ? null : ResolveEnvironmentVariables(EnvironmentVariables);
         if (VcRedist) {
             // add the Pog vcredist dir to PATH
@@ -154,7 +155,7 @@ public class ExportCommandCommand : PSCmdlet {
         }
 
         // TODO: argument and env resolution
-        var stub = new StubExecutable(rTargetPath, rWorkingDirectory, ArgumentList, resolvedEnvVars, ReplaceArgv0);
+        var stub = new StubExecutable(rTargetPath, rWorkingDirectory, resolvedArgs, resolvedEnvVars, ReplaceArgv0);
 
         if (File.Exists(rLinkPath)) {
             if ((new FileInfo(rLinkPath).Attributes & FileAttributes.ReparsePoint) != 0) {
@@ -178,14 +179,21 @@ public class ExportCommandCommand : PSCmdlet {
         return true;
     }
 
+    private string ResolvePotentialPath(string value) {
+        // if value looks like a relative path, resolve it
+        // TODO: add more controls using annotations
+        return value.StartsWith("./") || value.StartsWith(".\\") ? GetUnresolvedProviderPathFromPSPath(value) : value;
+    }
+
     private string? ResolveEnvironmentVariableValue(object? valueObj) {
         if (valueObj == null) {
             return null;
         }
-        var value = valueObj.ToString();
-        // if value looks like a relative path, resolve it
-        // TODO: add more controls using annotations
-        return value.StartsWith("./") || value.StartsWith(".\\") ? GetUnresolvedProviderPathFromPSPath(value) : value;
+        return ResolvePotentialPath(valueObj.ToString());
+    }
+
+    private string[] ResolveArguments(string[] args) {
+        return args.Select(ResolvePotentialPath).ToArray();
     }
 
     private List<KeyValuePair<string, string[]>> ResolveEnvironmentVariables(IDictionary envVars) {
