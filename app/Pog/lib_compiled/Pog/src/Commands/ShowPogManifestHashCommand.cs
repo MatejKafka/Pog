@@ -14,7 +14,7 @@ namespace Pog.Commands;
 /// </para>
 /// </summary>
 [PublicAPI]
-[Cmdlet(VerbsCommon.Show, "PogManifestHash", DefaultParameterSetName = DefaultPS)]
+[Cmdlet(VerbsCommon.Show, "PogManifestHash", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public class ShowPogManifestHashCommand : RepositoryPackageCommand {
     private const string ImportedPS = "ImportedPackage";
 

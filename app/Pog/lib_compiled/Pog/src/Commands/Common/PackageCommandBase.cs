@@ -4,10 +4,12 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.Common;
 
-public class PackageCommandBase : PogCmdlet {
+public abstract class PackageCommandBase : PogCmdlet {
+    protected PackageCommandBase() {}
+
 #if DEBUG
+    // validate that all inheriting cmdlets set DefaultParameterSetName and SupportsShouldProcess
     protected PackageCommandBase(string defaultPSName) {
-        // validate that all inheriting cmdlets set DefaultParameterSetName
         var cmdletAttributes = this.GetType().GetCustomAttributes(typeof(CmdletAttribute), true);
         if (cmdletAttributes.Length != 1) {
             throw new InvalidOperationException($"Missing/repeated [Cmdlet] attribute on '{this.GetType()}'");
@@ -15,6 +17,9 @@ public class PackageCommandBase : PogCmdlet {
         var attr = (CmdletAttribute) cmdletAttributes[0];
         if (attr.DefaultParameterSetName != defaultPSName) {
             throw new InvalidOperationException($"Incorrect 'DefaultParameterSetName' on '{this.GetType()}'");
+        }
+        if (!attr.SupportsShouldProcess) {
+            throw new InvalidOperationException($"Missing 'SupportsShouldProcess' on '{this.GetType()}'");
         }
     }
 #endif

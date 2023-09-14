@@ -31,7 +31,9 @@ public abstract class ImportedPackageNoPassThruCommand : PackageCommandBase {
         var packages = ParameterSetName == PackagePS ? Package : PackageName.SelectOptional(GetImportedPackage);
         // TODO: do this in parallel (even for packages passed as array)
         foreach (var package in packages) {
-            ProcessPackageNoPassThru(package);
+            if (ShouldProcess(package.PackageName)) {
+                ProcessPackageNoPassThru(package);
+            }
         }
     }
 

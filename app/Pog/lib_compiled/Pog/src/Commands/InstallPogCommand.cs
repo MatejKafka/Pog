@@ -14,13 +14,8 @@ namespace Pog.Commands;
 /// </para>
 /// </summary>
 [PublicAPI]
-[Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = DefaultPS)]
+[Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public class InstallPogCommand : ImportedPackageCommand {
-    /// <summary><para type="description">
-    /// If some version of the package is already installed, prompt before overwriting
-    /// with the current version according to the manifest.
-    /// </para></summary>
-    [Parameter] public SwitchParameter Confirm;
     /// <summary><para type="description">
     /// Download files with low priority, which results in better network responsiveness
     /// for other programs, but possibly slower download speed.
@@ -40,7 +35,7 @@ public class InstallPogCommand : ImportedPackageCommand {
             ContainerType = Container.ContainerType.Install,
             Package = package,
             InternalArguments = new Hashtable {
-                {"AllowOverwrite", !Confirm},
+                {"AllowOverwrite", true},
                 {"DownloadLowPriority", (bool) LowPriority},
             },
         });

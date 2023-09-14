@@ -13,7 +13,7 @@ namespace Pog.Commands;
 /// </para>
 /// </summary>
 [PublicAPI]
-[Cmdlet(VerbsLifecycle.Disable, "Pog", DefaultParameterSetName = DefaultPS)]
+[Cmdlet(VerbsLifecycle.Disable, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public class DisablePogCommand : ImportedPackageCommand {
     protected override void ProcessPackage(ImportedPackage package) {
         InvokePogCommand(new DisablePog(this) {
