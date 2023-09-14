@@ -39,9 +39,45 @@ public static class FsUtils {
         else return PIO.File.CreateSymbolicLink(path, targetPath);
     }
 
+    public static bool FileContentEqual(byte[] f1, FileInfo f2) {
+        return f1.Length == f2.Length && f1.SequenceEqual(File.ReadAllBytes(f2.FullName));
+    }
+
     public static bool FileContentEqual(FileInfo f1, FileInfo f2) {
         // significantly faster than trying to do a streaming implementation
         return f1.Length == f2.Length && File.ReadAllBytes(f1.FullName).SequenceEqual(File.ReadAllBytes(f2.FullName));
+    }
+
+    public static bool DirectoryTreeEqual(string d1Path, string d2Path) {
+        return DirectoryTreeEqual(new DirectoryInfo(d1Path), new DirectoryInfo(d2Path));
+    }
+
+    public static bool DirectoryTreeEqual(DirectoryInfo d1, DirectoryInfo d2) {
+        if (d1.Exists != d2.Exists) return false;
+        if (!d1.Exists && !d2.Exists) return true;
+
+        var d1Entries = d1.GetFileSystemInfos();
+        var d2Entries = d2.GetFileSystemInfos();
+        if (d1Entries.Length != d2Entries.Length) {
+            return false;
+        }
+
+        int Comparator(FileSystemInfo e1, FileSystemInfo e2) => string.Compare(e1.Name, e2.Name, StringComparison.Ordinal);
+        Array.Sort(d1Entries, Comparator);
+        Array.Sort(d2Entries, Comparator);
+
+        for (var i = 0; i < d1Entries.Length; i++) {
+            var (e1, e2) = (d1Entries[i], d2Entries[i]);
+            if (e1.Name != e2.Name) return false;
+            var equal = (e1, e2) switch {
+                (FileInfo f1, FileInfo f2) => FileContentEqual(f1, f2),
+                (DirectoryInfo cd1, DirectoryInfo cd2) => DirectoryTreeEqual(cd1, cd2),
+                _ => false,
+            };
+            if (!equal) return false;
+        }
+
+        return true;
     }
 
     /// Return `childName`, but with casing matching the name as stored in the filesystem, if it already exists.

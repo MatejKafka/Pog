@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using IOPath = System.IO.Path;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Text;
 using JetBrains.Annotations;
+using Pog.Utils;
+using IOPath = System.IO.Path;
 
 namespace Pog;
 
@@ -126,6 +128,24 @@ public sealed class ImportedPackage : Package {
         FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
         // invalidate the current loaded manifest
         InvalidateManifest();
+    }
+
+    public bool MatchesRepositoryManifest(RepositoryPackage p) {
+        // compare resource dirs
+        if (!FsUtils.DirectoryTreeEqual(ManifestResourceDirPath, p.ManifestResourceDirPath)) {
+            return false;
+        }
+
+        // compare manifest
+        if (p is DirectRepositoryPackage dp) {
+            var importedManifest = new FileInfo(ManifestPath);
+            return importedManifest.Exists && FsUtils.FileContentEqual(importedManifest, new FileInfo(dp.ManifestPath));
+        } else if (p is TemplatedRepositoryPackage tp) {
+            var repoManifest = Encoding.UTF8.GetBytes(tp.GetManifestString());
+            return FsUtils.FileContentEqual(repoManifest, new FileInfo(ManifestPath));
+        } else {
+            throw new UnreachableException();
+        }
     }
 
     public bool RemoveExportedShortcuts() {

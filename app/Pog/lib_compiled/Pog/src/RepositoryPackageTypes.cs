@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -160,6 +161,8 @@ public abstract class RepositoryPackage : Package {
 
         // write the manifest
         ImportManifestTo(target);
+
+        Debug.Assert(target.MatchesRepositoryManifest(this));
     }
 
     protected abstract void ImportManifestTo(ImportedPackage target);
@@ -197,7 +200,10 @@ public sealed class TemplatedRepositoryPackage : RepositoryPackage {
     }
 
     protected override PackageManifest LoadManifest() {
-        var manifestStr = ManifestTemplateFile.Substitute(TemplatePath, ManifestPath);
-        return new PackageManifest(ManifestPath, manifestStr, owningPackage: this);
+        return new PackageManifest(ManifestPath, GetManifestString(), owningPackage: this);
+    }
+
+    internal string GetManifestString() {
+        return ManifestTemplateFile.Substitute(TemplatePath, ManifestPath);
     }
 }

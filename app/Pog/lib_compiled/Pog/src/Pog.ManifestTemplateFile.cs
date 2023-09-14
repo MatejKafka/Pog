@@ -19,7 +19,8 @@ public static class ManifestTemplateFile {
     }
 
     public static void Substitute(string templatePath, string templateDataPath, string outputPath) {
-        File.WriteAllText(outputPath, Substitute(templatePath, templateDataPath), Encoding.UTF8);
+        // by default, WriteAllText emits UTF-8 without BOM; this is important for `MatchesRepositoryManifest()`
+        File.WriteAllText(outputPath, Substitute(templatePath, templateDataPath));
     }
 
     public static string Substitute(string templatePath, string templateDataPath) {
