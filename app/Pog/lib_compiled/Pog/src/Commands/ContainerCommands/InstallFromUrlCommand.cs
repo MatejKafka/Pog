@@ -28,6 +28,7 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
     private bool _allowOverwrite = false;
     private bool _lowPriorityDownload;
     private Package _package = null!;
+    private bool _lockFileListShown = false;
 
 
     /// here, only parameter validation and setup is done
@@ -348,20 +349,40 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
         }
     }
 
+    private const ConsoleColor LockedFilePrintColor = ConsoleColor.Red;
+
     private void WaitForLockedFiles(string dirPath, int attemptNumber, bool checkDirItself) {
         WriteDebug("The previous app directory seems to be used.");
-        // FIXME: better message
-        Host.UI.WriteLine("The package seems to be in use, trying to find the offending processes...");
 
-        // FIXME: wait instead of throwing, port to C#
-        InvokeCommand.InvokeScript("ThrowLockedFileList");
+        if (!_lockFileListShown) {
+            // FIXME: better message
+            WriteHost("The package seems to be in use, trying to find the offending processes...");
+            // FIXME: port to C#
+            InvokeCommand.InvokeScript($"ShowLockedFileList {LockedFilePrintColor}");
+        }
+
+        // if this gets called a second time, the user did not close everything, print the up-to-date list again
+        _lockFileListShown = false;
+
+        try {
+            // TODO: automatically continue when the listed processes are closed
+            Host.UI.Write(LockedFilePrintColor, ConsoleColor.Black,
+                    "\nPlease close the applications listed above, then press Enter to continue...: ");
+            Host.UI.ReadLine();
+        } catch (PSInvalidOperationException e) {
+            // Host is not interactive, just throw an exception
+            var exception = new PSInvalidOperationException(
+                    "Cannot overwrite an existing package installation, because processes listed in the output above " +
+                    "are working with files inside the package.", e);
+            // TODO: shouldn't this be a non-terminating error?
+            ThrowTerminatingError(exception, "PackageInUse", ErrorCategory.ResourceBusy, _appDirPath);
+        }
     }
 
-    /// <returns>True if there are some locked files/directories, false otherwise.</returns>
-    private bool ShowLockedFileInfo(string dirPath) {
+    private void ShowLockedFileInfo(string dirPath) {
         // FIXME: port to C#
-        InvokeCommand.InvokeScript("ThrowLockedFileList");
-        return false;
+        InvokeCommand.InvokeScript($"ShowLockedFileList {LockedFilePrintColor}");
+        _lockFileListShown = true;
     }
 
     private bool ConfirmOverwrite() {

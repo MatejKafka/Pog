@@ -110,19 +110,19 @@ Ensures that the existing .\app directory can be removed (no locked files from o
 Prints all processes that hold a lock over a file in an existing .\app directory, then waits until user closes them,
 in a loop, until there are no locked files in the directory.
 #>
-Export function ThrowLockedFileList {
-	# find out which files are locked, report to the user and throw an exception
+Export function ShowLockedFileList {
+	param($ForegroundColor)
+	$Fg = $ForegroundColor
+
+	# find out which files are locked, report them to the user
 	$LockingProcs = ListProcessesLockingFiles .\app
 	if (@($LockingProcs).Count -eq 0) {
-		# some process is locking files in the directory, but we don't which one
-		# therefore, we cannot wait for it; only reasonable option I see is to throw an error and let the user handle it
-		# I don't see why this should happen (unless some process exits between the two checks, or there's an error in OFV),
-		# so this is here just in case
-		throw "There is an existing package installation, which we cannot overwrite, as there are" +`
+		# some process is locking files in the directory, but we don't which one; I don't see why this should happen,
+		#  unless some process exits between the two checks, or there's an error in OFV, so this is here just in case
+		Write-Host -ForegroundColor $Fg ("There is an existing package installation, which we cannot overwrite, as there are" +`
 			" file(s) opened by an unknown running process. Is it possible that some program from" +`
-			" the package is running or that another running program is using a file from this package?" +`
-			" To resolve the issue, stop all running programs that are working with files in the package directory," +`
-			" and then run the installation again."
+			" the package is running or that another running program is using a file from this package?")
+		return
 	}
 
 	# TODO: print more user-friendly app names
@@ -131,17 +131,15 @@ Export function ThrowLockedFileList {
 
 	# long error messages are hard to read, because all newlines are removed;
 	#  instead write out the files and then show a short error message
-	Write-Host ("`nThere is an existing package installation, which we cannot overwrite, because the following" +`
+	Write-Host -ForegroundColor $Fg ("`nThere is an existing package installation, which we cannot overwrite, because the following" +`
 		" programs are working with files inside the installation directory:")
 	$LockingProcs | % {
-		Write-Host "  Files locked by '$($_.ProcessInfo)':"
+		Write-Host -ForegroundColor $Fg "  Files locked by '$($_.ProcessInfo)':"
 		$_.Files | select -First 5 | % {
-			Write-Host "    $_"
+			Write-Host -ForegroundColor $Fg "    $_"
 		}
 		if (@($_.Files).Count -gt 5) {
-			Write-Host "   ... ($($_.Files.Count) more)"
+			Write-Host -ForegroundColor $Fg "   ... ($($_.Files.Count) more)"
 		}
 	}
-
-	throw "Cannot overwrite an existing package installation, because processes listed in the output above are working with files inside the package."
 }
