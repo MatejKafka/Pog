@@ -127,7 +127,7 @@ function Set-Symlink {
 		}
 
 		# not a correct item, delete and recreate
-		Remove-Item -Recurse $LinkAbsPath
+		Remove-Item -Recurse -Force $LinkAbsPath
 	} else {
 		Assert-ParentDirectory $LinkAbsPath
 	}
