@@ -5,6 +5,16 @@ using System.Reflection;
 namespace Pog;
 
 public static class InternalState {
+#if DEBUG
+    static InternalState() {
+        // ensure POG_DEBUG is set when importing the debug build of Pog.dll to avoid mode inconsistency
+        //  between the container and the main runspace
+        if (Environment.GetEnvironmentVariable("POG_DEBUG") == null) {
+            Environment.SetEnvironmentVariable("POG_DEBUG", "1");
+        }
+    }
+#endif
+
     private static string GetRootDirPath() {
         const string libDirName = @"\lib_compiled\";
         var assemblyPath = Assembly.GetExecutingAssembly().Location;
@@ -12,7 +22,7 @@ public static class InternalState {
         if (i < 0) {
             throw new Exception("Could not find the root module directory, cannot initialize Pog.dll.");
         }
-        var pogModuleDir = assemblyPath.Substring(0,i);
+        var pogModuleDir = assemblyPath.Substring(0, i);
         return Path.GetFullPath(Path.Combine(pogModuleDir, @"..\..")); // app/Pog/lib_compiled
     }
 
