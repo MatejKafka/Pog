@@ -84,6 +84,7 @@ public class ConfirmPogPackageCommand : PogCmdlet {
     }
 
     private void ValidateAll() {
+        var foundPackageNames = new HashSet<string>();
         var validPackageRootExists = false;
         foreach (var packageRoot in _packages.PackageRoots.AllPackageRoots) {
             if (!Directory.Exists(packageRoot)) {
@@ -101,6 +102,9 @@ public class ConfirmPogPackageCommand : PogCmdlet {
 
             // validate all packages in the package root
             foreach (var package in _packages.EnumeratePackages(packageRoot, false)) {
+                if (!foundPackageNames.Add(package.PackageName)) {
+                    AddIssue($"Duplicate package '{package.PackageName}' in different package roots.");
+                }
                 ValidatePackage(package);
             }
         }
