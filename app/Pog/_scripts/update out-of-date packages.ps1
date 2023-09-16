@@ -5,8 +5,4 @@ Get-PogPackage
         return $r -and $r.Version -gt $_.Version
     }
     | Out-GridView -PassThru -Title "Outdated packages"
-    | % {
-        pog $_.ManifestName `
-            -TargetName $_.PackageName -TargetPackageRoot (Split-Path $_.Path) `
-            -Force <# -Force because user already confirmed the update #>
-    }
+    | pog -Force <# -Force because user already confirmed the update #>
