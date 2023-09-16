@@ -85,6 +85,8 @@ public record PackageManifest {
     /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
     /// <exception cref="InvalidPackageManifestStructureException">The package manifest was correctly parsed, but has invalid structure.</exception>
     internal PackageManifest(string manifestPath, string? manifestStr = null, RepositoryPackage? owningPackage = null) {
+        InstrumentationCounter.ManifestLoads++;
+
         Path = manifestPath;
         Raw = PackageManifestParser.LoadManifest(manifestPath, manifestStr);
 

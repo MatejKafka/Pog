@@ -24,6 +24,7 @@ public class PackageRootConfig {
     }
 
     private string[] ReadPackageRoots(Func<string, bool> pathPredicate) {
+        InstrumentationCounter.PackageRootFileReads++;
         return File.ReadLines(PackageRootFile, Encoding.UTF8)
                 .Select(Path.GetFullPath)
                 .Where(pathPredicate)
