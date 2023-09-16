@@ -220,6 +220,10 @@ Export function Copy-CommandParameters {
                         break
                     }
 
+                    System.Runtime.CompilerServices.* {
+                        return # ignore, this is e.g. [Nullable], which is generated for nullable fields (e.g. `string?`) automatically
+                    }
+
                     default {
                         Write-Warning ("'Convert-CommandParametersToDynamic' doesn't handle the dynamic parameter attribute " +`
                                 "'${AttributeTypeName}', defined for parameter '$($Parameter.Key)' of the manifest block.`n" +`

@@ -6,7 +6,7 @@ using module .\lib\Copy-CommandParameters.psm1
 
 # re-export binary cmdlets from Pog.dll
 Export-ModuleMember -Cmdlet `
-	Install-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
+	Import-Pog, Install-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
 	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot, `
 	Confirm-PogPackage, Confirm-PogRepositoryPackage, `
 	Clear-PogDownloadCache, Show-PogManifestHash
@@ -132,178 +132,20 @@ Export function Enable-Pog {
 	}
 }
 
-function ConfirmManifestOverwrite([Pog.ImportedPackage]$p, $TargetPackageRoot, [Pog.RepositoryPackage]$SrcPackage, [switch]$Force) {
-	$OrigManifest = $null
-	try {
-		# try to load the (possibly) existing manifest
-		# TODO: maybe add a method to only load the name and version from the manifest and skip full validation?
-		$p.ReloadManifest()
-		$OrigManifest = $p.Manifest
-	} catch [System.IO.DirectoryNotFoundException] {
-		# the package does not exist, no need to confirm
-		return $true
-	} catch [Pog.PackageManifestNotFoundException] {
-		# the package exists, but the manifest is missing
-		# either a random folder was erroneously created, or this is a package, but corrupted
-		Write-Warning ("A package directory already exists at '$($p.Path)'," `
-				+ " but it doesn't seem to contain a package manifest." `
-				+ " All directories in a package root should be packages with a valid manifest.")
-	} catch [Pog.PackageManifestParseException], [Pog.InvalidPackageManifestStructureException] {
-		# the package has a manifest, but it's invalid (probably corrupted)
-		Write-Warning ("Found an existing package manifest in '$($p.Path)', but it is not valid.")
-	}
-
-	if (-not $Force) {
-		# prompt for confirmation
-		$Title = "Overwrite an existing package manifest for '$($p.PackageName)'?"
-		$ManifestDescription = if ($null -eq $OrigManifest) {""}
-				else {" (manifest '$($OrigManifest.Name)', version '$($OrigManifest.Version)')"}
-		$Message = "There is already an imported package '$($p.PackageName)'" `
-				+ " in '$TargetPackageRoot'$ManifestDescription. Overwrite its manifest with version '$($SrcPackage.Version)'?"
-		if (-not (Confirm-Action $Title $Message -ActionType "ManifestOverwrite")) {
-			return $false
-		}
-	}
-
-	return $true
-}
-
-# TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
-Export function Import-Pog {
-	# .SYNOPSIS
-	#	Imports a package manifest from the repository.
-	# .DESCRIPTION
-	#	Imports a package from the repository by copying the package manifest to the target path,
-	#	where it can be installed by calling `Install-Pog` and the remaining installation stage cmdlets.
-	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "Separate")]
-	[OutputType([Pog.ImportedPackage])]
-	param(
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "RepositoryPackage", ValueFromPipeline)]
-			[Pog.RepositoryPackage[]]
-		$Package,
-			### Names of the repository packages to import.
-			[Parameter(Mandatory, ParameterSetName = "PackageName", ValueFromPipeline)]
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "Separate")]
-			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageNameCompleter])]
-			[string[]]
-		$PackageName,
-			### Specific version of the package to import. By default, the latest version is imported.
-			[Parameter(Position = 1, ParameterSetName = "Separate")]
-			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageVersionCompleter])]
-			[Pog.PackageVersion]
-		$Version,
-			### Name of the imported package. By default, this is the same as the repository package name.
-			### Use this parameter to distinguish multiple installations of the same package.
-			[Parameter(ParameterSetName = "Separate")]
-			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
-			[string]
-		$TargetName,
-			### Path to a registered package root, where the package should be imported.
-			### If not set, the default (first) package root is used.
-			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
-			[string]
-		$TargetPackageRoot = $PACKAGE_ROOTS.DefaultPackageRoot,
-			### Overwrite an existing package without prompting for confirmation.
-			[switch]
-		$Force,
-			### Return a [Pog.ImportedPackage] object with information about the imported package.
-			[switch]
-		$PassThru
-	)
-
-	# NOTES:
-	#  - always use $SrcPackage.PackageName instead of $PackageName, which may not have the correct casing
-	#  - same for $ResolvedTargetName and $TargetName
-	#
-	# supported usages:
-	#  - Import-Pog git -Version ...
-	#  - Import-Pog neovim, git  # no Version and TargetName
-	#  - "neovim", "git" | Import-Pog  # no Version and TargetName
-	#  - Get-PogRepositoryPackage -LatestVersion neovim, git | Import-Pog  # no Version and TargetName
-
-	begin {
-		if ($Version) {
-			if ($MyInvocation.ExpectingInput) {throw "-Version must not be passed when -PackageName is passed through pipeline."}
-			if (@($PackageName).Count -gt 1) {throw "-Version must not be passed when -PackageName contains multiple package names."}
-		}
-
-		$TargetPackageRoot = if (-not $TargetPackageRoot) {
-			$PACKAGE_ROOTS.DefaultPackageRoot
-		} else {
-			try {$PACKAGE_ROOTS.ResolveValidPackageRoot($TargetPackageRoot)}
-			catch [Pog.InvalidPackageRootException] {
-				$PSCmdlet.ThrowTerminatingError($_)
-			}
-		}
-	}
-
-	process {
-		$SrcPackages = if ($Package) {$Package} else {
-			foreach ($n in $PackageName) {& {
-				$ErrorActionPreference = "Continue"
-				# resolve package name and version to a package
-				$c = try {
-					$REPOSITORY.GetPackage($n, $true, $true)
-				} catch [Pog.RepositoryPackageNotFoundException] {
-					$PSCmdlet.WriteError($_)
-					continue
-				}
-
-				try {
-					if (-not $Version) {
-						# find latest version
-						$c.GetLatestPackage()
-					} else {
-						$c.GetVersionPackage($Version, $true)
-					}
-				} catch [Pog.RepositoryPackageVersionNotFoundException] {
-					$PSCmdlet.WriteError($_)
-					continue
-				}
-			}}
-		}
-
-		foreach ($SrcPackage in $SrcPackages) {
-			# see NOTES above for why we don't use a default parameter value
-			$ResolvedTargetName = if ($TargetName) {$TargetName} else {$SrcPackage.PackageName}
-
-			Write-Verbose "Validating the repository package before importing..."
-			# this forces a manifest load on $SrcPackage
-			if (-not (Confirm-PogRepositoryPackage $SrcPackage)) {
-				throw "Validation of the repository package failed (see warnings above), not importing."
-			}
-
-			# don't load the manifest yet (may not be valid, will be loaded in ConfirmManifestOverwrite)
-			$p = $PACKAGE_ROOTS.GetPackage($ResolvedTargetName, $TargetPackageRoot, $true, $false, $false)
-
-			if (-not (ConfirmManifestOverwrite $p $TargetPackageRoot $SrcPackage -Force:$Force)) {
-				Write-Information "Skipping import of package '$($p.PackageName)'."
-				continue
-			}
-
-			# import the package, replacing the previous manifest (and creating the directory if the package is new)
-			$SrcPackage.ImportTo($p)
-
-			Write-Information "Initialized '$($p.Path)' with package manifest '$($SrcPackage.PackageName)' (version '$($SrcPackage.Version)')."
-			if ($PassThru) {
-				echo $p
-			}
-		}
-	}
-}
 
 # defined below
 Export alias pog Invoke-Pog
 
 # CmdletBinding is manually copied from Import-Pog, there doesn't seem any way to dynamically copy this like with dynamicparam
 # TODO: rollback on error
+# TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
 Export function Invoke-Pog {
 	# .SYNOPSIS
 	#   Import, install, enable and export a package.
 	# .DESCRIPTION
 	#	Runs all four installation stages in order. All arguments passed to this cmdlet,
 	#	except for the `-InstallOnly` switch, are forwarded to `Import-Pog`.
-	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "Separate")]
+	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName_")]
 	param(
 			### Only import and install the package, do not enable and export.
 			[switch]

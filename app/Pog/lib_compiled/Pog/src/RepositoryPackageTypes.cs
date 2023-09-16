@@ -151,6 +151,10 @@ public abstract class RepositoryPackage : Package {
                 : new DirectRepositoryPackage(parent, version);
     }
 
+    public string GetDescriptionString() {
+        return $"package '{PackageName}', version '{Version}'";
+    }
+
     public void ImportTo(ImportedPackage target) {
         // ensure target directory exists
         Directory.CreateDirectory(target.Path);

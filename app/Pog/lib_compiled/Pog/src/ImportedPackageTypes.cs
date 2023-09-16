@@ -43,6 +43,19 @@ public class ImportedPackageManager {
         }
     }
 
+    /// Same as `GetPackage`, but if the package is not found, a non-existent package in the default package root is returned.
+    public ImportedPackage GetPackageDefault(string packageName, bool resolveName, bool loadManifest) {
+        Verify.PackageName(packageName);
+
+        var roots = PackageRoots.ValidPackageRoots;
+        var selectedRoot = roots.FirstOrDefault(r => Directory.Exists(IOPath.Combine(r, packageName))) ?? roots[0];
+        if (resolveName) {
+            packageName = FsUtils.GetResolvedChildName(selectedRoot, packageName);
+        }
+        return new ImportedPackage(packageName, IOPath.Combine(selectedRoot, packageName), loadManifest);
+    }
+
+    /// <exception cref="ImportedPackageNotFoundException"></exception>
     public ImportedPackage GetPackage(string packageName, bool resolveName, bool loadManifest) {
         Verify.PackageName(packageName);
 
@@ -137,12 +150,14 @@ public sealed class ImportedPackage : Package {
         }
 
         // compare manifest
-        if (p is DirectRepositoryPackage dp) {
-            var importedManifest = new FileInfo(ManifestPath);
-            return importedManifest.Exists && FsUtils.FileContentEqual(importedManifest, new FileInfo(dp.ManifestPath));
+        var importedManifest = new FileInfo(ManifestPath);
+        if (!importedManifest.Exists) {
+            return false;
+        } else if (p is DirectRepositoryPackage dp) {
+            return importedManifest.Exists && FsUtils.FileContentEqual(new FileInfo(dp.ManifestPath), importedManifest);
         } else if (p is TemplatedRepositoryPackage tp) {
             var repoManifest = Encoding.UTF8.GetBytes(tp.GetManifestString());
-            return FsUtils.FileContentEqual(repoManifest, new FileInfo(ManifestPath));
+            return FsUtils.FileContentEqual(repoManifest, importedManifest);
         } else {
             throw new UnreachableException();
         }
