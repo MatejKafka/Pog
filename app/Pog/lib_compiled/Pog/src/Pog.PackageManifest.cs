@@ -103,14 +103,14 @@ public record PackageManifest {
         Name = parser.ParseScalar<string>("Name", true);
         // check that the manifest name matches package name, if passed
         if (owningPackage != null && Name != owningPackage.PackageName) {
-            parser.AddIssue($"Incorrect 'Name' property value - got '{Name}', expected '{owningPackage.PackageName}'.");
+            parser.AddValidityIssue("Name", Name, $"expected '{owningPackage.PackageName}'");
         }
 
         var versionStr = parser.ParseScalar<string>("Version", true);
         Version = versionStr == null ? null : ParseVersion(parser, versionStr);
         // check that the manifest version matches package version, if passed
         if (owningPackage != null && versionStr != owningPackage.Version.ToString()) {
-            parser.AddIssue($"Incorrect 'Version' property value - got '{versionStr}', expected '{owningPackage.Version}'.");
+            parser.AddValidityIssue("Version", versionStr, $"expected '{owningPackage.Version}'");
         }
 
         var archRaw = parser.ParseList<string>("Architecture", true);
@@ -139,12 +139,16 @@ public record PackageManifest {
         try {
             return new PackageVersion(versionStr);
         } catch (InvalidPackageVersionException e) {
-            parser.AddIssue($"Invalid 'Version' value '{versionStr}': {e.Message}");
+            parser.AddValidityIssue("Version", versionStr, e.Message);
             return null;
         }
     }
 
     private PackageInstallParameters[]? ParseInstallBlock(HashtableParser parentParser, Hashtable[] raw) {
+        if (raw.Length == 0) {
+            parentParser.AddIssue("Value of 'Install' must not be an empty array.");
+        }
+
         var parsed = new PackageInstallParameters[raw.Length];
         for (var i = 0; i < raw.Length; i++) {
             var p = ParseInstallHashtable(new HashtableParser(raw[i], $"Install[{i}].", parentParser.Issues));

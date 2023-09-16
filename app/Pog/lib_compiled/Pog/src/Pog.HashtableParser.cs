@@ -26,7 +26,7 @@ internal struct HashtableParser {
         Issues.Add(issueMessage);
     }
 
-    public void AddValidityIssue(string propertyName, string value, string validDescription) {
+    public void AddValidityIssue(string propertyName, string? value, string validDescription) {
         AddIssue($"Invalid '{ObjectPath}{propertyName}' value: '{value}' ({validDescription})");
     }
 
