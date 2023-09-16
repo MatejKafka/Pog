@@ -67,10 +67,6 @@ public class PathConfig {
     /// Directory where exported shortcuts from packages are copied (per-user).
     public static readonly string StartMenuUserExportDir = Path.Combine(GetFolderPath(SpecialFolder.StartMenu), "Pog");
 
-    private readonly string _appRootDir;
-    private readonly string _dataRootDir;
-    private readonly string _cacheRootDir;
-
     public readonly string ContainerDir;
     public readonly string CompiledLibDir;
     public readonly string ExecutableStubPath;
@@ -93,29 +89,26 @@ public class PathConfig {
 
     public readonly PackageRootConfig PackageRoots;
 
+    public PathConfig(string rootDirPath) : this(rootDirPath, rootDirPath) {}
+
+    public PathConfig(string appRootDirPath, string dataRootDirPath) :
+            this($"{appRootDirPath}\\app\\Pog", $"{dataRootDirPath}\\data", $"{dataRootDirPath}\\cache") {}
+
     // if any new paths are added here, also add them to setup.ps1 in the root directory
-
-    public PathConfig(string rootDirPath) :
-            this($"{rootDirPath}\\app\\Pog", $"{rootDirPath}\\data", $"{rootDirPath}\\cache") {}
-
     public PathConfig(string appRootDirPath, string dataRootDirPath, string cacheRootDirPath) {
-        _appRootDir = appRootDirPath;
-        _dataRootDir = dataRootDirPath;
-        _cacheRootDir = cacheRootDirPath;
+        PackageRoots = new PackageRootConfig($"{dataRootDirPath}\\package_roots.txt");
 
-        PackageRoots = new PackageRootConfig($"{_dataRootDir}\\package_roots.txt");
-
-        ContainerDir = $"{_appRootDir}\\container";
-        CompiledLibDir = $"{_appRootDir}\\lib_compiled";
+        ContainerDir = $"{appRootDirPath}\\container";
+        CompiledLibDir = $"{appRootDirPath}\\lib_compiled";
         ExecutableStubPath = $"{CompiledLibDir}\\PogExecutableStubTemplate.exe";
         VcRedistDir = $"{CompiledLibDir}\\vc_redist";
 
-        ExportedCommandDir = $"{_dataRootDir}\\package_bin";
-        ManifestRepositoryDir = $"{_dataRootDir}\\manifests";
-        ManifestGeneratorDir = $"{_dataRootDir}\\manifest_generators";
+        ExportedCommandDir = $"{dataRootDirPath}\\package_bin";
+        ManifestRepositoryDir = $"{dataRootDirPath}\\manifests";
+        ManifestGeneratorDir = $"{dataRootDirPath}\\manifest_generators";
 
-        DownloadCacheDir = $"{_cacheRootDir}\\download_cache";
-        DownloadTmpDir = $"{_cacheRootDir}\\download_tmp";
+        DownloadCacheDir = $"{cacheRootDirPath}\\download_cache";
+        DownloadTmpDir = $"{cacheRootDirPath}\\download_tmp";
 
         Path7Zip = $"{ExportedCommandDir}\\7z.exe";
     }

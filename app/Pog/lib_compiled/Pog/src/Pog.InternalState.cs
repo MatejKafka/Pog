@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using JetBrains.Annotations;
 
 namespace Pog;
 
@@ -15,6 +16,12 @@ public static class InternalState {
     }
 #endif
 
+#if DEBUG
+    public const bool DebugBuild = true;
+#else
+    public const bool DebugBuild = false;
+#endif
+
     private static string GetRootDirPath() {
         const string libDirName = @"\lib_compiled\";
         var assemblyPath = Assembly.GetExecutingAssembly().Location;
@@ -26,20 +33,18 @@ public static class InternalState {
         return Path.GetFullPath(Path.Combine(pogModuleDir, @"..\..")); // app/Pog/lib_compiled
     }
 
-    private static string? _rootDirPath;
-    public static string RootDirPath {
-        get => _rootDirPath ??= GetRootDirPath();
-        set {
-            if (_rootDirPath != null) {
-                throw new Exception("Cannot configure the Pog root directory, since there is already a previous " +
-                                    "configured path. The path must be set before any Pog modules are used.");
-            }
-            _rootDirPath = value;
+    /// Debug method, used for testing.
+    [UsedImplicitly]
+    public static void OverrideDataRoot(string dataRootDirPath) {
+        if (_pathConfig != null) {
+            throw new Exception("Cannot override Pog paths, since PathConfig was already configured, " +
+                                "probably due to auto-configuration on the first access.");
         }
+        _pathConfig = new PathConfig(GetRootDirPath(), dataRootDirPath);
     }
 
     private static PathConfig? _pathConfig;
-    public static PathConfig PathConfig => _pathConfig ??= new PathConfig(RootDirPath);
+    public static PathConfig PathConfig => _pathConfig ??= new PathConfig(GetRootDirPath());
 
     private static Repository? _repository;
     public static Repository Repository => _repository ??= new Repository(PathConfig.ManifestRepositoryDir);
