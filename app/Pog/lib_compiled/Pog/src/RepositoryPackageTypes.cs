@@ -25,7 +25,11 @@ public class Repository {
     }
 
     public IEnumerable<string> EnumeratePackageNames(string searchPattern = "*") {
-        return FsUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
+        try {
+            return FsUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
+        } catch (DirectoryNotFoundException) {
+            return Enumerable.Empty<string>();
+        }
     }
 
     public IEnumerable<RepositoryVersionedPackage> Enumerate(string searchPattern = "*") {
