@@ -1,7 +1,6 @@
 ﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.PSAttributes;
-using Pog.Utils;
 
 namespace Pog.Commands.Common;
 
@@ -28,7 +27,7 @@ public abstract class ImportedPackageNoPassThruCommand : PackageCommandBase {
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
-        var packages = ParameterSetName == PackagePS ? Package : PackageName.SelectOptional(GetImportedPackage);
+        var packages = ParameterSetName == PackagePS ? Package : GetImportedPackage(PackageName);
         // TODO: do this in parallel (even for packages passed as array)
         foreach (var package in packages) {
             if (ShouldProcess(package.PackageName)) {

@@ -1,6 +1,5 @@
 ﻿using System.Management.Automation;
 using JetBrains.Annotations;
-using Pog.Utils;
 
 namespace Pog.Commands.Common;
 
@@ -54,7 +53,7 @@ public abstract class RepositoryPackageCommand : PackageCommandBase {
             return; // already processed above
         }
 
-        var packages = ParameterSetName == PackagePS ? Package : PackageName.SelectOptional(pn => GetRepositoryPackage(pn));
+        var packages = ParameterSetName == PackagePS ? Package : GetRepositoryPackage(PackageName);
         // TODO: do this in parallel (even for packages passed as array)
         foreach (var package in packages) {
             ProcessPackage(package);
