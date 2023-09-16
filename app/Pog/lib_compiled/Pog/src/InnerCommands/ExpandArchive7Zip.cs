@@ -30,7 +30,7 @@ public class ExpandArchive7Zip : VoidCommand, IDisposable {
 
     // 7z.exe progress print pattern
     // e.g. ' 34% 10 - glib-2.dll'
-    private static readonly Regex ProgressPrintRegex = new(@"^\s*(\d{1,3})%\s+\S+.*$");
+    private static readonly Regex ProgressPrintRegex = new(@"^\s*(\d{1,3})%\s+\S+.*$", RegexOptions.Compiled);
 
     public ExpandArchive7Zip(PogCmdlet cmdlet) : base(cmdlet) {}
 
@@ -147,13 +147,22 @@ public class ExpandArchive7Zip : VoidCommand, IDisposable {
         return "\"" + arg.Replace("\"", "\\\"").Replace("%", "%Q%") + "\"";
     }
 
+    private static readonly Regex TarArchiveNameRegex =
+            new(@"\.(tar\.(gz|xz|bz2)|tgz|txz|tbz)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static bool IsCompressedTarArchive(string archivePath) {
+        // guess based on the extension
+        // TODO: parse 7zip output to figure out the actual file type
+        return TarArchiveNameRegex.IsMatch(archivePath);
+    }
+
     private ProcessStartInfo SetupProcessStartInfo(string archivePath, string targetPath, string[]? filterPatterns) {
-        if (archivePath.EndsWith(".tar.gz") || archivePath.EndsWith(".tgz")) {
+        if (IsCompressedTarArchive(archivePath)) {
             // 7zip extracts .tar.gz in two steps – first invocation outputs a .tar, which has to be extracted a second time
             // to avoid using a temporary file, we pipe 2 instances of 7zip together
             // however, C# doesn't provide a way to pipeline processes together, and doing it manually through P/Invoke
             //  would be a bit painful, so we instead use cmd.exe to setup the pipes
-            WriteDebug("Using pipelined 7z invocation for .tar.gz/.tgz archive.");
+            WriteDebug("Using pipelined 7z invocation for a compressed .tar archive.");
             var path7Z = QuoteArgumentCmd(InternalState.PathConfig.Path7Zip);
             var startInfo = new ProcessStartInfo {
                 FileName = "cmd",
@@ -161,7 +170,6 @@ public class ExpandArchive7Zip : VoidCommand, IDisposable {
                         "/c \"" // why is this first quote here? read `cmd /?`, paragraph "If /C or /K is specified,...", then cry
                         + $" {path7Z} x {QuoteArgumentCmd(archivePath)}"
                         + " -so" // output to stdout instead of a file/directory
-                        + " -tgzip" // require input to be .tar.gz
                         + " -bsp2" // print progress prints to stderr, where we can capture them; we must use stderr,
                         //            because stdout is occupied by the actual output
                         + $" | {path7Z} x {QuoteArgumentCmd("-o" + targetPath)}"
