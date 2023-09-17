@@ -1,8 +1,16 @@
 Get-PogPackage
-    | ? {
-        if (-not $_.Version -or -not $_.ManifestName) {return $false}
+    | % {
+        if (-not $_.Version -or -not $_.ManifestName) {return}
         $r = Get-PogRepositoryPackage $_.ManifestName -ErrorAction Ignore
-        return $r -and $r.Version -gt $_.Version
+        if ($r -and $r.Version -gt $_.Version) {
+            return [pscustomobject]@{
+                PackageName = $_.PackageName
+                CurrentVersion = $_.Version
+                LatestVersion = $r.Version
+                Target = $_
+            }
+        }
     }
     | Out-GridView -PassThru -Title "Outdated packages"
+    | % Target
     | pog -Force <# -Force because user already confirmed the update #>
