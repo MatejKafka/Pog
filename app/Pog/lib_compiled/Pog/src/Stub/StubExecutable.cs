@@ -39,6 +39,7 @@ public class StubExecutable {
     //  subsystem to configure the stub; we could try to resolve the path, copy the subsystem and hope that it doesn't
     //  change, but that's kinda fragile
     public readonly string TargetPath;
+    private readonly string _targetExtension;
     public readonly string? WorkingDirectory;
     public readonly string[]? Arguments;
     public readonly (string, EnvVarTemplate)[]? EnvironmentVariables;
@@ -46,8 +47,9 @@ public class StubExecutable {
     public StubExecutable(string targetPath, string? workingDirectory = null, string[]? arguments = null,
             IEnumerable<KeyValuePair<string, string[]>>? environmentVariables = null, bool replaceArgv0 = false) {
         Debug.Assert(Path.IsPathRooted(targetPath));
-        var targetExtension = Path.GetExtension(targetPath).ToLower();
-        if (!SupportedTargetExtensions.Contains(targetExtension)) {
+
+        _targetExtension = Path.GetExtension(targetPath).ToLowerInvariant();
+        if (!SupportedTargetExtensions.Contains(_targetExtension)) {
             throw new UnsupportedStubTargetTypeException(
                     $"Stub target '{targetPath}' has an unsupported extension. Supported extensions are: " +
                     string.Join(", ", SupportedTargetExtensions));
@@ -55,7 +57,7 @@ public class StubExecutable {
 
         // .cmd/.bat file handler seems to use argv[0] as the target passed to `cmd.exe /c` not lpApplicationName,
         //  which results in an infinite process spawning loop when the original argv[0] is retained
-        ReplaceArgv0 = replaceArgv0 || targetExtension is ".cmd" or ".bat";
+        ReplaceArgv0 = replaceArgv0 || _targetExtension is ".cmd" or ".bat";
         TargetPath = targetPath;
         WorkingDirectory = workingDirectory;
         Arguments = arguments;
@@ -69,7 +71,7 @@ public class StubExecutable {
     }
 
     private bool IsTargetPeBinary() {
-        return Path.GetExtension(TargetPath) is ".exe" or ".com";
+        return _targetExtension is ".exe" or ".com";
     }
 
     /// Ensures that the stub at stubPath is up-to-date.
