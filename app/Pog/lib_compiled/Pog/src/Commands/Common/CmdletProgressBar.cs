@@ -20,7 +20,11 @@ public class CmdletProgressBar : IDisposable {
 
     public CmdletProgressBar(Cmdlet cmdlet, ProgressActivity metadata) : this(cmdlet.WriteProgress, metadata) {}
 
-    public void Update(int percentComplete) {
+    public void Update(double ratioComplete) {
+        UpdatePercent((int) (ratioComplete * 100));
+    }
+
+    public void UpdatePercent(int percentComplete) {
         _progressRecord.PercentComplete = percentComplete;
         _writeProgressFn(_progressRecord);
     }

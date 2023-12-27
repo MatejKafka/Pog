@@ -1,8 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
-using System.Text.RegularExpressions;
 using System.Web;
 
 namespace Pog.Utils.Http;
@@ -10,7 +8,7 @@ namespace Pog.Utils.Http;
 /// <summary>
 /// Utility class for getting the server-provided file name for a downloaded file.
 /// </summary>
-public static class HttpFileNameParser {
+internal static class HttpFileNameParser {
     /// <param name="resolvedUri">Resolved URI (after redirects) of the downloaded file.</param>
     /// <param name="contentDisposition">The Content-Disposition header from the server response, if any.</param>
     public static string GetDownloadedFileName(Uri resolvedUri, ContentDispositionHeaderValue? contentDisposition) {
@@ -22,11 +20,11 @@ public static class HttpFileNameParser {
         string? fileName = null;
 
         // if Content-Disposition is set and valid, use the specified filename
-        fileName ??= SanitizeDownloadedFileName(GetRawDispositionFileName(contentDisposition));
+        fileName ??= FsUtils.SanitizeFileName(GetRawDispositionFileName(contentDisposition));
 
         // use the last segment of the resolved URL
         var lastSegment = resolvedUri.Segments.LastOrDefault();
-        fileName ??= SanitizeDownloadedFileName(HttpUtility.UrlDecode(lastSegment));
+        fileName ??= FsUtils.SanitizeFileName(HttpUtility.UrlDecode(lastSegment));
 
         if (fileName == null && resolvedUri.Segments.Length == 1 && resolvedUri.Segments[0] == "/") {
             // empty path, assume that the actual file is `index.html`
@@ -34,7 +32,7 @@ public static class HttpFileNameParser {
         }
 
         // use the hostname
-        fileName ??= SanitizeDownloadedFileName(resolvedUri.Host);
+        fileName ??= FsUtils.SanitizeFileName(resolvedUri.Host);
 
         // fallback default name
         fileName ??= "download";
@@ -63,37 +61,5 @@ public static class HttpFileNameParser {
         }
 
         return headerVal;
-    }
-
-    private static readonly Regex InvalidDosNameRegex = new Regex(@"^(CON|PRN|AUX|NUL|COM\d|LPT\d)(\..+)?$",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    private static string? SanitizeDownloadedFileName(string? fileName) {
-        // sources for relevant functions in Chromium:
-        // GetFileNameFromURL: https://github.com/chromium/chromium/blob/11a147047d7ed9d429b53e536fe1ead54fad5053/net/base/filename_util_internal.cc#L119
-        // GenerateSafeFileName: https://github.com/chromium/chromium/blob/bf9e98c98e8d7e79befeb057fde42b0e320d9b19/net/base/filename_util.cc#L163
-        // SanitizeGeneratedFileName: https://github.com/chromium/chromium/blob/11a147047d7ed9d429b53e536fe1ead54fad5053/net/base/filename_util_internal.cc#L79
-
-        // list of invalid filenames on Windows: https://stackoverflow.com/a/62888
-
-        if (fileName == null) {
-            return null;
-        }
-
-        // Win32 does not like trailing '.' and ' ', remove it
-        fileName = fileName.TrimEnd('.', ' ');
-        // replace any invalid characters with _
-        fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
-
-        if (InvalidDosNameRegex.IsMatch(fileName)) {
-            // is a DOS file name, prefix with _ to lose the special meaning
-            fileName = "_" + fileName;
-        }
-
-        // if fileName is empty or only consists of invalid chars (or _), skip it
-        if (fileName.All(c => c == '_')) {
-            return null;
-        }
-        return fileName;
     }
 }

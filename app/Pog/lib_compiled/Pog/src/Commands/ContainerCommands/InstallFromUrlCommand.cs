@@ -157,6 +157,8 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
         return !validatedPath.StartsWith(basePath + '\\') && validatedPath != basePath;
     }
 
+    /// If `subdirectoryPath` stays inside `basePath`, return the combined path, otherwise return null.
+    /// Use this function when resolving an untrusted relative path.
     private static string? JoinValidateSubdirectory(string basePath, string subdirectoryPath) {
         var combined = Path.GetFullPath(basePath + '\\' + subdirectoryPath.TrimEnd('/', '\\'));
         if (EscapesDirectory(basePath, combined)) {

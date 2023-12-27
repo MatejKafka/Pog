@@ -66,8 +66,9 @@ public class ExpandArchive7Zip : VoidCommand, IDisposable {
             while (_process.StandardError.ReadLine() is {} line) {
                 var match = ProgressPrintRegex.Match(line);
                 if (match.Success) {
-                    progressBar.Update(int.Parse(match.Groups[1].Value));
-                } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan") || line == "  0%") {
+                    progressBar.UpdatePercent(int.Parse(match.Groups[1].Value));
+                } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan")
+                                                           || line == "  0%" || line == "100%") {
                     // ignore these prints, they are expected
                 } else {
                     // during normal operation, no additional output should be printed;

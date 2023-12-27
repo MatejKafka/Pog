@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using Microsoft.Win32.SafeHandles;
 using Pog.Native;
 using Polyfills;
@@ -37,6 +38,38 @@ public static class FsUtils {
     public static FileSystemInfo CreateSymbolicLink(string path, string targetPath, bool isDirectory) {
         if (isDirectory) return PIO.Directory.CreateSymbolicLink(path, targetPath);
         else return PIO.File.CreateSymbolicLink(path, targetPath);
+    }
+
+    private static readonly Regex InvalidDosNameRegex = new(@"^(CON|PRN|AUX|NUL|COM\d|LPT\d)(\..+)?$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    public static string? SanitizeFileName(string? fileName) {
+        // sources for relevant functions in Chromium:
+        // GetFileNameFromURL: https://github.com/chromium/chromium/blob/11a147047d7ed9d429b53e536fe1ead54fad5053/net/base/filename_util_internal.cc#L119
+        // GenerateSafeFileName: https://github.com/chromium/chromium/blob/bf9e98c98e8d7e79befeb057fde42b0e320d9b19/net/base/filename_util.cc#L163
+        // SanitizeGeneratedFileName: https://github.com/chromium/chromium/blob/11a147047d7ed9d429b53e536fe1ead54fad5053/net/base/filename_util_internal.cc#L79
+
+        // list of invalid filenames on Windows: https://stackoverflow.com/a/62888
+
+        if (fileName == null) {
+            return null;
+        }
+
+        // Win32 does not like trailing '.' and ' ', remove it
+        fileName = fileName.TrimEnd('.', ' ');
+        // replace any invalid characters with _
+        fileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
+
+        if (InvalidDosNameRegex.IsMatch(fileName)) {
+            // is a DOS file name, prefix with _ to lose the special meaning
+            fileName = "_" + fileName;
+        }
+
+        // if fileName is empty or only consists of invalid chars (or _), it is not valid
+        if (fileName.All(c => c == '_')) {
+            return null;
+        }
+        return fileName;
     }
 
     public static bool FileContentEqual(byte[] f1, FileInfo f2) {
