@@ -16,14 +16,14 @@ extern "C" [[maybe_unused]] void __cdecl _wsetenvp() {}
 BOOL WINAPI ctrl_handler(DWORD ctrl_type) {
     // ignore all events, and let the child process handle them
     switch (ctrl_type) {
-        case CTRL_C_EVENT:
-        case CTRL_CLOSE_EVENT:
-        case CTRL_LOGOFF_EVENT:
-        case CTRL_BREAK_EVENT:
-        case CTRL_SHUTDOWN_EVENT:
-            return TRUE;
-        default:
-            return FALSE;
+    case CTRL_C_EVENT:
+    case CTRL_CLOSE_EVENT:
+    case CTRL_LOGOFF_EVENT:
+    case CTRL_BREAK_EVENT:
+    case CTRL_SHUTDOWN_EVENT:
+        return TRUE;
+    default:
+        return FALSE;
     }
 }
 
@@ -33,7 +33,7 @@ struct c_wstring {
 
     explicit c_wstring(size_t size) : size(size), str(new wchar_t[size]) {}
 
-    c_wstring(c_wstring&& s) noexcept: size(s.size), str(s.str) {
+    c_wstring(c_wstring&& s) noexcept : size(s.size), str(s.str) {
         s.size = 0;
         s.str = nullptr;
     }
@@ -77,8 +77,8 @@ c_wstring build_command_line(std::optional<std::wstring_view> prefixed_args, con
     auto args_len = wcslen(const_argv0_end);
 
     // allocate the cmd_line buffer
-    c_wstring cmd_line{argv0_len + (target_override ? 2 : 0) // +2 for quotes around `target_override`
-            + (prefixed_args ? 1 + prefixed_args->size() : 0) + args_len + 1};
+    c_wstring cmd_line{ argv0_len + (target_override ? 2 : 0) // +2 for quotes around `target_override`
+            + (prefixed_args ? 1 + prefixed_args->size() : 0) + args_len + 1 };
 
     // build the command line
     auto it_out = cmd_line.str;
@@ -127,7 +127,7 @@ private:
     std::byte* attribute_list_;
 public:
     ProcThreadAttributeList() {
-        SIZE_T size;
+        size_t size;
         // get the attribute list size; do not check for error here, it's expected that we'll get one
         InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
 
@@ -181,7 +181,7 @@ ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wcha
     return {.job = job_handle, .process = process_info.hProcess};
 }
 
-[[noreturn]] void real_main() {
+DWORD real_main() {
     StubDataBuffer stub_data_buffer;
     try {
         stub_data_buffer = load_stub_data();
@@ -189,7 +189,7 @@ ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wcha
         throw std::exception("Pog stub not configured yet.");
     }
 
-    StubData stub_data{stub_data_buffer};
+    StubData stub_data{ stub_data_buffer };
 
     if (stub_data.version() != 3) {
         throw std::exception("Incorrect Pog stub data version, this stub expects v3.");
@@ -238,10 +238,11 @@ ChildHandles run_target(const wchar_t* target, wchar_t* command_line, const wcha
     handles.close_all();
 
     // forward the exit code
-    ExitProcess(exit_code);
+    return exit_code;
 }
 
 int wmain() {
-    panic_on_exception(real_main);
-    return 0;
+    panic_on_exception([] {
+        ExitProcess(real_main());
+    });
 }
