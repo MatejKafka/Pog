@@ -1,7 +1,8 @@
 using Pog.Native;
 using Xunit;
+using Win32 = Pog.Tests.TestUtils.Win32;
 
-namespace Pog.Tests;
+namespace Pog.Tests.Native;
 
 public class Win32ArgsTests {
     private static readonly Random Random = new();

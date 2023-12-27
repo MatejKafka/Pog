@@ -5,12 +5,9 @@
         <Nullable>enable</Nullable>
 
         <IsPackable>false</IsPackable>
-
         <OutputType>Library</OutputType>
-
         <LangVersion>default</LangVersion>
-
-        <TargetFramework>net7.0-windows</TargetFramework>
+        <TargetFramework>net8.0-windows</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>

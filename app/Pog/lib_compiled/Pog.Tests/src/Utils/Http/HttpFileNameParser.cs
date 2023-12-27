@@ -2,7 +2,7 @@
 using Pog.Utils.Http;
 using Xunit;
 
-namespace Pog.Tests;
+namespace Pog.Tests.Utils.Http;
 
 // list of test cases for Content-Disposition parsing: http://test.greenbytes.de/tech/tc2231/
 public class HttpFileNameParserTests {

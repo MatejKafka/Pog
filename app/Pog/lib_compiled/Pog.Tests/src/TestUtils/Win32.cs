@@ -1,9 +1,7 @@
 ﻿using System.ComponentModel;
-
-namespace Pog.Tests;
-
-using System;
 using System.Runtime.InteropServices;
+
+namespace Pog.Tests.TestUtils;
 
 internal static class Win32 {
     // copied from https://pinvoke.net/default.aspx/shell32/CommandLineToArgvW.html
