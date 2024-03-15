@@ -44,8 +44,9 @@ Export function __cleanup {
 	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutStubs.Count -gt 0) {
 		Write-Debug "Removing stale shortcuts..."
 		$InternalState.StaleShortcuts | % {
+			$ShortcutName = [IO.Path]::GetFileNameWithoutExtension($_)
 			Remove-Item $_
-			Write-Information "Removed stale shortcut '$_'."
+			Write-Information "Removed stale shortcut '$ShortcutName'."
 		}
 		Remove-Item $InternalState.StaleShortcutStubs
 	}
@@ -53,8 +54,9 @@ Export function __cleanup {
 	if ($InternalState.StaleCommands.Count -gt 0) {
 		Write-Debug "Removing stale commands..."
 		$InternalState.StaleCommands | % {
+			$CommandName = [IO.Path]::GetFileNameWithoutExtension($_)
 			Remove-Item $_
-			Write-Information "Removed stale command '$_'."
+			Write-Information "Removed stale command '$CommandName'."
 		}
 	}
 }
