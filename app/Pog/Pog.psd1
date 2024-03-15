@@ -40,4 +40,6 @@
 
 		'Edit-PogRootList'
 	)
+
+	FormatsToProcess = 'Pog.Format.ps1xml'
 }

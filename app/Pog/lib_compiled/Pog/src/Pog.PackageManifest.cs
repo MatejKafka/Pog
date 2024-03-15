@@ -69,7 +69,6 @@ public record PackageManifest {
     public readonly ScriptBlock? Enable;
     public readonly ScriptBlock? Disable;
 
-    [Hidden]
     public readonly Hashtable Raw;
 
     /// <inheritdoc cref="PackageManifest(string, string?, RepositoryPackage?)"/>

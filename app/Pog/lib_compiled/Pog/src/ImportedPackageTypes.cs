@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management.Automation;
 using System.Text;
 using JetBrains.Annotations;
 using Pog.Utils;
@@ -125,7 +124,7 @@ public class ImportedPackageManager {
 [PublicAPI]
 public sealed class ImportedPackage : Package {
     public PackageVersion? Version => Manifest.Version;
-    [Hidden] public string? ManifestName => Manifest.Name;
+    public string? ManifestName => Manifest.Name;
 
     internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, path) {
         Verify.Assert.PackageName(packageName);

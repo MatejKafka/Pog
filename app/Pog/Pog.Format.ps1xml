@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/PowerShell/PowerShell/master/src/Schemas/Format.xsd">
+    <ViewDefinitions>
+        <View>
+            <Name>Pog.RepositoryPackage</Name>
+            <ViewSelectedBy>
+                <TypeName>Pog.RepositoryPackage</TypeName>
+            </ViewSelectedBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader>
+                        <Width>20</Width>
+                    </TableColumnHeader>
+                    <TableColumnHeader/>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>PackageName</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Version</PropertyName>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+        <View>
+            <Name>Pog.ImportedPackage</Name>
+            <ViewSelectedBy>
+                <TypeName>Pog.ImportedPackage</TypeName>
+            </ViewSelectedBy>
+            <GroupBy>
+                <!-- TODO: Add a property to Pog.ImportedPackage so that we don't have to use Split-Path here -->
+                <ScriptBlock>Split-Path $_.Path</ScriptBlock>
+                <Label>Package Root</Label>
+            </GroupBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader>
+                        <Width>20</Width>
+                    </TableColumnHeader>
+                    <TableColumnHeader/>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>PackageName</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Version</PropertyName>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+        <View>
+            <Name>Pog.PackageManifest</Name>
+            <ViewSelectedBy>
+                <TypeName>Pog.PackageManifest</TypeName>
+            </ViewSelectedBy>
+            <ListControl>
+                <ListEntries>
+                    <ListEntry>
+                        <ListItems>
+                            <ListItem>
+                                <PropertyName>Name</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>Version</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>Private</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <Label>Architecture</Label>
+                                <ScriptBlock>
+                                    ($_.Architecture | ForEach-Object {$_.ToString().ToLowerInvariant()}) -join ", "
+                                </ScriptBlock>
+                            </ListItem>
+                            <ListItem>
+                                <Label>Source URL</Label>
+                                <ScriptBlock>
+                                    $(foreach ($i in $_.Install) {
+                                        if ($i.SourceUrl -is [scriptblock]) {"{$($i.SourceUrl)}"}
+                                        else {$i.SourceUrl}
+                                    }) -join "`n"
+                                </ScriptBlock>
+                            </ListItem>
+                            <ListItem>
+                                <Label>Source Hash</Label>
+                                <ScriptBlock>$_.Install.ExpectedHash -join "`n"</ScriptBlock>
+                            </ListItem>
+                            <ListItem>
+                                <Label>Enable</Label>
+                                <!-- enclose in {} to make clear that it's a script block -->
+                                <ScriptBlock>
+                                    "{$($_.Enable.ToString().TrimEnd())`n}"
+                                </ScriptBlock>
+                            </ListItem>
+                        </ListItems>
+                    </ListEntry>
+                </ListEntries>
+            </ListControl>
+        </View>
+        <View>
+            <Name>Pog.PackageManifest</Name>
+            <ViewSelectedBy>
+                <TypeName>Pog.PackageManifest</TypeName>
+            </ViewSelectedBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader>
+                        <Width>20</Width>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                        <Width>16</Width>
+                    </TableColumnHeader>
+                    <TableColumnHeader/>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>Name</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Version</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Path</PropertyName>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+        <View>
+            <Name>Pog.RepositoryVersionedPackage</Name>
+            <ViewSelectedBy>
+                <TypeName>Pog.RepositoryVersionedPackage</TypeName>
+            </ViewSelectedBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader>
+                        <Width>20</Width>
+                    </TableColumnHeader>
+                    <TableColumnHeader>
+                        <Label>Versions</Label>
+                    </TableColumnHeader>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>PackageName</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <!-- Typically, roughly 3-4 versions are displayed in the space available and PowerShell
+                                     automatically adds an ellipsis; if we return 5 items, it should be enough to look
+                                     the same as if we returned all versions -->
+                                <ScriptBlock>
+                                    $Out = $_.EnumerateVersionStrings() | select -First 5
+                                    if (@($Out).Count -eq 5) {$Out += "…"}
+                                    return $Out
+                                </ScriptBlock>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+        <View>
+            <Name>Pog.PackageGenerator</Name>
+            <ViewSelectedBy>
+                <TypeName>Pog.PackageGenerator</TypeName>
+            </ViewSelectedBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader>
+                        <Width>20</Width>
+                    </TableColumnHeader>
+                    <TableColumnHeader/>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>PackageName</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Path</PropertyName>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+    </ViewDefinitions>
+</Configuration>

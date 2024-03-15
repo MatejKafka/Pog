@@ -1,29 +1,22 @@
 ﻿using System.IO;
-using IOPath = System.IO.Path;
-using System.Management.Automation;
 using JetBrains.Annotations;
+using IOPath = System.IO.Path;
 
 namespace Pog;
 
 [PublicAPI]
 public abstract class Package {
     public readonly string PackageName;
-    [Hidden] public readonly string Path;
-    [Hidden] public string ManifestPath => _manifest != null ? Manifest.Path : GetManifestPath();
+    public readonly string Path;
+    public string ManifestPath => _manifest != null ? Manifest.Path : GetManifestPath();
 
-    [Hidden] public virtual bool Exists => Directory.Exists(Path);
+    public virtual bool Exists => Directory.Exists(Path);
 
     // TODO: make this public?
     internal string ManifestResourceDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestResourceRelPath);
 
     private PackageManifest? _manifest;
-    [Hidden]
-    public PackageManifest Manifest {
-        get {
-            EnsureManifestIsLoaded();
-            return _manifest!;
-        }
-    }
+    public PackageManifest Manifest => EnsureManifestIsLoaded();
 
     protected Package(string packageName, string packagePath, PackageManifest? manifest = null) {
         Verify.Assert.PackageName(packageName);
@@ -34,8 +27,8 @@ public abstract class Package {
     }
 
     /// <inheritdoc cref="ReloadManifest"/>
-    public void EnsureManifestIsLoaded() {
-        if (_manifest == null) ReloadManifest();
+    public PackageManifest EnsureManifestIsLoaded() {
+        return _manifest ?? ReloadManifest();
     }
 
     protected void InvalidateManifest() {
@@ -46,11 +39,12 @@ public abstract class Package {
     /// <exception cref="PackageManifestNotFoundException">The package manifest file does not exist.</exception>
     /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
     /// <exception cref="InvalidPackageManifestStructureException">The package manifest is a valid data file, but the structure is not valid.</exception>
-    public void ReloadManifest() {
+    public PackageManifest ReloadManifest() {
         if (!Exists) {
-            throw new DirectoryNotFoundException($"Tried to read the package manifest of a non-existent package at '{Path}'.");
+            throw new DirectoryNotFoundException(
+                    $"Tried to read the package manifest of a non-existent package at '{Path}'.");
         }
-        _manifest = LoadManifest();
+        return _manifest = LoadManifest();
     }
 
     protected virtual string GetManifestPath() {

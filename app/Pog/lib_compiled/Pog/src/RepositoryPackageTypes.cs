@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management.Automation;
 using JetBrains.Annotations;
 using IOPath = System.IO.Path;
 
@@ -58,12 +57,12 @@ public class Repository {
 [PublicAPI]
 public class RepositoryVersionedPackage {
     public readonly string PackageName;
-    [Hidden] public readonly Repository Repository;
+    public readonly Repository Repository;
     public readonly string Path;
-    [Hidden] public bool Exists => Directory.Exists(Path);
-    [Hidden] public bool IsTemplated => Directory.Exists(TemplateDirPath);
+    public bool Exists => Directory.Exists(Path);
+    public bool IsTemplated => Directory.Exists(TemplateDirPath);
 
-    [Hidden] public string TemplateDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.RepositoryTemplateDirName);
+    public string TemplateDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.RepositoryTemplateDirName);
     internal string TemplatePath => IOPath.Combine(TemplateDirPath, PathConfig.PackagePaths.ManifestRelPath);
 
     internal RepositoryVersionedPackage(Repository repository, string packageName) {
@@ -137,7 +136,7 @@ public class RepositoryVersionedPackage {
 [PublicAPI]
 public abstract class RepositoryPackage : Package {
     public readonly PackageVersion Version;
-    [Hidden] public readonly RepositoryVersionedPackage Container;
+    public readonly RepositoryVersionedPackage Container;
 
     protected RepositoryPackage(RepositoryVersionedPackage parent, PackageVersion version, string packagePath)
             : base(parent.PackageName, packagePath) {
@@ -192,8 +191,8 @@ public sealed class DirectRepositoryPackage : RepositoryPackage {
 
 [PublicAPI]
 public sealed class TemplatedRepositoryPackage : RepositoryPackage {
-    [Hidden] public string TemplatePath => base.GetManifestPath(); // a bit too hacky?
-    [Hidden] public override bool Exists => base.Exists && File.Exists(ManifestPath);
+    public string TemplatePath => base.GetManifestPath(); // a bit too hacky?
+    public override bool Exists => base.Exists && File.Exists(ManifestPath);
 
     public TemplatedRepositoryPackage(RepositoryVersionedPackage parent, PackageVersion version)
             : base(parent, version, parent.TemplateDirPath) {}

@@ -1,9 +1,8 @@
-﻿using IOPath = System.IO.Path;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Management.Automation;
 using JetBrains.Annotations;
+using IOPath = System.IO.Path;
 
 namespace Pog;
 
@@ -53,17 +52,11 @@ public class GeneratorRepository {
 [PublicAPI]
 public class PackageGenerator {
     public readonly string PackageName;
-    [Hidden] public readonly string Path;
-    [Hidden] public bool Exists => File.Exists(Path);
+    public readonly string Path;
+    public bool Exists => File.Exists(Path);
 
     private PackageGeneratorManifest? _manifest;
-    [Hidden]
-    public PackageGeneratorManifest Manifest {
-        get {
-            if (_manifest == null) ReloadManifest();
-            return _manifest!;
-        }
-    }
+    public PackageGeneratorManifest Manifest => _manifest ?? ReloadManifest();
 
     internal PackageGenerator(string generatorPath, string packageName) {
         Path = generatorPath;
@@ -72,7 +65,7 @@ public class PackageGenerator {
 
     /// <exception cref="PackageManifestNotFoundException">Thrown if the package generator does not exist.</exception>
     /// <exception cref="PackageManifestParseException">Thrown if the package generator file is not a valid PowerShell data file (.psd1).</exception>
-    public void ReloadManifest() {
-        _manifest = new PackageGeneratorManifest(Path);
+    public PackageGeneratorManifest ReloadManifest() {
+        return _manifest = new PackageGeneratorManifest(Path);
     }
 }

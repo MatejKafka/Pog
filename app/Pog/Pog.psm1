@@ -116,7 +116,7 @@ Export function Enable-Pog {
 		}}
 
 		foreach ($p in $Packages) {
-			$p.EnsureManifestIsLoaded()
+			$null = $p.EnsureManifestIsLoaded()
 
 			if (-not $p.Manifest.Enable) {
 				Write-Information "Package '$($p.PackageName)' does not have an Enable block."
