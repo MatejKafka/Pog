@@ -1,0 +1,13 @@
+how to add an entry to the "default browser" Settings UI:
+	- see `default browsers.reg`
+	- RegisteredApplications seems to be a fixed location and the app won't be picked up from anywhere else
+		- there's a HKCU: and HKLM: version
+	- the path stored in RegisteredApplications is an arbitrary subdir of HKCU:
+	- the value stored in URLAssociations is resolved from HKCR:, and it must not be in a subdirectory or contain
+	  any unusual characters in the name (e.g. :), otherwise the Settings UI breaks (probably a UI bug)
+
+the user choice is stored in the following keys as a (Hash, ProgID) pair:
+	HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice
+	HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice
+
+	https://stackoverflow.com/questions/32354861/how-to-find-the-default-browser-via-the-registry-on-windows-10
