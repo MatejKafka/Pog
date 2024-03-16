@@ -120,11 +120,6 @@ Export function Copy-CommandParameters {
                 $AttributeTypeName = $_.TypeId.FullName
 
                 switch -wildcard ($AttributeTypeName) {
-                    System.Management.Automation.ArgumentTypeConverterAttribute {
-                        # parameter type is set directly on the $Parameter object, this attribute seems useless
-                        return  # return so blank param doesn't get added
-                    }
-
                     System.Management.Automation.AliasAttribute {
                         if ($NoAlias) {
                             break
@@ -196,6 +191,24 @@ Export function Copy-CommandParameters {
                     }
 
                     System.Management.Automation.AllowEmptyStringAttribute {
+                        # just copy
+                        $AttribColl.Add($CurrentAttribute)
+                        break
+                    }
+
+                    System.Management.Automation.AllowEmptyCollectionAttribute {
+                        # just copy
+                        $AttribColl.Add($CurrentAttribute)
+                        break
+                    }
+
+                    System.Management.Automation.CredentialAttribute {
+                        # just copy
+                        $AttribColl.Add($CurrentAttribute)
+                        break
+                    }
+
+                    System.Management.Automation.ArgumentTypeConverterAttribute {
                         # just copy
                         $AttribColl.Add($CurrentAttribute)
                         break
