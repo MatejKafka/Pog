@@ -1,7 +1,6 @@
 using module .\Paths.psm1
 using module .\lib\Utils.psm1
 using module .\Confirmations.psm1
-using module .\lib\Copy-CommandParameters.psm1
 . $PSScriptRoot\lib\header.ps1
 
 # re-export binary cmdlets from Pog.dll
@@ -23,6 +22,12 @@ Export function Edit-PogRootList {
 	Start-Process $Path
 }
 
+
+function LogUnknownParameterProperty($ParamName, $Attribute) {
+	Write-Warning ("Manifest ScriptBlock parameter forwarding doesn't handle the dynamic parameter attribute " +`
+			"'$($Attribute.GetType().ToString())', defined for parameter '$($ParamName)' of the manifest block.`n" +`
+			"If this is something that you think you need as a package author, open a new issue and we'll see what we can do.")
+}
 
 Export function Enable-Pog {
 	# .SYNOPSIS
@@ -72,9 +77,10 @@ Export function Enable-Pog {
 		}
 
 		$CopiedParams = if ($null -eq $p.Manifest.Enable) {
-			[DynamicCommandParameters]::new($NamePrefix) # behave as if the scriptblock had no parameters
+			[Pog.Commands.Common.DynamicCommandParameters]::new() # behave as if the scriptblock had no parameters
 		} else {
-			Copy-CommandParameters $p.Manifest.Enable -NoPositionAttribute -NamePrefix "_"
+			$ParamBuilder = [Pog.Commands.Common.DynamicCommandParameters+Builder]::new("_", "NoPosition", $function:LogUnknownParameterProperty)
+			$ParamBuilder.CopyParameters($p.Manifest.Enable)
 		}
 		return $CopiedParams
 	}
@@ -89,7 +95,7 @@ Export function Enable-Pog {
 		if (Get-Variable CopiedParams -Scope Local -ErrorAction Ignore) {
 			# $p is already loaded
 			$Package = $p
-			$ForwardedParams = $CopiedParams.Extract($PSBoundParameters)
+			$ForwardedParams = $CopiedParams.Extract()
 			try {
 				$PackageParameters += $ForwardedParams
 			} catch {
@@ -156,12 +162,16 @@ Export function Invoke-Pog {
 	)
 
 	dynamicparam {
-		$CopiedParams = Copy-CommandParameters (Get-Command Import-Pog)
+		$ParamBuilder = [Pog.Commands.Common.DynamicCommandParameters+Builder]::new("", "None", {
+			param($ParamName, $Attr)
+			throw "Cannot copy parameter '$ParamName', attribute '$($Attr.GetType().ToString())'."
+		})
+		$CopiedParams = $ParamBuilder.CopyParameters((Get-Command Import-Pog))
 		return $CopiedParams
 	}
 
 	begin {
-		$Params = $CopiedParams.Extract($PSBoundParameters)
+		$Params = $CopiedParams.Extract()
 
 		# reuse PassThru parameter from Import-Pog for Enable-Pog
 		$PassThru = [bool]$Params["PassThru"]
