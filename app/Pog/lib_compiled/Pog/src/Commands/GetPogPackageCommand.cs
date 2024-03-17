@@ -14,7 +14,7 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogPackage")]
 [OutputType(typeof(ImportedPackage))]
-public class GetPogPackageCommand : PogCmdlet {
+public sealed class GetPogPackageCommand : PogCmdlet {
     /// <summary><para type="description">
     /// Names of installed packages to return. If not passed, all installed packages are returned.
     /// </para></summary>

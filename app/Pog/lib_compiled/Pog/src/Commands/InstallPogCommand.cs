@@ -15,7 +15,7 @@ namespace Pog.Commands;
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
-public class InstallPogCommand : ImportedPackageCommand {
+public sealed class InstallPogCommand : ImportedPackageCommand {
     /// <summary><para type="description">
     /// Download files with low priority, which results in better network responsiveness
     /// for other programs, but possibly slower download speed.

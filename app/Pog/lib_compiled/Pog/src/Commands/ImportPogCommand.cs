@@ -19,7 +19,7 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsData.Import, "Pog", DefaultParameterSetName = PackageName_PS, SupportsShouldProcess = true)]
 [OutputType(typeof(ImportedPackage))]
-public class ImportPogCommand : PackageCommandBase {
+public sealed class ImportPogCommand : PackageCommandBase {
     #region Parameter Sets
 
     // the package sets on this command are a bit wild, but essentially, the command needs 2 pieces of information:

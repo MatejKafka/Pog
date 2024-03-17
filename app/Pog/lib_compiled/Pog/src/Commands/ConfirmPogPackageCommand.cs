@@ -7,7 +7,6 @@ using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
-using PFile = Polyfills.System.IO.File;
 
 namespace Pog.Commands;
 
@@ -21,7 +20,7 @@ namespace Pog.Commands;
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Confirm, "PogPackage", DefaultParameterSetName = DefaultPS)]
-public class ConfirmPogPackageCommand : PogCmdlet {
+public sealed class ConfirmPogPackageCommand : PogCmdlet {
     protected const string PackagePS = "Package";
     protected const string PackageNamePS = "PackageName";
     protected const string DefaultPS = PackageNamePS;

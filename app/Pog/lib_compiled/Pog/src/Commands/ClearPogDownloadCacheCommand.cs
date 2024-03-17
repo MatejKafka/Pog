@@ -16,7 +16,7 @@ namespace Pog.Commands;
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Clear, "PogDownloadCache", DefaultParameterSetName = DaysPS)]
-public class ClearPogDownloadCacheCommand : PogCmdlet {
+public sealed class ClearPogDownloadCacheCommand : PogCmdlet {
     private const string DatePS = "Date";
     private const string DaysPS = "Days";
 

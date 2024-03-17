@@ -10,7 +10,7 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogRoot", DefaultParameterSetName = ValidPS)]
 [OutputType(typeof(string))]
-public class GetPogRootCommand : PogCmdlet {
+public sealed class GetPogRootCommand : PogCmdlet {
     private const string MissingPS = "Missing";
     private const string ValidPS = "Valid";
 

@@ -21,7 +21,7 @@ namespace Pog.Commands;
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Confirm, "PogRepositoryPackage", DefaultParameterSetName = DefaultPS)]
-public class ConfirmPogRepositoryPackageCommand : PogCmdlet {
+public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
     protected const string PackagePS = "Package";
     protected const string PackageNamePS = "PackageName";
     protected const string DefaultPS = PackageNamePS;

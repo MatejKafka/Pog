@@ -13,7 +13,7 @@
     <Nullable>enable</Nullable>
     <TargetFramework>netstandard2.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>1701;1702;IL2121;CS1591</NoWarn>
+    <NoWarn>1701;1702;IL2121;CS1591;CS0628</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

@@ -16,7 +16,7 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogRepositoryPackage", DefaultParameterSetName = VersionPS)]
 [OutputType(typeof(RepositoryPackage))]
-public class GetPogRepositoryPackage : PogCmdlet {
+public sealed class GetPogRepositoryPackage : PogCmdlet {
     private const string VersionPS = "Version";
     private const string AllVersionsPS = "AllVersions";
 
