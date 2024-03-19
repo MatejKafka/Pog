@@ -205,6 +205,8 @@ function RetrievePackageVersions([Pog.PackageGenerator]$Generator, $ExistingVers
 }
 
 function UpdateSinglePackage([string]$PackageName, [string[]]$Version,  [switch]$Force, [switch]$ListOnly) {
+	Write-Information "Checking updates for '$PackageName'..."
+
 	$g = try {$GENERATOR_REPOSITORY.GetPackage($PackageName, $true, $true)}
 		catch [Pog.PackageGeneratorNotFoundException] {throw $_}
 

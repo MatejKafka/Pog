@@ -31,6 +31,9 @@ Export function __main {
 	& $Manifest.Enable.GetNewClosure() @PackageArguments
 }
 
+# TODO: maybe change Export-Pog to create a marker that "user wants this package exported",
+# TODO: probably also remove exports of the stale commands/shortcuts
+#  and then handle updates of the exported items in Enable-Pog?
 <# This function is called after the Enable script finishes. #>
 Export function __cleanup {
 	[CmdletBinding()]
