@@ -91,13 +91,13 @@ function ListProcessesLockingFiles($DirPath) {
 					$Owner = GetDllhostOwner $_.Name
 					[pscustomobject]@{
 						ProcessInfo = $Owner
-						Files = $_.Group.full_path
+						Files = $_.Group.full_path | Select-Object -Unique
 					}
 				}
 			} else {
 				return [pscustomobject]@{
 					ProcessInfo = $_.Name
-					Files = $_.Group.full_path
+					Files = $_.Group.full_path | Select-Object -Unique
 				}
 			}
 		}
