@@ -148,9 +148,6 @@ public sealed class ImportPogCommand : PackageCommandBase {
     /// </para></summary>
     [Parameter] public SwitchParameter PassThru;
 
-    // TODO: validate that -Version is not set with pipeline or array (usual stuff)
-    // TODO: validate that if both source and target are specified, counts match
-
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
@@ -165,6 +162,11 @@ public sealed class ImportPogCommand : PackageCommandBase {
         if (TargetName != null && MyInvocation.ExpectingInput) {
             ThrowTerminatingArgumentError(TargetName, "TargetWithPipelineInput",
                     "-TargetName must not be passed together with pipeline input.");
+        }
+
+        if (Version != null && MyInvocation.ExpectingInput) {
+            ThrowTerminatingArgumentError(Version, "VersionWithPipelineInput",
+                    "-Version must not be passed together with pipeline input.");
         }
 
         if (Version != null && PackageName.Length > 1) {

@@ -45,6 +45,9 @@ TERMINATING ERROR: At most one source package must be specified when an explicit
 Get-PogRepositoryPackage test1 | Import-Pog -TargetName target
 TERMINATING ERROR: -TargetName must not be passed together with pipeline input.
 
+Get-PogRepositoryPackage test1 | Import-Pog -Version 1.0.0
+TERMINATING ERROR: -Version must not be passed together with pipeline input.
+
 --- PackageName ---
 Import-Pog test1
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1'.

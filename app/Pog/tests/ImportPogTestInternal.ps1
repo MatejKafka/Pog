@@ -60,6 +60,7 @@ test {Import-Pog (Get-PogRepositoryPackage test1, test2) -TargetName target}
 test {Import-Pog (Get-PogRepositoryPackage test1) (Get-PogPackage test1-imported, test1-imported)}
 test {Import-Pog (Get-PogRepositoryPackage test1, test2) (Get-PogPackage test1-imported)}
 test {Get-PogRepositoryPackage test1 | Import-Pog -TargetName target}
+test {Get-PogRepositoryPackage test1 | Import-Pog -Version 1.0.0}
 
 
 title "PackageName"
