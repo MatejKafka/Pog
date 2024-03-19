@@ -1,11 +1,9 @@
 using module ..\..\Paths.psm1
 using module ..\..\lib\Utils.psm1
-using module ..\container_lib\Environment.psm1
-using module ..\container_lib\Confirmations.psm1
+using module ..\..\lib\Environment.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 
 
-Export-ModuleMember -Function Confirm-Action
 # not sure if we should expose this, PowerShell (private package) uses it to set PSModulePath
 Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 Export-ModuleMember -Cmdlet Export-Command

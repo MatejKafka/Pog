@@ -1,5 +1,5 @@
-using module ..\..\lib\Utils.psm1
-. $PSScriptRoot\..\..\lib\header.ps1
+using module .\Utils.psm1
+. $PSScriptRoot\header.ps1
 
 
 function Update-EnvVar {
@@ -58,11 +58,15 @@ Export function Set-EnvVar {
 		return
 	}
 
-	if ($Systemwide) {
-		Assert-Admin "Cannot write system-wide environment variable 'env:$VarName' without administrator privileges."
+	Write-Warning "Setting environment variable 'env:$VarName' to '$Value' $TargetReadable..."
+
+	try {
+		[Environment]::SetEnvironmentVariable($VarName, $Value, $Target)
+	} catch [System.Security.SecurityException] {
+		# insufficient permission
+		throw "Cannot update system-wide environment variable 'env:$VarName' without administrator privileges."
 	}
 
-	Write-Warning "Setting environment variable 'env:$VarName' to '$Value' $TargetReadable..."
 	[Environment]::SetEnvironmentVariable($VarName, $Value, $Target)
 	# also set the variable for the current process
 	[Environment]::SetEnvironmentVariable($VarName, $Value, [System.EnvironmentVariableTarget]::Process)
@@ -130,14 +134,16 @@ Export function Add-EnvVar {
 		return
 	}
 
-	if ($Systemwide) {
-		Assert-Admin "Cannot update system-wide environment variable 'env:$VarName' without administrator privileges."
-	}
-
 	Write-Warning "Adding '$Value' to 'env:$VarName' $TargetReadable..."
 
 	$NewValue = CombineEnvValues $OldValue $Value -Prepend:$Prepend
-	[Environment]::SetEnvironmentVariable($VarName, $NewValue, $Target)
+
+	try {
+		[Environment]::SetEnvironmentVariable($VarName, $NewValue, $Target)
+	} catch [System.Security.SecurityException] {
+		# insufficient permission
+		throw "Cannot update system-wide environment variable 'env:$VarName' without administrator privileges."
+	}
 
 	# also set the variable for the current process
 	# do not reload the variable, since that could remove process-scope modifications

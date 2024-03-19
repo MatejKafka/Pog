@@ -1,6 +1,5 @@
 using module .\Paths.psm1
 using module .\lib\Utils.psm1
-using module .\Confirmations.psm1
 . $PSScriptRoot\lib\header.ps1
 
 # re-export binary cmdlets from Pog.dll
