@@ -169,7 +169,5 @@ public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock>
         }
     }
 
-    public class IncorrectFileHashException : Exception {
-        public IncorrectFileHashException(string message) : base(message) {}
-    }
+    public class IncorrectFileHashException(string message) : Exception(message);
 }

@@ -10,13 +10,9 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
-public class ImportedPackageNotFoundException : PackageNotFoundException {
-    public ImportedPackageNotFoundException(string message) : base(message) {}
-}
+public class ImportedPackageNotFoundException(string message) : PackageNotFoundException(message);
 
-public class InvalidPackageRootException : ArgumentException {
-    public InvalidPackageRootException(string message) : base(message) {}
-}
+public class InvalidPackageRootException(string message) : ArgumentException(message);
 
 [PublicAPI]
 public class ImportedPackageManager {

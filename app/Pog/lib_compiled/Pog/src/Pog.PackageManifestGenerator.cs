@@ -5,9 +5,7 @@ using JetBrains.Annotations;
 
 namespace Pog;
 
-public class InvalidGeneratorManifestException : Exception {
-    public InvalidGeneratorManifestException(string message) : base(message) {}
-}
+public class InvalidGeneratorManifestException(string message) : Exception(message);
 
 [PublicAPI]
 public class PackageGeneratorManifest {

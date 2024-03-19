@@ -110,7 +110,5 @@ public static class PeSubsystem {
         return UpdateSubsystem(pePath, newSubsystem);
     }
 
-    public class InvalidPeBinaryException : IOException {
-        public InvalidPeBinaryException(string message, string filePath) : base(message + ": " + filePath) {}
-    }
+    public class InvalidPeBinaryException(string message, string filePath) : IOException(message + ": " + filePath);
 }

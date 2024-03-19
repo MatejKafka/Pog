@@ -394,7 +394,5 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
                 "Overwrite existing package installation?");
     }
 
-    public class UserRefusedOverwriteException : Exception {
-        public UserRefusedOverwriteException(string message) : base(message) {}
-    }
+    public class UserRefusedOverwriteException(string message) : Exception(message);
 }

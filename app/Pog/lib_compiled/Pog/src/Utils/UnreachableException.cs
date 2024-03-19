@@ -2,4 +2,4 @@
 
 namespace Pog.Utils;
 
-public class UnreachableException : Exception {}
+public class UnreachableException : Exception;

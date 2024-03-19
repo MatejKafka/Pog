@@ -7,9 +7,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.InternalCommands;
 
-public class Failed7ZipArchiveExtractionException : Exception {
-    public Failed7ZipArchiveExtractionException(string message) : base(message) {}
-}
+public class Failed7ZipArchiveExtractionException(string message) : Exception(message);
 
 /// <summary>
 /// <para type="synopsis">Extracts files from a specified archive file using 7Zip.</para>

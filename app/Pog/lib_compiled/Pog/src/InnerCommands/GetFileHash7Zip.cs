@@ -8,9 +8,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 
-public class Failed7ZipHashCalculationException : Exception {
-    public Failed7ZipHashCalculationException(string message) : base(message) {}
-}
+public class Failed7ZipHashCalculationException(string message) : Exception(message);
 
 public class GetFileHash7Zip : ScalarCommand<string>, IDisposable {
     [Parameter(Mandatory = true)] public string Path = null!;

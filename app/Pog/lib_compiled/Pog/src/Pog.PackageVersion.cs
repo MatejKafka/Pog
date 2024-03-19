@@ -196,6 +196,4 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
     }
 }
 
-public class InvalidPackageVersionException : FormatException {
-    public InvalidPackageVersionException(string message) : base(message) {}
-}
+public class InvalidPackageVersionException(string message) : FormatException(message);

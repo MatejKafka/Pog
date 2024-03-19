@@ -26,27 +26,16 @@ public class InvalidCacheEntryException : Exception {
 }
 
 [PublicAPI]
-public class CacheEntryAlreadyExistsException : Exception {
-    public readonly string EntryKey;
-
-    public CacheEntryAlreadyExistsException(string entryKey) :
-            base($"Cache entry already exists: '{entryKey}'") {
-        EntryKey = entryKey;
-    }
+public class CacheEntryAlreadyExistsException(string entryKey) : Exception($"Cache entry already exists: '{entryKey}'") {
+    public readonly string EntryKey = entryKey;
 }
 
-public class InvalidAddedCacheEntryException : Exception {
-    public InvalidAddedCacheEntryException(string message) : base(message) {}
-}
+public class InvalidAddedCacheEntryException(string message) : Exception(message);
 
 [PublicAPI]
-public class CacheEntryInUseException : Exception {
-    public readonly string EntryKey;
-
-    public CacheEntryInUseException(string entryKey) : base(
-            $"Cannot delete the cache entry, it is currently in use: '{entryKey}'") {
-        EntryKey = entryKey;
-    }
+public class CacheEntryInUseException(string entryKey)
+        : Exception($"Cannot delete the cache entry, it is currently in use: '{entryKey}'") {
+    public readonly string EntryKey = entryKey;
 }
 
 // cache structure:
@@ -204,7 +193,7 @@ public class SharedFileCache {
         }
 
         return new CacheEntryInfo(entryKey, entryInfo.FullName,
-                (ulong)entryInfo.Length, metadataInfo.LastWriteTime, metadata);
+                (ulong) entryInfo.Length, metadataInfo.LastWriteTime, metadata);
     }
 
     /// <summary>

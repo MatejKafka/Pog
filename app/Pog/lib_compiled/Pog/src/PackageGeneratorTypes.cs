@@ -6,9 +6,7 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
-public class PackageGeneratorNotFoundException : FileNotFoundException {
-    public PackageGeneratorNotFoundException(string message) : base(message) {}
-}
+public class PackageGeneratorNotFoundException(string message) : FileNotFoundException(message);
 
 [PublicAPI]
 public class GeneratorRepository {

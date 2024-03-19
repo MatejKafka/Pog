@@ -7,9 +7,7 @@ using System.Management.Automation;
 
 namespace Pog;
 
-public class InvalidPackageNameException : ArgumentException {
-    public InvalidPackageNameException(string message) : base(message) {}
-}
+public class InvalidPackageNameException(string message) : ArgumentException(message);
 
 [SuppressMessage("ReSharper", "MemberHidesStaticFromOuterClass")]
 [SuppressMessage("ReSharper", "ArrangeStaticMemberQualifier")]

@@ -124,7 +124,5 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
         return null;
     }
 
-    public class DuplicateManifestArgumentException : ArgumentException {
-        public DuplicateManifestArgumentException(string message) : base(message) {}
-    }
+    public class DuplicateManifestArgumentException(string message) : ArgumentException(message);
 }

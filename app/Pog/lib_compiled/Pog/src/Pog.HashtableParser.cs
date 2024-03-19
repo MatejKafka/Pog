@@ -30,9 +30,7 @@ internal struct HashtableParser {
         AddIssue($"Invalid '{ObjectPath}{propertyName}' value: '{value}' ({validDescription})");
     }
 
-    internal class DataFileParseException : Exception {
-        public DataFileParseException(string message) : base(message) {}
-    }
+    internal class DataFileParseException(string message) : Exception(message);
 
     private string GetKeyName(string key, bool required) {
         return $"{(required ? "Required" : "Optional")} property '{ObjectPath}{key}'";

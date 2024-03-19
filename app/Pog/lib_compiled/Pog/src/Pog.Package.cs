@@ -4,9 +4,7 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
-public class PackageNotFoundException : DirectoryNotFoundException {
-    public PackageNotFoundException(string message) : base(message) {}
-}
+public class PackageNotFoundException(string message) : DirectoryNotFoundException(message);
 
 [PublicAPI]
 public abstract class Package {

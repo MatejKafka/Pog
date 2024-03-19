@@ -13,9 +13,8 @@ namespace Pog;
 
 public interface IPackageManifestException;
 
-public class PackageManifestNotFoundException : FileNotFoundException, IPackageManifestException {
-    internal PackageManifestNotFoundException(string message, string fileName) : base(message, fileName) {}
-}
+public class PackageManifestNotFoundException(string message, string fileName)
+        : FileNotFoundException(message, fileName), IPackageManifestException;
 
 [PublicAPI]
 public class PackageManifestParseException : ParseException, IPackageManifestException {

@@ -258,17 +258,11 @@ public class StubExecutable {
         }
     }
 
-    public class UnsupportedStubTargetTypeException : ArgumentException {
-        public UnsupportedStubTargetTypeException(string message) : base(message) {}
-    }
+    public class UnsupportedStubTargetTypeException(string message) : ArgumentException(message);
 
-    public class OutdatedStubException : Exception {
-        public OutdatedStubException(string message) : base(message) {}
-    }
+    public class OutdatedStubException(string message) : Exception(message);
 
-    public class InvalidEnvironmentVariableNameException : Exception {
-        public InvalidEnvironmentVariableNameException(string message) : base(message) {}
-    }
+    public class InvalidEnvironmentVariableNameException(string message) : Exception(message);
 
     public class EnvVarTemplate {
         public record struct Segment(bool IsEnvVarName, bool NewSegment, string String);
