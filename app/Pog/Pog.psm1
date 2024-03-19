@@ -5,7 +5,7 @@ using module .\Confirmations.psm1
 
 # re-export binary cmdlets from Pog.dll
 Export-ModuleMember -Cmdlet `
-	Import-Pog, Install-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
+	Import-Pog, Install-Pog, Enable-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
 	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot, `
 	Confirm-PogPackage, Confirm-PogRepositoryPackage, `
 	Clear-PogDownloadCache, Show-PogManifestHash
@@ -21,123 +21,6 @@ Export function Edit-PogRootList {
 	# this opens the file for editing in a text editor (it's a .txt file)
 	Start-Process $Path
 }
-
-
-function LogUnknownParameterProperty($ParamName, $Attribute) {
-	Write-Warning ("Manifest ScriptBlock parameter forwarding doesn't handle the dynamic parameter attribute " +`
-			"'$($Attribute.GetType().ToString())', defined for parameter '$($ParamName)' of the manifest block.`n" +`
-			"If this is something that you think you need as a package author, open a new issue and we'll see what we can do.")
-}
-
-Export function Enable-Pog {
-	# .SYNOPSIS
-	#	Enables an installed package to allow external usage.
-	# .DESCRIPTION
-	#	Enables an installed package, setting up required files and exporting public commands and shortcuts.
-	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName")]
-	[OutputType([Pog.ImportedPackage])]
-	param(
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "Package", ValueFromPipeline)]
-			[Pog.ImportedPackage[]]
-		$Package,
-			### Name of the package to enable. This is the target name, not necessarily the manifest app name.
-			[Parameter(Mandatory, Position = 0, ParameterSetName = "PackageName", ValueFromPipeline)]
-			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
-			[string[]]
-		$PackageName,
-			### Extra parameters to pass to the Enable script in the package manifest. For interactive usage,
-			### prefer to use the automatically generated parameters on this command (e.g. instead of passing
-			### `@{Arg = Value}` to this parameter, pass `-_Arg Value` as a standard parameter to this cmdlet),
-			### which gives you autocomplete and name/type checking.
-			[Parameter(Position = 1)]
-			[Hashtable]
-		$PackageParameters = @{},
-			### Return a [Pog.ImportedPackage] object with information about the enabled package.
-			[switch]
-		$PassThru
-	)
-
-	dynamicparam {
-		# remove possible leftover from previous dynamicparam invocation
-		Remove-Variable CopiedParams -Scope Local -ErrorAction Ignore
-
-		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $PSBoundParameters.ContainsKey("Package")) {return}
-		# TODO: make this work for multiple packages (probably by prefixing the parameter name with package name?)
-		# more than one package, ignore package parameters
-		if (@($PSBoundParameters["Package"]).Count -gt 1 -or @($PSBoundParameters["PackageName"]).Count -gt 1) {return}
-
-		$p = if ($PSBoundParameters["Package"]) {$PSBoundParameters["Package"]} else {
-			# $PackageName contains what's written at the command line, without any parsing or evaluation, we need to (try to) parse it
-			$ParsedPackageName = [Pog.PSAttributes.ParameterQuotingHelper]::ParseDynamicparamArgumentLiteral($PSBoundParameters["PackageName"])
-			# could not parse
-			if (-not $ParsedPackageName) {return}
-			# this may fail in case the package does not exist, or manifest is invalid
-			# don't throw here, just return, the issue will be handled in the begin{} block
-			try {$PACKAGE_ROOTS.GetPackage($ParsedPackageName, $true, $true)} catch {return}
-		}
-
-		$CopiedParams = if ($null -eq $p.Manifest.Enable) {
-			[Pog.Commands.Common.DynamicCommandParameters]::new() # behave as if the scriptblock had no parameters
-		} else {
-			$ParamBuilder = [Pog.Commands.Common.DynamicCommandParameters+Builder]::new("_", "NoPosition", $function:LogUnknownParameterProperty)
-			$ParamBuilder.CopyParameters($p.Manifest.Enable)
-		}
-		return $CopiedParams
-	}
-
-	begin {
-		if ($PSBoundParameters.ContainsKey("PackageParameters")) {
-			if ($MyInvocation.ExpectingInput) {throw "-PackageParameters must not be passed when packages are passed through pipeline."}
-			if (@($PackageName).Count -gt 1) {throw "-PackageParameters must not be passed when -PackageName contains multiple package names."}
-			if (@($Package).Count -gt 1) {throw "-PackageParameters must not be passed when -Package contains multiple packages."}
-		}
-
-		if (Get-Variable CopiedParams -Scope Local -ErrorAction Ignore) {
-			# $p is already loaded
-			$Package = $p
-			$ForwardedParams = $CopiedParams.Extract()
-			try {
-				$PackageParameters += $ForwardedParams
-			} catch {
-				$CmdName = $MyInvocation.MyCommand.Name
-				throw "The same parameter was passed to '${CmdName}' both using '-PackageParameters' and forwarded dynamic parameter. " +`
-						"Each parameter must be present in at most one of these: " + $_
-			}
-		} else {
-			# either the package manifest is invalid, or multiple packages were passed, or pipeline input is used
-		}
-	}
-
-	# TODO: do this in parallel (even for packages passed as array)
-	process {
-		$Packages = if ($Package) {$Package} else {& {
-			$ErrorActionPreference = "Continue"
-			foreach($pn in $PackageName) {
-				try {
-					$PACKAGE_ROOTS.GetPackage($pn, $true, $true)
-				} catch [Pog.ImportedPackageNotFoundException] {
-					$PSCmdlet.WriteError($_)
-				}
-			}
-		}}
-
-		foreach ($p in $Packages) {
-			$null = $p.EnsureManifestIsLoaded()
-
-			if (-not $p.Manifest.Enable) {
-				Write-Information "Package '$($p.PackageName)' does not have an Enable block."
-				continue
-			}
-
-			Write-Information "Enabling $($p.GetDescriptionString())..."
-			Invoke-Container Enable $p -PackageArguments $PackageParameters
-			if ($PassThru) {
-				echo $p
-			}
-		}
-	}
-}
-
 
 # defined below
 Export alias pog Invoke-Pog

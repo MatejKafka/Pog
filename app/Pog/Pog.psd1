@@ -15,6 +15,7 @@
 	CmdletsToExport = @(
 		'Import-Pog'
 		'Install-Pog'
+		'Enable-Pog'
 		'Export-Pog'
 		'Disable-Pog'
 		'Uninstall-Pog'
@@ -32,7 +33,6 @@
 
 	FunctionsToExport = @(
 		'Invoke-Pog'
-		'Enable-Pog'
 
 		'Update-PogManifest'
 		'New-PogPackage'
