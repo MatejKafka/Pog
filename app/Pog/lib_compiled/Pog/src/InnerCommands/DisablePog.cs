@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using System.Management.Automation;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -11,7 +12,7 @@ public class DisablePog : VoidCommand {
     public DisablePog(PogCmdlet cmdlet) : base(cmdlet) {}
 
     public override void Invoke() {
-        Package.EnsureManifestIsLoaded();
+        Debug.Assert(Package.ManifestLoaded);
 
         // enumerate exported items and delete them
         RemoveExportedItems(Package);

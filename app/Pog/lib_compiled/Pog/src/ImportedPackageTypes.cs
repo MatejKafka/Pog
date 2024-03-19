@@ -10,7 +10,7 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
-public class ImportedPackageNotFoundException : DirectoryNotFoundException {
+public class ImportedPackageNotFoundException : PackageNotFoundException {
     public ImportedPackageNotFoundException(string message) : base(message) {}
 }
 

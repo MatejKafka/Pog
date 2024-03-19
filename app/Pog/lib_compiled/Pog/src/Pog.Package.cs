@@ -4,6 +4,10 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
+public class PackageNotFoundException : DirectoryNotFoundException {
+    public PackageNotFoundException(string message) : base(message) {}
+}
+
 [PublicAPI]
 public abstract class Package {
     public readonly string PackageName;
@@ -17,6 +21,9 @@ public abstract class Package {
 
     private PackageManifest? _manifest;
     public PackageManifest Manifest => EnsureManifestIsLoaded();
+
+    /// Only used for asserting that the caller called `EnsureManifestIsLoaded()`
+    internal bool ManifestLoaded => _manifest != null;
 
     protected Package(string packageName, string packagePath, PackageManifest? manifest = null) {
         Verify.Assert.PackageName(packageName);
@@ -35,14 +42,13 @@ public abstract class Package {
         _manifest = null;
     }
 
-    /// <exception cref="DirectoryNotFoundException">The package directory does not exist.</exception>
+    /// <exception cref="PackageNotFoundException">The package directory does not exist.</exception>
     /// <exception cref="PackageManifestNotFoundException">The package manifest file does not exist.</exception>
     /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
     /// <exception cref="InvalidPackageManifestStructureException">The package manifest is a valid data file, but the structure is not valid.</exception>
     public PackageManifest ReloadManifest() {
         if (!Exists) {
-            throw new DirectoryNotFoundException(
-                    $"Tried to read the package manifest of a non-existent package at '{Path}'.");
+            throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Path}'.");
         }
         return _manifest = LoadManifest();
     }

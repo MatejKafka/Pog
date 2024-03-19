@@ -15,7 +15,7 @@ namespace Pog.Commands;
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
-public sealed class InstallPogCommand : ImportedPackageCommand {
+public sealed class InstallPogCommand() : ImportedPackageCommand(true) {
     /// <summary><para type="description">
     /// Download files with low priority, which results in better network responsiveness
     /// for other programs, but possibly slower download speed.
@@ -23,7 +23,6 @@ public sealed class InstallPogCommand : ImportedPackageCommand {
     [Parameter] public SwitchParameter LowPriority;
 
     protected override void ProcessPackage(ImportedPackage package) {
-        package.EnsureManifestIsLoaded();
         if (package.Manifest.Install == null) {
             WriteInformation($"Package '{package.PackageName}' does not have an Install block.");
             return;

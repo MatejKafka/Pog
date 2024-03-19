@@ -5,7 +5,7 @@ namespace Pog.Commands.Common;
 
 [PublicAPI]
 [OutputType(typeof(ImportedPackage))]
-public abstract class ImportedPackageCommand : ImportedPackageNoPassThruCommand {
+public abstract class ImportedPackageCommand(bool loadManifest) : ImportedPackageNoPassThruCommand(loadManifest) {
     /// <summary><para type="description">
     /// Return a [Pog.ImportedPackage] object with information about the package.
     /// </para></summary>

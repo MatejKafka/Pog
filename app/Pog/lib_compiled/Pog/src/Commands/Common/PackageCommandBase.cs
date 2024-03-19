@@ -26,24 +26,51 @@ public abstract class PackageCommandBase : PogCmdlet {
     }
 #endif
 
-    protected IEnumerable<ImportedPackage> GetImportedPackage(string[] packageName, string? packageRoot = null) {
-        return packageName.SelectOptional(pn => GetImportedPackage(pn, packageRoot));
+    protected IEnumerable<ImportedPackage> GetImportedPackage(IEnumerable<string> packageName, bool loadManifest) {
+        return GetImportedPackage(packageName, null, loadManifest);
     }
 
-    protected ImportedPackage? GetImportedPackage(string packageName, string? packageRoot = null) {
+    protected IEnumerable<ImportedPackage> GetImportedPackage(IEnumerable<string> packageName, string? packageRoot,
+            bool loadManifest) {
+        return packageName.SelectOptional(pn => GetImportedPackage(pn, packageRoot, loadManifest));
+    }
+
+    protected ImportedPackage? GetImportedPackage(string packageName, bool loadManifest) {
+        return GetImportedPackage(packageName, null, loadManifest);
+    }
+
+    protected ImportedPackage? GetImportedPackage(string packageName, string? packageRoot, bool loadManifest) {
         try {
             if (packageRoot != null) {
-                return InternalState.ImportedPackageManager.GetPackage(packageName, packageRoot, true, true, true);
+                return InternalState.ImportedPackageManager.GetPackage(packageName, packageRoot, true, loadManifest, true);
             } else {
-                return InternalState.ImportedPackageManager.GetPackage(packageName, true, true);
+                return InternalState.ImportedPackageManager.GetPackage(packageName, true, loadManifest);
             }
         } catch (ImportedPackageNotFoundException e) {
             WriteError(new ErrorRecord(e, "PackageNotFound", ErrorCategory.InvalidArgument, packageName));
             return null;
+        } catch (Exception e) when (e is IPackageManifestException) {
+            WriteError(new ErrorRecord(e, "InvalidPackageManifest", ErrorCategory.InvalidData, packageName));
+            return null;
         }
     }
 
-    protected IEnumerable<RepositoryPackage> GetRepositoryPackage(string[] packageName, PackageVersion? version = null) {
+    protected IEnumerable<ImportedPackage> EnsureManifestIsLoaded(IEnumerable<ImportedPackage> packages) {
+        return packages.SelectOptional(EnsureManifestIsLoaded);
+    }
+
+    protected ImportedPackage? EnsureManifestIsLoaded(ImportedPackage p) {
+        try {
+            p.EnsureManifestIsLoaded();
+            return p;
+        } catch (Exception e) when (e is IPackageManifestException) {
+            WriteError(new ErrorRecord(e, "InvalidPackageManifest", ErrorCategory.InvalidData, p));
+            return null;
+        }
+    }
+
+    protected IEnumerable<RepositoryPackage> GetRepositoryPackage(IEnumerable<string> packageName,
+            PackageVersion? version = null) {
         return packageName.SelectOptional(pn => GetRepositoryPackage(pn, version));
     }
 

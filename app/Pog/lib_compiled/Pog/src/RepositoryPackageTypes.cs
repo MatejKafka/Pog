@@ -7,11 +7,11 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
-public class RepositoryPackageNotFoundException : DirectoryNotFoundException {
+public class RepositoryPackageNotFoundException : PackageNotFoundException {
     public RepositoryPackageNotFoundException(string message) : base(message) {}
 }
 
-public class RepositoryPackageVersionNotFoundException : DirectoryNotFoundException {
+public class RepositoryPackageVersionNotFoundException : PackageNotFoundException {
     public RepositoryPackageVersionNotFoundException(string message) : base(message) {}
 }
 

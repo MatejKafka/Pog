@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
@@ -180,7 +179,9 @@ public sealed class ImportPogCommand : PackageCommandBase {
 
         // only target is specified, update it to the latest version
         if (parameterSet is PS.Target or PS.TargetName) {
-            var targetPackages = parameterSet == PS.Target ? Target : GetImportedPackage(TargetName!, TargetPackageRoot);
+            var targetPackages = parameterSet == PS.Target
+                    ? Target
+                    : GetImportedPackage(TargetName!, TargetPackageRoot, true);
             foreach (var target in targetPackages) {
                 UpdateImportedPackage(target);
             }
@@ -306,7 +307,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
             // TODO: maybe add a method to only load the name and version from the manifest and skip full validation?
             target.ReloadManifest();
             targetManifest = target.Manifest;
-        } catch (DirectoryNotFoundException) {
+        } catch (PackageNotFoundException) {
             // the package does not exist, no need to confirm
             return true;
         } catch (PackageManifestNotFoundException) {

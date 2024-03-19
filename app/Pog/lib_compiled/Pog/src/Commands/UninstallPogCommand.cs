@@ -14,7 +14,7 @@ namespace Pog.Commands;
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Uninstall, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
-public sealed class UninstallPogCommand : ImportedPackageCommand {
+public sealed class UninstallPogCommand() : ImportedPackageCommand(true) {
     /// <summary><para type="description">
     /// Keep the package directory, only disable the package and delete the app directory.
     /// </para></summary>

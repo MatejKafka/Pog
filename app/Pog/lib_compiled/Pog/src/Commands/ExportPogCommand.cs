@@ -15,7 +15,7 @@ namespace Pog.Commands;
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
-public sealed class ExportPogCommand : ImportedPackageCommand {
+public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
     /// <summary><para type="description">
     /// Export shortcuts to the system-wide start menu for all users, instead of the user-specific start menu.
     /// </para></summary>

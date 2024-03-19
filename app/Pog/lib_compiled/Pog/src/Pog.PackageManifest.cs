@@ -11,7 +11,7 @@ using Pog.InnerCommands;
 
 namespace Pog;
 
-public interface IPackageManifestException {}
+public interface IPackageManifestException;
 
 public class PackageManifestNotFoundException : FileNotFoundException, IPackageManifestException {
     internal PackageManifestNotFoundException(string message, string fileName) : base(message, fileName) {}
