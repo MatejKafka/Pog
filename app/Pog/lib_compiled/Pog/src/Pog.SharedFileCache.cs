@@ -377,7 +377,7 @@ public class SharedFileCache {
     }
 
     [PublicAPI]
-    public class CacheEntryLock : IFileLock {
+    public sealed class CacheEntryLock : IFileLock {
         public readonly string EntryKey;
         public string Path {get;}
         /// The file stream used to lock the cache entry for reading, and also available for use.

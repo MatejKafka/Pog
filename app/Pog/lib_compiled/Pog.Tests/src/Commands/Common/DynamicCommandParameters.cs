@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Pog.Tests.Commands.Common;
 
-public class DynamicCommandParametersTests : IDisposable {
+public sealed class DynamicCommandParametersTests : IDisposable {
     private readonly Runspace _runspace = RunspaceFactory.CreateRunspace();
 
     public DynamicCommandParametersTests() {

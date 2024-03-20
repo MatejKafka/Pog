@@ -3,7 +3,7 @@ using System.Management.Automation;
 
 namespace Pog.Commands.Common;
 
-public class CmdletProgressBar : IDisposable {
+public sealed class CmdletProgressBar : IDisposable {
     // when progress print activity ID is not set explicitly, use an auto-incrementing ID
     //  to show multiple progress bars when multiple cmdlets are ran in parallel
     private static int _nextActivityId = 0;

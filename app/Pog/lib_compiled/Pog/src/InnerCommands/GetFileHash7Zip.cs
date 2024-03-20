@@ -10,7 +10,7 @@ namespace Pog.InnerCommands;
 
 public class Failed7ZipHashCalculationException(string message) : Exception(message);
 
-public class GetFileHash7Zip : ScalarCommand<string>, IDisposable {
+public sealed class GetFileHash7Zip : ScalarCommand<string>, IDisposable {
     [Parameter(Mandatory = true)] public string Path = null!;
     [Parameter] public HashAlgorithm Algorithm = default;
 

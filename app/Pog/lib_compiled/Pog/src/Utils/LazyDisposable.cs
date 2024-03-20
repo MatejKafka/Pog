@@ -7,7 +7,7 @@ namespace Pog.Utils;
 
 /// <summary>A <see cref="Lazy{T}"/> object that implements <see cref="IDisposable"/>.</summary>
 /// <typeparam name="T">The object being lazily created.</typeparam>
-public class LazyDisposable<T> : Lazy<T>, IDisposable where T : IDisposable {
+public sealed class LazyDisposable<T> : Lazy<T>, IDisposable where T : IDisposable {
     /// <summary>
     ///  Initializes a new instance of the <see cref="LazyDisposable{T}"/> class.
     ///  When lazy initialization occurs, the default constructor is used.

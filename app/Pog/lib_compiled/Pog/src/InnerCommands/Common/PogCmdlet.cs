@@ -41,7 +41,7 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         _currentlyExecutingCommands = null;
     }
 
-    public void Dispose() {
+    public virtual void Dispose() {
         if (_currentlyExecutingCommands == null) {
             return;
         }

@@ -11,7 +11,7 @@ using Pog.Utils.Http;
 
 namespace Pog.InnerCommands;
 
-public class InvokeFileDownload : ScalarCommand<string>, IDisposable {
+public sealed class InvokeFileDownload : ScalarCommand<string>, IDisposable {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string DestinationDirPath = null!;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
@@ -64,15 +64,14 @@ public class InvokeFileDownload : ScalarCommand<string>, IDisposable {
         var origUrlFileName = HttpFileNameParser.GetDownloadedFileName(parsedUrl, null);
         var tmpDownloadTarget = $"{DestinationDirPath}\\{origUrlFileName}";
 
-        Task<ResolveDownloadTarget.DownloadTarget>? resolverTask = null;
+        Task<DownloadTargetResolver.DownloadTarget>? resolverTask = null;
         if (Path.GetExtension(origUrlFileName) is ".zip" or ".7z" or ".exe" or ".tgz" ||
             origUrlFileName.EndsWith(".tar.gz")) {
             // original URL seems to have a sensible filename extension, assume it's correct and do not try
             //  to resolve the final filename
         } else {
             // run the resolver in parallel to the download
-            resolverTask =
-                    ResolveDownloadTarget.ResolveFinalDownloadTargetAsync(_stopping.Token, parsedUrl, DownloadParameters);
+            resolverTask = DownloadTargetResolver.ResolveAsync(_stopping.Token, parsedUrl, DownloadParameters);
         }
 
         ProgressActivity.Activity ??= "BITS Transfer";
@@ -105,7 +104,7 @@ public class InvokeFileDownload : ScalarCommand<string>, IDisposable {
             return tmpDownloadTarget;
         } else {
             // retrieve the resolved target
-            ResolveDownloadTarget.DownloadTarget target;
+            DownloadTargetResolver.DownloadTarget target;
             try {
                 // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
                 target = resolverTask.GetAwaiter().GetResult();

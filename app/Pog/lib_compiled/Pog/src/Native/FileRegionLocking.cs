@@ -7,7 +7,7 @@ using Microsoft.Win32.SafeHandles;
 namespace Pog.Native;
 
 [PublicAPI]
-public class FileLock : IDisposable {
+public sealed class FileLock : IDisposable {
     internal SafeFileHandle Handle;
     internal NativeOverlapped Overlapped;
     internal uint LengthLow;

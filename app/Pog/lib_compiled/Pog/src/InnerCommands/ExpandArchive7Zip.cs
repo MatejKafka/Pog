@@ -12,7 +12,7 @@ using Pog.Native;
 
 namespace Pog.InnerCommands;
 
-public class ExpandArchive7Zip : VoidCommand, IDisposable {
+public sealed class ExpandArchive7Zip : VoidCommand, IDisposable {
     [Parameter(Mandatory = true)] public string ArchivePath = null!;
     [Parameter(Mandatory = true)] public string TargetPath = null!;
     [Parameter] public string? RawTargetPath;

@@ -9,7 +9,7 @@ namespace Pog.Native;
 // TODO: support resources with non-standard types (accept ResourceAtom as resourceType, in addition to ResourceType)
 public static class PeResources {
     [PublicAPI]
-    public class Module : IDisposable {
+    public sealed class Module : IDisposable {
         private readonly Win32.FreeLibrarySafeHandle _handle;
 
         public Module(string pePath) {
@@ -29,7 +29,7 @@ public static class PeResources {
         /// </returns>
         /// <exception cref="ResourceNotFoundException">Resource does not exist.</exception>
         public unsafe ReadOnlySpan<byte> GetResource(ResourceId id) {
-            var resourceHandle = Win32.FindResourceEx(_handle, (ushort)id.Type, id.Name, id.Language);
+            var resourceHandle = Win32.FindResourceEx(_handle, (ushort) id.Type, id.Name, id.Language);
             if (resourceHandle == default) {
                 var hr = Marshal.GetHRForLastWin32Error();
                 // TODO: handle id.Language
@@ -225,7 +225,7 @@ public static class PeResources {
         }
     }
 
-    public class ResourceUpdater : IDisposable {
+    public sealed class ResourceUpdater : IDisposable {
         private readonly Win32.ResourceUpdateSafeHandle _handle;
 
         public ResourceUpdater(string pePath, bool deleteExistingResources = false) {
@@ -339,7 +339,9 @@ public static class PeResources {
     // = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
     private const ushort NeutralLanguageId = 0;
 
-    public readonly record struct ResourceId(ResourceType Type, Win32.ResourceAtom Name,
+    public readonly record struct ResourceId(
+            ResourceType Type,
+            Win32.ResourceAtom Name,
             ushort Language = NeutralLanguageId);
 }
 

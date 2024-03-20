@@ -15,7 +15,7 @@ namespace Pog;
 //    the main thread must be blocked waiting for output from the container, therefore any previous cmdlets cannot run,
 //    so no input can be supplied); fortunately, we don't need any pipeline input to the container, so it works ok
 [PublicAPI]
-public class Container : IDisposable {
+public sealed class Container : IDisposable {
     /// Output streams from the container runspace.
     public PSDataStreams Streams => _ps.Streams;
 
@@ -171,8 +171,12 @@ public class Container : IDisposable {
     public enum ContainerType { Install, GetInstallHash, Enable, Disable }
 
     [PublicAPI]
-    public record OutputStreamConfig(ActionPreference Progress, ActionPreference Warning,
-            ActionPreference Information, ActionPreference Verbose, ActionPreference Debug) {
+    public record OutputStreamConfig(
+            ActionPreference Progress,
+            ActionPreference Warning,
+            ActionPreference Information,
+            ActionPreference Verbose,
+            ActionPreference Debug) {
         public ActionPreference Progress = Progress;
         public ActionPreference Warning = Warning;
         public ActionPreference Information = Information;

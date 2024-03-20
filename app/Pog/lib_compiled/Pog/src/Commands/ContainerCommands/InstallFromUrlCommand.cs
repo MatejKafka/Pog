@@ -13,7 +13,7 @@ namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
-public class InstallFromUrlCommand : PogCmdlet, IDisposable {
+public class InstallFromUrlCommand : PogCmdlet {
     // created while parsing the package manifest
     [Parameter(Mandatory = true, ValueFromPipeline = true)]
     public PackageInstallParameters Params = null!;
@@ -142,7 +142,7 @@ public class InstallFromUrlCommand : PogCmdlet, IDisposable {
         ReplaceAppDirectory(_newAppDirPath, _appDirPath, _oldAppDirPath);
     }
 
-    public new void Dispose() {
+    public override void Dispose() {
         base.Dispose();
 
         FsUtils.EnsureDeleteDirectory(_tmpDeletePath);

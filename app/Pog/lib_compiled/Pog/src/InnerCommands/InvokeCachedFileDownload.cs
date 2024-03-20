@@ -145,7 +145,7 @@ public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock>
 
     /// Utility class to cleanup a downloaded file from the download directory when it's no longer needed.
     /// Instances of this class are returned for files without a known hash.
-    public class TmpFileLock : SharedFileCache.IFileLock {
+    public sealed class TmpFileLock : SharedFileCache.IFileLock {
         public string Path {get;}
         public FileStream ReadStream {get;}
         private readonly string _dirPath;
