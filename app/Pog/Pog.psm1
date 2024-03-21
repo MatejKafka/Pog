@@ -3,8 +3,8 @@ using module .\lib\Utils.psm1
 . $PSScriptRoot\lib\header.ps1
 
 # re-export binary cmdlets from Pog.dll
-Export-ModuleMember -Cmdlet `
-	Import-Pog, Install-Pog, Enable-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
+Export-ModuleMember -Alias pog -Cmdlet `
+	Invoke-Pog, Import-Pog, Install-Pog, Enable-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
 	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot, `
 	Confirm-PogPackage, Confirm-PogRepositoryPackage, `
 	Clear-PogDownloadCache, Show-PogManifestHash
@@ -20,71 +20,6 @@ Export function Edit-PogRootList {
 	# this opens the file for editing in a text editor (it's a .txt file)
 	Start-Process $Path
 }
-
-# defined below
-Export alias pog Invoke-Pog
-
-# CmdletBinding is manually copied from Import-Pog, there doesn't seem any way to dynamically copy this like with dynamicparam
-# TODO: rollback on error
-# TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
-Export function Invoke-Pog {
-	# .SYNOPSIS
-	#   Import, install, enable and export a package.
-	# .DESCRIPTION
-	#	Runs all four installation stages in order. All arguments passed to this cmdlet,
-	#	except for the `-InstallOnly` switch, are forwarded to `Import-Pog`.
-	[CmdletBinding(PositionalBinding = $false, DefaultParameterSetName = "PackageName_")]
-	param(
-			### Only import and install the package, do not enable and export.
-			[switch]
-		$InstallOnly,
-			### Import, install and enable the package, do not export it.
-			[switch]
-		$NoExport
-	)
-
-	dynamicparam {
-		$ParamBuilder = [Pog.Commands.Common.DynamicCommandParameters+Builder]::new("", "None", {
-			param($ParamName, $Attr)
-			throw "Cannot copy parameter '$ParamName', attribute '$($Attr.GetType().ToString())'."
-		})
-		$CopiedParams = $ParamBuilder.CopyParameters((Get-Command Import-Pog))
-		return $CopiedParams
-	}
-
-	begin {
-		$Params = $CopiedParams.Extract()
-
-		# reuse PassThru parameter from Import-Pog for Enable-Pog
-		$PassThru = [bool]$Params["PassThru"]
-
-		$LogArgs = @{}
-		if ($PSBoundParameters.ContainsKey("Verbose")) {$LogArgs["Verbose"] = $PSBoundParameters.Verbose}
-		if ($PSBoundParameters.ContainsKey("Debug")) {$LogArgs["Debug"] = $PSBoundParameters.Debug}
-
-		$null = $Params.Remove("PassThru")
-
-		$SbAll =      {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru @LogArgs | Export-Pog -PassThru:$PassThru @LogArgs}
-		$SbNoExport = {Import-Pog -PassThru @Params | Install-Pog -PassThru @LogArgs | Enable-Pog -PassThru:$PassThru @LogArgs}
-		$SbNoEnable = {Import-Pog -PassThru @Params | Install-Pog -PassThru:$PassThru @LogArgs}
-
-		$Sb = if ($InstallOnly) {$SbNoEnable}
-			elseif ($NoExport) {$SbNoExport}
-			else {$SbAll}
-
-		$sp = $Sb.GetSteppablePipeline()
-		$sp.Begin($PSCmdlet)
-	}
-
-	process {
-		$sp.Process($_)
-	}
-
-	end {
-		$sp.End()
-	}
-}
-
 
 <# Ad-hoc template format used to create default manifests in the following 2 functions. #>
 function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {

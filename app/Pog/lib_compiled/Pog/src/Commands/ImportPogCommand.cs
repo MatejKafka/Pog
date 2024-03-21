@@ -53,6 +53,8 @@ public sealed class ImportPogCommand : PackageCommandBase {
     // Import-Pog -TargetName [-TargetPackageRoot]
     private const string TargetName_PS = "_TargetName";
 
+    internal const string DefaultPS = PackageName_PS;
+
     // split parameter set into flags for each possible value
     [Flags]
     private enum PS {
@@ -270,11 +272,6 @@ public sealed class ImportPogCommand : PackageCommandBase {
     }
 
     private void ImportPackage(RepositoryPackage package, ImportedPackage target) {
-        var actionStr = $"Importing {package.GetDescriptionString()} to '{target.Path}'.";
-        if (!ShouldProcess(actionStr, actionStr, null)) {
-            return;
-        }
-
         // TODO: in the PowerShell version, we used to run Confirm-PogRepositoryManifest here;
         //  think through whether it's a good idea to add that back
 
@@ -283,6 +280,11 @@ public sealed class ImportPogCommand : PackageCommandBase {
         if (!Force && target.MatchesRepositoryManifest(package)) {
             WriteInformation($"Skipping import of package '{package.PackageName}', " +
                              "target already contains this package.");
+            return;
+        }
+
+        var actionStr = $"Importing {package.GetDescriptionString()} to '{target.Path}'.";
+        if (!ShouldProcess(actionStr, actionStr, null)) {
             return;
         }
 
