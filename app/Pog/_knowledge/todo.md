@@ -50,7 +50,6 @@ https://github.com/miurahr/aqtinstall
 
 - name collisions in different roots
 - add file associations
-- make compatible with powershell v5.0
 - add Export-Library for exporting .dlls
 - add exporting of powershell argument completers
 - add 'Isolated' flag to all impure manifests
@@ -71,7 +70,6 @@ https://github.com/miurahr/aqtinstall
 - figure out how we can let packages add dirs like 'go-lang/data/packages/bin' to PATH
 - add powershell hook; when command is not found and there's a package that provides it, prompt the user to install it
 - TUI command switcher (select which of multiple conflicting commands from different packages to use, optionally rename the others)
-- figure out how to support dependency on vcredict/vcruntime
 - clear env:PATH and similar env variables in container
 - add fn to allow binary through firewall
 - add robust Ini, XML, JSON and YAML updater for Assert-File
@@ -79,7 +77,6 @@ https://github.com/miurahr/aqtinstall
 - Signal Portable - https://community.signalusers.org/t/portable-app-version-of-signal-desktop-windows/2000/11
 - wtf happens when Export-Shortcut target is a shortcut? (scripts, Recycle Bin)
 - Make internal pog dirs (.commands, .pog, pog.psd1) inside the package directory hidden?
-- set preference variables only for Env_..., not globally
 - allow manifest to provide multiple download URLs (as long as the hash is the same for all of them)
 - add env for package generator, cache retrieved hashes for src URL
 - think through virtual packages, which only detect if a systemwide installation of a program already exists; this would allow packages to declare dependencies on python, MikTex,... and error out with helpful error message if these are not installed
@@ -105,4 +102,3 @@ https://github.com/miurahr/aqtinstall
 - always check that we're in a filesystem provider, and then use .ProviderPath for native commands to support network share paths
 - manifest is not executed with strict mode
 - investigate whether application manifests could be used on the stub to disable display scaling for the target, instead of modifying the manifest of the target directly
-- Create a versioning scheme for stub binary (overwrite exported command stub when an out-of-date version is detected)
