@@ -5,8 +5,12 @@
 /.idea/
 /lib_compiled.sln.DotSettings.user
 
+# private project for testing PowerShell behavior during development
 /RandomTests/*
 !/RandomTests/RandomTests.csproj
+# private project for quickly benchmarking stuff and keeping useful benchmarks for later reference
+/RandomBenchmarks/*
+!/RandomBenchmarks/RandomBenchmarks.csproj
 
 /Pog/bin/
 /Pog/obj/
