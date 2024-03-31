@@ -49,11 +49,12 @@ rm -Force -Recurse .\data\manifests\
 
 ## Building
 
-Pog is composed of 3 parts:
+Pog is composed of 4 parts:
 
 1. `app/Pog`: The main PowerShell module (`Pog.psm1` and imported modules). You don't need to build this.
 2. `app/Pog/lib_compiled/Pog`: The `Pog.dll` C# library, where a lot of the core functionality lives. The library targets `.netstandard2.0`.
 3. `app/Pog/lib_compiled/PogNative`: The `PogExecutableStubTemplate.exe` executable stub.
+4. `app/Pog/lib_compiled/vc_redist`: Directory of VC Redistributable DLLs, used by some packages with the `-VcRedist` switch parameter on `Export-Command`/`Export-Shortcut`.
 
 After all parts are ready, import the main module (`Import-Module app/Pog` from the root directory). Note that Pog assumes that the top-level directory is inside a package root, and it will place its data and cache directories in the top-level directory.
 
@@ -77,3 +78,7 @@ cd app/Pog/lib_compiled/PogNative
 cmake -B ./cmake-build-release -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build ./cmake-build-release --config Release
 ```
+
+### `lib_compiled/vc_redist`
+
+The DLLs here are copied from the Visual Studio SDK. With my installation of Visual Studio 2022, the DLLs are located at `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Redist\MSVC\<version>\x64`. Copy all of the DLLs to the `vc_redist` directory (all DLLs should be in the the `vc_redist` directory, without any subdirectories). The script at `app/Pog/_scripts/update vc redist.ps1` will copy the DLLs for you (you may need to adjust the MSVC path if you have a different version of Visual Studio / MSVC toolset).
