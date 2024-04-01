@@ -43,6 +43,16 @@ public static class InternalState {
         _pathConfig = new PathConfig(GetRootDirPath(), dataRootDirPath);
     }
 
+    /// Debug method, used for testing.
+    [UsedImplicitly]
+    public static void OverrideRepository(IRepository repository) {
+        if (_repository != null) {
+            throw new Exception("Cannot override Pog repository, as it is already set, " +
+                                "probably due to auto-configuration on the first access.");
+        }
+        _repository = repository;
+    }
+
     private static PathConfig? _pathConfig;
     public static PathConfig PathConfig => _pathConfig ??= new PathConfig(GetRootDirPath());
 

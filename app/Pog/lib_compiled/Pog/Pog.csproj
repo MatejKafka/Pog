@@ -48,6 +48,7 @@
     <!-- This would be better with PrivateAssets="all", but we cannot do that because it breaks ILRepack. -->
     <PackageReference Include="PowerShellStandard.Library" Version="7.0.0-preview.1"/>
     <PackageReference Include="System.Text.Json" Version="9.0.0-preview.2.24128.5"/>
+    <PackageReference Include="System.Net.Http.Json" Version="9.0.0-preview.2.24128.5"/>
     <PackageReference Include="MatejKafka.XmlDoc2CmdletDoc" Version="0.4.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
