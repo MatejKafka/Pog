@@ -70,13 +70,28 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <!-- Provided by the runtime. -->
+      <ExcludedAssemblies Include="$(AbsPublishDir)\System.Management.Automation.dll"/>
+      <!-- JetBrains annotations are not compiled into the resulting DLL. -->
+      <ExcludedAssemblies Include="$(AbsPublishDir)\JetBrains.Annotations.dll"/>
       <!-- List of assemblies to be merged. -->
-      <AssemblyToMerge Include="$(AbsPublishDir)\*.dll" Exclude="$(AbsPublishDir)\System.Management.Automation.dll;$(MainAssembly);$(MergedAssembly)"/>
+      <AssembliesToMerge Include="$(AbsPublishDir)\*.dll" Exclude="$(MainAssembly);$(MergedAssembly);@(ExcludedAssemblies)"/>
     </ItemGroup>
 
     <PropertyGroup>
-      <IlRepackFlags>/ndebug /union /parallel /xmldocs</IlRepackFlags>
-      <AssemblyListArg>&quot;$(MainAssembly)&quot; @(AssemblyToMerge->'&quot;%(FullPath)&quot;', ' ')</AssemblyListArg>
+      <!-- /allowdup prevents renaming the attributes to a random GUID, so that the runtime still understands them. -->
+      <IlRepackFlags>
+        /ndebug /union /parallel /xmldocs /internalize
+        /allowdup:System.Runtime.CompilerServices.*
+        /allowdup:System.Diagnostics.CodeAnalysis.*
+        /allowdup:Microsoft.CodeAnalysis.EmbeddedAttribute
+        /allowdup:System.Runtime.InteropServices.LibraryImportAttribute
+        /allowdup:System.Runtime.InteropServices.DllImportAttribute
+        /allowdup:System.Runtime.InteropServices.StringMarshalling
+      </IlRepackFlags>
+      <!-- Cleanup whitespace. -->
+      <IlRepackFlags>$([System.Text.RegularExpressions.Regex]::Replace($(IlRepackFlags), "\s+", " "))</IlRepackFlags>
+      <AssemblyListArg>&quot;$(MainAssembly)&quot; @(AssembliesToMerge->'&quot;%(FullPath)&quot;', ' ')</AssemblyListArg>
     </PropertyGroup>
 
     <Message Text="Running ILRepack..." Importance="High"/>
