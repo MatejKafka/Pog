@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using JetBrains.Annotations;
-using Pog.Utils;
 using IOPath = System.IO.Path;
 
 namespace Pog;
@@ -118,16 +116,31 @@ public class ImportedPackageManager {
 /// otherwise an exception is thrown.
 /// </summary>
 [PublicAPI]
-public sealed class ImportedPackage : Package {
+public sealed class ImportedPackage : Package, ILocalPackage {
     public PackageVersion? Version => Manifest.Version;
     public string? ManifestName => Manifest.Name;
 
-    internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, path) {
+    public string Path {get;}
+    public string ManifestPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestRelPath);
+    public string ManifestResourceDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestResourceRelPath);
+
+    public override bool Exists => Directory.Exists(Path);
+
+    internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, null) {
+        Verify.Assert.FilePath(path);
         Verify.Assert.PackageName(packageName);
+        Path = path;
         if (loadManifest) {
             // load the manifest to validate it and ensure the getters won't throw
             ReloadManifest();
         }
+    }
+
+    protected override PackageManifest LoadManifest() {
+        if (!Exists) {
+            throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Path}'.");
+        }
+        return new PackageManifest(ManifestPath);
     }
 
     // called while importing a new manifest
@@ -136,26 +149,6 @@ public sealed class ImportedPackage : Package {
         FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
         // invalidate the current loaded manifest
         InvalidateManifest();
-    }
-
-    public bool MatchesRepositoryManifest(RepositoryPackage p) {
-        // compare resource dirs
-        if (!FsUtils.DirectoryTreeEqual(ManifestResourceDirPath, p.ManifestResourceDirPath)) {
-            return false;
-        }
-
-        // compare manifest
-        var importedManifest = new FileInfo(ManifestPath);
-        if (!importedManifest.Exists) {
-            return false;
-        } else if (p is DirectRepositoryPackage dp) {
-            return importedManifest.Exists && FsUtils.FileContentEqual(new FileInfo(dp.ManifestPath), importedManifest);
-        } else if (p is TemplatedRepositoryPackage tp) {
-            var repoManifest = Encoding.UTF8.GetBytes(tp.GetManifestString());
-            return FsUtils.FileContentEqual(repoManifest, importedManifest);
-        } else {
-            throw new UnreachableException();
-        }
     }
 
     public bool RemoveExportedShortcuts() {
@@ -206,11 +199,7 @@ public sealed class ImportedPackage : Package {
         }
     }
 
-    protected override PackageManifest LoadManifest() {
-        return new PackageManifest(ManifestPath);
-    }
-
-    public string GetDescriptionString() {
+    public override string GetDescriptionString() {
         var versionStr = Manifest.Version != null ? $", version '{Manifest.Version}'" : "";
         if (Manifest.Private) {
             return $"private package '{PackageName}'{versionStr}";

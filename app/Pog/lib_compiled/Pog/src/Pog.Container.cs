@@ -92,18 +92,25 @@ public sealed class Container : IDisposable {
         var iss = CreateInitialSessionState();
         var runspace = host == null ? RunspaceFactory.CreateRunspace(iss) : RunspaceFactory.CreateRunspace(host, iss);
 
-        // set the working directory
-        // this is a hack, but unfortunately a necessary one: https://github.com/PowerShell/PowerShell/issues/17603
-        // TODO: add a mutex here in case multiple containers are started in parallel
-        var originalWorkingDirectory = Environment.CurrentDirectory;
-        try {
-            // temporarily override the working directory
-            Environment.CurrentDirectory = _package.Path;
+        if (_package is ILocalPackage lp) {
+            // set the working directory
+            // this is a hack, but unfortunately a necessary one: https://github.com/PowerShell/PowerShell/issues/17603
+            // TODO: add a mutex here in case multiple containers are started in parallel
+            var originalWorkingDirectory = Environment.CurrentDirectory;
+            try {
+                // temporarily override the working directory
+                Environment.CurrentDirectory = lp.Path;
+                // run runspace init (module import, variable setup,...)
+                // the runspace keeps the changed working directory even after it's reverted back on the process level
+                runspace.Open();
+            } finally {
+                Environment.CurrentDirectory = originalWorkingDirectory;
+            }
+        } else {
+            // not a local package, do not change working directory
+
             // run runspace init (module import, variable setup,...)
-            // the runspace keeps the changed working directory even after it's reverted back on the process level
             runspace.Open();
-        } finally {
-            Environment.CurrentDirectory = originalWorkingDirectory;
         }
 
         // preference variables must be copied AFTER imports, otherwise we would get a slew

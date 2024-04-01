@@ -7,28 +7,41 @@ using System.Management.Automation.Language;
 
 namespace Pog;
 
+// NOTE: how the manifest is loaded is important; the resulting scriptblocks must NOT be bound to a single runspace;
+//  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
+//  (see e.g. https://github.com/PowerShell/PowerShell/issues/11658#issuecomment-577304407)
 internal static class PackageManifestParser {
     /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
     /// unwrapping any script-blocks (see the other methods).
-    public static Hashtable LoadManifest(string manifestPath, string? manifestStr = null) {
-        if (manifestStr == null && !File.Exists(manifestPath)) {
+    public static Hashtable LoadManifest(string manifestPath) {
+        if (!File.Exists(manifestPath)) {
             throw new PackageManifestNotFoundException($"Package manifest file is missing, expected path: {manifestPath}",
                     manifestPath);
         }
 
-        // NOTE: how this is loaded is important; the resulting scriptblocks must NOT be bound to a single runspace;
-        //  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
-        //  (see e.g. https://github.com/PowerShell/PowerShell/issues/11658#issuecomment-577304407)
-        var ast = manifestStr == null
-                ? Parser.ParseFile(manifestPath, out _, out var errors)
-                : Parser.ParseInput(manifestStr, out _, out errors);
+        var ast = Parser.ParseFile(manifestPath, out _, out var errors);
         if (errors.Length > 0) {
             throw new PackageManifestParseException(manifestPath, errors);
         }
 
+        return ParseLoadedManifest(ast, manifestPath);
+    }
+
+    /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
+    /// unwrapping any script-blocks (see the other methods).
+    public static Hashtable LoadManifest(string manifestStr, string manifestSource) {
+        var ast = Parser.ParseInput(manifestStr, out _, out var errors);
+        if (errors.Length > 0) {
+            throw new PackageManifestParseException(manifestSource, errors);
+        }
+
+        return ParseLoadedManifest(ast, manifestSource);
+    }
+
+    private static Hashtable ParseLoadedManifest(Ast ast, string manifestSource) {
         var hashtableNode = (HashtableAst) ast.Find(static a => a is HashtableAst, false);
         if (hashtableNode == null) {
-            throw new PackageManifestParseException(manifestPath,
+            throw new PackageManifestParseException(manifestSource,
                     "The manifest is not a valid PowerShell data file, must be a single Hashtable literal.");
         }
 

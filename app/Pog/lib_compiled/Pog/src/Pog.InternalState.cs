@@ -46,8 +46,8 @@ public static class InternalState {
     private static PathConfig? _pathConfig;
     public static PathConfig PathConfig => _pathConfig ??= new PathConfig(GetRootDirPath());
 
-    private static Repository? _repository;
-    public static Repository Repository => _repository ??= new Repository(PathConfig.ManifestRepositoryDir);
+    private static IRepository? _repository;
+    public static IRepository Repository => _repository ??= new LocalRepository(PathConfig.ManifestRepositoryDir);
 
     private static GeneratorRepository? _generatorRepository;
     public static GeneratorRepository GeneratorRepository =>

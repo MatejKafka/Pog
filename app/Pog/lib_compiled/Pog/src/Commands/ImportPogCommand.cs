@@ -277,7 +277,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
 
         // FIXME: for templated manifests, `MatchesRepositoryManifest` will build the manifest once,
         //  and then .ImportTo will build it a second time; figure out how to avoid the duplication
-        if (!Force && target.MatchesRepositoryManifest(package)) {
+        if (!Force && package.MatchesImportedManifest(target)) {
             WriteInformation($"Skipping import of package '{package.PackageName}', " +
                              "target already contains this package.");
             return;
@@ -319,6 +319,8 @@ public sealed class ImportPogCommand : PackageCommandBase {
             // either a random folder was erroneously created, or this is a package, but corrupted
             WriteWarning($"A package directory already exists at '{target.Path}', but it doesn't seem to contain " +
                          $"a package manifest. All directories in a package root should be packages with a valid manifest.");
+            // overwrite without confirmation
+            return true;
         } catch (Exception e) when (e is IPackageManifestException) {
             WriteWarning($"Found an existing package manifest at '{target.Path}', but it is not valid.");
         }

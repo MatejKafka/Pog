@@ -10,6 +10,7 @@ using Pog.Utils;
 
 namespace Pog.Commands;
 
+// TODO: only works on local repository, either document it or extend it to remote repositories (probably don't)
 /// <summary>
 /// <para type="synopsis">Validates a repository package.</para>
 /// <para type="description">
@@ -27,7 +28,7 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
     protected const string DefaultPS = PackageNamePS;
 
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackagePS, ValueFromPipeline = true)]
-    public RepositoryPackage[] Package = null!;
+    public LocalRepositoryPackage[] Package = null!;
 
     /// <summary><para type="description">Name of the repository package.</para></summary>
     [Parameter(Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
@@ -39,11 +40,20 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
-    private readonly Repository _repo = InternalState.Repository;
+    private readonly LocalRepository _repo;
     private bool _noIssues = true;
 
     private static readonly Regex QuoteHighlightRegex = new(@"'([^']+)'",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    public ConfirmPogRepositoryPackageCommand() {
+        if (InternalState.Repository is LocalRepository r) {
+            _repo = r;
+        } else {
+            // TODO: implement
+            throw new RuntimeException("Validation of remote repositories is not yet supported");
+        }
+    }
 
     private void AddIssue(string message) {
         _noIssues = false;
@@ -68,9 +78,10 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
                         "-Version must not be passed when -PackageName contains multiple package names.");
             }
 
-            RepositoryPackage? package;
+            LocalRepositoryPackage? package;
             try {
-                package = _repo.GetPackage(PackageName![0], true, true).GetVersionPackage(Version, true);
+                package = (LocalRepositoryPackage) _repo.GetPackage(PackageName![0], true, true)
+                        .GetVersionPackage(Version, true);
             } catch (RepositoryPackageNotFoundException e) {
                 WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, PackageName![0]);
                 return;
@@ -111,9 +122,9 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         WriteObject(_noIssues);
     }
 
-    private RepositoryVersionedPackage? ResolvePackage(string packageName) {
+    private LocalRepositoryVersionedPackage? ResolvePackage(string packageName) {
         try {
-            return _repo.GetPackage(packageName, true, true);
+            return (LocalRepositoryVersionedPackage) _repo.GetPackage(packageName, true, true);
         } catch (RepositoryPackageNotFoundException e) {
             WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, packageName);
             return null;
@@ -134,16 +145,16 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
 
         // validate all packages
         foreach (var vp in _repo.Enumerate()) {
-            ValidatePackage(vp);
+            ValidatePackage((LocalRepositoryVersionedPackage) vp);
         }
     }
 
-    private void ValidatePackage(RepositoryVersionedPackage vp) {
+    private void ValidatePackage(LocalRepositoryVersionedPackage vp) {
         if (vp.IsTemplated) ValidateTemplatedPackage(vp);
         else ValidateDirectPackage(vp);
     }
 
-    private void ValidateTemplatedPackage(RepositoryVersionedPackage vp) {
+    private void ValidateTemplatedPackage(LocalRepositoryVersionedPackage vp) {
         if (File.Exists($"{vp.Path}\\.template.psd1")) {
             AddIssue($"Package '{vp.PackageName}' contains an invalid version '.template'. " +
                      $"This version is not allowed, as it leads to ambiguity for direct packages.");
@@ -165,7 +176,7 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         }
 
         // validate .template dir
-        ValidateManifestDirectory($"'{vp.PackageName}'", templateDirPath);
+        ValidateManifestDirectory($"package '{vp.PackageName}'", templateDirPath);
 
         // validate that manifest template exists
         if (!File.Exists(templatePath)) {
@@ -176,7 +187,7 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         ValidatePackageVersions(vp, false); // manifest dir already validated
     }
 
-    private void ValidateDirectPackage(RepositoryVersionedPackage vp) {
+    private void ValidateDirectPackage(LocalRepositoryVersionedPackage vp) {
         var extraFiles = GetFileList(Directory.EnumerateFiles(vp.Path));
         if (extraFiles != "") {
             AddIssue($"Package '{vp.PackageName}' has an incorrect file structure, contains extra files, " +
@@ -186,11 +197,11 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         ValidatePackageVersions(vp, true);
     }
 
-    private void ValidatePackageVersions(RepositoryVersionedPackage vp, bool validateManifestDir) {
+    private void ValidatePackageVersions(LocalRepositoryVersionedPackage vp, bool validateManifestDir) {
         var hasVersion = false;
         foreach (var p in vp.Enumerate()) {
             hasVersion = true;
-            ValidatePackageVersion(p, validateManifestDir);
+            ValidatePackageVersion((LocalRepositoryPackage) p, validateManifestDir);
         }
 
         if (!hasVersion) {
@@ -199,9 +210,9 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         }
     }
 
-    private void ValidatePackageVersion(RepositoryPackage p, bool validateManifestDir = true) {
+    private void ValidatePackageVersion(LocalRepositoryPackage p, bool validateManifestDir = true) {
         if (validateManifestDir) {
-            ValidateManifestDirectory($"'{p.PackageName}', version '{p.Version}'", p.Path);
+            ValidateManifestDirectory(p.GetDescriptionString(), p.Path);
         }
 
         // validate the manifest
@@ -239,13 +250,13 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         var extraEntries = GetFileList(Directory.EnumerateFileSystemEntries(templateDirPath)
                 .Where(p => !p.EndsWith(@"\pog.psd1") && !p.EndsWith(@"\.pog")));
         if (extraEntries != "") {
-            AddIssue($"Manifest directory for package {packageInfoStr} at '{templateDirPath}' contains extra " +
+            AddIssue($"Manifest directory for {packageInfoStr} at '{templateDirPath}' contains extra " +
                      $"entries: {extraEntries}. Only a 'pog.psd1' manifest file and an optional '.pog' directory for extra " +
                      $"files is allowed.");
         }
 
         if (File.Exists($"{templateDirPath}\\.pog")) {
-            AddIssue($"Extra resource directory for package {packageInfoStr} must be a directory, " +
+            AddIssue($"Extra resource directory for {packageInfoStr} must be a directory, " +
                      $"found a file at '{templateDirPath}\\.pog'.");
         }
 

@@ -18,32 +18,32 @@ public class PackageManifestNotFoundException(string message, string fileName)
 
 [PublicAPI]
 public class PackageManifestParseException : ParseException, IPackageManifestException {
-    public readonly string ManifestPath;
+    public readonly string ManifestSource;
 
-    internal PackageManifestParseException(string manifestPath, string message) : base(message) {
-        ManifestPath = manifestPath;
+    internal PackageManifestParseException(string manifestSource, string message) : base(message) {
+        ManifestSource = manifestSource;
     }
 
-    internal PackageManifestParseException(string manifestPath, ParseError[] errors) : base(errors) {
-        ManifestPath = manifestPath;
+    internal PackageManifestParseException(string manifestSource, ParseError[] errors) : base(errors) {
+        ManifestSource = manifestSource;
     }
 
     public override string Message =>
-            $"Could not {(Errors == null ? "load" : "parse")} the package manifest at '{ManifestPath}':\n" + base.Message;
+            $"Could not {(Errors == null ? "load" : "parse")} the package manifest at '{ManifestSource}':\n" + base.Message;
 }
 
 [PublicAPI]
 public class InvalidPackageManifestStructureException : Exception, IPackageManifestException {
-    public readonly string ManifestPath;
+    public readonly string ManifestSource;
     public readonly List<string> Issues;
 
-    public InvalidPackageManifestStructureException(string manifestPath, List<string> issues) {
-        ManifestPath = manifestPath;
+    public InvalidPackageManifestStructureException(string manifestSource, List<string> issues) {
+        ManifestSource = manifestSource;
         Issues = issues;
     }
 
     public override string Message =>
-            $"Package manifest at '{ManifestPath}' has invalid structure:\n\t" + string.Join("\n\t", Issues);
+            $"Package manifest at '{ManifestSource}' has invalid structure:\n\t" + string.Join("\n\t", Issues);
 }
 
 /// <summary>Package manifest had a ScriptBlock as the 'Install.Url' property, but it did not return a valid URL.</summary>
@@ -53,8 +53,6 @@ public class InvalidPackageManifestUrlScriptBlockException : Exception, IPackage
 
 [PublicAPI]
 public record PackageManifest {
-    public readonly string Path;
-
     public readonly bool Private;
     public readonly string? Name;
     public readonly PackageVersion? Version;
@@ -70,26 +68,29 @@ public record PackageManifest {
 
     public readonly Hashtable Raw;
 
-    /// <inheritdoc cref="PackageManifest(string, string?, RepositoryPackage?)"/>
+    /// <inheritdoc cref="PackageManifest(string, RepositoryPackage?)"/>
     public PackageManifest(string manifestPath) : this(manifestPath, null) {}
 
     /// <param name="manifestPath">Path to the manifest file.</param>
-    /// <param name="manifestStr">
-    /// If passed, the manifest is parsed from the string and <paramref name="manifestPath"/> is only used to improve error reporting.
-    /// </param>
     /// <param name="owningPackage">If parsing a repository manifest, this should be the package that owns the manifest.</param>
-    ///
+    /// <inheritdoc cref="PackageManifest(Hashtable, string, RepositoryPackage?)"/>
+    internal PackageManifest(string manifestPath, RepositoryPackage? owningPackage = null)
+            : this(PackageManifestParser.LoadManifest(manifestPath), manifestPath, owningPackage) {}
+
+    /// <param name="manifestStr">String from which the manifest is parsed.</param>
+    /// <param name="manifestSource">Source describing the origin of the manifest string, used for better error reporting.</param>
+    /// <param name="owningPackage">If parsing a repository manifest, this should be the package that owns the manifest.</param>
+    /// <inheritdoc cref="PackageManifest(Hashtable, string, RepositoryPackage?)"/>
+    internal PackageManifest(string manifestStr, string manifestSource, RepositoryPackage? owningPackage = null)
+            : this(PackageManifestParser.LoadManifest(manifestStr, manifestSource), manifestSource, owningPackage) {}
+
     /// <exception cref="PackageManifestNotFoundException">The package manifest file does not exist.</exception>
     /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
     /// <exception cref="InvalidPackageManifestStructureException">The package manifest was correctly parsed, but has invalid structure.</exception>
-    internal PackageManifest(string manifestPath, string? manifestStr = null, RepositoryPackage? owningPackage = null) {
-        InstrumentationCounter.ManifestLoads++;
-
-        Path = manifestPath;
-        Raw = PackageManifestParser.LoadManifest(manifestPath, manifestStr);
-
+    private PackageManifest(Hashtable manifest, string manifestSource, RepositoryPackage? owningPackage = null) {
+        Raw = manifest;
         // parse the raw manifest into properties on this object
-        HashtableParser parser = new(Raw);
+        var parser = new HashtableParser(manifest);
 
         Private = parser.ParseScalar<bool>("Private", false) ?? false;
         if (Private) {
@@ -131,7 +132,7 @@ public record PackageManifest {
         }
 
         if (parser.HasIssues) {
-            throw new InvalidPackageManifestStructureException(manifestPath, parser.Issues);
+            throw new InvalidPackageManifestStructureException(manifestSource, parser.Issues);
         }
     }
 

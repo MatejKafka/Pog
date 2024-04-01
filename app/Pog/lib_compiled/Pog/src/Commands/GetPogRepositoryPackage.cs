@@ -41,7 +41,7 @@ public sealed class GetPogRepositoryPackage : PogCmdlet {
     [Parameter(ParameterSetName = AllVersionsPS)]
     public SwitchParameter AllVersions;
 
-    private readonly Repository _packages = InternalState.Repository;
+    private readonly IRepository _packages = InternalState.Repository;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
