@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Pog.Utils;
 
-public static class EnumerableExtensions {
+internal static class EnumerableExtensions {
     public static IEnumerable<TOut> SelectOptional<TIn, TOut>(this IEnumerable<TIn> enumerable, Func<TIn, TOut?> selector)
             where TOut : class {
         return enumerable.Select(selector).WhereNotNull();

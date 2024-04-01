@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -74,6 +76,16 @@ public static class FsUtils {
 
     public static bool FileContentEqual(byte[] f1, FileInfo f2) {
         return f1.Length == f2.Length && f1.SequenceEqual(File.ReadAllBytes(f2.FullName));
+    }
+
+    public static bool FileContentEqual(ZipArchiveEntry f1, FileInfo f2) {
+        if (f1.Length != f2.Length) return false;
+
+        var f1Content = new byte[f1.Length];
+        using var f1Stream = f1.Open();
+        var bytesRead = f1Stream.Read(f1Content, 0, (int) f1.Length);
+        Debug.Assert(bytesRead == f1.Length);
+        return f1Content.SequenceEqual(File.ReadAllBytes(f2.FullName));
     }
 
     public static bool FileContentEqual(FileInfo f1, FileInfo f2) {
@@ -169,6 +181,8 @@ public static class FsUtils {
             return true;
         } catch (FileNotFoundException) {
             return false;
+        } catch (DirectoryNotFoundException) {
+            return false; // thrown when parent dir does not exist
         }
     }
 
@@ -301,5 +315,21 @@ public static class FsUtils {
     public static bool IsDirectoryLocked(string directoryPath) {
         // move directory to itself; this returns false when the directory contains anything locked, and is a no-op otherwise
         return !MoveDirectoryUnlocked(directoryPath, directoryPath);
+    }
+
+    /// <remarks>Assumes that both paths are resolved and cleaned.</remarks>
+    public static bool EscapesDirectory(string basePath, string validatedPath) {
+        return !validatedPath.StartsWith(basePath + '\\') && validatedPath != basePath;
+    }
+
+    /// If `subdirectoryPath` stays inside `basePath`, return the combined path, otherwise return null.
+    /// Assumes that <paramref name="basePath"/> is resolved in canonical form.
+    /// Use this function when resolving an untrusted relative path.
+    public static string? JoinValidateSubdirectory(string basePath, string subdirectoryPath) {
+        var combined = Path.GetFullPath(basePath + '\\' + subdirectoryPath.TrimEnd('/', '\\'));
+        if (EscapesDirectory(basePath, combined)) {
+            return null;
+        }
+        return combined;
     }
 }

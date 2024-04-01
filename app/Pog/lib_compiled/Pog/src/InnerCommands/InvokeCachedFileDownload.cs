@@ -26,15 +26,13 @@ public record DownloadParameters(DownloadParameters.UserAgentType UserAgent = de
     }
 }
 
-public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock> {
+public class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<SharedFileCache.IFileLock>(cmdlet) {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string? ExpectedHash;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
     [Parameter(Mandatory = true)] public Package Package = null!;
     [Parameter] public bool StoreInCache = false;
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
-
-    public InvokeCachedFileDownload(PogCmdlet cmdlet) : base(cmdlet) {}
 
     // TODO: handle `InvalidCacheEntryException` everywhere
     public override SharedFileCache.IFileLock Invoke() {
@@ -46,7 +44,7 @@ public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock>
 
         if (ExpectedHash != null) {
             WriteDebug($"Checking if we have a cached copy for '{ExpectedHash}'...");
-            var entryLock = GetEntryLockedWithCleanup(ExpectedHash, Package);
+            var entryLock = GetEntryLockedWithCleanup(ExpectedHash);
             if (entryLock != null) {
                 WriteInformation($"File retrieved from the local cache: '{SourceUrl}'");
                 // do not validate the hash; it was already validated once when the entry was first downloaded;
@@ -108,7 +106,7 @@ public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock>
                 return InternalState.DownloadCache.AddEntryLocked(hash, entry);
             } catch (CacheEntryAlreadyExistsException) {
                 WriteVerbose("File is already cached.");
-                var entryLock = GetEntryLockedWithCleanup(hash, Package);
+                var entryLock = GetEntryLockedWithCleanup(hash);
                 if (entryLock == null) {
                     continue; // retry
                 }
@@ -126,9 +124,9 @@ public class InvokeCachedFileDownload : ScalarCommand<SharedFileCache.IFileLock>
         }
     }
 
-    private SharedFileCache.CacheEntryLock? GetEntryLockedWithCleanup(string hash, Package package) {
+    private SharedFileCache.CacheEntryLock? GetEntryLockedWithCleanup(string hash) {
         try {
-            return InternalState.DownloadCache.GetEntryLocked(hash, package);
+            return InternalState.DownloadCache.GetEntryLocked(hash, Package);
         } catch (InvalidCacheEntryException) {
             WriteWarning($"Found an invalid download cache entry '{hash}', replacing...");
             // TODO: figure out how to handle the failure more gracefully (maybe skip the cache all-together

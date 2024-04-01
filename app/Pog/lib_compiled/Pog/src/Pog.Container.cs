@@ -34,7 +34,8 @@ public sealed class Container : IDisposable {
     /// To read the output streams, use the <see cref="Streams"/> property after <see cref="BeginInvoke"/> was called.
     /// </param>
     /// <param name="streamConfig">Configuration for output stream preference variables.</param>
-    public Container(ContainerType containerType, Package package, Hashtable? internalArguments, Hashtable? packageArguments,
+    public Container(ContainerType containerType, Package package,
+            Hashtable? internalArguments, Hashtable? packageArguments,
             PSHost? host, OutputStreamConfig streamConfig) {
         _containerType = containerType;
         _package = package;
@@ -141,7 +142,7 @@ public sealed class Container : IDisposable {
         });
 
         var containerDir = InternalState.PathConfig.ContainerDir;
-        iss.ImportPSModule(new[] {
+        iss.ImportPSModule([
             // these two imports contain basic stuff needed for printing output, errors, FS traversal,...
             "Microsoft.PowerShell.Management",
             "Microsoft.PowerShell.Utility",
@@ -154,7 +155,7 @@ public sealed class Container : IDisposable {
                 ContainerType.GetInstallHash => $@"{containerDir}\Install\Env_GetInstallHash.psm1",
                 _ => throw new ArgumentOutOfRangeException(nameof(_containerType), _containerType, null),
             },
-        });
+        ]);
 
         // TODO: figure out if we can define this without having to write inline PowerShell function
         // override Import-Module to hide the default verbose prints when -Verbose is set for the container environment

@@ -6,15 +6,13 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 
-public class InvokeContainer : EnumerableCommand<PSObject> {
+public class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(cmdlet) {
     [Parameter(Mandatory = true)] public Container.ContainerType ContainerType;
     [Parameter(Mandatory = true)] public Package Package = null!;
     [Parameter] public Hashtable? InternalArguments;
     [Parameter] public Hashtable? PackageArguments;
 
     private Container? _container;
-
-    public InvokeContainer(PogCmdlet cmdlet) : base(cmdlet) {}
 
     public override IEnumerable<PSObject> Invoke() {
         _container = new Container(ContainerType, Package, InternalArguments, PackageArguments, Host,

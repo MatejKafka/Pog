@@ -8,6 +8,7 @@ using Microsoft.Win32.SafeHandles;
 using Pog.InnerCommands;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
+using PPaths = Pog.PathConfig.PackagePaths;
 
 namespace Pog.Commands.ContainerCommands;
 
@@ -35,11 +36,11 @@ public class InstallFromUrlCommand : PogCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
         _packageDirPath = SessionState.Path.CurrentLocation.ProviderPath;
-        _appDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.AppDirName}";
-        _newAppDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.NewAppDirName}";
-        _oldAppDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.AppBackupDirName}";
-        _extractionDirPath = $@"{_packageDirPath}\{PathConfig.PackagePaths.TmpExtractionDirName}";
-        _tmpDeletePath = $@"{_packageDirPath}\{PathConfig.PackagePaths.TmpDeleteDirName}";
+        _appDirPath = $@"{_packageDirPath}\{PPaths.AppDirName}";
+        _newAppDirPath = $@"{_packageDirPath}\{PPaths.NewAppDirName}";
+        _oldAppDirPath = $@"{_packageDirPath}\{PPaths.AppBackupDirName}";
+        _extractionDirPath = $@"{_packageDirPath}\{PPaths.TmpExtractionDirName}";
+        _tmpDeletePath = $@"{_packageDirPath}\{PPaths.TmpDeleteDirName}";
 
         // read download parameters from the global container info variable
         var internalInfo = Container.ContainerInternalInfo.GetCurrent(this);
@@ -99,7 +100,7 @@ public class InstallFromUrlCommand : PogCmdlet {
             PackageInstallParametersArchive pa => pa.Target,
             _ => throw new UnreachableException(),
         };
-        var targetPath = target == null ? _newAppDirPath : JoinValidateSubdirectory(_newAppDirPath, target);
+        var targetPath = target == null ? _newAppDirPath : FsUtils.JoinValidateSubdirectory(_newAppDirPath, target);
 
         if (targetPath == null) {
             // the target path escapes from the app directory
@@ -152,21 +153,6 @@ public class InstallFromUrlCommand : PogCmdlet {
         //  (and if it isn't, it probably also won't work here)
     }
 
-    /// <remarks>Assumes that both paths are resolved and cleaned.</remarks>
-    private static bool EscapesDirectory(string basePath, string validatedPath) {
-        return !validatedPath.StartsWith(basePath + '\\') && validatedPath != basePath;
-    }
-
-    /// If `subdirectoryPath` stays inside `basePath`, return the combined path, otherwise return null.
-    /// Use this function when resolving an untrusted relative path.
-    private static string? JoinValidateSubdirectory(string basePath, string subdirectoryPath) {
-        var combined = Path.GetFullPath(basePath + '\\' + subdirectoryPath.TrimEnd('/', '\\'));
-        if (EscapesDirectory(basePath, combined)) {
-            return null;
-        }
-        return combined;
-    }
-
     private void InstallNoArchive(SharedFileCache.IFileLock downloadedFile, string targetPath) {
         // ensure that the parent directory exists
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
@@ -182,7 +168,7 @@ public class InstallFromUrlCommand : PogCmdlet {
             InvokePogCommand(new ExpandArchive7Zip(this) {
                 ArchivePath = downloadedFile.Path,
                 TargetPath = _extractionDirPath,
-                Filter = param.Subdirectory == null ? null : new[] {param.Subdirectory},
+                Filter = param.Subdirectory == null ? null : [param.Subdirectory],
             });
         }
 
@@ -242,7 +228,7 @@ public class InstallFromUrlCommand : PogCmdlet {
 
             var subPath = resolvedPaths[0]!;
 
-            if (EscapesDirectory(extractedRootPath, subPath)) {
+            if (FsUtils.EscapesDirectory(extractedRootPath, subPath)) {
                 ThrowTerminatingArgumentError(subdirectory, "SubdirectoryEscapesRoot",
                         $"Argument passed to the -Subdirectory parameter must be a relative path that does not escape " +
                         $"the archive directory, got '{subdirectory}'.");
@@ -250,8 +236,6 @@ public class InstallFromUrlCommand : PogCmdlet {
 
             // test if the path exists in the extracted directory
             var sub = new DirectoryInfo(subPath);
-            if ((int) sub.Attributes == -1) {}
-
             if ((sub.Attributes & FileAttributes.Directory) == 0) {
                 // it's actually a file
                 // use the parent directory, 7zip should have only extracted the file we're interested in

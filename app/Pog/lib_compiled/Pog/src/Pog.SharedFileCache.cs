@@ -45,17 +45,12 @@ public class CacheEntryInUseException(string entryKey)
 //     - second one has any other name, and is the actual cache entry; during insertion, if the entry file is also called
 //       `referencingPackages.json-list`, it is prefixed with `_`
 [PublicAPI]
-public class SharedFileCache {
+public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
     private const string MetadataFileName = "referencingPackages.json-list";
 
-    public readonly string Path;
+    public readonly string Path = cacheDirPath;
     /// Directory for temporary files on the same volume as `.Path`, used for adding and removing entries.
-    private readonly TmpDirectory _tmpDirectory;
-
-    public SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
-        Path = cacheDirPath;
-        _tmpDirectory = tmpDir;
-    }
+    private readonly TmpDirectory _tmpDirectory = tmpDir;
 
     public delegate void InvalidCacheEntryCb(InvalidCacheEntryException exception);
 
