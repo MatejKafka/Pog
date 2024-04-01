@@ -1,0 +1,93 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  # C:\ drive in gh action is much slower than D:\, move everything we can to D:\
+  DOTNET_INSTALL_DIR: D:\dotnet
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Install ILRepack
+      shell: pwsh
+      run: |
+        iwr https://www.nuget.org/api/v2/package/ILRepack/2.0.29 -OutFile D:\ilrepack.nupkg
+        Expand-Archive D:\ilrepack.nupkg D:\ilrepack
+        # add to PATH for following steps
+        Add-Content $env:GITHUB_PATH D:\ilrepack\tools
+
+    - name: Install bootstrap 7zip
+      working-directory: ..
+      shell: pwsh
+      run: |
+        iwr https://www.7-zip.org/a/7z2403-x64.exe -OutFile D:\7zip.exe
+        Start-Process -Wait D:\7zip.exe -ArgumentList /S, /D=$(pwd)\7zip\app
+        # just a stub manifest, will be replaced later
+        Set-Content "$(pwd)\7zip\pog.psd1" '@{Private = $true; Enable = {Export-Command "7z" "./app/7z.exe" -VcRedist}}'
+
+
+    - name: Build Pog.dll
+      working-directory: app/Pog/lib_compiled
+      run: |
+        dotnet sln remove RandomTests RandomBenchmarks
+        dotnet restore
+        dotnet publish --no-restore Pog
+
+    - name: Build PogNative
+      working-directory: app/Pog/lib_compiled
+      run: |
+        cmake -B ./PogNative/cmake-build-release -S ./PogNative -DCMAKE_BUILD_TYPE=Release
+        cmake --build ./PogNative/cmake-build-release --config Release
+
+    - name: Copy VC Redistributable
+      working-directory: app/Pog/lib_compiled
+      shell: pwsh
+      run: |
+        $SrcDir = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -find VC/Redist/MSVC/*/x64
+        if ($null -eq $SrcDir) {
+          throw "Could not find VC Redistributable."
+        }
+        ls -Recurse -File ($SrcDir | select -Last 1) | % {Write-Host $_; $_} | cp -Destination .\vc_redist\
+
+    - name: Setup Pog
+      shell: pwsh
+      run: |
+        .\setup.ps1
+        # add to PATH for following steps
+        Add-Content $env:GITHUB_PATH (Resolve-Path .\data\package_bin)
+
+        pog 7zip -Force
+
+
+    - name: Pog.Tests
+      working-directory: app/Pog/lib_compiled
+      run: dotnet test --no-restore Pog.Tests
+
+    # install a few Pog packages to check that Pog works
+    - name: Test Pog packages
+      run: |
+        $InformationPreference = "Continue"
+        Import-Module ./app/Pog -Verbose
+
+        Write-Host "Available packages: $(@(Get-PogRepositoryPackage -AllVersions).Count)"
+        pog fzf, zstd, Jujutsu
+
+        Get-PogPackage
+
+        Write-Host ""
+        Write-Host "fzf: $(fzf --version)"
+        Write-Host "zstd: $(zstd --version)"
+        Write-Host "Jujutsu: $(jj --version)"
