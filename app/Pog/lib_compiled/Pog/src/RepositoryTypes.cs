@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
-using PPaths = Pog.PathConfig.PackagePaths;
 
 namespace Pog;
 
@@ -70,13 +69,7 @@ public abstract class RepositoryVersionedPackage {
         return GetVersionPackage(new PackageVersion(version), mustExist);
     }
 
-    public RepositoryPackage GetVersionPackage(PackageVersion version, bool mustExist) {
-        if (version.ToString() == PPaths.RepositoryTemplateDirName) {
-            // disallow creating this version, otherwise we couldn't distinguish between a templated and direct package types
-            throw new InvalidPackageVersionException(
-                    $"Version of a package in the repository must not be '{PPaths.RepositoryTemplateDirName}'.");
-        }
-
+    public virtual RepositoryPackage GetVersionPackage(PackageVersion version, bool mustExist) {
         var package = GetPackageUnchecked(version);
         if (mustExist && !package.Exists) {
             throw new RepositoryPackageVersionNotFoundException(

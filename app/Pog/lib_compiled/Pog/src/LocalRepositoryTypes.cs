@@ -75,6 +75,15 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
         }
     }
 
+    public override RepositoryPackage GetVersionPackage(PackageVersion version, bool mustExist) {
+        if (version.ToString() == PPaths.RepositoryTemplateDirName) {
+            // disallow creating this version, otherwise we couldn't distinguish between a templated and direct package types
+            throw new InvalidPackageVersionException(
+                    $"Version of a package in the repository must not be '{PPaths.RepositoryTemplateDirName}'.");
+        }
+        return base.GetVersionPackage(version, mustExist);
+    }
+
     protected override RepositoryPackage GetPackageUnchecked(PackageVersion version) {
         return this.IsTemplated
                 ? new TemplatedLocalRepositoryPackage(this, version)

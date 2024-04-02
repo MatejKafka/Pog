@@ -70,7 +70,8 @@ public static class Verify {
 
     internal static class Is {
         public static bool PackageName(string packageName) {
-            return Is.FileName(packageName);
+            // forbid Unix-style dot-files as package names
+            return Is.FileName(packageName) && packageName[0] != '.';
         }
 
         public static bool Sha256Hash(string str) {

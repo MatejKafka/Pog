@@ -16,7 +16,8 @@ namespace Pog;
 public static class FsUtils {
     public static IEnumerable<string> EnumerateNonHiddenDirectoryNames(string dirPath, string searchPattern = "*") {
         return new DirectoryInfo(dirPath).EnumerateDirectories(searchPattern)
-                .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden))
+                // ignore both Windows hidden files and Unix-style dot-files
+                .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden) && d.Name[0] != '.')
                 .Select(d => d.Name);
     }
 
