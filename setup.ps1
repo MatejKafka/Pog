@@ -68,24 +68,26 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
 # now, we should be ready to import Pog
 Import-Module $PSScriptRoot\app\Pog
 
-try {
-    $7z = Get-PogPackage 7zip
-} catch {
-    throw "Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
-        "Please install Pog from a release, not by cloning the repository directly."
-    return
-}
-
-try {
-    $7z | Enable-Pog -PassThru | Export-Pog
-} catch {
-    throw ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
-    return
-}
-
 if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
-    throw "Setup of '7zip' was successful, but we cannot find the 7z.exe binary that should be provided by the package."
-    return
+    try {
+        $7z = Get-PogPackage 7zip
+    } catch {
+        throw "Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
+            "Please install Pog from a release, not by cloning the repository directly."
+        return
+    }
+
+    try {
+        $7z | Enable-Pog -PassThru | Export-Pog
+    } catch {
+        throw ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
+        return
+    }
+
+    if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
+        throw "Setup of '7zip' was successful, but we cannot find the 7z.exe binary that should be provided by the package."
+        return
+    }
 }
 
 Write-Host ""
@@ -119,16 +121,18 @@ if (-not (Test-Path $MANIFEST_REPO_PATH)) {
 }
 
 
-try {
-    pog OpenedFilesView
-} catch {
-    throw ("Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
-    return
-}
-
 if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
-    throw "Setup of 'OpenedFilesView' was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
-    return
+    try {
+        pog OpenedFilesView
+    } catch {
+        throw ("Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
+        return
+    }
+
+    if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
+        throw "Setup of 'OpenedFilesView' was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
+        return
+    }
 }
 
 
