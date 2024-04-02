@@ -82,7 +82,7 @@
     <PropertyGroup>
       <!-- /allowdup prevents renaming the attributes to a random GUID, so that the runtime still understands them. -->
       <IlRepackFlags>
-        /ndebug /union /parallel /xmldocs /internalize
+        /ndebug /union /parallel /xmldocs /illink /internalize
         /allowdup:System.Runtime.CompilerServices.*
         /allowdup:System.Diagnostics.CodeAnalysis.*
         /allowdup:Microsoft.CodeAnalysis.EmbeddedAttribute

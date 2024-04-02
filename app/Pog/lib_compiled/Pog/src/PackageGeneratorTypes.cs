@@ -9,12 +9,8 @@ namespace Pog;
 public class PackageGeneratorNotFoundException(string message) : FileNotFoundException(message);
 
 [PublicAPI]
-public class GeneratorRepository {
-    public readonly string Path;
-
-    public GeneratorRepository(string generatorRepositoryDirPath) {
-        Path = generatorRepositoryDirPath;
-    }
+public class GeneratorRepository(string generatorRepositoryDirPath) {
+    public readonly string Path = generatorRepositoryDirPath;
 
     public IEnumerable<string> EnumerateGeneratorFileNames(string searchPattern = "*") {
         return FsUtils.EnumerateNonHiddenFileNames(Path, searchPattern + ".psd1");
