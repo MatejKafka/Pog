@@ -1,16 +1,6 @@
 using module .\..\..\lib\Utils.psm1
 . $PSScriptRoot\..\..\lib\header.ps1
 
-# http://www.nirsoft.net/utils/opened_files_view.html
-$OpenedFilesViewCmd = Get-Command "OpenedFilesView" -ErrorAction Ignore
-# TODO: also check if package_bin dir is in PATH, warn otherwise
-if ($null -eq $OpenedFilesViewCmd) {
-	throw "Could not find OpenedFilesView (command 'OpenedFilesView'), which is used during package installation. " +`
-			"It is supposed to be installed as a normal Pog package, unless you manually removed it. " +`
-			"If you know why this happened, please restore the package and run this command again. " +`
-			"If you don't, contact Pog developers and we'll hopefully figure out where's the issue."
-}
-
 $KNOWN_APPIDS = @{
 	"{DFB65C4C-B34F-435D-AFE9-A86218684AA8}" = "WSL2" # Plan9FileSystem
 	"{72075277-282A-420A-8C25-62BFCB94C71E}" = "WSL2" # something related to the previous entry, not sure what it actually does
@@ -62,12 +52,19 @@ function GetDllhostOwner {
 
 <# Lists processes that have a lock (an open handle without allowed sharing) on a file under $DirPath. #>
 function ListProcessesLockingFiles($DirPath) {
+	# http://www.nirsoft.net/utils/opened_files_view.html
+	$OpenedFilesViewPath = [Pog.InternalState]::PathConfig.PathOpenedFilesView
+	if (-not (Test-Path $OpenedFilesViewPath)) {
+		Write-Verbose "Skipping locked file listing, since OpenedFilesView is not installed."
+		return
+	}
+
 	# OpenedFilesView always writes to a file, stdout is not supported (it's a GUI app)
 	$OutFile = New-TemporaryFile
 	$Procs = [Xml]::new()
 	try {
 		# arguments with spaces must be manually quoted
-		$OFVProc = Start-Process -FilePath $OpenedFilesViewCmd -NoNewWindow -PassThru `
+		$OFVProc = Start-Process -FilePath $OpenedFilesViewPath -NoNewWindow -PassThru `
 				-ArgumentList /sxml, "`"$OutFile`"", /nosort, /filefilter, "`"$(Resolve-VirtualPath $DirPath)`""
 
 		# workaround from https://stackoverflow.com/a/23797762
@@ -117,16 +114,15 @@ Export function ShowLockedFileList {
 	# find out which files are locked, report them to the user
 	$LockingProcs = ListProcessesLockingFiles .\app
 	if (@($LockingProcs).Count -eq 0) {
-		# some process is locking files in the directory, but we don't which one; I don't see why this should happen,
-		#  unless some process exits between the two checks, or there's an error in OFV, so this is here just in case
+		# some process is locking files in the directory, but we don't which one; this may happen if OFV is not installed,
+		# or the offending process exited between the C# check and calling OFV
 		Write-Host -ForegroundColor $Fg ("There is an existing package installation, which we cannot overwrite, as there are" +`
-			" file(s) opened by an unknown running process. Is it possible that some program from" +`
+			" file(s) opened by an unknown running process.`nIs it possible that some program from" +`
 			" the package is running or that another running program is using a file from this package?")
 		return
 	}
 
 	# TODO: print more user-friendly app names
-	# TODO: instead of throwing an error, list the offending processes and then wait until the user stops them
 	# TODO: explain to the user what he should do to resolve the issue
 
 	# long error messages are hard to read, because all newlines are removed;

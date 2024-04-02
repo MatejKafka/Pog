@@ -87,6 +87,8 @@ public class PathConfig {
 
     /// Path to the exported 7-Zip binary, needed for package extraction during installation.
     public readonly string Path7Zip;
+    /// Path to the exported OpenedFilesView binary, needed to list package processes locking files during installation.
+    public readonly string PathOpenedFilesView;
 
     public readonly PackageRootConfig PackageRoots;
 
@@ -112,5 +114,6 @@ public class PathConfig {
         DownloadTmpDir = $"{cacheRootDirPath}\\download_tmp";
 
         Path7Zip = $"{ExportedCommandDir}\\7z.exe";
+        PathOpenedFilesView = $"{ExportedCommandDir}\\OpenedFilesView.exe";
     }
 }
