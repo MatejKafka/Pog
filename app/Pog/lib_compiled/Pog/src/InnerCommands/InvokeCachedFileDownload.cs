@@ -2,15 +2,12 @@
 using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
-using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 
-[PublicAPI]
 public record DownloadParameters(DownloadParameters.UserAgentType UserAgent = default, bool LowPriorityDownload = false) {
-    [PublicAPI]
     public enum UserAgentType {
         // PowerShell is `default(T)`
         PowerShell = 0, Browser, Wget,
@@ -26,7 +23,7 @@ public record DownloadParameters(DownloadParameters.UserAgentType UserAgent = de
     }
 }
 
-public class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<SharedFileCache.IFileLock>(cmdlet) {
+internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<SharedFileCache.IFileLock>(cmdlet) {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string? ExpectedHash;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;

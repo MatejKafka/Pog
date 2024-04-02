@@ -2,10 +2,12 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Threading;
+using JetBrains.Annotations;
 
 namespace Pog.Native;
 
 // copied from PowerShell: src/Microsoft.PowerShell.Commands.Management/commands/management/Clipboard.cs
+[PublicAPI]
 [SuppressMessage("ReSharper", "InconsistentNaming")]
 [SuppressMessage("ReSharper", "IdentifierTypo")]
 public static class Clipboard {

@@ -9,7 +9,7 @@ namespace Pog.Native;
 
 /// <summary>Class for reading and manipulating the PE application manifest.</summary>
 /// <see href="https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests"/>
-public class PeApplicationManifest {
+internal class PeApplicationManifest {
     private static readonly Lazy<XmlNamespaceManager> Namespaces = new(CreateNamespaceManager);
 
     public readonly string PePath;
@@ -98,7 +98,6 @@ public class PeApplicationManifest {
 
     private static unsafe (PeResources.ResourceId, XElement)? LoadEmbeddedManifest(
             string pePath, PeResources.Module? module = null) {
-
         // open a Module if there's not an existing one and dispose it at the end of scope
         using var newModule = module != null ? null : new PeResources.Module(pePath);
         module = (module ?? newModule)!;

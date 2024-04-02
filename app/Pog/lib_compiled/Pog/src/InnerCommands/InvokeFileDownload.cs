@@ -11,7 +11,7 @@ using Pog.Utils.Http;
 
 namespace Pog.InnerCommands;
 
-public sealed class InvokeFileDownload : ScalarCommand<string>, IDisposable {
+internal sealed class InvokeFileDownload : ScalarCommand<string>, IDisposable {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string DestinationDirPath = null!;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;

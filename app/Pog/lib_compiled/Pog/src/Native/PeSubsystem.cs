@@ -1,12 +1,10 @@
 ﻿using System.IO;
-using JetBrains.Annotations;
 
 namespace Pog.Native;
 
-public static class PeSubsystem {
+internal static class PeSubsystem {
     // documentation of the PE format: https://learn.microsoft.com/en-us/windows/win32/debug/pe-format
 
-    [PublicAPI]
     public enum WindowsSubsystem : ushort {
         Unknown = 0,
         Native = 1,

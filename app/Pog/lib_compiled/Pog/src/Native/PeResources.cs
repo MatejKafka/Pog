@@ -7,8 +7,7 @@ using JetBrains.Annotations;
 namespace Pog.Native;
 
 // TODO: support resources with non-standard types (accept ResourceAtom as resourceType, in addition to ResourceType)
-public static class PeResources {
-    [PublicAPI]
+internal static class PeResources {
     public sealed class Module : IDisposable {
         private readonly Win32.FreeLibrarySafeHandle _handle;
 
@@ -247,7 +246,6 @@ public static class PeResources {
             _handle.CommitChanges();
         }
 
-        [PublicAPI]
         public unsafe void SetResource(ResourceId id, ReadOnlySpan<byte> resource) {
             fixed (byte* resourcePtr = resource) {
                 if (!Win32.UpdateResource(_handle, (ushort) id.Type, id.Name, id.Language, resourcePtr,
@@ -297,7 +295,6 @@ public static class PeResources {
         }
     }
 
-    [PublicAPI]
     public class ResourceSectionNotFoundException : ResourceTypeNotFoundException {
         private ResourceSectionNotFoundException() :
                 base("The specified image file does not contain a resource section.") {}
@@ -309,7 +306,6 @@ public static class PeResources {
         }
     }
 
-    [PublicAPI]
     public enum ResourceType : ushort {
         Cursor = 1,
         Bitmap = 2,
@@ -346,7 +342,7 @@ public static class PeResources {
 }
 
 [UsedImplicitly]
-public static class ResourceAtomExtensions {
+internal static class ResourceAtomExtensions {
     public static PeResources.ResourceType? ToResourceType(this Win32.ResourceAtom atom) {
         if (atom.IsId()) {
             var id = atom.GetAsId();

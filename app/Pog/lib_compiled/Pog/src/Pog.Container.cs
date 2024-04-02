@@ -14,7 +14,6 @@ namespace Pog;
 //  - architecturally, it's not possible to accept pipeline input and do live output at the same time (for live output,
 //    the main thread must be blocked waiting for output from the container, therefore any previous cmdlets cannot run,
 //    so no input can be supplied); fortunately, we don't need any pipeline input to the container, so it works ok
-[PublicAPI]
 public sealed class Container : IDisposable {
     /// Output streams from the container runspace.
     public PSDataStreams Streams => _ps.Streams;

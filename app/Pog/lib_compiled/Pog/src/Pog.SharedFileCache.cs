@@ -91,8 +91,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
 
         using (stream) {
             // lock the whole file in a shared read-only mode
-            using var regionLock =
-                    Native.FileLock.Lock(stream.SafeFileHandle!, Native.Win32.LockFileFlags.WAIT, 0, ulong.MaxValue);
+            using var regionLock = Native.FileLock.Lock(stream.SafeFileHandle!, Native.Win32.LockFileFlags.WAIT);
             return EnumerateMetadataFileStream(stream).ToArray();
         }
     }
