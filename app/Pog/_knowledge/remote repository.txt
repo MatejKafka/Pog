@@ -1,0 +1,37 @@
+GraphQL api is unusable without authentication
+REST api allows 60 requests/hour, which is not enough to rely on it much
+
+as an alternative, we can generate GitHub Pages from CI, with the following files:
+  combined listing json file for all versions of all packages
+    cache in memory for 10 minutes (for now, no file caching; in the future, use SharedFileCache)
+  generate zip archive at /<PackageName>/<Version>.zip
+    client downloads it, reads the manifest and keeps the zip file in memory
+    for now, do not cache these (in the future, add them to SharedFileCache)
+    all remote repository packages are direct packages, templated packages are expanded in CI
+  TODO: if retrieving any of the supposedly existing versions fails, invalidate the package listing
+  TODO: support ETag or If-Modified-Since to avoid needlessly redownloading stuff
+
+TODO: figure out caching
+  create a separate download cache for package lists
+  github sends ETag and correctly checks If-None-Match and If-Modified-Since
+  at least cache available packages (how long? 10 minutes?)
+  probably also cache manifests, and link them with the download cache
+    meaning, either there should be the manifest and resources needed for installation, or there should be neither
+      (except for the initial gap between downloading the manifest and the resources)
+
+
+REST query to get list of packages:
+https://api.github.com/repos/MatejKafka/PogPackages/contents
+
+GraphQL query to get list of packages:
+{
+  repository(name: "PogPackages", owner: "MatejKafka") {
+    object(expression: "master:") {
+      ... on Tree {
+        entries {
+          name
+        }
+      }
+    }
+  }
+}
