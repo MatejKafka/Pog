@@ -4,14 +4,10 @@
 
 	Name = "Pog"
 	Version = "0.6.0"
-	# the stub executable binaries are currently only compiled for x64, so we are bound to x64 for now (also, dependencies)
+	# why x64:
+	#  1) stub binaries are compiled only for x64 (should be easy to change)
+	#  2) VC redist DLLs are currently x64 (shouldn't be too hard to change)
+	#  3) 7-zip and OpenedFilesView are currently installed for x64
+	#     (and there's currently no infrastructure for multiple package versions for different architectures)
 	Architecture = "x64"
-
-	# dependencies:
-	#  7zip (x64)
-	#  OpenedFilesView (x64)
-
-	Enable = {
-		echo "It seems Pog is setup correctly and working now. :)"
-	}
 }
