@@ -6,7 +6,7 @@ using module ..\..\lib\Environment.psm1
 
 # not sure if we should expose this, PowerShell (private package) uses it to set PSModulePath
 Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
-Export-ModuleMember -Cmdlet Export-Command
+Export-ModuleMember -Cmdlet Export-Command, Disable-DisplayScaling
 
 
 function SetupInternalState {
@@ -467,29 +467,4 @@ Export function Export-Shortcut {
 
 	$S.Save()
 	Write-Information "Set up a shortcut called '$ShortcutName' (target: '$TargetPath')."
-}
-
-
-Export function Disable-DisplayScaling {
-	param(
-			[Parameter(Mandatory)]
-			[string]
-		$ExePath
-	)
-
-	$OrigExePath = $ExePath
-	$ExePath = Resolve-VirtualPath $ExePath
-
-	if (-not [System.IO.File]::Exists($ExePath)) {
-		throw "Cannot disable system display scaling, target does not exist: ${OrigExePath}"
-	}
-
-	# display scaling can be disabled using the application manifest of the executable
-	$Manifest = [Pog.Native.PeApplicationManifest]::new($ExePath)
-	if ($Manifest.EnsureDpiAware()) {
-		$Manifest.Save()
-		Write-Information "Disabled system display scaling for '${OrigExePath}'."
-	} else {
-		Write-Verbose "System display scaling already disabled for '${OrigExePath}'."
-	}
 }
