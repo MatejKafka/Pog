@@ -35,22 +35,22 @@ public static class InternalState {
 
     /// Debug method, used for testing.
     [UsedImplicitly]
-    public static void OverrideDataRoot(string dataRootDirPath) {
-        if (_pathConfig != null) {
-            throw new Exception("Cannot override Pog paths, since PathConfig was already configured, " +
-                                "probably due to auto-configuration on the first access.");
+    public static bool InitDataRoot(string dataRootDirPath) {
+        if (_pathConfig == null) {
+            _pathConfig = new PathConfig(GetRootDirPath(), dataRootDirPath);
+            return true;
         }
-        _pathConfig = new PathConfig(GetRootDirPath(), dataRootDirPath);
+        return false;
     }
 
     /// Debug method, used for testing.
     [UsedImplicitly]
-    public static void OverrideRepository(IRepository repository) {
-        if (_repository != null) {
-            throw new Exception("Cannot override Pog repository, as it is already set, " +
-                                "probably due to auto-configuration on the first access.");
+    public static bool InitRepository(Func<IRepository> repositoryGenerator) {
+        if (_repository == null) {
+            _repository = repositoryGenerator();
+            return true;
         }
-        _repository = repository;
+        return false;
     }
 
     private static PathConfig? _pathConfig;

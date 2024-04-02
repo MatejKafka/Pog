@@ -1,5 +1,12 @@
 . $PSScriptRoot\lib\header.ps1
 
+if (Test-Path Env:POG_REMOTE_REPOSITORY_URL) {
+	$Initiated = [Pog.InternalState]::InitRepository({[Pog.RemoteRepository]::new($env:POG_REMOTE_REPOSITORY_URL)})
+	if ($Initiated) {
+		Write-Information "Using remote repository: $([Pog.InternalState]::Repository.Url)"
+	}
+}
+
 $REPOSITORY = [Pog.InternalState]::Repository
 $GENERATOR_REPOSITORY = [Pog.InternalState]::GeneratorRepository
 $PACKAGE_ROOTS = [Pog.InternalState]::ImportedPackageManager
