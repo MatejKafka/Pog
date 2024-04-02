@@ -1,0 +1,47 @@
+Github cmdlets:
+- pass name of github repository
+- lists matching release versions (new/all/selected), with support for filters, automatically parses version (e.g. stripping out "v" prefix?)
+- retrieves download URLs (using a regex like '.*windows.*\.exe'? figure out how to support multiple resources, e.g. Alacritty)
+- has parameters indicating how to retrieve the hash:
+ - download the file and calculate the hash
+ - scriptblock that returns the URL of a checksums.txt or a similar file
+ - custom scriptblock that receives hashtable of Version/Url and returns the hash (e.g. custom checksum file format,
+   copying hash from another package manager repo,...)
+
+
+
+@{
+	GithubRepo = "obsproject/obs-studio"
+	FileNamePattern = "OBS-Studio-*-Full-x64.zip"
+	Checksum = "Calculate"
+}
+
+Get-GithubRelease "obsproject/obs-studio" -FileName "OBS-Studio-*-Full-x64.zip" -Checksum Calculate
+
+
+
+how hashes are presented for a github release:
+- CHECKSUMS.txt (or similar) 22
+- they aren't, small archive 30
+- they aren't, medium archive 12
+- they aren't, large archive 11
+   nixman mingw
+   https://github.com/texstudio-org/texstudio/releases/3.0.4/
+   https://github.com/telegramdesktop/tdesktop/releases/v3.2.5/
+   https://github.com/beardypig/streamlink-portable/releases/3.2.0/
+   https://github.com/Qalculate/qalculate-gtk/releases/v3.20.1/
+   https://github.com/pdfarranger/pdfarranger/releases/1.9.0/
+   https://github.com/obsproject/obs-studio/releases/25.0.4/
+   https://github.com/marp-team/marp-cli/releases/v3.1.0/
+   https://github.com/DynamoRIO/drmemory/releases/tag/cronbuild-2.5.19327
+   https://github.com/GyanD/codexffmpeg/releases/6.0/
+   https://github.com/icsharpcode/ILSpy/releases/v8.1/
+- checksum file with algorithm other than sha256 2
+   https://github.com/atom/atom/releases/v1.56.0/
+   https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/gs9540/
+- in release description 5
+   https://github.com/ndbeals/winssh-pageant/releases/v2.3.1/
+   https://github.com/neovim/neovim/releases/v0.8.3/
+   https://github.com/tannerhelland/PhotoDemon/releases/v8.4/
+   https://github.com/notepad-plus-plus/notepad-plus-plus/releases/v7.9.4/
+   https://github.com/git-for-windows/git/releases/v2.42.0.windows.1/
