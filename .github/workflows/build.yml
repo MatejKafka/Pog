@@ -77,8 +77,10 @@ jobs:
       run: dotnet test --no-restore Pog.Tests
 
     # install a few Pog packages to check that Pog works
-    - name: Test Pog packages
+    - name: Test Pog packages (PowerShell Core)
+      shell: pwsh
       run: |
+        Write-Host "PowerShell v$($PSVersionTable.PSVersion)"
         $InformationPreference = "Continue"
         Import-Module ./app/Pog -Verbose
 
@@ -91,3 +93,27 @@ jobs:
         Write-Host "fzf: $(fzf --version)"
         Write-Host "zstd: $(zstd --version)"
         Write-Host "Jujutsu: $(jj --version)"
+
+        Write-Host ""
+        Uninstall-Pog fzf, zstd, Jujutsu
+
+    # the same test in PowerShell 5, to test compatibility
+    - name: Test Pog packages (PowerShell 5)
+      shell: powershell
+      run: |
+        Write-Host "PowerShell v$($PSVersionTable.PSVersion)"
+        $InformationPreference = "Continue"
+        Import-Module ./app/Pog -Verbose
+
+        Write-Host "Available packages: $(@(Get-PogRepositoryPackage -AllVersions).Count)"
+        pog fzf, zstd, Jujutsu
+
+        Get-PogPackage
+
+        Write-Host ""
+        Write-Host "fzf: $(fzf --version)"
+        Write-Host "zstd: $(zstd --version)"
+        Write-Host "Jujutsu: $(jj --version)"
+
+        Write-Host ""
+        Uninstall-Pog fzf, zstd, Jujutsu
