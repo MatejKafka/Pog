@@ -50,6 +50,17 @@ public sealed class InvokePogCommand : PackageCommandBase, IDynamicParameters {
         return _proxiedParams = builder.CopyParameters(ImportPogInfo);
     }
 
+    private Hashtable CopyCommonParameters() {
+        // TODO: check if there isn't a built-in way to forward common parameters
+        var logArgs = new Hashtable();
+        foreach (var p in CommonParameters) {
+            if (MyInvocation.BoundParameters.TryGetValue(p, out var value)) {
+                logArgs[p] = value;
+            }
+        }
+        return logArgs;
+    }
+
     // TODO: rollback on error
     protected override void BeginProcessing() {
         base.BeginProcessing();
@@ -59,15 +70,7 @@ public sealed class InvokePogCommand : PackageCommandBase, IDynamicParameters {
         // reuse PassThru parameter from Import-Pog for Enable-Pog
         var passThru = (importParams["PassThru"] as SwitchParameter?)?.IsPresent ?? false;
         importParams.Remove("PassThru");
-
-        // TODO: check if these aren't forwarded automatically, alternatively expand to all common parameters
-        var logArgs = new Hashtable();
-        if (MyInvocation.BoundParameters.ContainsKey("Verbose")) {
-            logArgs["Verbose"] = MyInvocation.BoundParameters["Verbose"];
-        }
-        if (MyInvocation.BoundParameters.ContainsKey("Debug")) {
-            logArgs["Debug"] = MyInvocation.BoundParameters["Debug"];
-        }
+        var logArgs = CopyCommonParameters();
 
         _ps.AddCommand(ImportPogInfo).AddParameters(logArgs).AddParameter("PassThru").AddParameters(importParams);
         if (Install) {
