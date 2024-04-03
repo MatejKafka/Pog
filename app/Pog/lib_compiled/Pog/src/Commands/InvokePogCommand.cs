@@ -11,8 +11,7 @@ namespace Pog.Commands;
 /// <summary>
 /// <para type="synopsis">Import, install, enable and export a package.</para>
 /// <para type="description">
-/// Runs all four installation stages in order. All arguments passed to this cmdlet except for <c>-InstallOnly</c> and
-/// <c>-NoExport</c> are forwarded to <c>Import-Pog</c>.
+/// Runs all four installation stages in order. This cmdlet accepts the same arguments as <c>Import-Pog</c>.
 /// </para>
 /// </summary>
 [PublicAPI]

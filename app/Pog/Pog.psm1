@@ -30,9 +30,12 @@ function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {
 	$null = New-Item -Path $DestinationPath -Value $Template
 }
 
+# TODO: support creating new versions of existing packages (either create a blank package, or copy latest version and modify the Version field);
+#  also support automatically retrieving the hash and patching the manifest; ideally, for templated packages in the default form
+#  (templated Version + Hash), dev should be able to just call `New-PogPackage 7zip 30.01` and get a finished package without any further tweaking
 Export function New-PogPackage {
 	[CmdletBinding()]
-	[OutputType([Pog.RepositoryPackage])]
+	[OutputType([Pog.LocalRepositoryPackage])]
 	param(
 			[Parameter(Mandatory)]
 			[Pog.Verify+PackageName()]
@@ -46,6 +49,10 @@ Export function New-PogPackage {
 	)
 
 	begin {
+		if ($REPOSITORY -isnot [Pog.LocalRepository]) {
+			throw "Creating new packages is only supported for local repositories, not remote."
+		}
+
 		$c = $REPOSITORY.GetPackage($PackageName, $true, $false)
 
 		if ($c.Exists) {
@@ -218,7 +225,7 @@ Export function Update-PogManifest {
 	# .SYNOPSIS
 	#	Generate new manifests in the package repository for the given package manifest generator.
 	[CmdletBinding()]
-	[OutputType([Pog.RepositoryPackage])]
+	[OutputType([Pog.LocalRepositoryPackage])]
 	param(
 			### Name of the manifest generator for which to generate new manifests.
 			[Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
@@ -240,6 +247,10 @@ Export function Update-PogManifest {
 	)
 
 	begin {
+		if ($REPOSITORY -isnot [Pog.LocalRepository]) {
+			throw "Generating new packages is only supported for local repositories, not remote."
+		}
+
 		if ($Version) {
 			if ($MyInvocation.ExpectingInput) {throw "-Version must not be passed together with pipeline input."}
 			if (-not $PackageName) {throw "-Version must not be passed without also passing -PackageName."}
