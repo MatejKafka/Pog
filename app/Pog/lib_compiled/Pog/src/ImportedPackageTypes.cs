@@ -121,8 +121,8 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     public string? ManifestName => Manifest.Name;
 
     public string Path {get;}
-    public string ManifestPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestRelPath);
-    public string ManifestResourceDirPath => IOPath.Combine(Path, PathConfig.PackagePaths.ManifestResourceRelPath);
+    public string ManifestPath => $"{Path}\\{PathConfig.PackagePaths.ManifestFileName}";
+    public string ManifestResourceDirPath => $"{Path}\\{PathConfig.PackagePaths.ManifestResourceDirName}";
 
     public override bool Exists => Directory.Exists(Path);
 

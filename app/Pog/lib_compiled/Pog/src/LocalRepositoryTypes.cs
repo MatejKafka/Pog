@@ -54,7 +54,7 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
     public bool IsTemplated => Directory.Exists(TemplateDirPath);
 
     public string TemplateDirPath => $"{Path}\\{PPaths.RepositoryTemplateDirName}";
-    internal string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestRelPath}";
+    internal string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestFileName}";
     protected override string ExpectedPathStr => $"expected path: {Path}";
 
     internal LocalRepositoryVersionedPackage(LocalRepository repository, string packageName) : base(packageName) {
@@ -141,8 +141,8 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
 [PublicAPI]
 public sealed class DirectLocalRepositoryPackage(LocalRepositoryVersionedPackage parent, PackageVersion version)
         : LocalRepositoryPackage(parent, version, $"{parent.Path}\\{version}") {
-    public override string ManifestPath => $"{Path}\\{PPaths.ManifestRelPath}";
-    protected override string ManifestResourceDirPath => $"{Path}\\{PPaths.ManifestResourceRelPath}";
+    public override string ManifestPath => $"{Path}\\{PPaths.ManifestFileName}";
+    protected override string ManifestResourceDirPath => $"{Path}\\{PPaths.ManifestResourceDirName}";
     public override bool Exists => Directory.Exists(Path);
 
     protected override void ImportManifestTo(string targetManifestPath) {
@@ -161,11 +161,11 @@ public sealed class DirectLocalRepositoryPackage(LocalRepositoryVersionedPackage
 public sealed class TemplatedLocalRepositoryPackage(LocalRepositoryVersionedPackage parent, PackageVersion version)
         : LocalRepositoryPackage(parent, version, $"{parent.Path}\\{version}.psd1") {
     public override string ManifestPath => Path;
-    protected override string ManifestResourceDirPath => $"{TemplateDirPath}\\{PPaths.ManifestResourceRelPath}";
+    protected override string ManifestResourceDirPath => $"{TemplateDirPath}\\{PPaths.ManifestResourceDirName}";
     public override bool Exists => File.Exists(Path) && Directory.Exists(TemplateDirPath);
 
     public string TemplateDirPath => ((LocalRepositoryVersionedPackage) Container).TemplateDirPath;
-    public string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestRelPath}";
+    public string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestFileName}";
 
     protected override void ImportManifestTo(string targetManifestPath) {
         // TODO: figure out how to avoid calling .Substitute twice when first validating, and then importing the package

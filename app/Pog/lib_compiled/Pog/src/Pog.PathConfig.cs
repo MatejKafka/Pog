@@ -36,8 +36,8 @@ public class PackageRootConfig {
 public class PathConfig {
     [PublicAPI]
     public static class PackagePaths {
-        public const string ManifestRelPath = "pog.psd1";
-        public const string ManifestResourceRelPath = ".pog";
+        public const string ManifestFileName = "pog.psd1";
+        public const string ManifestResourceDirName = ".pog";
         public const string RepositoryTemplateDirName = ".template";
 
         public const string ShortcutDirRelPath = ".";
