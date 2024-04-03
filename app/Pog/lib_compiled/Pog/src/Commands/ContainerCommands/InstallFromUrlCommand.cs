@@ -100,7 +100,7 @@ public class InstallFromUrlCommand : PogCmdlet {
             PackageInstallParametersArchive pa => pa.Target,
             _ => throw new UnreachableException(),
         };
-        var targetPath = target == null ? _newAppDirPath : FsUtils.JoinValidateSubdirectory(_newAppDirPath, target);
+        var targetPath = target == null ? _newAppDirPath : FsUtils.JoinValidateSubPath(_newAppDirPath, target);
 
         if (targetPath == null) {
             // the target path escapes from the app directory

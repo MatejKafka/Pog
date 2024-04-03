@@ -24,7 +24,6 @@ internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, Packag
     // (unfortunately, .NET does not give us access to the stored key inside the hashmap entry)
     private readonly Dictionary<string, (string, PackageVersion[])> _packageVersions =
             new(StringComparer.InvariantCultureIgnoreCase);
-    public readonly Stopwatch RetrievalAge = Stopwatch.StartNew();
 
     /// Assumes that <paramref name="packageJson"/> is pre-sorted, both in package names and in versions.
     public RemotePackageDictionary(JsonElement packageJson) {
@@ -197,35 +196,89 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
 
 public class InvalidRepositoryPackageArchiveException(string message) : Exception(message);
 
-// TODO: rewrite
 [PublicAPI]
 public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage parent, PackageVersion version)
         : RepositoryPackage(parent, version), IRemotePackage, IDisposable {
     public string Url {get; init;} = $"{parent.Url}{HttpUtility.UrlEncode(version.ToString())}.zip";
-    public override bool Exists => true; // TODO: ...
+    public override bool Exists => ManifestLoaded || ExistsInPackageList();
     private ZipArchive? _manifestArchive = null;
 
     public void Dispose() {
         _manifestArchive?.Dispose();
     }
 
+    private bool ExistsInPackageList() {
+        var repo = (RemoteRepository) ((RemoteRepositoryVersionedPackage) Container).Repository;
+        var versions = repo.Packages[PackageName];
+        return versions != null && Array.BinarySearch(versions, Version) >= 0;
+    }
+
     public override void ImportTo(ImportedPackage target) {
         // this also loads the archive
         EnsureManifestIsLoaded();
 
+        // remove any previous manifest
         target.RemoveManifest();
-        // TODO: first, validate that the archive only contains pog.psd1 and the .pog subdirectory
-        // TODO: handle exceptions
-        _manifestArchive!.ExtractToDirectory(target.Path);
+        // ensure target directory exists
+        Directory.CreateDirectory(target.Path);
+
+        ExtractManifestArchive(target);
 
         Debug.Assert(MatchesImportedManifest(target));
+    }
+
+    // TODO: this and MapArchivePathsToDirectory needs some fuzzing, I'm not exactly sure the code is correct in all edge cases
+    private void ExtractManifestArchive(ImportedPackage target) {
+        var manifestPath = target.ManifestPath;
+        var manifestResourceDirPath = target.ManifestResourceDirPath;
+
+        foreach (var entry in _manifestArchive!.Entries) {
+            var targetPath = FsUtils.JoinValidateSubPath(target.Path, entry.FullName);
+            if (targetPath == null || targetPath == target.Path) {
+                // either attempt at directory traversal, or the target is the root directory
+                throw new InvalidRepositoryPackageArchiveException(
+                        $"Invalid entry path in package manifest from '{Url}': {entry.FullName}");
+            }
+
+            var isDirectory = entry.FullName.EndsWith("/");
+            if (isDirectory) {
+                targetPath += "\\";
+            }
+
+            if (targetPath != manifestPath && FsUtils.EscapesDirectory(manifestResourceDirPath, targetPath)) {
+                throw new InvalidRepositoryPackageArchiveException(
+                        $"Invalid entry in package manifest from '{Url}', only the 'pog.psd1' manifest file " +
+                        $"and an optional '.pog' directory are allowed: {entry.FullName}");
+            }
+
+            if (targetPath == manifestPath && isDirectory) {
+                throw new InvalidRepositoryPackageArchiveException(
+                        $"Invalid entry in package manifest from '{Url}', 'pog.psd1' must be a file, not a directory");
+            }
+
+            if (targetPath == manifestResourceDirPath && !isDirectory) {
+                throw new InvalidRepositoryPackageArchiveException(
+                        $"Invalid entry in package manifest from '{Url}', '.pog' must be a directory, not a file");
+            }
+
+            // TODO: if there are duplicate entries in the archive, this will throw exceptions; distinguishing between
+            //       possible failure scenarios and throwing more semantic exceptions does not seem exactly trivial
+            if (isDirectory) {
+                // directory
+                Directory.CreateDirectory(targetPath);
+            } else {
+                // file
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                entry.ExtractToFile(targetPath);
+            }
+        }
     }
 
     private static Dictionary<string, ZipArchiveEntry?>? MapArchivePathsToDirectory(
             ZipArchive archive, string targetDirectoryPath) {
         var dict = new Dictionary<string, ZipArchiveEntry?>();
         foreach (var entry in archive.Entries) {
-            var targetPath = FsUtils.JoinValidateSubdirectory(targetDirectoryPath, entry.FullName);
+            var targetPath = FsUtils.JoinValidateSubPath(targetDirectoryPath, entry.FullName);
             if (targetPath == null) {
                 return null;
             }
@@ -289,6 +342,9 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
     }
 
     protected override PackageManifest LoadManifest() {
+        // dispose any previous archive instance
+        _manifestArchive?.Dispose();
+
         _manifestArchive = ((RemoteRepository) Container.Repository).RetrieveZipArchive(Url);
         if (_manifestArchive == null) {
             throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Url}'.");

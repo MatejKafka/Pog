@@ -320,14 +320,16 @@ public static class FsUtils {
 
     /// <remarks>Assumes that both paths are resolved and cleaned.</remarks>
     public static bool EscapesDirectory(string basePath, string validatedPath) {
-        return !validatedPath.StartsWith(basePath + '\\') && validatedPath != basePath;
+        var isSafe = validatedPath.StartsWith(basePath, StringComparison.InvariantCultureIgnoreCase) &&
+                     (validatedPath.Length == basePath.Length || validatedPath[basePath.Length] == '\\');
+        return !isSafe;
     }
 
-    /// If `subdirectoryPath` stays inside `basePath`, return the combined path, otherwise return null.
+    /// If <paramref name="childPath"/> stays inside <paramref name="basePath"/>, return the combined path, otherwise return null.
     /// Assumes that <paramref name="basePath"/> is resolved in canonical form.
     /// Use this function when resolving an untrusted relative path.
-    public static string? JoinValidateSubdirectory(string basePath, string subdirectoryPath) {
-        var combined = Path.GetFullPath(basePath + '\\' + subdirectoryPath.TrimEnd('/', '\\'));
+    public static string? JoinValidateSubPath(string basePath, string childPath) {
+        var combined = Path.GetFullPath(basePath + '\\' + childPath.TrimEnd('/', '\\'));
         if (EscapesDirectory(basePath, combined)) {
             return null;
         }
