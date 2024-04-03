@@ -18,6 +18,10 @@ using Pog.Utils;
 
 namespace Pog;
 
+/// <summary>Thrown when the JSON package version listing from the remote repository is not a valid JSON.</summary>
+public class RemoteRepositoryInvalidListingException(string message, Exception innerException)
+        : Exception(message, innerException);
+
 internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, PackageVersion[]>> {
     private readonly List<string> _packageNames = [];
     // also store the key as part of a value, so that we can resolve casing
@@ -26,16 +30,24 @@ internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, Packag
             new(StringComparer.InvariantCultureIgnoreCase);
 
     /// Assumes that <paramref name="packageJson"/> is pre-sorted, both in package names and in versions.
-    public RemotePackageDictionary(JsonElement packageJson) {
-        // TODO: error handling
-        foreach (var p in packageJson.EnumerateObject()) {
-            var versions = p.Value.EnumerateArray().Select(e => new PackageVersion(e.GetString()!)).ToArray();
-            _packageNames.Add(p.Name);
-            _packageVersions.Add(p.Name, (p.Name, versions));
+    public RemotePackageDictionary(JsonElement packageJson, string url) {
+        try {
+            foreach (var p in packageJson.EnumerateObject()) {
+                var versions = p.Value.EnumerateArray()
+                        .Select(e => new PackageVersion(e.GetString() ?? throw new InvalidDataException()))
+                        .ToArray();
+                _packageNames.Add(p.Name);
+                _packageVersions.Add(p.Name, (p.Name, versions));
 
-            Verify.Assert.PackageName(p.Name);
-            // check that versions were sorted on server
-            Debug.Assert(versions.SequenceEqual(versions.OrderByDescending(v => v)));
+                Verify.Assert.PackageName(p.Name);
+                // check that versions were sorted on server
+                Debug.Assert(versions.SequenceEqual(versions.OrderByDescending(v => v)));
+            }
+        } catch (InvalidDataException e) {
+            throw new RemoteRepositoryInvalidListingException(
+                    $"Remote repository at '{url}' is invalid, has incorrect structure of the package listing JSON file. " +
+                    $"This is likely the result of an incorrectly generated repository. Please, notify the maintainer of " +
+                    $"the repository.", e);
         }
 
         // check that package names were sorted on server
@@ -91,7 +103,7 @@ public sealed class RemoteRepository : IRepository, IDisposable {
 
         _packagesLazy = new(PackageCacheExpiration, () => {
             return new(RetrieveJson("") ??
-                       throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"));
+                       throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"), Url);
         });
     }
 
@@ -350,17 +362,28 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
             throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Url}'.");
         }
 
-        // TODO: handle exceptions
-        var manifestEntry = _manifestArchive.GetEntry("pog.psd1") ?? throw new InvalidRepositoryPackageArchiveException(
-                $"Repository package is missing a pog.psd1 manifest: {Url}");
+        ZipArchiveEntry manifestEntry;
+        try {
+            manifestEntry = _manifestArchive.GetEntry("pog.psd1") ?? throw new InvalidRepositoryPackageArchiveException(
+                    $"Repository package is missing a pog.psd1 manifest: {Url}");
+        } catch (InvalidDataException) {
+            // malformed archive
+            throw new InvalidRepositoryPackageArchiveException($"Repository package is corrupted: {Url}");
+        }
 
         var manifestStr = ReadArchiveEntryAsString(manifestEntry, Encoding.UTF8);
         return new PackageManifest(manifestStr, Url, this);
     }
 
     private string ReadArchiveEntryAsString(ZipArchiveEntry entry, Encoding encoding) {
-        using var stream = entry.Open();
-        using var reader = new StreamReader(stream, encoding);
-        return reader.ReadToEnd();
+        try {
+            using var stream = entry.Open();
+            using var reader = new StreamReader(stream, encoding);
+            return reader.ReadToEnd();
+        } catch (InvalidDataException) {
+            // malformed archive
+            throw new InvalidRepositoryPackageArchiveException(
+                    $"File '{entry.FullName}' in the repository package is corrupted: {Url}");
+        }
     }
 }
