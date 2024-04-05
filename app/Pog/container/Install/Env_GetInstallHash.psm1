@@ -19,6 +19,10 @@ Export function __main {
         Write-Host "Hash for the file at '$($HashInfo.Url)' (copied to clipboard):"
         Write-Host $HashInfo.Hash -ForegroundColor White
 
+        # we cannot use Set-Clipboard in the container in powershell.exe (it throws an exception that it needs STA for OLE)
+        # this ported class from pwsh has a workaround
+        [Pog.Native.Clipboard]::SetText($Hashes -join "`n")
+
         if ($Installer.ExpectedHash) {
             if ($Installer.ExpectedHash -eq $HashInfo.Hash) {
                 Write-Host "Matches the expected hash specified in the manifest." -ForegroundColor Green
@@ -27,10 +31,6 @@ Export function __main {
             }
         }
     }
-
-    # we cannot use Set-Clipboard in the container in powershell.exe (it throws an exception that it needs STA for OLE)
-    # this ported class from pwsh has a workaround
-    [Pog.Native.Clipboard]::SetText($Hashes -join "`n")
 }
 
 <# This function is called after __main finishes. #>

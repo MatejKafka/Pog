@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Diagnostics;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
@@ -91,14 +92,14 @@ public sealed class Container : IDisposable {
         var iss = CreateInitialSessionState();
         var runspace = host == null ? RunspaceFactory.CreateRunspace(iss) : RunspaceFactory.CreateRunspace(host, iss);
 
-        if (_package is ILocalPackage lp) {
+        if (_package is ImportedPackage ip) {
             // set the working directory
             // this is a hack, but unfortunately a necessary one: https://github.com/PowerShell/PowerShell/issues/17603
             // TODO: add a mutex here in case multiple containers are started in parallel
             var originalWorkingDirectory = Environment.CurrentDirectory;
             try {
                 // temporarily override the working directory
-                Environment.CurrentDirectory = lp.Path;
+                Environment.CurrentDirectory = ip.Path;
                 // run runspace init (module import, variable setup,...)
                 // the runspace keeps the changed working directory even after it's reverted back on the process level
                 runspace.Open();
@@ -106,7 +107,10 @@ public sealed class Container : IDisposable {
                 Environment.CurrentDirectory = originalWorkingDirectory;
             }
         } else {
-            // not a local package, do not change working directory
+            // not an imported package, do not change working directory
+
+            // only GetInstallHash container should be created for repository packages
+            Debug.Assert(_containerType == ContainerType.GetInstallHash);
 
             // run runspace init (module import, variable setup,...)
             runspace.Open();
