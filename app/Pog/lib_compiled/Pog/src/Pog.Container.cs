@@ -95,17 +95,11 @@ public sealed class Container : IDisposable {
         if (_package is ImportedPackage ip) {
             // set the working directory
             // this is a hack, but unfortunately a necessary one: https://github.com/PowerShell/PowerShell/issues/17603
-            // TODO: add a mutex here in case multiple containers are started in parallel
-            var originalWorkingDirectory = Environment.CurrentDirectory;
-            try {
-                // temporarily override the working directory
-                Environment.CurrentDirectory = ip.Path;
+            RunWithWorkingDir(ip.Path, () => {
                 // run runspace init (module import, variable setup,...)
                 // the runspace keeps the changed working directory even after it's reverted back on the process level
                 runspace.Open();
-            } finally {
-                Environment.CurrentDirectory = originalWorkingDirectory;
-            }
+            });
         } else {
             // not an imported package, do not change working directory
 
@@ -121,6 +115,23 @@ public sealed class Container : IDisposable {
         CopyPreferenceVariablesToRunspace(runspace, streamConfig);
 
         return runspace;
+    }
+
+    private static readonly object WorkingDirMonitor = new();
+
+    private static void RunWithWorkingDir(string workingDir, Action fn) {
+        // mutex, because only single thread at a time can safely change the directory
+        lock (WorkingDirMonitor) {
+            var originalWorkingDirectory = Environment.CurrentDirectory;
+            try {
+                // temporarily override the working directory
+                Environment.CurrentDirectory = workingDir;
+
+                fn();
+            } finally {
+                Environment.CurrentDirectory = originalWorkingDirectory;
+            }
+        }
     }
 
     private static void CopyPreferenceVariablesToRunspace(Runspace rs, OutputStreamConfig streamConfig) {
