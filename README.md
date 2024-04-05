@@ -12,6 +12,14 @@ Pog is an in-development package manager for Windows, written for PowerShell Cor
 
 ## Installation
 
+Run the following snippet in PowerShell:
+
+```powershell
+iex (iwr pog.matejkafka.com/install.ps1)
+```
+
+Alternatively, you can manually install Pog by following these steps:
+
 1. Ensure you have enabled developer mode. Pog currently needs it for symbolic links (hopefully I can get rid of that in a future release).
 2. Download the latest release from [the release page](https://github.com/MatejKafka/Pog/releases/).
 3. Download and unpack the archive to your preferred directory for portable applications.
