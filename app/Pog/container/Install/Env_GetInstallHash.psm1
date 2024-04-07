@@ -13,18 +13,19 @@ Export function __main {
         }
         $First = $false
 
-        $HashInfo = Get-UrlHash $Installer.ResolveUrl() -UserAgent $Installer.UserAgent
-        $Hashes += $HashInfo.Hash
+        $Url = $Installer.ResolveUrl()
+        $Hash = Get-CachedUrlHash $Url -UserAgent $Installer.UserAgent
+        $Hashes += $Hash
 
-        Write-Host "Hash for the file at '$($HashInfo.Url)' (copied to clipboard):"
-        Write-Host $HashInfo.Hash -ForegroundColor White
+        Write-Host "Hash for the file at '$Url' (copied to clipboard):"
+        Write-Host $Hash -ForegroundColor White
 
         # we cannot use Set-Clipboard in the container in powershell.exe (it throws an exception that it needs STA for OLE)
         # this ported class from pwsh has a workaround
         [Pog.Native.Clipboard]::SetText($Hashes -join "`n")
 
         if ($Installer.ExpectedHash) {
-            if ($Installer.ExpectedHash -eq $HashInfo.Hash) {
+            if ($Installer.ExpectedHash -eq $Hash) {
                 Write-Host "Matches the expected hash specified in the manifest." -ForegroundColor Green
             } else {
                 throw "The retrieved hash does not match the expected hash specified in the manifest (expected: '$($Installer.ExpectedHash)')."

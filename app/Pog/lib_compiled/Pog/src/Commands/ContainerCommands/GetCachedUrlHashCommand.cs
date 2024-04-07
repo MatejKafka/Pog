@@ -5,12 +5,13 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 
+/// <summary>
+/// <para type="synopsis">Retrieves a file from the passed URL and calculates the SHA-256 hash, storing the file in the download cache.</para>
+/// </summary>
 [PublicAPI]
-public record UrlHashInfo(GetFileHash7Zip.HashAlgorithm Algorithm, string Hash, string Url);
-
-[PublicAPI]
-[Cmdlet(VerbsCommon.Get, "UrlHash")]
-public class GetUrlHashCommand : PogCmdlet {
+[Cmdlet(VerbsCommon.Get, "CachedUrlHash")]
+[OutputType(typeof(string))]
+public class GetCachedUrlHashCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true)]
     public string[] SourceUrl = null!;
 
@@ -47,7 +48,7 @@ public class GetUrlHashCommand : PogCmdlet {
             // we don't need the lock, we're only interested in the hash
             cacheLock.Unlock();
 
-            WriteObject(new UrlHashInfo(default, cacheLock.EntryKey, url));
+            WriteObject(cacheLock.EntryKey);
         }
     }
 }
