@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using JetBrains.Annotations;
 
 namespace Pog;
@@ -33,8 +34,8 @@ public static class InternalState {
         return Path.GetFullPath(Path.Combine(pogModuleDir, @"..\..")); // app/Pog/lib_compiled
     }
 
-    /// Debug method, used for testing.
-    [UsedImplicitly]
+    /// Debug method, used for testing. Not thread-safe.
+    [PublicAPI]
     public static bool InitDataRoot(string dataRootDirPath) {
         if (_pathConfig == null) {
             _pathConfig = new PathConfig(GetRootDirPath(), dataRootDirPath);
@@ -43,8 +44,8 @@ public static class InternalState {
         return false;
     }
 
-    /// Debug method, used for testing.
-    [UsedImplicitly]
+    /// Debug method, used for testing. Not thread-safe.
+    [PublicAPI]
     public static bool InitRepository(Func<IRepository> repositoryGenerator) {
         if (_repository == null) {
             _repository = repositoryGenerator();
@@ -54,23 +55,27 @@ public static class InternalState {
     }
 
     private static PathConfig? _pathConfig;
-    public static PathConfig PathConfig => _pathConfig ??= new PathConfig(GetRootDirPath());
+    public static PathConfig PathConfig => LazyInitializer.EnsureInitialized(ref _pathConfig,
+            () => new PathConfig(GetRootDirPath()))!;
 
     private static IRepository? _repository;
-    public static IRepository Repository => _repository ??= new LocalRepository(PathConfig.ManifestRepositoryDir);
+    public static IRepository Repository => LazyInitializer.EnsureInitialized(ref _repository,
+            () => new LocalRepository(PathConfig.ManifestRepositoryDir))!;
 
     private static GeneratorRepository? _generatorRepository;
-    public static GeneratorRepository GeneratorRepository =>
-            _generatorRepository ??= new GeneratorRepository(PathConfig.ManifestGeneratorDir);
+    public static GeneratorRepository GeneratorRepository => LazyInitializer.EnsureInitialized(ref _generatorRepository,
+            () => new GeneratorRepository(PathConfig.ManifestGeneratorDir))!;
 
     private static ImportedPackageManager? _importedPackageManager;
-    public static ImportedPackageManager ImportedPackageManager =>
-            _importedPackageManager ??= new ImportedPackageManager(PathConfig.PackageRoots);
+    public static ImportedPackageManager ImportedPackageManager => LazyInitializer.EnsureInitialized(
+            ref _importedPackageManager,
+            () => new ImportedPackageManager(PathConfig.PackageRoots))!;
 
     private static TmpDirectory? _tmpDownloadDirectory;
-    public static TmpDirectory TmpDownloadDirectory => _tmpDownloadDirectory ??= new TmpDirectory(PathConfig.DownloadTmpDir);
+    public static TmpDirectory TmpDownloadDirectory => LazyInitializer.EnsureInitialized(ref _tmpDownloadDirectory,
+            () => new TmpDirectory(PathConfig.DownloadTmpDir))!;
 
     private static SharedFileCache? _downloadCache;
-    public static SharedFileCache DownloadCache =>
-            _downloadCache ??= new SharedFileCache(PathConfig.DownloadCacheDir, TmpDownloadDirectory);
+    public static SharedFileCache DownloadCache => LazyInitializer.EnsureInitialized(ref _downloadCache,
+            () => new SharedFileCache(PathConfig.DownloadCacheDir, TmpDownloadDirectory))!;
 }
