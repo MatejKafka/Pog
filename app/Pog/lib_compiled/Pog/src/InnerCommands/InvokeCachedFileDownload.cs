@@ -7,16 +7,19 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 
-public record DownloadParameters(DownloadParameters.UserAgentType UserAgent = default, bool LowPriorityDownload = false) {
-    public enum UserAgentType {
-        // PowerShell is `default(T)`
-        PowerShell = 0, Browser, Wget,
-    }
+public record DownloadParameters(UserAgentType UserAgent = default, bool LowPriorityDownload = false);
 
-    internal string? GetUserAgentHeaderString() {
-        return UserAgent switch {
-            UserAgentType.PowerShell => null,
-            UserAgentType.Browser => "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0",
+public enum UserAgentType {
+    // PowerShell is `default(T)`
+    PowerShell = 0, Browser, Wget,
+}
+
+public static class UserAgentTypeExtensions {
+    public static string GetHeaderString(this UserAgentType userAgent) {
+        // explicitly specify fixed User-Agent strings; that way, we can freely switch implementations without breaking compatibility
+        return userAgent switch {
+            UserAgentType.PowerShell => "Mozilla/5.0 (Windows NT 10.0; Win64; x64; en-US) PowerShell/5.1.0",
+            UserAgentType.Browser => "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
             UserAgentType.Wget => "Wget/1.20.3 (linux-gnu)",
             _ => throw new ArgumentOutOfRangeException(),
         };

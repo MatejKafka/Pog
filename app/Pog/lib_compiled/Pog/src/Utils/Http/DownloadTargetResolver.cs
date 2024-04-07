@@ -11,11 +11,9 @@ internal static class DownloadTargetResolver {
     /// Resolves the passed URI and returns the final URI and Content-Disposition header after redirects.
     /// <exception cref="HttpRequestException"></exception>
     public static async Task<DownloadTarget> ResolveAsync(CancellationToken token, Uri originalUri,
-            DownloadParameters downloadParameters, bool useGetMethod = false) {
+            UserAgentType userAgent, bool useGetMethod = false) {
         using var request = new HttpRequestMessage(useGetMethod ? HttpMethod.Get : HttpMethod.Head, originalUri);
-        if (downloadParameters.GetUserAgentHeaderString() is {} userAgentStr) {
-            request.Headers.Add("User-Agent", userAgentStr);
-        }
+        request.Headers.Add("User-Agent", userAgent.GetHeaderString());
 
         var completion = useGetMethod ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
         // disposing the response resets the connection, refusing the body of the request
@@ -27,7 +25,7 @@ internal static class DownloadTargetResolver {
         } else {
             // if HEAD requests got an error, retry with the GET method to check if it's
             //  an actual issue or the server is just dumb and blocks HEAD requests
-            return await ResolveAsync(token, originalUri, downloadParameters, true).ConfigureAwait(false);
+            return await ResolveAsync(token, originalUri, userAgent, true).ConfigureAwait(false);
         }
     }
 

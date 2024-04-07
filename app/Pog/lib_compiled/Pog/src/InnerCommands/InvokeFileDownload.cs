@@ -71,7 +71,7 @@ internal sealed class InvokeFileDownload : ScalarCommand<string>, IDisposable {
             //  to resolve the final filename
         } else {
             // run the resolver in parallel to the download
-            resolverTask = DownloadTargetResolver.ResolveAsync(_stopping.Token, parsedUrl, DownloadParameters);
+            resolverTask = DownloadTargetResolver.ResolveAsync(_stopping.Token, parsedUrl, DownloadParameters.UserAgent);
         }
 
         ProgressActivity.Activity ??= "BITS Transfer";
@@ -89,10 +89,9 @@ internal sealed class InvokeFileDownload : ScalarCommand<string>, IDisposable {
             {"Priority", DownloadParameters.LowPriorityDownload ? "Low" : "Foreground"},
         };
 
-        if (DownloadParameters.GetUserAgentHeaderString() is {} userAgentStr) {
-            WriteDebug($"Using a spoofed user agent: {userAgentStr}");
-            bitsParams["CustomHeaders"] = "User-Agent: " + userAgentStr;
-        }
+        var userAgentStr = DownloadParameters.UserAgent.GetHeaderString();
+        WriteDebug($"Using a spoofed user agent: {userAgentStr}");
+        bitsParams["CustomHeaders"] = "User-Agent: " + userAgentStr;
 
         // invoke BITS; it's possible to invoke it directly using the .NET API, but that seems overly complex for now
         StartBitsTransferSb.InvokeReturnAsIs(bitsParams);

@@ -16,7 +16,7 @@ public class GetCachedUrlHashCommand : PogCmdlet {
     public string[] SourceUrl = null!;
 
     [Parameter(ValueFromPipeline = true)]
-    public DownloadParameters.UserAgentType UserAgent = default;
+    public UserAgentType UserAgent = default;
 
     private Package _package = null!;
     private bool _lowPriorityDownload;

@@ -202,11 +202,12 @@ public record PackageManifest {
         expectedHash = expectedHash?.ToUpperInvariant();
 
         var userAgentStr = parser.ParseScalar<string>("UserAgent", false);
-        DownloadParameters.UserAgentType userAgent;
+        UserAgentType userAgent;
         if (userAgentStr == null) {
             userAgent = default;
-        } else if (!_userAgentMap.TryGetValue(userAgentStr, out userAgent)) {
-            parser.AddValidityIssue("UserAgent", userAgentStr, $"supported values: {string.Join(", ", _userAgentMap.Keys)}");
+        } else if (!Enum.TryParse(userAgentStr, true, out userAgent)) {
+            parser.AddValidityIssue("UserAgent", userAgentStr,
+                    $"supported values: {string.Join(", ", Enum.GetNames(typeof(UserAgentType)))}");
         }
 
         var target = parser.ParseScalar<string>("Target", noArchive);
@@ -247,13 +248,6 @@ public record PackageManifest {
 
         return parser.HasIssues ? null : parsed;
     }
-
-    private static Dictionary<string, DownloadParameters.UserAgentType> _userAgentMap =
-            new(StringComparer.InvariantCultureIgnoreCase) {
-                {"Browser", DownloadParameters.UserAgentType.Browser},
-                {"Wget", DownloadParameters.UserAgentType.Wget},
-                {"PowerShell", DownloadParameters.UserAgentType.PowerShell},
-            };
 }
 
 public abstract record PackageInstallParameters {
@@ -263,10 +257,10 @@ public abstract record PackageInstallParameters {
     /// SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but a warning is printed.
     public string? ExpectedHash;
 
-    /// Some servers (e.g. Apache Lounge) dislike the PowerShell/BITS user agent string.
+    /// Some servers (e.g. Apache Lounge) dislike the default PowerShell user agent string.
     /// Set this to `Browser` to use a browser user agent string (currently Firefox).
     /// Set this to `Wget` to use wget user agent string.
-    public DownloadParameters.UserAgentType UserAgent;
+    public UserAgentType UserAgent;
 
     /// <summary>
     /// If <see cref="SourceUrl"/> is a ScriptBlock, this method invokes it and returns the resulting URL,
