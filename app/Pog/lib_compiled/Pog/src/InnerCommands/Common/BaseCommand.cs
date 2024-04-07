@@ -13,12 +13,8 @@ namespace Pog.InnerCommands.Common;
 /// <remarks>
 /// Note that if a subclass of this invokes `ThrowTerminatingError`, it terminates the calling cmdlet immediately.
 /// </remarks>
-public abstract class BaseCommand {
-    protected readonly PogCmdlet Cmdlet;
-
-    protected BaseCommand(PogCmdlet cmdlet) {
-        Cmdlet = cmdlet;
-    }
+public abstract class BaseCommand(PogCmdlet cmdlet) {
+    protected readonly PogCmdlet Cmdlet = cmdlet;
 
     // forward calls to the cmdlet
     protected void InvokePogCommand(VoidCommand cmd) => Cmdlet.InvokePogCommand(cmd);

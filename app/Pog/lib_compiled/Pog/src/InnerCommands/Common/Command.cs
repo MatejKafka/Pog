@@ -2,17 +2,14 @@
 
 namespace Pog.InnerCommands.Common;
 
-public abstract class VoidCommand : BaseCommand {
-    protected VoidCommand(PogCmdlet cmdlet) : base(cmdlet) {}
+public abstract class VoidCommand(PogCmdlet cmdlet) : BaseCommand(cmdlet) {
     public abstract void Invoke();
 }
 
-public abstract class ScalarCommand<T> : BaseCommand {
-    protected ScalarCommand(PogCmdlet cmdlet) : base(cmdlet) {}
+public abstract class ScalarCommand<T>(PogCmdlet cmdlet) : BaseCommand(cmdlet) {
     public abstract T Invoke();
 }
 
-public abstract class EnumerableCommand<T> : BaseCommand {
-    protected EnumerableCommand(PogCmdlet cmdlet) : base(cmdlet) {}
+public abstract class EnumerableCommand<T>(PogCmdlet cmdlet) : BaseCommand(cmdlet) {
     public abstract IEnumerable<T> Invoke();
 }

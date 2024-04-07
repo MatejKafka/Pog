@@ -11,15 +11,13 @@ using Pog.Utils.Http;
 
 namespace Pog.InnerCommands;
 
-internal sealed class InvokeFileDownload : ScalarCommand<string>, IDisposable {
+internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet), IDisposable {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string DestinationDirPath = null!;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
 
     private readonly CancellationTokenSource _stopping = new();
-
-    public InvokeFileDownload(PogCmdlet cmdlet) : base(cmdlet) {}
 
     public void Dispose() {
         _stopping.Dispose();

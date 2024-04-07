@@ -10,7 +10,7 @@ namespace Pog.InnerCommands;
 
 public class Failed7ZipHashCalculationException(string message) : Exception(message);
 
-public sealed class GetFileHash7Zip : ScalarCommand<string>, IDisposable {
+public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet), IDisposable {
     [Parameter(Mandatory = true)] public string Path = null!;
     [Parameter] public HashAlgorithm Algorithm = default;
 
@@ -31,8 +31,6 @@ public sealed class GetFileHash7Zip : ScalarCommand<string>, IDisposable {
     // 7z.exe hash print pattern
     // e.g. '466d43edd41763e4c9f03e6ac79fe9bea1ad6e5afa32779884ae50216aa22ae4    1067143478  CLion-2022.2.4.win.zip'
     private static readonly Regex HashPrintRegex = new(@"^([0-9a-fA-F]+)    .*$");
-
-    public GetFileHash7Zip(PogCmdlet cmdlet) : base(cmdlet) {}
 
     private static string QuoteArgument(string arg) {
         return "\"" + arg.Replace("\"", "\\\"") + "\"";

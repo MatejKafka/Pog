@@ -12,7 +12,7 @@ using Pog.Native;
 
 namespace Pog.InnerCommands;
 
-public sealed class ExpandArchive7Zip : VoidCommand, IDisposable {
+public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposable {
     [Parameter(Mandatory = true)] public string ArchivePath = null!;
     [Parameter(Mandatory = true)] public string TargetPath = null!;
     [Parameter] public string? RawTargetPath;
@@ -31,8 +31,6 @@ public sealed class ExpandArchive7Zip : VoidCommand, IDisposable {
     // 7z.exe progress print pattern
     // e.g. ' 34% 10 - glib-2.dll'
     private static readonly Regex ProgressPrintRegex = new(@"^\s*(\d{1,3})%\s+\S+.*$", RegexOptions.Compiled);
-
-    public ExpandArchive7Zip(PogCmdlet cmdlet) : base(cmdlet) {}
 
     public override void Invoke() {
         RawTargetPath ??= TargetPath;

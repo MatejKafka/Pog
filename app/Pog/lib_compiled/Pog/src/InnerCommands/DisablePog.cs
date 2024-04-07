@@ -6,10 +6,8 @@ using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public class DisablePog : VoidCommand {
+public class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
     [Parameter(Mandatory = true)] public ImportedPackage Package = null!;
-
-    public DisablePog(PogCmdlet cmdlet) : base(cmdlet) {}
 
     public override void Invoke() {
         Debug.Assert(Package.ManifestLoaded);
