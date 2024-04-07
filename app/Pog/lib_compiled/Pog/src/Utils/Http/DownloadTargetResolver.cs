@@ -22,10 +22,13 @@ internal static class DownloadTargetResolver {
         if (response.IsSuccessStatusCode) {
             return new DownloadTarget(!useGetMethod, response.RequestMessage.RequestUri,
                     response.Content.Headers.ContentDisposition);
-        } else {
+        } else if (!useGetMethod) {
             // if HEAD requests got an error, retry with the GET method to check if it's
             //  an actual issue or the server is just dumb and blocks HEAD requests
             return await ResolveAsync(token, originalUri, userAgent, true).ConfigureAwait(false);
+        } else {
+            throw new HttpRequestException(
+                    $"Resolution of download file name for '{originalUri}' failed: {response.StatusCode} {response.ReasonPhrase}");
         }
     }
 
