@@ -123,6 +123,7 @@ public class InstallFromUrlCommand : PogCmdlet {
             ExpectedHash = Params.ExpectedHash,
             DownloadParameters = downloadParameters,
             Package = _package,
+            ProgressActivity = new() {Activity = $"Installing '{_package.PackageName}'"},
         });
 
         switch (Params) {

@@ -60,10 +60,10 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
         // TODO: hold a handle to the tmp directory during download, so that another process can safely delete stale entries
         //  (typically after a crash) without accidentally deleting a live entry
         var downloadDirPath = InternalState.TmpDownloadDirectory.GetTemporaryPath();
-        Directory.CreateDirectory(downloadDirPath);
         WriteDebug($"Using temporary directory '{downloadDirPath}'.");
+
+        Directory.CreateDirectory(downloadDirPath);
         try {
-            ProgressActivity.Activity ??= $"Installing '{Package.PackageName}'";
             var downloadedFilePath = InvokePogCommand(new InvokeFileDownload(Cmdlet) {
                 SourceUrl = SourceUrl,
                 DownloadParameters = DownloadParameters,
