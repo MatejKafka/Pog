@@ -19,7 +19,7 @@ internal static class DownloadTargetResolver {
 
         var completion = useGetMethod ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
         // disposing the response resets the connection, refusing the body of the request
-        using var response = await InternalState.HttpClient.SendAsync(request, completion, token);
+        using var response = await InternalState.HttpClient.SendAsync(request, completion, token).ConfigureAwait(false);
 
         if (response.IsSuccessStatusCode) {
             return new DownloadTarget(!useGetMethod, response.RequestMessage.RequestUri,
@@ -27,7 +27,7 @@ internal static class DownloadTargetResolver {
         } else {
             // if HEAD requests got an error, retry with the GET method to check if it's
             //  an actual issue or the server is just dumb and blocks HEAD requests
-            return await ResolveAsync(token, originalUri, downloadParameters, true);
+            return await ResolveAsync(token, originalUri, downloadParameters, true).ConfigureAwait(false);
         }
     }
 
