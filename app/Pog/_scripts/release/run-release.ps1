@@ -1,6 +1,9 @@
 <# Runs selected Pog release inside a clean Windows Sandbox instance. #>
 param([Parameter(Mandatory)][string]$Version, [Parameter(DontShow)][switch]$_InSandbox)
 
+# it would be nicer to run Pog under a non-admin (the default account in Sandbox is an admin), but we cannot interactively
+#  log into another account, and BITS will error out when launched from a non-interactive session; sigh
+
 if ($_InSandbox) {
     # enable developer mode
     reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"

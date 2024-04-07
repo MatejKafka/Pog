@@ -11,6 +11,9 @@ namespace Pog;
 //  it is quite complex to do it in a robust way that supports simultaneous changes from multiple instances of Pog,
 //  and even harder to make it performant; the provided package roots should always reflect current state of the
 //  config file (so for caching, we'll need a file watcher thread to update the cache)
+//
+// TODO: think through whether it would be a good idea to support relative paths in the package root file
+//  if yes, which directory should they be relative from?
 [PublicAPI]
 public class PackageRootConfig {
     public readonly string PackageRootFile;

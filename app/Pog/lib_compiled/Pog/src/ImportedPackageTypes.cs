@@ -13,14 +13,10 @@ public class ImportedPackageNotFoundException(string message) : PackageNotFoundE
 public class InvalidPackageRootException(string message) : ArgumentException(message);
 
 [PublicAPI]
-public class ImportedPackageManager {
-    public readonly PackageRootConfig PackageRoots;
+public class ImportedPackageManager(PackageRootConfig packageRootConfig) {
+    public readonly PackageRootConfig PackageRoots = packageRootConfig;
 
     public string DefaultPackageRoot => PackageRoots.ValidPackageRoots[0];
-
-    public ImportedPackageManager(PackageRootConfig packageRootConfig) {
-        PackageRoots = packageRootConfig;
-    }
 
     // FIXME: we should resolve the package root path to the correct casing
     public string ResolveValidPackageRoot(string path) {
