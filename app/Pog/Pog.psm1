@@ -152,6 +152,8 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version,  [switch]
 	$g = try {$GENERATOR_REPOSITORY.GetPackage($PackageName, $true, $true)}
 		catch [Pog.PackageGeneratorNotFoundException] {throw $_}
 
+	$null = $g.ReloadManifest()
+
 	$c = try {$REPOSITORY.GetPackage($PackageName, $true, $true)}
 		catch [Pog.RepositoryPackageNotFoundException] {throw $_}
 
