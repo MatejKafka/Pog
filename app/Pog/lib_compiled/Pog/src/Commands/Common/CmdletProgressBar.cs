@@ -13,8 +13,7 @@ public sealed class CmdletProgressBar : IDisposable {
 
     public CmdletProgressBar(Action<ProgressRecord> writeProgressFn, ProgressActivity metadata) {
         _writeProgressFn = writeProgressFn;
-        _progressRecord = new ProgressRecord(metadata.Id ?? _nextActivityId++, metadata.Activity,
-                metadata.Description);
+        _progressRecord = new ProgressRecord(metadata.Id ?? _nextActivityId++, metadata.Activity, metadata.Description);
         _writeProgressFn(_progressRecord);
     }
 
@@ -35,5 +34,5 @@ public sealed class CmdletProgressBar : IDisposable {
         _writeProgressFn(_progressRecord);
     }
 
-    public record struct ProgressActivity(int? Id = null, string? Activity = null, string? Description = null);
+    public record struct ProgressActivity(string? Activity = null, string? Description = null, int? Id = null);
 }

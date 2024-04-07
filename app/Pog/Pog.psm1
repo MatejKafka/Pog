@@ -222,6 +222,7 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version,  [switch]
 #  run both scriptblocks in the same container instance
 #  think what utility cmdlets can Pog reasonably provide and which is best left to existing tools like iwr/import
 #    likely provide cmdlets to work with github (listing releases, using regex to select asset URL) and calculate hash (Show-PogManifestHash)
+#  add Get-UrlHash in the container env
 # FIXME: if -Force is passed, track if there are any leftover manifests (for removed versions) and delete them
 Export function Update-PogManifest {
 	# .SYNOPSIS
