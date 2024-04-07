@@ -8,8 +8,6 @@ using Pog.InnerCommands;
 namespace Pog.Utils.Http;
 
 internal static class DownloadTargetResolver {
-    private static readonly Lazy<HttpClient> Client = new();
-
     /// Resolves the passed URI and returns the final URI and Content-Disposition header after redirects.
     /// <exception cref="HttpRequestException"></exception>
     public static async Task<DownloadTarget> ResolveAsync(CancellationToken token, Uri originalUri,
@@ -21,7 +19,7 @@ internal static class DownloadTargetResolver {
 
         var completion = useGetMethod ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
         // disposing the response resets the connection, refusing the body of the request
-        using var response = await Client.Value.SendAsync(request, completion, token);
+        using var response = await InternalState.HttpClient.SendAsync(request, completion, token);
 
         if (response.IsSuccessStatusCode) {
             return new DownloadTarget(!useGetMethod, response.RequestMessage.RequestUri,

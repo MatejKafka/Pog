@@ -70,9 +70,7 @@ internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, Packag
 }
 
 [PublicAPI]
-public sealed class RemoteRepository : IRepository, IDisposable {
-    private readonly HttpClient _client = new();
-
+public sealed class RemoteRepository : IRepository {
     private readonly TimedLazy<RemotePackageDictionary> _packagesLazy;
     internal RemotePackageDictionary Packages => _packagesLazy.Value;
 
@@ -82,7 +80,7 @@ public sealed class RemoteRepository : IRepository, IDisposable {
     //  in a script)
     private static readonly TimeSpan PackageCacheExpiration = TimeSpan.FromMinutes(10);
 
-    public string Url => _client.BaseAddress.AbsoluteUri;
+    public readonly string Url;
     public bool Exists {
         get {
             try {
@@ -98,17 +96,12 @@ public sealed class RemoteRepository : IRepository, IDisposable {
         if (!repositoryBaseUrl.EndsWith("/")) {
             repositoryBaseUrl += "/";
         }
-        var url = new Uri(repositoryBaseUrl);
-        _client.BaseAddress = url;
+        Url = new Uri(repositoryBaseUrl).ToString();
 
         _packagesLazy = new(PackageCacheExpiration, () => {
-            return new(RetrieveJson("") ??
+            return new(RetrieveJson(Url) ??
                        throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"), Url);
         });
-    }
-
-    public void Dispose() {
-        _client.Dispose();
     }
 
     public IEnumerable<string> EnumeratePackageNames(string searchPattern = "*") {
@@ -144,7 +137,7 @@ public sealed class RemoteRepository : IRepository, IDisposable {
 
     private async Task<HttpResponseMessage?> RetrieveAsync(string url) {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        var response = await _client.SendAsync(request);
+        var response = await InternalState.HttpClient.SendAsync(request);
 
         // don't like having to manually dispose, but don't see any better way
         if (response.StatusCode == HttpStatusCode.NotFound) {

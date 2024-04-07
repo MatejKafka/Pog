@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using JetBrains.Annotations;
@@ -78,4 +79,9 @@ public static class InternalState {
     private static SharedFileCache? _downloadCache;
     public static SharedFileCache DownloadCache => LazyInitializer.EnsureInitialized(ref _downloadCache,
             () => new SharedFileCache(PathConfig.DownloadCacheDir, TmpDownloadDirectory))!;
+
+    private static HttpClient? _httpClient;
+    /// Shared HttpClient singleton instance, used by all other classes.
+    internal static HttpClient HttpClient => LazyInitializer.EnsureInitialized(ref _httpClient,
+            () => new HttpClient(new HttpClientHandler {UseCookies = false}))!;
 }
