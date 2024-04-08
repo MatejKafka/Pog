@@ -65,6 +65,8 @@ public class PathConfig {
         internal const string TmpDeleteDirName = ".POG_INTERNAL_delete_tmp";
     }
 
+    public const string DefaultRemoteRepositoryUrl = "https://matejkafka.github.io/PogPackages/";
+
     /// Directory where exported shortcuts from packages are copied (system-wide).
     public static readonly string StartMenuSystemExportDir =
             Path.Combine(GetFolderPath(SpecialFolder.CommonStartMenu), "Pog");
@@ -77,7 +79,6 @@ public class PathConfig {
     public readonly string VcRedistDir;
 
     public readonly string ExportedCommandDir;
-    public readonly string ManifestRepositoryDir;
     public readonly string ManifestGeneratorDir;
 
     /// Directory where package files with known hash are cached.
@@ -110,7 +111,6 @@ public class PathConfig {
         VcRedistDir = $"{CompiledLibDir}\\vc_redist";
 
         ExportedCommandDir = $"{dataRootDirPath}\\package_bin";
-        ManifestRepositoryDir = $"{dataRootDirPath}\\manifests";
         ManifestGeneratorDir = $"{dataRootDirPath}\\manifest_generators";
 
         DownloadCacheDir = $"{cacheRootDirPath}\\download_cache";

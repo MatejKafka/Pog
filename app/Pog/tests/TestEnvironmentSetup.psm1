@@ -66,5 +66,10 @@ Export function SetupNewPogTestDir {
         throw "TEST SETUP ERROR: Pog data root already configured"
     }
 
+    # use local repository
+    if (-not [Pog.InternalState]::InitRepository({[Pog.LocalRepository]::new("$TestDir\data\manifests")})) {
+        throw "TEST SETUP ERROR: Pog data root already configured"
+    }
+
     return $TestDir
 }

@@ -48,8 +48,6 @@ Write-Host "Setting up all directories required by Pog..."
 
 newdir "./data"
 newdir "./cache"
-# local manifest repository
-# ./data/manifests is created below
 newdir "./data/manifest_generators"
 # directory where commands are exported; is added to PATH
 newdir "./data/package_bin"
@@ -63,6 +61,8 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
     Write-Host "Registering a Pog package root at '$DefaultContentRoot'..."
     Set-Content $ROOT_FILE_PATH -Value $DefaultContentRoot
 }
+
+Write-Host ""
 
 # ====================================================================================
 # now, we should be ready to import Pog
@@ -89,37 +89,6 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
         return
     }
 }
-
-Write-Host ""
-
-
-# we download the package repository after enabling 7zip to be able to use it for extraction
-# TODO: when a more comprehensive support for remote repository is implemented, update this
-$MANIFEST_REPO_PATH = Resolve-VirtualPath "$PSScriptRoot/data/manifests"
-if (-not (Test-Path $MANIFEST_REPO_PATH)) {
-    # manifest repository is not initialized, download it
-    Write-Host "Downloading package manifests from 'https://github.com/MatejKafka/PogPackages'..."
-    if (Get-Command git -ErrorAction Ignore) {
-        Write-Host "Cloning using git..."
-        git clone https://github.com/MatejKafka/PogPackages $MANIFEST_REPO_PATH --depth 1 --quiet
-    } else {
-        $TmpDir = "${env:TEMP}\PogPackages-$(New-Guid)"
-        $ExtractedPath = "$TmpDir\PogPackages"
-        try {
-            # use internal functions for download and extraction
-            Import-Module $PSScriptRoot\app\Pog\lib_compiled\Pog.dll
-
-            $ArchivePath = Invoke-FileDownload "https://github.com/MatejKafka/PogPackages/archive/refs/heads/main.zip" $TmpDir
-            # Expand-Archive in powershell.exe is incredibly slow for small files, so we use 7zip
-            Expand-Archive7Zip $ArchivePath $ExtractedPath
-            Move-Item $ExtractedPath\* $MANIFEST_REPO_PATH -Force
-        } finally {
-            Remove-Item $TmpDir -Recurse -Force -ErrorAction Ignore
-        }
-    }
-    Write-Host "Downloaded '$(@(ls -Directory $MANIFEST_REPO_PATH).Count)' package manifests."
-}
-
 
 if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
     try {

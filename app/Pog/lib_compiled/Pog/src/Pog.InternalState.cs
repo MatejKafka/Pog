@@ -45,7 +45,7 @@ public static class InternalState {
         return false;
     }
 
-    /// Debug method, used for testing. Not thread-safe.
+    /// Configure the package repository used to retrieve package manifests. Not thread-safe.
     [PublicAPI]
     public static bool InitRepository(Func<IRepository> repositoryGenerator) {
         if (_repository == null) {
@@ -61,7 +61,7 @@ public static class InternalState {
 
     private static IRepository? _repository;
     public static IRepository Repository => LazyInitializer.EnsureInitialized(ref _repository,
-            () => new LocalRepository(PathConfig.ManifestRepositoryDir))!;
+            () => new RemoteRepository(PathConfig.DefaultRemoteRepositoryUrl))!;
 
     private static GeneratorRepository? _generatorRepository;
     public static GeneratorRepository GeneratorRepository => LazyInitializer.EnsureInitialized(ref _generatorRepository,

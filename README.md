@@ -45,16 +45,6 @@ Get-PogPackage # list installed packages
 Get-PogRepositoryPackage # list available packages
 ```
 
-Update package list (apologies, there's no automatic way to do this for now):
-
-```powershell
-cd "directory\where\pog\is\installed\Pog"
-rm -Force -Recurse .\data\manifests\
-# rerun setup to download the latest manifests
-#  (this should not break/overwrite anything)
-.\setup.cmd
-```
-
 ## Building
 
 Pog is composed of 4 parts:

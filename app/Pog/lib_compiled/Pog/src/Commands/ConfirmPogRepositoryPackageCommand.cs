@@ -40,20 +40,11 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
-    private readonly LocalRepository _repo;
+    private LocalRepository _repo = null!;
     private bool _noIssues = true;
 
     private static readonly Regex QuoteHighlightRegex = new(@"'([^']+)'",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    public ConfirmPogRepositoryPackageCommand() {
-        if (InternalState.Repository is LocalRepository r) {
-            _repo = r;
-        } else {
-            // TODO: implement
-            throw new RuntimeException("Validation of remote repositories is not yet supported");
-        }
-    }
 
     private void AddIssue(string message) {
         _noIssues = false;
@@ -65,6 +56,15 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
+
+        // place this check here; if we throw an exception in the constructor, XmlDoc2CmdletDoc fails,
+        //  because it needs to create instances of all commands to get default parameter values
+        if (InternalState.Repository is LocalRepository r) {
+            _repo = r;
+        } else {
+            // TODO: implement
+            throw new RuntimeException("Validation of remote repositories is not yet supported.");
+        }
 
         if (Version != null) {
             if (MyInvocation.ExpectingInput) {
