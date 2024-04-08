@@ -10,7 +10,7 @@ function title($Title) {
 
 function test($Sb) {
     $ErrorActionPreference = "Continue"
-    $PSDefaultParameterValues = @{"Import-Pog:WhatIf" = $true; "Import-Pog:ErrorAction" = "Continue"}
+    $PSDefaultParameterValues = @{"Import-Pog:WhatIf" = $true; "Import-Pog:Force" = $true; "Import-Pog:ErrorAction" = "Continue"}
     Write-Host $Sb.ToString().Trim() -ForegroundColor Green
     try {
         & $Sb

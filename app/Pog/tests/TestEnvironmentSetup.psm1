@@ -62,7 +62,9 @@ Export function SetupNewPogTestDir {
     # do not touch actual Pog data
     # NOTE: for this to work, this must be called before the Pog PowerShell module is imported,
     #  otherwise this throws an exception
-    [Pog.InternalState]::OverrideDataRoot($TestDir)
+    if (-not [Pog.InternalState]::InitDataRoot($TestDir)) {
+        throw "TEST SETUP ERROR: Pog data root already configured"
+    }
 
     return $TestDir
 }
