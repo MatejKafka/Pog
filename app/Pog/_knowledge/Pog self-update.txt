@@ -1,0 +1,13 @@
+the `app` directory can be moved while Pog is running from it, it just cannot be deleted
+however, the first time we attempt to load something from the app directory (e.g. container Env_*.psm1), it will fail
+
+we could do a custom update system, which
+1) ensures that no other PowerShell instance has Pog loaded
+2) moves `app` to `app-old`
+3) unpacks the new version, WITHOUT loading any pwsh file or dll (must not call the container)
+	the hard part
+4) configures the new Pog version (ideally by running `Enable`, but that's gonna be hard)
+5) launches a detached background process which waits until user closes the last loaded Pog instance and then deletes the old directory
+6) prompt the user to close the current shell
+
+TODO: still quite wonky, check how other similar software does it

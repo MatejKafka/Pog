@@ -25,6 +25,17 @@ Alternatively, you can manually install Pog by following these steps:
 3. Download and unpack the archive to your preferred directory for portable applications.
 4. Run `Pog/setup.cmd`.
 
+### Upgrading an existing installation of Pog
+
+Ideally, I would like Pog to be able to update itself. However, it internally uses a compiled .NET assembly, which gets loaded automatically when Pog is imported and PowerShell provides no way to unload assemblies other than exiting the whole process, meaning that Pog must not be running when it is updated. Before I devise a better solution, do the following steps manually when you want to upgrade:
+
+1. Exit all instances of PowerShell where Pog was invoked.
+2. Manually download the target release archive.
+3. Enter the `Pog` directory, where Pog is installed.
+4. Delete everything except for the `cache` and `data` directory.
+5. Copy the contents of the `Pog` directory from the archive into the `Pog` directory from step 3.
+6. Run the extracted `setup.cmd` script.
+
 ## Basic usage
 
 Install a package (use `Tab` to get a list of matching packages):
