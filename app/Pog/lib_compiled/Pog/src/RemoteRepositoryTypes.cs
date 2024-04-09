@@ -178,7 +178,7 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
     private readonly RemoteRepository _repository;
 
     public override IRepository Repository => _repository;
-    public string Url => $"{_repository.Url}{HttpUtility.UrlEncode(PackageName)}/";
+    public string Url => $"{_repository.Url}{HttpUtility.UrlPathEncode(PackageName)}/";
     public override bool Exists => _repository.Packages.ContainsKey(PackageName);
     protected override string ExpectedPathStr => $"expected URL: {Url}";
 
@@ -204,7 +204,7 @@ public class InvalidRepositoryPackageArchiveException(string message) : Exceptio
 [PublicAPI]
 public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage parent, PackageVersion version)
         : RepositoryPackage(parent, version), IRemotePackage, IDisposable {
-    public string Url {get; init;} = $"{parent.Url}{HttpUtility.UrlEncode(version.ToString())}.zip";
+    public string Url {get; init;} = $"{parent.Url}{HttpUtility.UrlPathEncode(version.ToString())}.zip";
     public override bool Exists => ManifestLoaded || ExistsInPackageList();
     private ZipArchive? _manifestArchive = null;
 
