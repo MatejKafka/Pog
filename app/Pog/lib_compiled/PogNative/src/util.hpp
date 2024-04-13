@@ -13,8 +13,12 @@
 
 // https://artificial-mind.net/blog/2020/09/26/dont-deduce
 // a "hack" to prevent the compiler from deducing template arguments
-template<typename T>
-using dont_deduce = typename std::common_type<T>::type;
+template<class T>
+struct dont_deduce_t {
+    using type = T;
+};
+template<class T>
+using dont_deduce = typename dont_deduce_t<T>::type;
 
 std::system_error system_error_from_win32(std::string_view error_msg) {
     auto error = GetLastError();

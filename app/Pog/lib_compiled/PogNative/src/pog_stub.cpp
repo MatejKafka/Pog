@@ -5,6 +5,11 @@
 #include "StubData.hpp"
 #include "util.hpp"
 
+using std::optional;
+using std::copy;
+using std::wstring_view;
+using std::byte;
+
 // disable argv and envp parsing, we don't need it
 // https://learn.microsoft.com/en-us/previous-versions/zay8tzh6(v=vs.85)
 // https://github.com/icidicf/library/blob/267ca3c87b44ccbf4eaa6b8e7416f3e38b269332/microsoft/CRT/SRC/INTERNAL.H#L499
@@ -70,7 +75,7 @@ const wchar_t* find_argv0_end(const wchar_t* cmd_line) {
     return it;
 }
 
-c_wstring build_command_line(std::optional<std::wstring_view> prefixed_args, const wchar_t* target_override = nullptr) {
+c_wstring build_command_line(optional<wstring_view> prefixed_args, const wchar_t* target_override = nullptr) {
     const wchar_t* const_cmd_line = GetCommandLine();
     auto* const_argv0_end = find_argv0_end(const_cmd_line);
     auto argv0_len = target_override ? wcslen(target_override) : const_argv0_end - const_cmd_line;
@@ -88,20 +93,20 @@ c_wstring build_command_line(std::optional<std::wstring_view> prefixed_args, con
         // quote `target_override`, in case it contains spaces; when .cmd files are invoked, cmd.exe looks at argv[0],
         //  not on the lpApplicationName value, and spaces would throw it off without quotes
         *it_out++ = L'"';
-        it_out = std::copy(target_override, target_override + argv0_len, it_out);
+        it_out = copy(target_override, target_override + argv0_len, it_out);
         *it_out++ = L'"';
     } else {
-        it_out = std::copy(const_cmd_line, const_argv0_end, it_out);
+        it_out = copy(const_cmd_line, const_argv0_end, it_out);
     }
 
     if (prefixed_args) {
         // add space
         *it_out++ = L' ';
         // copy prefixed_args
-        it_out = std::copy(prefixed_args.value().cbegin(), prefixed_args.value().cend(), it_out);
+        it_out = copy(prefixed_args->begin(), prefixed_args->end(), it_out);
     }
     // copy remaining args, they're already prefixed with a whitespace and suffixed with null
-    it_out = std::copy(const_argv0_end, const_argv0_end + args_len + 1, it_out);
+    it_out = copy(const_argv0_end, const_argv0_end + args_len + 1, it_out);
 
     assert(cmd_line.str + cmd_line.size == it_out);
     return cmd_line;
@@ -124,14 +129,14 @@ HANDLE create_child_job() {
 
 class ProcThreadAttributeList {
 private:
-    std::byte* attribute_list_;
+    byte* attribute_list_;
 public:
     ProcThreadAttributeList() {
         size_t size;
         // get the attribute list size; do not check for error here, it's expected that we'll get one
         InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
 
-        attribute_list_ = new std::byte[size];
+        attribute_list_ = new byte[size];
         CHECK_ERROR_B(InitializeProcThreadAttributeList(*this, 1, 0, &size));
     }
 

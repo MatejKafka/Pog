@@ -8,7 +8,13 @@
 #include <iostream>
 #include "util.hpp"
 
-using StubDataBuffer = std::span<const std::byte>;
+using std::optional;
+using std::nullopt;
+using std::wstring_view;
+using std::byte;
+using std::span;
+
+using StubDataBuffer = span<const byte>;
 
 inline StubDataBuffer load_stub_data() {
     auto resource_handle = CHECK_ERROR(FindResource(nullptr, MAKEINTRESOURCE(1), RT_RCDATA));
@@ -17,7 +23,7 @@ inline StubDataBuffer load_stub_data() {
     auto resource_ptr = CHECK_ERROR(LockResource(loaded_resource));
     auto resource_size = CHECK_ERROR_V(0, SizeofResource(nullptr, resource_handle));
 
-    return {(std::byte*)resource_ptr, resource_size};
+    return {(byte*)resource_ptr, resource_size};
 }
 
 template<typename Callback>
@@ -51,7 +57,7 @@ private:
             return (const wchar_t*)(&flags + 1);
         }
 
-        [[nodiscard]] std::wstring_view str_view() const {
+        [[nodiscard]] wstring_view str_view() const {
             return {str(), size};
         }
 
@@ -77,7 +83,7 @@ public:
         auto prev_empty = true;
         auto cur_empty = true;
 
-        auto append = [&](std::wstring_view str) {
+        auto append = [&](wstring_view str) {
             if (!prev_empty && cur_empty) {
                 out += L";";
             }
@@ -126,7 +132,7 @@ private:
         wchar_t env_var_buffer[env_var_buffer_size];
         auto ret = GetEnvironmentVariable(var_name, env_var_buffer, env_var_buffer_size);
         if (ret != 0) {
-            callback(std::wstring_view{env_var_buffer, ret});
+            callback(wstring_view{env_var_buffer, ret});
             return true;
         } else {
             if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
@@ -163,10 +169,10 @@ public:
         return read_wstring(header().working_directory_offset);
     }
 
-    [[nodiscard]] std::optional<std::wstring_view> get_arguments() const {
-        if (header().argument_offset == 0) return std::nullopt;
+    [[nodiscard]] optional<wstring_view> get_arguments() const {
+        if (header().argument_offset == 0) return nullopt;
         // arguments are stored as length-prefixed wchar buffer
-        return std::wstring_view{read_wstring(header().argument_offset + sizeof(uint32_t)),
+        return wstring_view{read_wstring(header().argument_offset + sizeof(uint32_t)),
                                  read_uint(header().argument_offset)};
     }
 
