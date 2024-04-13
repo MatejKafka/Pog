@@ -1,29 +1,25 @@
 #pragma once
 
 #include <Windows.h>
+#include <cstddef>
 #include <cstdint>
-#include <span>
-#include <string_view>
-#include <optional>
-#include <iostream>
+#include "stdlib.hpp"
 #include "util.hpp"
 
-using std::optional;
-using std::nullopt;
-using std::wstring_view;
-using std::byte;
-using std::span;
-
+// https://learn.microsoft.com/en-us/windows/win32/procthread/environment-variables, including null terminator
+constexpr size_t MAX_ENV_VAR_SIZE = 32'768;
 using StubDataBuffer = span<const byte>;
 
 inline StubDataBuffer load_stub_data() {
-    auto resource_handle = CHECK_ERROR(FindResource(nullptr, MAKEINTRESOURCE(1), RT_RCDATA));
+    auto resource_handle = FindResource(nullptr, MAKEINTRESOURCE(1), RT_RCDATA);
+    if (resource_handle == nullptr) {
+        panic(L"Pog stub not configured yet.");
+    }
     auto loaded_resource = CHECK_ERROR(LoadResource(nullptr, resource_handle));
-
     auto resource_ptr = CHECK_ERROR(LockResource(loaded_resource));
     auto resource_size = CHECK_ERROR_V(0, SizeofResource(nullptr, resource_handle));
 
-    return {(byte*)resource_ptr, resource_size};
+    return {(const byte*) resource_ptr, resource_size};
 }
 
 template<typename Callback>
@@ -54,7 +50,7 @@ private:
 
         [[nodiscard]] const wchar_t* str() const {
             // return pointer after the last member
-            return (const wchar_t*)(&flags + 1);
+            return (const wchar_t*) (&flags + 1);
         }
 
         [[nodiscard]] wstring_view str_view() const {
@@ -69,7 +65,7 @@ private:
 
 public:
     static void get_value(void* start_ptr, WcharPtrCallback auto value_cb) {
-        auto first_segment = (const EnvSegmentHeader*)start_ptr;
+        auto first_segment = (const EnvSegmentHeader*) start_ptr;
 
         // fast path for the most common case of a single segment
         if (HAS_FLAG(first_segment->flags, LAST_SEGMENT)) {
@@ -78,16 +74,29 @@ public:
         }
 
         // output buffer
-        std::wstring out{};
+        wchar_t out[MAX_ENV_VAR_SIZE];
+        wchar_t* out_end = out + MAX_ENV_VAR_SIZE;
+        wchar_t* out_it = out;
+
         // these booleans track whether we need to add the PATH separator when we write something
         auto prev_empty = true;
         auto cur_empty = true;
 
         auto append = [&](wstring_view str) {
-            if (!prev_empty && cur_empty) {
-                out += L";";
+            if (str.size() == 0) {
+                return;
             }
-            out += str;
+
+            auto needs_separator = !prev_empty && cur_empty;
+            auto total_size = str.size() + (needs_separator ? 1 : 0);
+
+            if (out_end - out_it < (ptrdiff_t)total_size) {
+                panic(L"Interpolated environment variable too long.");
+            }
+
+            if (needs_separator) *out_it++ = L';';
+            out_it = copy(str.begin(), str.end(), out_it);
+
             cur_empty = false;
         };
 
@@ -112,8 +121,13 @@ public:
             }
         }
 
+        if (out_it == out_end) {
+            panic(L"Interpolated environment variable too long.");
+        }
+        *out_it++ = L'\0';
+
         // call the callback with the composed value
-        value_cb(out.c_str());
+        value_cb(out);
     }
 
 private:
@@ -128,17 +142,21 @@ private:
     }
 
     static bool read_env_var(const wchar_t* var_name, auto callback) {
-        constexpr size_t env_var_buffer_size = 32'767; // max size of env var
-        wchar_t env_var_buffer[env_var_buffer_size];
-        auto ret = GetEnvironmentVariable(var_name, env_var_buffer, env_var_buffer_size);
-        if (ret != 0) {
+        wchar_t env_var_buffer[MAX_ENV_VAR_SIZE];
+        auto ret = GetEnvironmentVariable(var_name, env_var_buffer, MAX_ENV_VAR_SIZE);
+        if (ret != 0 && ret <= MAX_ENV_VAR_SIZE) {
+            // ok
             callback(wstring_view{env_var_buffer, ret});
             return true;
+        } else if (ret > MAX_ENV_VAR_SIZE) {
+            // should not happen
+            panic(L"Env var value is too long.");
         } else {
+            // error
             if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
                 return false;
             } else {
-                throw system_error_from_win32("read_env_var");
+                panic(L"read_env_var");
             }
         }
     }
@@ -173,19 +191,19 @@ public:
         if (header().argument_offset == 0) return nullopt;
         // arguments are stored as length-prefixed wchar buffer
         return wstring_view{read_wstring(header().argument_offset + sizeof(uint32_t)),
-                                 read_uint(header().argument_offset)};
+                            read_uint(header().argument_offset)};
     }
 
     void enumerate_environment_variables(EnvironmentVariableCallback auto callback) const {
         if (header().environment_offset == 0) return;
         auto count = read_uint(header().environment_offset);
 
-        auto it = (uint32_t*)&buffer[header().environment_offset + sizeof(uint32_t)];
+        auto it = (const uint32_t*) &buffer[header().environment_offset + sizeof(uint32_t)];
         auto end = it + count * 2;
         while (it != end) {
             auto* name = read_wstring(*it++);
             auto value_offset = *it++;
-            StubDataEnvironmentVariable::get_value((void*)&buffer[value_offset], [&](auto value) {
+            StubDataEnvironmentVariable::get_value((void*) &buffer[value_offset], [&](auto value) {
                 callback(name, value);
             });
         }
@@ -193,14 +211,14 @@ public:
 
 private:
     [[nodiscard]] const StubHeader& header() const {
-        return *(const StubHeader*)buffer.data();
+        return *(const StubHeader*) buffer.data();
     }
 
     [[nodiscard]] const wchar_t* read_wstring(size_t offset) const {
-        return (const wchar_t*)&buffer[offset];
+        return (const wchar_t*) &buffer[offset];
     }
 
     [[nodiscard]] uint32_t read_uint(size_t offset) const {
-        return *(const uint32_t*)&buffer[offset];
+        return *(const uint32_t*) &buffer[offset];
     }
 };
