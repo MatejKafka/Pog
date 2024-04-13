@@ -20,6 +20,6 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /fsanitize=address")
 
 
-add_executable(PogExecutableStubTemplate pog_stub.cpp)
+add_executable(PogExecutableStubTemplate src/pog_stub.cpp)
 # export release build binary to lib_compiled dir
 set_target_properties(PogExecutableStubTemplate PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "../..")
