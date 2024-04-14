@@ -17,19 +17,27 @@ public class PackageManifestNotFoundException(string message, string fileName)
         : FileNotFoundException(message, fileName), IPackageManifestException;
 
 [PublicAPI]
-public class PackageManifestParseException : ParseException, IPackageManifestException {
+public class PackageManifestParseException : Exception, IPackageManifestException {
+    // when subclassing ParseException, the default ConciseView error view gets confused and strips all position
+    //  information and context from the error message, resulting in very confusing error messages like
+    //  `Import-Pog: Missing closing ')' in expression.`
+    // instead, hide the inheritance and store it as a private field instead
+    private readonly ParseException _parseException;
     public readonly string ManifestSource;
 
-    internal PackageManifestParseException(string manifestSource, string message) : base(message) {
+    internal PackageManifestParseException(string manifestSource, string message) {
+        _parseException = new(message);
         ManifestSource = manifestSource;
     }
 
-    internal PackageManifestParseException(string manifestSource, ParseError[] errors) : base(errors) {
+    internal PackageManifestParseException(string manifestSource, ParseError[] errors) {
+        _parseException = new(errors);
         ManifestSource = manifestSource;
     }
 
     public override string Message =>
-            $"Could not {(Errors == null ? "load" : "parse")} the package manifest at '{ManifestSource}':\n" + base.Message;
+            $"Could not {(_parseException.Errors == null ? "load" : "parse")} the package manifest at '{ManifestSource}':\n" +
+            _parseException.Message;
 }
 
 [PublicAPI]
