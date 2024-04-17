@@ -293,7 +293,7 @@ public class InstallFromUrlCommand : PogCmdlet {
         // the target app directory already exists, so we need to replace it
         // however, win32 does not give us an API to atomically swap/replace a directory, except for NTFS transactions,
         // which seem to be mostly deprecated; instead, we'll have to first move the current app directory away,
-        // and then move the replacement app directory in; there's a short moment between the move where we'll
+        // and then move the replacement app directory in; there's a short period between the moves where we'll
         // get an unusable app if the operation fails/crashes, but it seems we cannot do any better than that
         using (var oldAppDirHandle = MoveOutOldAppDirectory(targetAppDir, backupDir)) {
             try {
@@ -309,6 +309,9 @@ public class InstallFromUrlCommand : PogCmdlet {
         FsUtils.DeleteDirectoryAtomically(backupDir, _tmpDeletePath);
     }
 
+    // FIXME: if there's an executing binary from the dir, but no other open files (e.g. AutoHotkey v2), this function will
+    //  succeed in moving out the app dir, but then calling `FsUtils.DeleteDirectoryAtomically` will fail
+    //  at `FileSystem.RemoveDirectory`; investigate why and how to correctly detect the situation
     private SafeFileHandle MoveOutOldAppDirectory(string appDirPath, string backupPath) {
         var i = 0;
         SafeFileHandle oldAppDirHandle;
@@ -318,7 +321,7 @@ public class InstallFromUrlCommand : PogCmdlet {
                 break;
             } catch (FileLoadException) {
                 // used by another process, wait for unlock
-                WaitForLockedFiles(appDirPath, i, true);
+                WaitForLockedFiles(appDirPath, i, checkDirItself: true);
                 // retry
             }
         }

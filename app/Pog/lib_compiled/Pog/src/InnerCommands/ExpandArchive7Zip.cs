@@ -143,6 +143,7 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
         // and replace each occurrence of % with %Q%. This way, we should be safe. Maybe. Hopefully. Dunno. Run.
         // TODO: just stop this pain and write our own pipeline setup using P/Invoke
         //  https://learn.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output
+        // TODO: alternatively, use the replacement rules from flatt.tech/research/posts/batbadbut-you-cant-securely-execute-commands-on-windows/
         return "\"" + arg.Replace("\"", "\\\"").Replace("%", "%Q%") + "\"";
     }
 

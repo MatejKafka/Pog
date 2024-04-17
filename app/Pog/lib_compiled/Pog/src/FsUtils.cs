@@ -236,7 +236,7 @@ public static class FsUtils {
     /// 1) We don't have sufficient permissions to move the directory (in which case this method throws
     ///    an Access Denied exception).
     /// 2) There's a locked entry in the directory and we cannot move it (in which case the same exception
-    ///    is thrown from `MoveFileByHandle`).
+    ///    is thrown from <see cref="MoveByHandle"/>).
     public static SafeFileHandle OpenForMove(string directoryPath) {
         // ReSharper disable once InconsistentNaming
         const uint ACCESS_DELETE = 0x00010000;
