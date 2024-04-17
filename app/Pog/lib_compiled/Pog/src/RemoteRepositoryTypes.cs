@@ -180,7 +180,7 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
     public override IRepository Repository => _repository;
     public string Url => $"{_repository.Url}{HttpUtility.UrlPathEncode(PackageName)}/";
     public override bool Exists => _repository.Packages.ContainsKey(PackageName);
-    protected override string ExpectedPathStr => $"expected URL: {Url}";
+    internal override string ExpectedPathStr => $"expected URL: {Url}";
 
     internal RemoteRepositoryVersionedPackage(RemoteRepository repository, string packageName) : base(packageName) {
         _repository = repository;
@@ -206,6 +206,7 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         : RepositoryPackage(parent, version), IRemotePackage, IDisposable {
     public string Url {get; init;} = $"{parent.Url}{HttpUtility.UrlPathEncode(version.ToString())}.zip";
     public override bool Exists => ManifestLoaded || ExistsInPackageList();
+    internal override string ExpectedPathStr => $"expected URL: {Url}";
     private ZipArchive? _manifestArchive = null;
 
     public void Dispose() {
@@ -215,7 +216,8 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
     private bool ExistsInPackageList() {
         var repo = (RemoteRepository) ((RemoteRepositoryVersionedPackage) Container).Repository;
         var versions = repo.Packages[PackageName];
-        return versions != null && Array.BinarySearch(versions, Version) >= 0;
+        // version list is sorted in descending order, use a descending comparer
+        return versions != null && Array.BinarySearch(versions, Version, new PackageVersion.DescendingComparer()) >= 0;
     }
 
     public override void ImportTo(ImportedPackage target) {

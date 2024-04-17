@@ -37,7 +37,7 @@ public abstract class RepositoryVersionedPackage {
         PackageName = packageName;
     }
 
-    protected abstract string ExpectedPathStr {get;}
+    internal abstract string ExpectedPathStr {get;}
     protected abstract RepositoryPackage GetPackageUnchecked(PackageVersion version);
 
     /// Enumerate UNORDERED versions of the package.
@@ -73,7 +73,7 @@ public abstract class RepositoryVersionedPackage {
         var package = GetPackageUnchecked(version);
         if (mustExist && !package.Exists) {
             throw new RepositoryPackageVersionNotFoundException(
-                    $"Package '{PackageName}' in the repository does not have version '{version}', {ExpectedPathStr}");
+                    $"Package '{PackageName}' in the repository does not have version '{version}', {package.ExpectedPathStr}");
         }
         return package;
     }
@@ -84,6 +84,8 @@ public abstract class RepositoryPackage(RepositoryVersionedPackage parent, Packa
         : Package(parent.PackageName, null) {
     public readonly RepositoryVersionedPackage Container = parent;
     public readonly PackageVersion Version = version;
+
+    internal abstract string ExpectedPathStr {get;}
 
     public override string GetDescriptionString() => $"package '{PackageName}', version '{Version}'";
 

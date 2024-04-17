@@ -194,6 +194,12 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         var secExp = second.Concat(Enumerable.Repeat(pad2, Math.Max(first.Length - second.Length, 0)));
         return firstExp.Zip(secExp, (a, b) => (a, b));
     }
+
+    public class DescendingComparer : IComparer<PackageVersion> {
+        public int Compare(PackageVersion x, PackageVersion y) {
+            return y.CompareTo(x);
+        }
+    }
 }
 
 public class InvalidPackageVersionException(string message) : FormatException(message);

@@ -55,7 +55,7 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
 
     public string TemplateDirPath => $"{Path}\\{PPaths.RepositoryTemplateDirName}";
     internal string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestFileName}";
-    protected override string ExpectedPathStr => $"expected path: {Path}";
+    internal override string ExpectedPathStr => $"expected path: {Path}";
 
     internal LocalRepositoryVersionedPackage(LocalRepository repository, string packageName) : base(packageName) {
         Repository = repository;
@@ -96,6 +96,7 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
         : RepositoryPackage(parent, version), ILocalPackage {
     public string Path {get; init;} = path;
     public abstract string ManifestPath {get;}
+    internal override string ExpectedPathStr => $"expected path: {Path}";
     protected abstract string ManifestResourceDirPath {get;}
     protected abstract void ImportManifestTo(string targetManifestPath);
 
