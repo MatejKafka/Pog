@@ -111,6 +111,10 @@ Export function ShowLockedFileList {
 	param($ForegroundColor)
 	$Fg = $ForegroundColor
 
+	# no need to check for admin rights before running OpenedFilesView, it will just report an empty list
+	# TODO: probably would be better to detect the situation and suggest to the user that he can re-run
+	#  the installation as admin and he'll get more information
+
 	# find out which files are locked, report them to the user
 	$LockingProcs = ListProcessesLockingFiles .\app
 	if (@($LockingProcs).Count -eq 0) {
