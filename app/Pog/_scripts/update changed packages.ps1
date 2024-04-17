@@ -1,8 +1,15 @@
 Get-PogPackage
     | % {
-        if (-not $_.Version -or -not $_.ManifestName) {return}
+        if (-not $_.Version -or -not $_.ManifestName) {
+            return
+        }
+
         $r = Get-PogRepositoryPackage $_.ManifestName -ErrorAction Ignore
-        if ($r -and $r.Version -gt $_.Version) {
+        if (-not $r) {
+            return
+        }
+
+        if ($r.Version -gt $_.Version -or ($r.Version -eq $_.Version -and -not $r.MatchesImportedManifest($_))) {
             return [pscustomobject]@{
                 PackageName = $_.PackageName
                 CurrentVersion = $_.Version
