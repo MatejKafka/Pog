@@ -15,8 +15,9 @@ $IsDevModeEnabled = try {
 } catch {$false}
 
 if (-not $IsDevModeEnabled) {
-    Write-Warning ("Windows Developer mode is not enabled. Currently, it must be enabled for Pog to work correctly, " +`
-        "since Pog internally uses symbolic links. Please enable developer mode in Settings.")
+    throw "Windows Developer mode is not enabled. Currently, it must be enabled for Pog to work correctly, " +`
+        "since Pog internally uses symbolic links. Please enable developer mode in Settings."
+    return
 }
 
 # need to call unblock before importing any modules
