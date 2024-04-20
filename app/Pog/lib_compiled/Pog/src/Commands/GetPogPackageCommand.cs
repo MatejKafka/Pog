@@ -19,6 +19,7 @@ public sealed class GetPogPackageCommand : PogCmdlet {
     /// Names of installed packages to return. If not passed, all installed packages are returned.
     /// </para></summary>
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    [ValidateNotNullOrEmpty]
     [ArgumentCompleter(typeof(PSAttributes.ImportedPackageNameCompleter))]
     public string[]? PackageName;
 
@@ -44,19 +45,19 @@ public sealed class GetPogPackageCommand : PogCmdlet {
 
         // do not eagerly load the manifest
         if (PackageName == null) {
-            WriteObjectEnumerable(PackageRoot != null
-                    ? _packages.EnumeratePackages(PackageRoot, false)
-                    : _packages.EnumeratePackages(false));
+            WriteObjectEnumerable(_packages.Enumerate(PackageRoot, false));
         } else {
             foreach (var pn in PackageName) {
-                try {
-                    WriteObject(PackageRoot != null
-                            ? _packages.GetPackage(pn, PackageRoot, true, false, true)
-                            : _packages.GetPackage(pn, true, false));
-                } catch (ImportedPackageNotFoundException e) {
-                    WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, pn);
-                } catch (InvalidPackageNameException e) {
-                    WriteError(e, "InvalidPackageName", ErrorCategory.InvalidArgument, pn);
+                if (WildcardPattern.ContainsWildcardCharacters(pn)) {
+                    WriteObjectEnumerable(_packages.Enumerate(PackageRoot, false, pn));
+                } else {
+                    try {
+                        WriteObject(_packages.GetPackage(pn, PackageRoot, true, false));
+                    } catch (ImportedPackageNotFoundException e) {
+                        WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, pn);
+                    } catch (InvalidPackageNameException e) {
+                        WriteError(e, "InvalidPackageName", ErrorCategory.InvalidArgument, pn);
+                    }
                 }
             }
         }

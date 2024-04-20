@@ -5,12 +5,12 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Management.Automation;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using JetBrains.Annotations;
@@ -110,10 +110,8 @@ public sealed class RemoteRepository : IRepository {
             return packageNames;
         }
 
-        // turn the glob pattern into a regex
-        var regexStr = "^" + Regex.Escape(searchPattern).Replace(@"\*", ".*").Replace(@"\?", ".") + "$";
-        var patternRegex = new Regex(regexStr, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        return packageNames.Where(p => patternRegex.IsMatch(p));
+        var pattern = new WildcardPattern(searchPattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
+        return packageNames.Where(p => pattern.IsMatch(p));
     }
 
     public IEnumerable<RepositoryVersionedPackage> Enumerate(string searchPattern = "*") {

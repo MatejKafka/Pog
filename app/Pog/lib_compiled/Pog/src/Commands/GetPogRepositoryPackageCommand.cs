@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
 
@@ -24,6 +23,7 @@ public sealed class GetPogRepositoryPackageCommand : PogCmdlet {
     /// Names of packages to return. If not passed, all repository packages are returned.
     /// </para></summary>
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    [ValidateNotNullOrEmpty]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
     public string[]? PackageName;
 
@@ -76,27 +76,36 @@ public sealed class GetPogRepositoryPackageCommand : PogCmdlet {
         }
 
         if (PackageName == null) {
-            var allPackages = _packages.Enumerate();
-            WriteObjectEnumerable(AllVersions
-                    ? allPackages.SelectMany(p => p.Enumerate())
-                    : allPackages.Select(p => p.GetLatestPackage()));
+            foreach (var vp in _packages.Enumerate()) {
+                ProcessPackage(vp);
+            }
         } else {
             foreach (var pn in PackageName) {
-                try {
-                    // TODO: use Enumerate($pn) to support wildcards and handle arrays in the rest of the code, same for Get-PogPackage
-                    var vp = _packages.GetPackage(pn, true, true);
-                    if (AllVersions) {
-                        WriteObjectEnumerable(vp.Enumerate());
-                    } else {
-                        WriteObject(vp.GetLatestPackage());
+                if (WildcardPattern.ContainsWildcardCharacters(pn)) {
+                    foreach (var vp in _packages.Enumerate(pn)) {
+                        ProcessPackage(vp);
                     }
-                } catch (RepositoryPackageNotFoundException e) {
-                    WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, pn);
-                } catch (RepositoryPackageVersionNotFoundException e) {
-                    WriteError(e, "PackageVersionNotFound", ErrorCategory.ObjectNotFound, pn);
-                } catch (InvalidPackageNameException e) {
-                    WriteError(e, "InvalidPackageName", ErrorCategory.InvalidArgument, pn);
+                } else {
+                    try {
+                        ProcessPackage(_packages.GetPackage(pn, true, true));
+                    } catch (RepositoryPackageNotFoundException e) {
+                        WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, pn);
+                    } catch (InvalidPackageNameException e) {
+                        WriteError(e, "InvalidPackageName", ErrorCategory.InvalidArgument, pn);
+                    }
                 }
+            }
+        }
+    }
+
+    private void ProcessPackage(RepositoryVersionedPackage package) {
+        if (AllVersions) {
+            WriteObjectEnumerable(package.Enumerate());
+        } else {
+            try {
+                WriteObject(package.GetLatestPackage());
+            } catch (RepositoryPackageVersionNotFoundException e) {
+                WriteError(e, "NoPackageVersionExists", ErrorCategory.ObjectNotFound, package.PackageName);
             }
         }
     }

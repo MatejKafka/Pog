@@ -64,7 +64,18 @@ public class ImportedPackageManager(PackageRootConfig packageRootConfig) {
                                                    + " Searched paths:\n    " + string.Join("\n    ", searchedPaths));
     }
 
+    /// Assumes that the package root is valid, if not null.
+    /// <exception cref="ImportedPackageNotFoundException"></exception>
+    public ImportedPackage GetPackage(string packageName, string? packageRoot, bool resolveName, bool loadManifest) {
+        if (packageRoot == null) {
+            return GetPackage(packageName, resolveName, loadManifest);
+        } else {
+            return GetPackage(packageName, packageRoot, resolveName, loadManifest, true);
+        }
+    }
+
     /// Assumes that the package root is valid.
+    /// <exception cref="ImportedPackageNotFoundException"></exception>
     public ImportedPackage GetPackage(string packageName, string packageRoot,
             bool resolveName, bool loadManifest, bool mustExist) {
         Verify.PackageName(packageName);
@@ -92,13 +103,21 @@ public class ImportedPackageManager(PackageRootConfig packageRootConfig) {
         return PackageRoots.ValidPackageRoots.SelectMany(r => FsUtils.EnumerateNonHiddenDirectoryNames(r, namePattern));
     }
 
-    public IEnumerable<ImportedPackage> EnumeratePackages(bool loadManifest, string namePattern = "*") {
-        return PackageRoots.ValidPackageRoots.SelectMany(r => EnumeratePackages(r, loadManifest, namePattern));
+    public IEnumerable<ImportedPackage> Enumerate(bool loadManifest, string namePattern = "*") {
+        return PackageRoots.ValidPackageRoots.SelectMany(r => DoEnumerate(r, loadManifest, namePattern));
     }
 
     /// Assumes that the package root is valid.
-    public IEnumerable<ImportedPackage> EnumeratePackages(string packageRoot, bool loadManifest, string namePattern = "*") {
+    public IEnumerable<ImportedPackage> Enumerate(string? packageRoot, bool loadManifest, string namePattern = "*") {
+        if (packageRoot == null) {
+            return Enumerate(loadManifest, namePattern);
+        }
+
         Debug.Assert(ResolveValidPackageRoot(packageRoot) == packageRoot);
+        return DoEnumerate(packageRoot, loadManifest, namePattern);
+    }
+
+    private IEnumerable<ImportedPackage> DoEnumerate(string packageRoot, bool loadManifest, string namePattern = "*") {
         return FsUtils.EnumerateNonHiddenDirectoryNames(packageRoot, namePattern)
                 // do not resolve name, it already has the correct casing
                 .Select(p => GetPackage(p, packageRoot, false, loadManifest, false));

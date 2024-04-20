@@ -100,7 +100,7 @@ public sealed class ConfirmPogPackageCommand : PogCmdlet {
             }
 
             // validate all packages in the package root
-            foreach (var package in _packages.EnumeratePackages(packageRoot, false)) {
+            foreach (var package in _packages.Enumerate(packageRoot, false)) {
                 if (!foundPackageNames.Add(package.PackageName)) {
                     AddIssue($"Duplicate package '{package.PackageName}' in different package roots.");
                 }
