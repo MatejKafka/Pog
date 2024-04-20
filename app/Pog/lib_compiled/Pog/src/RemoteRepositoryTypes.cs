@@ -6,12 +6,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Management.Automation;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using System.Web;
 using JetBrains.Annotations;
 using Pog.Utils;
@@ -99,7 +95,7 @@ public sealed class RemoteRepository : IRepository {
         Url = new Uri(repositoryBaseUrl).ToString();
 
         _packagesLazy = new(PackageCacheExpiration, () => {
-            return new(RetrieveJson(Url) ??
+            return new(InternalState.HttpClient.RetrieveJson(Url) ??
                        throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"), Url);
         });
     }
@@ -132,43 +128,6 @@ public sealed class RemoteRepository : IRepository {
         }
         return package;
     }
-
-    private async Task<HttpResponseMessage?> RetrieveAsync(string url) {
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        var response = await InternalState.HttpClient.SendAsync(request).ConfigureAwait(false);
-
-        // don't like having to manually dispose, but don't see any better way
-        if (response.StatusCode == HttpStatusCode.NotFound) {
-            response.Dispose();
-            return null;
-        }
-        try {
-            response.EnsureSuccessStatusCode();
-        } catch {
-            response.Dispose();
-            throw;
-        }
-        return response;
-    }
-
-    private async Task<JsonElement?> RetrieveJsonAsync(string url) {
-        using var response = await RetrieveAsync(url).ConfigureAwait(false);
-        if (response == null) return null;
-        return await response.Content.ReadFromJsonAsync<JsonElement>().ConfigureAwait(false);
-    }
-
-    private async Task<ZipArchive?> RetrieveZipArchiveAsync(string url) {
-        // do not dispose, otherwise the returned stream would also get closed: https://github.com/dotnet/runtime/issues/28578
-        var response = await RetrieveAsync(url).ConfigureAwait(false);
-        if (response == null) return null;
-        return new ZipArchive(await response.Content.ReadAsStreamAsync().ConfigureAwait(false), ZipArchiveMode.Read);
-    }
-
-    // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
-    private JsonElement? RetrieveJson(string url) => RetrieveJsonAsync(url).GetAwaiter().GetResult();
-
-    // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
-    internal ZipArchive? RetrieveZipArchive(string url) => RetrieveZipArchiveAsync(url).GetAwaiter().GetResult();
 }
 
 [PublicAPI]
@@ -350,7 +309,7 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         // dispose any previous archive instance
         _manifestArchive?.Dispose();
 
-        _manifestArchive = ((RemoteRepository) Container.Repository).RetrieveZipArchive(Url);
+        _manifestArchive = InternalState.HttpClient.RetrieveZipArchive(Url);
         if (_manifestArchive == null) {
             throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Url}'.");
         }

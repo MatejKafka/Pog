@@ -1,9 +1,9 @@
 ﻿using System;
 using System.IO;
-using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using JetBrains.Annotations;
+using Pog.Utils.Http;
 
 namespace Pog;
 
@@ -80,8 +80,8 @@ public static class InternalState {
     public static SharedFileCache DownloadCache => LazyInitializer.EnsureInitialized(ref _downloadCache,
             () => new SharedFileCache(PathConfig.DownloadCacheDir, TmpDownloadDirectory))!;
 
-    private static HttpClient? _httpClient;
+    private static PogHttpClient? _httpClient;
     /// Shared HttpClient singleton instance, used by all other classes.
-    internal static HttpClient HttpClient => LazyInitializer.EnsureInitialized(ref _httpClient,
-            () => new HttpClient(new HttpClientHandler {UseCookies = false}))!;
+    internal static PogHttpClient HttpClient => LazyInitializer.EnsureInitialized(ref _httpClient,
+            () => new PogHttpClient())!;
 }

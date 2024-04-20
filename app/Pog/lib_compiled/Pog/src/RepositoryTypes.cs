@@ -55,13 +55,13 @@ public abstract class RepositoryVersionedPackage {
         return EnumerateVersions(searchPattern).Select(GetPackageUnchecked);
     }
 
-    public RepositoryPackage? TryGetLatestPackage() {
+    public RepositoryPackage? GetLatestPackageOrNull() {
         var latestVersion = EnumerateVersionStrings().Select(v => new PackageVersion(v)).Max();
         return latestVersion == null ? null : GetPackageUnchecked(latestVersion);
     }
 
     public RepositoryPackage GetLatestPackage() {
-        return TryGetLatestPackage() ?? throw new RepositoryPackageVersionNotFoundException(
+        return GetLatestPackageOrNull() ?? throw new RepositoryPackageVersionNotFoundException(
                 $"Package '{PackageName}' in the repository does not have any versions, {ExpectedPathStr}");
     }
 
