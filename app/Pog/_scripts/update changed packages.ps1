@@ -1,17 +1,22 @@
-param([switch]$ListOnly)
+param([switch]$ListOnly, [switch]$NoManifestCheck)
 
-$SelectedPackages = Get-PogPackage
+$ImportedPackages = Get-PogPackage | ? {$_.Version -and $_.ManifestName}
+
+$RepositoryPackageMap = @{}
+$ImportedPackages | % ManifestName | select -Unique
+    | Get-PogRepositoryPackage -LoadManifest:(-not $NoManifestCheck) -ErrorAction Ignore
     | % {
-        if (-not $_.Version -or -not $_.ManifestName) {
-            return
-        }
+        $RepositoryPackageMap[$_.PackageName] = $_
+    }
 
-        $r = Get-PogRepositoryPackage $_.ManifestName -ErrorAction Ignore
+$SelectedPackages = $ImportedPackages
+    | % {
+        $r = $RepositoryPackageMap[$_.ManifestName]
         if (-not $r) {
             return
         }
 
-        if ($r.Version -gt $_.Version -or ($r.Version -eq $_.Version -and -not $r.MatchesImportedManifest($_))) {
+        if ($r.Version -gt $_.Version -or (-not $NoManifestCheck -and $r.Version -eq $_.Version -and -not $r.MatchesImportedManifest($_))) {
             return [pscustomobject]@{
                 PackageName = $_.PackageName
                 CurrentVersion = $_.Version

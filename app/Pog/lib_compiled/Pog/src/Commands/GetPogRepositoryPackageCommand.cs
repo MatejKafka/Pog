@@ -1,4 +1,7 @@
-﻿using System.Management.Automation;
+﻿using System.Collections.Generic;
+using System.Management.Automation;
+using System.Threading;
+using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
 
@@ -41,7 +44,25 @@ public sealed class GetPogRepositoryPackageCommand : PogCmdlet {
     [Parameter(ParameterSetName = AllVersionsPS)]
     public SwitchParameter AllVersions;
 
-    private readonly IRepository _packages = InternalState.Repository;
+    /// <summary><para type="description">
+    /// Load manifests for all returned packages. This is typically significantly faster than calling
+    /// <see cref="Package.ReloadManifest()"/> separately on each package, since the loading is parallelized.
+    /// </para></summary>
+    [Parameter] public SwitchParameter LoadManifest;
+
+    /// List of asynchronously loading manifests.
+    private readonly List<(RepositoryPackage, Task)> _pendingManifestLoads = [];
+    private readonly CancellationTokenSource _stopping = new();
+
+    public override void Dispose() {
+        base.Dispose();
+        _stopping.Dispose();
+    }
+
+    protected override void StopProcessing() {
+        base.StopProcessing();
+        _stopping.Cancel();
+    }
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
@@ -59,7 +80,13 @@ public sealed class GetPogRepositoryPackageCommand : PogCmdlet {
             }
 
             try {
-                WriteObject(_packages.GetPackage(PackageName![0], true, true).GetVersionPackage(Version, true));
+                var package = InternalState.Repository
+                        .GetPackage(PackageName![0], true, true)
+                        .GetVersionPackage(Version, true);
+                if (LoadManifest) {
+                    package.ReloadManifest();
+                }
+                WritePackage(package);
             } catch (RepositoryPackageNotFoundException e) {
                 WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, PackageName![0]);
             } catch (RepositoryPackageVersionNotFoundException e) {
@@ -76,18 +103,18 @@ public sealed class GetPogRepositoryPackageCommand : PogCmdlet {
         }
 
         if (PackageName == null) {
-            foreach (var vp in _packages.Enumerate()) {
+            foreach (var vp in InternalState.Repository.Enumerate()) {
                 ProcessPackage(vp);
             }
         } else {
             foreach (var pn in PackageName) {
                 if (WildcardPattern.ContainsWildcardCharacters(pn)) {
-                    foreach (var vp in _packages.Enumerate(pn)) {
+                    foreach (var vp in InternalState.Repository.Enumerate(pn)) {
                         ProcessPackage(vp);
                     }
                 } else {
                     try {
-                        ProcessPackage(_packages.GetPackage(pn, true, true));
+                        ProcessPackage(InternalState.Repository.GetPackage(pn, true, true));
                     } catch (RepositoryPackageNotFoundException e) {
                         WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, pn);
                     } catch (InvalidPackageNameException e) {
@@ -100,13 +127,48 @@ public sealed class GetPogRepositoryPackageCommand : PogCmdlet {
 
     private void ProcessPackage(RepositoryVersionedPackage package) {
         if (AllVersions) {
-            WriteObjectEnumerable(package.Enumerate());
+            foreach (var o in package.Enumerate()) {
+                WritePackage(o);
+            }
         } else {
             try {
-                WriteObject(package.GetLatestPackage());
+                WritePackage(package.GetLatestPackage());
             } catch (RepositoryPackageVersionNotFoundException e) {
                 WriteError(e, "NoPackageVersionExists", ErrorCategory.ObjectNotFound, package.PackageName);
             }
         }
+    }
+
+    protected override void EndProcessing() {
+        base.EndProcessing();
+
+        if (_pendingManifestLoads.Count == 0) {
+            return;
+        }
+
+        foreach (var (rp, manifestTask) in _pendingManifestLoads) {
+            try {
+                manifestTask.GetAwaiter().GetResult();
+                WriteObject(rp);
+            } catch (PackageManifestNotFoundException e) {
+                WriteError(e, "ManifestNotFound", ErrorCategory.InvalidData, rp);
+            } catch (PackageManifestParseException e) {
+                WriteError(e, "InvalidPackageManifest", ErrorCategory.InvalidData, rp);
+            } catch (InvalidPackageManifestStructureException e) {
+                WriteError(e, "InvalidPackageManifest", ErrorCategory.InvalidData, rp);
+            }
+        }
+    }
+
+    private void WritePackage(RepositoryPackage p) {
+        if (!LoadManifest) {
+            WriteObject(p);
+            return;
+        }
+
+        // for remote packages, it takes a long time to load the manifest, since we're downloading a zip archive for each
+        //  package; even for local repositories, parallelizing the load of manifests should improve performance, since the
+        //  parsing takes some time; parallelize the loading and return the packages from `EndProcessing`
+        _pendingManifestLoads.Add((p, p.ReloadManifestAsync(_stopping.Token)));
     }
 }

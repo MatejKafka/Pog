@@ -8,6 +8,8 @@ using System.Linq;
 using System.Management.Automation;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
 using JetBrains.Annotations;
 using Pog.Utils;
@@ -306,10 +308,15 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
     }
 
     protected override PackageManifest LoadManifest() {
+        // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
+        return LoadManifestAsync().GetAwaiter().GetResult();
+    }
+
+    protected override async Task<PackageManifest> LoadManifestAsync(CancellationToken token = default) {
         // dispose any previous archive instance
         _manifestArchive?.Dispose();
 
-        _manifestArchive = InternalState.HttpClient.RetrieveZipArchive(Url);
+        _manifestArchive = await InternalState.HttpClient.RetrieveZipArchiveAsync(Url, token).ConfigureAwait(false);
         if (_manifestArchive == null) {
             throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Url}'.");
         }
