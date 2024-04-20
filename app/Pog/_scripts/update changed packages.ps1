@@ -1,4 +1,6 @@
-Get-PogPackage
+param([switch]$ListOnly)
+
+$SelectedPackages = Get-PogPackage
     | % {
         if (-not $_.Version -or -not $_.ManifestName) {
             return
@@ -20,4 +22,9 @@ Get-PogPackage
     }
     | Out-GridView -PassThru -Title "Outdated packages"
     | % Target
-    | pog -Force <# -Force because user already confirmed the update #>
+
+if ($ListOnly) {
+    return $SelectedPackages
+} else {
+    $SelectedPackages | pog -Force <# -Force because user already confirmed the update #>
+}

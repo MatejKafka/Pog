@@ -1,7 +1,9 @@
 param(
         [Parameter(Mandatory)]
         [string]
-    $PackageName
+    $PackageName,
+        [scriptblock]
+    $Mapping = {[ordered]@{Version = $_.Version.ToString(); Hash = $_.Install[0].ExpectedHash}}
 )
 
 Import-Module Pog
@@ -16,7 +18,7 @@ if (-not (Test-Path "$PackagePath/.template")) {
 
 ls $PackagePath/*/pog.psd1 -Exclude .template `
     | % {[Pog.PackageManifest]::new($_)} `
-    | % {[ordered]@{Version = $_.Version.ToString(); Hash = $_.Install[0].ExpectedHash}} `
+    | % $Mapping `
     | % {
         $ManifestPath = Resolve-VirtualPath "$PackagePath/$($_.Version).psd1"
         [Pog.ManifestTemplateFile]::SerializeSubstitutionFile($ManifestPath, $_)
