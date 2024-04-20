@@ -24,7 +24,7 @@ public static class ManifestTemplateFile {
     }
 
     public static string Substitute(string templatePath, string templateDataPath) {
-        InstrumentationCounter.ManifestTemplateSubstitutions++;
+        InstrumentationCounter.ManifestTemplateSubstitutions.Increment();
 
         var substitutionTable = ParseSubstitutionFile(templateDataPath);
 

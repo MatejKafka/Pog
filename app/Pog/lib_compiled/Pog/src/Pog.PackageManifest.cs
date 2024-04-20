@@ -96,6 +96,8 @@ public record PackageManifest {
     /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
     /// <exception cref="InvalidPackageManifestStructureException">The package manifest was correctly parsed, but has invalid structure.</exception>
     private PackageManifest(Hashtable manifest, string manifestSource, RepositoryPackage? owningPackage = null) {
+        InstrumentationCounter.ManifestLoads.Increment();
+
         Raw = manifest;
         // parse the raw manifest into properties on this object
         var parser = new HashtableParser(manifest);
