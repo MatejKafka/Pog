@@ -35,8 +35,13 @@ public static class ManifestTemplateFile {
         var lastEndI = 0;
         var sb = new StringBuilder();
         foreach (var (key, token) in EnumerateTemplateKeys(tokens)) {
+            if (!substitutionTable.TryGetValue(key, out var substituteValue)) {
+                throw new PackageManifestParseException(templateDataPath,
+                        $"The manifest template data file is missing '{key}' key, expected by the manifest template.");
+            }
+
             sb.Append(templateStr, lastEndI, token.Extent.StartOffset - lastEndI);
-            sb.Append(substitutionTable[key]);
+            sb.Append(substituteValue);
             lastEndI = token.Extent.EndOffset;
         }
         sb.Append(templateStr, lastEndI, templateStr.Length - lastEndI);
