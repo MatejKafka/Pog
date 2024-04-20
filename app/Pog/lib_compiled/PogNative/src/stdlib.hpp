@@ -13,6 +13,12 @@ template<class T> struct remove_pointer<T* const> { using type = T; };
 template<class T> struct remove_pointer<T* volatile> { using type = T; };
 template<class T> struct remove_pointer<T* const volatile> { using type = T; };
 template<class T> using remove_pointer_t = typename remove_pointer<T>::type;
+
+template<class T> struct remove_cv { typedef T type; };
+template<class T> struct remove_cv<const T> { typedef T type; };
+template<class T> struct remove_cv<volatile T> { typedef T type; };
+template<class T> struct remove_cv<const volatile T> { typedef T type; };
+template<class T> using remove_cv_t = typename remove_cv<T>::type;
 // clang-format on
 
 template<typename TPtr>
@@ -54,28 +60,42 @@ using wstring_view = span_impl<const wchar_t*>;
 
 
 struct nullopt_t {};
-inline nullopt_t nullopt{};
+inline constexpr nullopt_t nullopt{};
 
 template<typename T>
 class optional {
-    alignas(T) char value_[sizeof(T)];
-    bool present_;
+private:
+    struct nontrivial_dummy_type {
+        // This default constructor is user-provided to avoid zero-initialization when objects are value-initialized.
+        constexpr nontrivial_dummy_type() noexcept = default;
+    };
+
+private:
+    union {
+        nontrivial_dummy_type dummy_;
+        remove_cv_t<T> value_;
+    };
+    bool has_value_;
 
 public:
-    optional() : value_{}, present_{false} {}
+    optional() : dummy_{}, has_value_{false} {}
 
     optional(nullopt_t) : optional{} {} // NOLINT(*-explicit-constructor)
 
-    optional(T value) : value_{}, present_{true} { // NOLINT(*-explicit-constructor)
-        *reinterpret_cast<T*>(value_) = value;
+    optional(T&& value) : value_{static_cast<T&&>(value)}, has_value_{true} {} // NOLINT(*-explicit-constructor)
+
+    ~optional() noexcept {
+        if (has_value_) {
+            value_.~T();
+        }
     }
 
     operator bool() { // NOLINT(*-explicit-constructor)
-        return present_;
+        return has_value_;
     }
 
     T* operator->() {
-        return (T*) &value_;
+        return &value_;
     }
 };
 
