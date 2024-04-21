@@ -102,3 +102,5 @@ https://github.com/miurahr/aqtinstall
 - always check that we're in a filesystem provider, and then use .ProviderPath for native commands to support network share paths
 - manifest is not executed with strict mode
 - investigate whether application manifests could be used on the stub to disable display scaling for the target, instead of modifying the manifest of the target directly
+- probably build a separate Pog.dll for powershell < 7 and powershell >= 7 (to avoid duplicate definitions for Span and similar polyfilled types)
+- consider whether unconditionally creating stubs for all exports would be better (otherwise what if .exe is used directly, and in next version, stub is added, and now half of the stuff in the system remembers and calls the old path (i.e. file associations)); this will also remove one place where symlinks are currently used for exporting commands
