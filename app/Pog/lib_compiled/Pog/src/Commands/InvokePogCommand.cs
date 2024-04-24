@@ -52,13 +52,13 @@ public sealed class InvokePogCommand : PackageCommandBase, IDynamicParameters {
 
     private Hashtable CopyCommonParameters() {
         // TODO: check if there isn't a built-in way to forward common parameters
-        var logArgs = new Hashtable();
+        var commonParams = new Hashtable();
         foreach (var p in CommonParameters) {
             if (MyInvocation.BoundParameters.TryGetValue(p, out var value)) {
-                logArgs[p] = value;
+                commonParams[p] = value;
             }
         }
-        return logArgs;
+        return commonParams;
     }
 
     // TODO: rollback on error
@@ -70,18 +70,18 @@ public sealed class InvokePogCommand : PackageCommandBase, IDynamicParameters {
         // reuse PassThru parameter from Import-Pog for Enable-Pog
         var passThru = (importParams["PassThru"] as SwitchParameter?)?.IsPresent ?? false;
         importParams.Remove("PassThru");
-        var logArgs = CopyCommonParameters();
+        var commonParams = CopyCommonParameters();
 
-        _ps.AddCommand(ImportPogInfo).AddParameters(logArgs).AddParameter("PassThru").AddParameters(importParams);
+        _ps.AddCommand(ImportPogInfo).AddParameters(commonParams).AddParameter("PassThru").AddParameters(importParams);
         if (Install) {
-            _ps.AddCommand(InstallPogInfo).AddParameters(logArgs).AddParameter("PassThru", passThru);
+            _ps.AddCommand(InstallPogInfo).AddParameters(commonParams).AddParameter("PassThru", passThru);
         } else {
-            _ps.AddCommand(InstallPogInfo).AddParameters(logArgs).AddParameter("PassThru");
+            _ps.AddCommand(InstallPogInfo).AddParameters(commonParams).AddParameter("PassThru");
             if (Enable) {
-                _ps.AddCommand(EnablePogInfo).AddParameters(logArgs).AddParameter("PassThru", passThru);
+                _ps.AddCommand(EnablePogInfo).AddParameters(commonParams).AddParameter("PassThru", passThru);
             } else {
-                _ps.AddCommand(EnablePogInfo).AddParameters(logArgs).AddParameter("PassThru");
-                _ps.AddCommand(ExportPogInfo).AddParameters(logArgs).AddParameter("PassThru", passThru);
+                _ps.AddCommand(EnablePogInfo).AddParameters(commonParams).AddParameter("PassThru");
+                _ps.AddCommand(ExportPogInfo).AddParameters(commonParams).AddParameter("PassThru", passThru);
             }
         }
 
@@ -93,8 +93,8 @@ public sealed class InvokePogCommand : PackageCommandBase, IDynamicParameters {
         base.ProcessRecord();
 
         // https://github.com/orgs/PowerShell/discussions/21356
-        var value = CurrentPipelineObjectProperty.GetValue(this);
-        _pipeline!.Process(value);
+        var pipelineInput = CurrentPipelineObjectProperty.GetValue(this);
+        _pipeline!.Process(pipelineInput);
     }
 
     protected override void EndProcessing() {
