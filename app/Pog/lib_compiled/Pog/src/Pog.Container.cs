@@ -77,9 +77,8 @@ public sealed class Container : IDisposable {
     public void Stop() {
         // stop the runspace on Ctrl-C; this works gracefully with `finally` blocks
         // we use .BeginStop instead of .Stop, because .Stop causes a deadlock when the container
-        //  is currently reading user input (not sure why)
-        // ideally, we should probably call .EndStop somewhere, but we don't really need to know about the completion
-        _ps.BeginStop(null, null);
+        //  is currently reading user input (https://github.com/PowerShell/PowerShell/issues/17633)
+        _ps.BeginStop(ar => _ps.EndStop(ar), null);
     }
 
     public void Dispose() {
