@@ -54,7 +54,7 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
     public bool IsTemplated => Directory.Exists(TemplateDirPath);
 
     public string TemplateDirPath => $"{Path}\\{PPaths.RepositoryTemplateDirName}";
-    internal string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestFileName}";
+    public string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestFileName}";
     internal override string ExpectedPathStr => $"expected path: {Path}";
 
     internal LocalRepositoryVersionedPackage(LocalRepository repository, string packageName) : base(packageName) {
@@ -166,7 +166,7 @@ public sealed class TemplatedLocalRepositoryPackage(LocalRepositoryVersionedPack
     public override bool Exists => File.Exists(Path) && Directory.Exists(TemplateDirPath);
 
     public string TemplateDirPath => ((LocalRepositoryVersionedPackage) Container).TemplateDirPath;
-    public string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestFileName}";
+    public string TemplatePath => ((LocalRepositoryVersionedPackage) Container).TemplatePath;
 
     protected override void ImportManifestTo(string targetManifestPath) {
         // TODO: figure out how to avoid calling .Substitute twice when first validating, and then importing the package

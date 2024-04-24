@@ -1,24 +1,32 @@
+# 1) create the .template manifest
+# 2) run this script
 param(
         [Parameter(Mandatory)]
         [string]
-    $PackageName,
-        [scriptblock]
-    $Mapping = {[ordered]@{Version = $_.Version.ToString(); Hash = $_.Install[0].ExpectedHash}}
+    $PackageName
 )
 
 Import-Module Pog
 
-# 1) create the .template manifest
-# 2) run this script
-$PackagePath = [Pog.InternalState]::Repository.GetPackage($PackageName, $true, $true).Path
+if ([Pog.InternalState]::Repository -isnot [Pog.LocalRepository]) {
+    throw "Only local repositories are supported."
+}
 
-if (-not (Test-Path "$PackagePath/.template")) {
+$Package = [Pog.InternalState]::Repository.GetPackage($PackageName, $true, $true)
+$PackagePath = $Package.Path
+
+if (-not $Package.IsTemplated) {
     throw "Missing .template dir"
+}
+
+$TemplateKeys = [Pog.ManifestTemplateFile]::GetTemplateKeys($Package.TemplatePath)
+if ("Url" -in $TemplateKeys) {
+    throw "Url resolution is not yet supported."
 }
 
 ls $PackagePath/*/pog.psd1 -Exclude .template `
     | % {[Pog.PackageManifest]::new($_)} `
-    | % $Mapping `
+    | % {[ordered]@{Version = $_.Version.ToString(); Hash = $_.Install[0].ExpectedHash}} `
     | % {
         $ManifestPath = Resolve-VirtualPath "$PackagePath/$($_.Version).psd1"
         [Pog.ManifestTemplateFile]::SerializeSubstitutionFile($ManifestPath, $_)
