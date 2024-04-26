@@ -17,29 +17,13 @@ function SetupInternalState {
 	$null = [Pog.ContainerEnableInternalState]::InitCurrent($PSCmdlet, $global:_Pog.Package)
 }
 
-<# This function is called after the container setup is finished to run the Enable script. #>
-Export function __main {
-	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
-	param([Pog.PackageManifest]$Manifest, $PackageArguments)
-
-	SetupInternalState
-
-	# invoke the scriptblock
-	# without .GetNewClosure(), the script block would see our internal module functions, probably because
-	#  it would be automatically bound to our SessionState; not really sure why GetNewClosure() binds it to
-	#  a different scope
-	& $Manifest.Enable.GetNewClosure() @PackageArguments
-}
-
 # TODO: maybe change Export-Pog to create a marker that "user wants this package exported",
 # TODO: probably also remove exports of the stale commands/shortcuts
 #  and then handle updates of the exported items in Enable-Pog?
-<# This function is called after the Enable script finishes. #>
-Export function __cleanup {
+function RemoveStaleExports {
 	[CmdletBinding()]
 	param()
 
-	# remove stale shortcuts and commands
 	$InternalState = [Pog.ContainerEnableInternalState]::GetCurrent($PSCmdlet)
 
 	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutStubs.Count -gt 0) {
@@ -62,6 +46,29 @@ Export function __cleanup {
 	}
 }
 
+<# This function is called after the container setup is finished to run the Enable script. #>
+Export function __main {
+	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
+	param([Pog.PackageManifest]$Manifest, $PackageArguments)
+
+	SetupInternalState
+
+	try {
+		# invoke the scriptblock
+		# without .GetNewClosure(), the script block would see our internal module functions, probably because
+		#  it would be automatically bound to our SessionState; not really sure why GetNewClosure() binds it to
+		#  a different scope
+		& $Manifest.Enable.GetNewClosure() @PackageArguments
+	} finally {
+		try {
+			# remove shotcuts and commands that were not re-exported during this Enable run
+			RemoveStaleExports
+		} catch {
+			# don't throw, we'd lose the original exception
+			Write-Warning ('Cleanup failed: ' + $_)
+		}
+	}
+}
 
 
 function Assert-ParentDirectory {

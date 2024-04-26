@@ -46,26 +46,9 @@ public sealed class Container : IDisposable {
         _ps.Runspace = GetInitializedRunspace(host, streamConfig);
     }
 
-    // __main and __cleanup should be exported by each container environment
-    // the `finally` block is called even on exit
-    private const string ContainerInvokeSbStr =
-            """
-            try {
-                __main @Args
-            } finally {
-                Write-Debug 'Cleaning up...'
-                try {
-                    __cleanup
-                    Write-Debug 'Cleanup finished.'
-                } catch {
-                    # don't throw, we'd lose the original exception
-                    Write-Warning ('Cleanup failed: ' + $_)
-                }
-            }
-            """;
-
     public IAsyncResult BeginInvoke(PSDataCollection<PSObject> outputCollection) {
-        _ps.AddScript(ContainerInvokeSbStr).AddArgument(_package.Manifest).AddArgument(_packageArguments);
+        // __main should be exported by each container environment
+        _ps.AddCommand("__main").AddArgument(_package.Manifest).AddArgument(_packageArguments);
         // don't accept any input, write output to `outputCollection`
         return _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);
     }

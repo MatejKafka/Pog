@@ -9,8 +9,3 @@ Export function __main {
 
 	$Manifest.Install | Install-FromUrl <# Install-FromUrl is implemented in Pog.dll #>
 }
-
-<# This function is called after __main finishes, even if it fails or gets interrupted. #>
-Export function __cleanup {
-	# nothing for now
-}

@@ -12,8 +12,3 @@ Export function __main {
 	#  a different scope
 	& $Manifest.Disable.GetNewClosure()
 }
-
-<# This function is called after __main finishes, even if it fails or gets interrupted. #>
-Export function __cleanup {
-	# nothing for now
-}

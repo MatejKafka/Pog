@@ -33,8 +33,3 @@ Export function __main {
         }
     }
 }
-
-<# This function is called after __main finishes. #>
-Export function __cleanup {
-	# nothing for now
-}
