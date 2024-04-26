@@ -105,9 +105,12 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
         WriteInformation($"Enabling {package.GetDescriptionString()}...");
 
         var it = InvokePogCommand(new InvokeContainer(this) {
-            ContainerType = Container.ContainerType.Enable,
-            Package = package,
-            PackageArguments = PackageArguments,
+            WorkingDirectory = package.Path,
+            Context = new EnableContainerContext(package),
+            Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_Enable.psm1"],
+            // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
+            Variables = [new("this", package.Manifest.Raw, "Loaded manifest of the processed package")],
+            Run = ps => ps.AddCommand("__main").AddArgument(package.Manifest).AddArgument(PackageArguments ?? new()),
         });
 
         // Enable container should not output anything, show a warning

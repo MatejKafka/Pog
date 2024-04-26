@@ -67,7 +67,7 @@ public class ExportCommandCommand : PSCmdlet {
         if (WorkingDirectory != null) Verify.FilePath(WorkingDirectory);
         if (MetadataSource != null) Verify.FilePath(MetadataSource);
 
-        var internalState = ContainerEnableInternalState.GetCurrent(this);
+        var internalState = EnableContainerContext.GetCurrent(this);
         var rTargetPath = GetUnresolvedProviderPathFromPSPath(TargetPath)!;
         var commandDirRelPath = _InternalDoNotUse_Shortcut
                 ? PathConfig.PackagePaths.ShortcutStubDirRelPath

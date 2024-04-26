@@ -16,8 +16,8 @@ namespace Pog.Commands.ContainerCommands;
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
 public class InstallFromUrlCommand : PogCmdlet {
     // created while parsing the package manifest
-    [Parameter(Mandatory = true, ValueFromPipeline = true)]
-    public PackageInstallParameters Params = null!;
+    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true)]
+    public PackageInstallParameters[] Params = null!;
 
     private string _packageDirPath = null!;
     private string _appDirPath = null!;
@@ -26,7 +26,6 @@ public class InstallFromUrlCommand : PogCmdlet {
     private string _extractionDirPath = null!;
     private string _tmpDeletePath = null!;
 
-    private bool _allowOverwrite = false;
     private bool _lowPriorityDownload;
     private Package _package = null!;
     private bool _lockFileListShown = false;
@@ -42,10 +41,9 @@ public class InstallFromUrlCommand : PogCmdlet {
         _extractionDirPath = $@"{_packageDirPath}\{PPaths.TmpExtractionDirName}";
         _tmpDeletePath = $@"{_packageDirPath}\{PPaths.TmpDeleteDirName}";
 
-        // read download parameters from the global container info variable
-        var internalInfo = Container.ContainerInternalInfo.GetCurrent(this);
-        _lowPriorityDownload = (bool) internalInfo.InternalArguments["DownloadLowPriority"];
-        _allowOverwrite = (bool) internalInfo.InternalArguments["AllowOverwrite"];
+        // read download parameters from the global container context variable
+        var internalInfo = DownloadContainerContext.GetCurrent(this);
+        _lowPriorityDownload = internalInfo.LowPriorityDownload;
         _package = internalInfo.Package;
 
 
@@ -67,14 +65,7 @@ public class InstallFromUrlCommand : PogCmdlet {
         }
 
         if (Directory.Exists(_appDirPath)) {
-            if (!ConfirmOverwrite()) {
-                var exception = new UserRefusedOverwriteException(
-                        "Not installing, user refused to overwrite existing package installation." +
-                        " Do not pass -Confirm to overwrite the existing installation without confirmation.");
-                ThrowTerminatingError(exception, "UserRefusedOverwrite", ErrorCategory.OperationStopped, null);
-            }
-
-            // next, we check if we can move/delete the current ./app directory
+            // check if we can move/delete the current ./app directory
             // e.g. maybe the packaged program is running and holding a lock over a file inside
             if (FsUtils.IsDirectoryLocked(_appDirPath)) {
                 // show information about the locked files to the user, so that they can close the program
@@ -93,9 +84,15 @@ public class InstallFromUrlCommand : PogCmdlet {
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
-        var url = Params.ResolveUrl();
+        foreach (var param in Params) {
+            ProcessSingle(param);
+        }
+    }
 
-        var target = Params switch {
+    private void ProcessSingle(PackageInstallParameters param) {
+        var url = param.ResolveUrl();
+
+        var target = param switch {
             PackageInstallParametersNoArchive pna => pna.Target,
             PackageInstallParametersArchive pa => pa.Target,
             _ => throw new UnreachableException(),
@@ -110,23 +107,23 @@ public class InstallFromUrlCommand : PogCmdlet {
             throw new UnreachableException();
         }
 
-        if (Params is PackageInstallParametersNoArchive) {
+        if (param is PackageInstallParametersNoArchive) {
             if (targetPath == _newAppDirPath) {
                 ThrowTerminatingArgumentError(target, "TargetResolvesToRoot",
                         $"Argument passed to the -Target parameter must contain the target file name, got '{target}'");
             }
         }
 
-        var downloadParameters = new DownloadParameters(Params.UserAgent, _lowPriorityDownload);
+        var downloadParameters = new DownloadParameters(param.UserAgent, _lowPriorityDownload);
         using var downloadedFile = InvokePogCommand(new InvokeCachedFileDownload(this) {
             SourceUrl = url,
-            ExpectedHash = Params.ExpectedHash,
+            ExpectedHash = param.ExpectedHash,
             DownloadParameters = downloadParameters,
             Package = _package,
             ProgressActivity = new() {Activity = $"Installing '{_package.PackageName}'"},
         });
 
-        switch (Params) {
+        switch (param) {
             case PackageInstallParametersNoArchive:
                 InstallNoArchive(downloadedFile, targetPath);
                 break;
@@ -373,13 +370,6 @@ public class InstallFromUrlCommand : PogCmdlet {
         // FIXME: port to C#
         InvokeCommand.InvokeScript($"ShowLockedFileList {LockedFilePrintColor}");
         _lockFileListShown = true;
-    }
-
-    private bool ConfirmOverwrite() {
-        return _allowOverwrite || ShouldContinue(
-                "Package seems to be already installed. Do you want to overwrite the current installation" +
-                " (./app subdirectory)?\nConfiguration and other package data will be kept.",
-                "Overwrite existing package installation?");
     }
 
     public class UserRefusedOverwriteException(string message) : Exception(message);

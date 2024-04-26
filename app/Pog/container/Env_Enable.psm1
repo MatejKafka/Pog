@@ -1,21 +1,12 @@
-using module ..\..\Paths.psm1
-using module ..\..\lib\Utils.psm1
-using module ..\..\lib\Environment.psm1
-. $PSScriptRoot\..\..\lib\header.ps1
+using module ..\Paths.psm1
+using module ..\lib\Utils.psm1
+using module ..\lib\Environment.psm1
+. $PSScriptRoot\..\lib\header.ps1
 
 
 # not sure if we should expose this, PowerShell (private package) uses it to set PSModulePath
 Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
 Export-ModuleMember -Cmdlet Export-Command, Disable-DisplayScaling
-
-
-function SetupInternalState {
-	[CmdletBinding()]
-	param()
-
-	# moved to a separate function, because we need [CmdletBinding()] to get $PSCmdlet
-	$null = [Pog.ContainerEnableInternalState]::InitCurrent($PSCmdlet, $global:_Pog.Package)
-}
 
 # TODO: maybe change Export-Pog to create a marker that "user wants this package exported",
 # TODO: probably also remove exports of the stale commands/shortcuts
@@ -24,7 +15,7 @@ function RemoveStaleExports {
 	[CmdletBinding()]
 	param()
 
-	$InternalState = [Pog.ContainerEnableInternalState]::GetCurrent($PSCmdlet)
+	$InternalState = [Pog.EnableContainerContext]::GetCurrent($PSCmdlet)
 
 	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutStubs.Count -gt 0) {
 		Write-Debug "Removing stale shortcuts..."
@@ -50,8 +41,6 @@ function RemoveStaleExports {
 Export function __main {
 	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
 	param([Pog.PackageManifest]$Manifest, $PackageArguments)
-
-	SetupInternalState
 
 	try {
 		# invoke the scriptblock
@@ -449,7 +438,7 @@ Export function Export-Shortcut {
 
 	# this shortcut was refreshed, not stale, remove it
 	# noop when not present
-	$null = [Pog.ContainerEnableInternalState]::GetCurrent($PSCmdlet).StaleShortcuts.Remove($ShortcutPath)
+	$null = [Pog.EnableContainerContext]::GetCurrent($PSCmdlet).StaleShortcuts.Remove($ShortcutPath)
 
 	$S = $Shell.CreateShortcut($ShortcutPath)
 

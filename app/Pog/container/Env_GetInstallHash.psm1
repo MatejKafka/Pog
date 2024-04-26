@@ -1,9 +1,9 @@
-. $PSScriptRoot\..\..\lib\header.ps1
+. $PSScriptRoot\..\lib\header.ps1
 
 
 <# This function is called after the container setup is finished to run the passed manifest. #>
 Export function __main {
-    param([Pog.PackageManifest]$Manifest, $PackageArguments)
+    param([Pog.PackageManifest]$Manifest)
 
     $Hashes = @()
     $First = $true

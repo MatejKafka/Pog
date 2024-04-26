@@ -6,7 +6,7 @@ using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
+internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
     [Parameter(Mandatory = true)] public ImportedPackage Package = null!;
 
     public override void Invoke() {
@@ -28,8 +28,11 @@ public class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         WriteInformation($"Disabling '{package.GetDescriptionString()}'...");
 
         var it = InvokePogCommand(new InvokeContainer(Cmdlet) {
-            ContainerType = Container.ContainerType.Disable,
-            Package = package,
+            WorkingDirectory = package.Path,
+            Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_Disable.psm1"],
+            // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
+            Variables = [new("this", package.Manifest.Raw, "Loaded manifest of the processed package")],
+            Run = ps => ps.AddCommand("__main").AddArgument(package.Manifest),
         });
 
         // Disable scriptblock should not output anything, show a warning

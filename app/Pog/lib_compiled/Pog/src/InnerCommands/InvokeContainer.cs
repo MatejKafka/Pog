@@ -1,22 +1,24 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 
-public class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(cmdlet) {
-    [Parameter(Mandatory = true)] public Container.ContainerType ContainerType;
-    [Parameter(Mandatory = true)] public Package Package = null!;
-    [Parameter] public Hashtable? InternalArguments;
-    [Parameter] public Hashtable? PackageArguments;
+internal class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(cmdlet) {
+    [Parameter] public string? WorkingDirectory = null;
+    [Parameter] public object? Context = null;
+
+    [Parameter] public string[]? Modules = null;
+    [Parameter] public SessionStateVariableEntry[]? Variables = null;
+    [Parameter(Mandatory = true)] public Action<PowerShell> Run = null!;
 
     private Container? _container;
 
     public override IEnumerable<PSObject> Invoke() {
-        _container = new Container(ContainerType, Package, InternalArguments, PackageArguments, Host,
-                ReadStreamPreferenceVariables());
+        _container = new Container(Host, ReadStreamPreferenceVariables(),
+                Run, Modules, Variables, WorkingDirectory, Context);
 
         var outputCollection = new PSDataCollection<PSObject>();
         var asyncResult = _container.BeginInvoke(outputCollection);
@@ -48,7 +50,9 @@ public class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(cmd
                 (ActionPreference) GetPreferenceVariableValue("VerbosePreference", "Verbose",
                         param => (SwitchParameter) param ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
                 (ActionPreference) GetPreferenceVariableValue("DebugPreference", "Debug",
-                        param => (SwitchParameter) param ? ActionPreference.Continue : ActionPreference.SilentlyContinue)
+                        param => (SwitchParameter) param ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
+                (ConfirmImpact) GetPreferenceVariableValue("ConfirmPreference", "Confirm",
+                        param => (SwitchParameter) param ? ConfirmImpact.Low : ConfirmImpact.None)
         );
 
         // other preference variables:

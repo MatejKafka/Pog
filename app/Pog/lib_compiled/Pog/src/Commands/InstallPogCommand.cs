@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
@@ -31,12 +30,12 @@ public sealed class InstallPogCommand() : ImportedPackageCommand(true) {
         WriteInformation($"Installing {package.GetDescriptionString()}...");
 
         var it = InvokePogCommand(new InvokeContainer(this) {
-            ContainerType = Container.ContainerType.Install,
-            Package = package,
-            InternalArguments = new Hashtable {
-                {"AllowOverwrite", true},
-                {"DownloadLowPriority", (bool) LowPriority},
-            },
+            WorkingDirectory = package.Path,
+            Context = new DownloadContainerContext(package, LowPriority),
+            Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_Install.psm1"],
+            // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
+            Variables = [new("this", package.Manifest.Raw, "Loaded manifest of the processed package")],
+            Run = ps => ps.AddCommand("__main").AddArgument(package.Manifest),
         });
 
         // Install container should not output anything, show a warning

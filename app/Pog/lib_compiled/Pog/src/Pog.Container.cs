@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections;
-using System.Diagnostics;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
@@ -19,36 +17,36 @@ public sealed class Container : IDisposable {
     /// Output streams from the container runspace.
     public PSDataStreams Streams => _ps.Streams;
 
+    private readonly string[] _modules;
+    private readonly SessionStateVariableEntry[] _variables;
+    private readonly Action<PowerShell> _run;
+    private readonly string? _workingDirectory;
+    private readonly object? _environmentContext;
     private readonly PowerShell _ps = PowerShell.Create();
-    private readonly ContainerType _containerType;
-    private readonly Package _package;
-    private readonly Hashtable _internalArguments;
-    private readonly Hashtable _packageArguments;
 
-    /// <param name="containerType">Which environment to set up in the container.</param>
-    /// <param name="package"></param>
-    /// <param name="internalArguments"></param>
-    /// <param name="packageArguments"></param>
     /// <param name="host">
     /// The <see cref="PSHost"/> instance used for the runspace. If null, DefaultHost instance is created.
     /// To read the output streams, use the <see cref="Streams"/> property after <see cref="BeginInvoke"/> was called.
     /// </param>
     /// <param name="streamConfig">Configuration for output stream preference variables.</param>
-    public Container(ContainerType containerType, Package package,
-            Hashtable? internalArguments, Hashtable? packageArguments,
-            PSHost? host, OutputStreamConfig streamConfig) {
-        _containerType = containerType;
-        _package = package;
-        // TODO: validate that internalArguments match containerType
-        _internalArguments = internalArguments ?? new Hashtable();
-        _packageArguments = packageArguments ?? new Hashtable();
-
+    /// <param name="modules"></param>
+    /// <param name="variables"></param>
+    /// <param name="run"></param>
+    /// <param name="workingDirectory"></param>
+    /// <param name="context"></param>
+    public Container(PSHost? host, OutputStreamConfig streamConfig, Action<PowerShell> run, string[]? modules = null,
+            SessionStateVariableEntry[]? variables = null, string? workingDirectory = null, object? context = null) {
+        _modules = modules ?? [];
+        _variables = variables ?? [];
+        _run = run;
+        _workingDirectory = workingDirectory;
+        _environmentContext = context;
         _ps.Runspace = GetInitializedRunspace(host, streamConfig);
     }
 
     public IAsyncResult BeginInvoke(PSDataCollection<PSObject> outputCollection) {
-        // __main should be exported by each container environment
-        _ps.AddCommand("__main").AddArgument(_package.Manifest).AddArgument(_packageArguments);
+        // _run should set up the script which is then executed by BeginInvoke
+        _run.Invoke(_ps);
         // don't accept any input, write output to `outputCollection`
         return _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);
     }
@@ -74,20 +72,16 @@ public sealed class Container : IDisposable {
         var iss = CreateInitialSessionState();
         var runspace = host == null ? RunspaceFactory.CreateRunspace(iss) : RunspaceFactory.CreateRunspace(host, iss);
 
-        if (_package is ImportedPackage ip) {
-            // set the working directory
+        // if the environment needs a custom working directory, set it
+        var workingDir = _workingDirectory;
+        if (workingDir != null) {
             // this is a hack, but unfortunately a necessary one: https://github.com/PowerShell/PowerShell/issues/17603
-            RunWithWorkingDir(ip.Path, () => {
+            RunWithWorkingDir(workingDir, () => {
                 // run runspace init (module import, variable setup,...)
                 // the runspace keeps the changed working directory even after it's reverted back on the process level
                 runspace.Open();
             });
         } else {
-            // not an imported package, do not change working directory
-
-            // only GetInstallHash container should be created for repository packages
-            Debug.Assert(_containerType == ContainerType.GetInstallHash);
-
             // run runspace init (module import, variable setup,...)
             runspace.Open();
         }
@@ -116,14 +110,6 @@ public sealed class Container : IDisposable {
         }
     }
 
-    private static void CopyPreferenceVariablesToRunspace(Runspace rs, OutputStreamConfig streamConfig) {
-        rs.SessionStateProxy.SetVariable("ProgressPreference", streamConfig.Progress);
-        rs.SessionStateProxy.SetVariable("WarningPreference", streamConfig.Warning);
-        rs.SessionStateProxy.SetVariable("InformationPreference", streamConfig.Information);
-        rs.SessionStateProxy.SetVariable("VerbosePreference", streamConfig.Verbose);
-        rs.SessionStateProxy.SetVariable("DebugPreference", streamConfig.Debug);
-    }
-
     private InitialSessionState CreateInitialSessionState() {
         var iss = InitialSessionState.CreateDefault2();
         iss.ThreadOptions = PSThreadOptions.UseNewThread;
@@ -136,28 +122,12 @@ public sealed class Container : IDisposable {
             new("PSModuleAutoLoadingPreference", "None", "", ScopedItemOptions.AllScope),
             // stop on any (even non-terminating) error, override the preference variable defined above
             new("ErrorActionPreference", "Stop", ""),
-
-            // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
-            new("this", _package.Manifest.Raw, "Loaded manifest of the processed package"),
-            // store internal Pog data in the _Pog variable inside the container, used by the environments imported below
-            new("_Pog", new ContainerInternalInfo(_package, _internalArguments),
-                    "Internal data used by the Pog container environment", ScopedItemOptions.Constant),
         });
 
-        var containerDir = InternalState.PathConfig.ContainerDir;
         iss.ImportPSModule([
             // these two imports contain basic stuff needed for printing output, errors, FS traversal,...
             "Microsoft.PowerShell.Management",
             "Microsoft.PowerShell.Utility",
-            // setup environment for package manifest script
-            // each environment module must provide functions `__main` and `__cleanup`
-            _containerType switch {
-                ContainerType.Enable => $@"{containerDir}\Enable\Env_Enable.psm1",
-                ContainerType.Disable => $@"{containerDir}\Enable\Env_Disable.psm1",
-                ContainerType.Install => $@"{containerDir}\Install\Env_Install.psm1",
-                ContainerType.GetInstallHash => $@"{containerDir}\Install\Env_GetInstallHash.psm1",
-                _ => throw new ArgumentOutOfRangeException(nameof(_containerType), _containerType, null),
-            },
         ]);
 
         // TODO: figure out if we can define this without having to write inline PowerShell function
@@ -168,43 +138,52 @@ public sealed class Container : IDisposable {
         iss.Commands.Add(new SessionStateFunctionEntry("Import-Module",
                 @"Microsoft.PowerShell.Core\Import-Module @Args 4>$null"));
 
+        // setup environment-specific modules and variables
+        iss.ImportPSModule(_modules);
+        iss.Variables.Add(_variables);
+
+        // if the environment uses an internal context, set it
+        if (_environmentContext != null) {
+            iss.Variables.Add(new SessionStateVariableEntry(EnvContextVarName, _environmentContext,
+                    "Internal context used by the Pog container environment", ScopedItemOptions.Constant));
+        }
+
         return iss;
     }
 
-    /// Enum of supported container environments.
-    public enum ContainerType { Install, GetInstallHash, Enable, Disable }
+    private static void CopyPreferenceVariablesToRunspace(Runspace rs, OutputStreamConfig streamConfig) {
+        rs.SessionStateProxy.SetVariable("ProgressPreference", streamConfig.Progress);
+        rs.SessionStateProxy.SetVariable("WarningPreference", streamConfig.Warning);
+        rs.SessionStateProxy.SetVariable("InformationPreference", streamConfig.Information);
+        rs.SessionStateProxy.SetVariable("VerbosePreference", streamConfig.Verbose);
+        rs.SessionStateProxy.SetVariable("DebugPreference", streamConfig.Debug);
+        rs.SessionStateProxy.SetVariable("ConfirmPreference", streamConfig.Confirm);
+    }
 
     [PublicAPI]
-    public record OutputStreamConfig(
+    public record struct OutputStreamConfig(
             ActionPreference Progress,
             ActionPreference Warning,
             ActionPreference Information,
             ActionPreference Verbose,
-            ActionPreference Debug) {
-        public ActionPreference Progress = Progress;
-        public ActionPreference Warning = Warning;
-        public ActionPreference Information = Information;
-        public ActionPreference Verbose = Verbose;
-        public ActionPreference Debug = Debug;
-    }
+            ActionPreference Debug,
+            ConfirmImpact Confirm);
 
-    [PublicAPI]
-    public record ContainerInternalInfo(Package Package, Hashtable InternalArguments) {
-        private const string StateVariableName = "global:_Pog";
+    private const string EnvContextVarName = "_PogInternalContext";
 
-        /// Retrieves the instance of `ContainerInternalInfo` associated with this container (PowerShell runspace).
-        /// <exception cref="InvalidOperationException">No valid `ContainerInternalInfo` instance is associated with this container.</exception>
-        public static ContainerInternalInfo GetCurrent(PSCmdlet callingCmdlet) {
-            var containerStateVar = callingCmdlet.SessionState.PSVariable.Get(StateVariableName);
-            if (containerStateVar == null) {
+    public class EnvironmentContext<TDerived> where TDerived : EnvironmentContext<TDerived> {
+        /// Retrieves the instance of <see cref="EnvironmentContext{TDerived}"/> associated with this container (PowerShell runspace).
+        /// <exception cref="InvalidOperationException">No valid <see cref="EnvironmentContext{TDerived}"/> instance is associated with this container.</exception>
+        public static TDerived GetCurrent(PSCmdlet callingCmdlet) {
+            var containerContextVar = callingCmdlet.SessionState.PSVariable.Get("global:" + EnvContextVarName);
+            if (containerContextVar == null) {
                 throw new InvalidOperationException(
-                        $"${StateVariableName} variable is missing, Pog package manifests must be executed inside the Pog environment.");
+                        $"${EnvContextVarName} variable is missing, Pog package manifests must be executed inside the Pog environment.");
             }
-            if (containerStateVar.Value is not ContainerInternalInfo containerState) {
-                throw new InvalidOperationException(
-                        $"${StateVariableName} is not of type {nameof(ContainerInternalInfo)}");
+            if (containerContextVar.Value is not TDerived containerContext) {
+                throw new InvalidOperationException($"${EnvContextVarName} is not of type {nameof(TDerived)}");
             }
-            return containerState;
+            return containerContext;
         }
     }
 }

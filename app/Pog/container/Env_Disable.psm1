@@ -1,10 +1,10 @@
 using module ..\..\Paths.psm1
-. $PSScriptRoot\..\..\lib\header.ps1
+. $PSScriptRoot\..\lib\header.ps1
 
 <# This function is called after the container setup is finished to run the Disable script. #>
 Export function __main {
     # __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
-	param([Pog.PackageManifest]$Manifest, $PackageArguments)
+	param([Pog.PackageManifest]$Manifest)
 
     # invoke the scriptblock
 	# without .GetNewClosure(), the script block would see our internal module functions, probably because

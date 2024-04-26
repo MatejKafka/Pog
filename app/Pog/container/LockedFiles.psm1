@@ -1,5 +1,5 @@
-using module .\..\..\lib\Utils.psm1
-. $PSScriptRoot\..\..\lib\header.ps1
+using module ..\lib\Utils.psm1
+. $PSScriptRoot\..\lib\header.ps1
 
 $KNOWN_APPIDS = @{
 	"{DFB65C4C-B34F-435D-AFE9-A86218684AA8}" = "WSL2" # Plan9FileSystem

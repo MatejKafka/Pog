@@ -24,8 +24,8 @@ public class GetCachedUrlHashCommand : PogCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        var internalInfo = Container.ContainerInternalInfo.GetCurrent(this);
-        _lowPriorityDownload = (bool) internalInfo.InternalArguments["DownloadLowPriority"];
+        var internalInfo = DownloadContainerContext.GetCurrent(this);
+        _lowPriorityDownload = internalInfo.LowPriorityDownload;
         _package = internalInfo.Package;
     }
 
