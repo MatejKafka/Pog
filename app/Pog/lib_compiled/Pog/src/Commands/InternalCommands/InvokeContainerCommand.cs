@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.InnerCommands;
 using Pog.InnerCommands.Common;
@@ -10,19 +9,21 @@ namespace Pog.Commands.InternalCommands;
 [Cmdlet(VerbsLifecycle.Invoke, "Container")]
 [OutputType(typeof(object))]
 public class InvokeContainerCommand : PogCmdlet {
-    [Parameter(Mandatory = true, Position = 0)] public Container.ContainerType ContainerType;
-    [Parameter(Mandatory = true, Position = 1)] public Package Package = null!;
-    [Parameter] public Hashtable? InternalArguments;
-    [Parameter] public Hashtable? PackageArguments;
+    [Parameter] public string? WorkingDirectory = null;
+    [Parameter] public object? Context = null;
+
+    [Parameter] public string[] Modules = [];
+    [Parameter(Mandatory = true)] [AllowNull] public object[] ArgumentList = null!;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
         var it = InvokePogCommand(new InvokeContainer(this) {
-            ContainerType = ContainerType,
-            Package = Package,
-            InternalArguments = InternalArguments,
-            PackageArguments = PackageArguments,
+            WorkingDirectory = WorkingDirectory,
+            Context = Context,
+
+            Modules = Modules,
+            Run = ps => ps.AddCommand("__main").AddParameters(ArgumentList),
         });
 
         foreach (var o in it) {
