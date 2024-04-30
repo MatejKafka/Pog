@@ -7,6 +7,8 @@ using Pog.Commands.Common;
 namespace Pog.Commands;
 
 // TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
+// TODO: to rollback on error or Ctrl-C, we will first need to know 1) which part of the pipeline failed, 2) which package failed
+//  seems like there's no way to get that information using public APIs; investigate
 
 /// <summary>
 /// <para type="synopsis">Import, install, enable and export a package.</para>

@@ -237,16 +237,16 @@ public static class FsUtils {
     ///    an Access Denied exception).
     /// 2) There's a locked entry in the directory and we cannot move it (in which case the same exception
     ///    is thrown from <see cref="MoveByHandle"/>).
-    public static SafeFileHandle OpenForMove(string directoryPath) {
+    public static SafeFileHandle OpenForMove(string directoryPath, FileShare sharedMode = FileShare.Read) {
         // ReSharper disable once InconsistentNaming
         const uint ACCESS_DELETE = 0x00010000;
         // using `FileShare.Read`, because e.g. Explorer likes to hold read handles to directories
-        return CreateFile(directoryPath, ACCESS_DELETE, FileShare.Read,
+        return CreateFile(directoryPath, ACCESS_DELETE, sharedMode,
                 FileMode.Open, Win32.FILE_FLAG.BACKUP_SEMANTICS);
     }
 
-    public static SafeFileHandle OpenDirectoryReadOnly(string directoryPath) {
-        return CreateFile(directoryPath, (uint) FileAccess.Read, FileShare.Read,
+    public static SafeFileHandle OpenDirectoryReadOnly(string directoryPath, FileShare sharedMode = FileShare.Read) {
+        return CreateFile(directoryPath, (uint) FileAccess.Read, sharedMode,
                 FileMode.Open, Win32.FILE_FLAG.BACKUP_SEMANTICS);
     }
 
@@ -287,10 +287,10 @@ public static class FsUtils {
     /// <remarks>If `destinationPath` is locked, this function erroneously returns true.</remarks>
     ///
     /// <exception cref="SystemException"></exception>
-    public static bool MoveDirectoryUnlocked(string srcPath, string destinationPath) {
+    public static bool MoveDirectoryUnlocked(string srcPath, string destinationPath, FileShare sharedMode = FileShare.Read) {
         SafeFileHandle dirHandle;
         try {
-            dirHandle = OpenForMove(srcPath);
+            dirHandle = OpenForMove(srcPath, sharedMode);
         } catch (FileLoadException) {
             // the directory at dirPath is locked by another process
             return false;

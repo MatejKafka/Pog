@@ -55,7 +55,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
     public delegate void InvalidCacheEntryCb(InvalidCacheEntryException exception);
 
     public IEnumerable<CacheEntryInfo> EnumerateEntries(InvalidCacheEntryCb? invalidEntryCb = null) {
-        // the last .Where is necessary to avoid race conditions (cache entry exists when entries are enumerated,
+        // .SelectOptional is also necessary to avoid race conditions (cache entry exists when entries are enumerated,
         //  but is deleted before `GetEntryInfoInner(...)` finishes)
         return FsUtils.EnumerateNonHiddenDirectoryNames(Path).SelectOptional(entryKey => {
             try {
@@ -311,7 +311,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
         return new NewCacheEntry(entrySrcDir, entryFileName);
     }
 
-    /// Atomically add an entry to the cache and get a lock.
+    /// Atomically add an entry to the cache and get a lock. The entry directory must be at the same partition as the cache.
     /// Expected usage: File is downloaded to a temporary directory, then moved into the cache using this method.
     /// <exception cref="CacheEntryAlreadyExistsException"></exception>
     public CacheEntryLock AddEntryLocked(string entryKey, NewCacheEntry newEntry) {
@@ -408,13 +408,10 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
         internal static SourcePackageMetadata? ParseFromJson(string json) {
             try {
                 var parsed = JsonSerializer.Deserialize<SourcePackageMetadata>(json);
-                switch (parsed) {
-                    case null:
-                    case {PackageName: null}:
-                        return null;
-                    default:
-                        return parsed;
-                }
+                return parsed switch {
+                    null or {PackageName: null} => null,
+                    _ => parsed,
+                };
             } catch (JsonException) {
                 return null;
             }

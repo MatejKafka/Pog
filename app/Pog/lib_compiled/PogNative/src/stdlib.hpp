@@ -110,7 +110,7 @@ inline OutputIt copy(InputIt first, InputIt last, OutputIt d_first) {
 
 // implementation for `wcslen`, which is an intrinsic on some versions of MSVC, so we cannot redefine it
 inline size_t wstr_size(const wchar_t* str) {
-    DWORD size = 0;
+    size_t size = 0;
     for (; str[size] != 0; size++) {}
     return size;
 }

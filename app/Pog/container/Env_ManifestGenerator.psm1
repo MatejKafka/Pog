@@ -1,6 +1,10 @@
 using module .\..\lib\Utils.psm1
 . $PSScriptRoot\..\lib\header.ps1
 
+# TODO: provide support for simple version comparison; currently, the author must do something like
+#  `[Pog.PackageVersion]$_.tag_name.Substring(1) -ge [Pog.PackageVersion]"0.8.0"}`, we could provide something like
+#  `-MinVersion 0.8.0` to Get-GitHubRelease or as a standalone cmdlet
+
 # always use basic parsing inside the generators, to ease compatibility with PowerShell 5
 $PSDefaultParameterValues = @{
 	"Invoke-WebRequest:UseBasicParsing" = $true

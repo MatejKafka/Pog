@@ -30,7 +30,6 @@ public class InstallFromUrlCommand : PogCmdlet {
     private Package _package = null!;
     private bool _lockFileListShown = false;
 
-
     /// here, only parameter validation and setup is done
     protected override void BeginProcessing() {
         base.BeginProcessing();
