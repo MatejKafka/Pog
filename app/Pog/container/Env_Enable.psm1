@@ -60,7 +60,7 @@ Export function __main {
 }
 
 
-function Assert-ParentDirectory {
+function New-ParentDirectory {
 	param(
 			[Parameter(Mandatory)]
 		$Path
@@ -128,7 +128,7 @@ function Set-Symlink {
 		# not a correct item, delete and recreate
 		Remove-Item -Recurse -Force $LinkAbsPath
 	} else {
-		Assert-ParentDirectory $LinkAbsPath
+		New-ParentDirectory $LinkAbsPath
 	}
 
 	Write-Debug "Creating symlink from '$LinkAbsPath' with target '$TargetStr'."
@@ -139,7 +139,7 @@ function Set-Symlink {
 
 enum ItemType {File; Directory}
 <#
-	What Set-SymlinkedPath should do:
+	What New-Symlink should do:
 	if target exists:
 		switch source state:
 			does not exist:
@@ -161,7 +161,7 @@ enum ItemType {File; Directory}
 		else:
 
 #>
-Export function Set-SymlinkedPath {
+Export function New-Symlink {
 	param(
 			[Parameter(Mandatory)]
 		$OriginalPath,
@@ -178,7 +178,7 @@ Export function Set-SymlinkedPath {
 
 	begin {
 		if ($Merge -and $ItemType -ne [ItemType]::Directory) {
-			throw "'-Merge' switch for Set-SymlinkedPath may only be passed when '-ItemType Directory' is set."
+			throw "'-Merge' switch for New-Symlink may only be passed when '-ItemType Directory' is set."
 		}
 
 		$TestType = switch ($ItemType) {File {"Leaf"}; Directory {"Container"}}
@@ -201,7 +201,7 @@ Export function Set-SymlinkedPath {
 		# TargetPath matches item type
 
 		if (-not (Test-Path $TargetPath)) {
-			Assert-ParentDirectory $TargetPath
+			New-ParentDirectory $TargetPath
 			# $OriginalPath exists and it's not a symlink
 			if ((Test-Path $OriginalPath) -and -not $OriginalPathIsSymlink) {
 				# TODO: check if $OriginalPath is being used by another process; block if it is so
@@ -225,8 +225,8 @@ Export function Set-SymlinkedPath {
 }
 
 
-<# Ensures that given directory path exists. #>
-Export function Assert-Directory {
+<# Ensures that the directory at the provided path exists. #>
+Export function New-Directory {
 	[CmdletBinding()]
 	param(
 		[Parameter(Mandatory)]$Path,
@@ -250,8 +250,8 @@ Export function Assert-Directory {
 }
 
 
-<# Ensures that given file exists. #>
-Export function Assert-File {
+<# Create a new file with the specified content, or update an existing file. #>
+Export function New-File {
 	[CmdletBinding(DefaultParameterSetName="ScriptBlocks")]
 	param(
 			[Parameter(Mandatory, Position=0)]
@@ -336,7 +336,7 @@ Export function Assert-File {
 		throw "Path '$Path' already exists, but it's not a file."
 	}
 
-	Assert-ParentDirectory $Path
+	New-ParentDirectory $Path
 
 	# create new file with default content
 	# the generator script $DefaultContent can either create and populate the file directly,
