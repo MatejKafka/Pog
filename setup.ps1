@@ -1,3 +1,13 @@
+param(
+    ### Do not add Pog to PATH and PSModulePath. You must then import Pog into your
+    ### PowerShell session manually using `Import-Module` with a path to the module,
+    ### and invoke exported commands using absolute path.
+    [switch]$NoEnv,
+
+    ### Do not automatically update user-wide PowerShell execution policy to allow running local scripts.
+    [switch]$NoExecutionPolicy
+)
+
 Set-StrictMode -Version Latest
 
 $ErrorActionPreference = "Stop"
@@ -73,8 +83,6 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
     Set-Content $ROOT_FILE_PATH -Value $DefaultContentRoot
 }
 
-Write-Host ""
-
 # ====================================================================================
 # now, we should be ready to import Pog
 Import-Module $PSScriptRoot\app\Pog
@@ -89,6 +97,7 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
     }
 
     try {
+        Write-Information ""
         $7z | Enable-Pog -PassThru | Export-Pog
     } catch {
         throw ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
@@ -103,6 +112,7 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
 
 if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
     try {
+        Write-Information ""
         pog OpenedFilesView
     } catch {
         throw ("Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
@@ -118,17 +128,29 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
 
 # TODO: prompt before doing these user-wide changes
 
-Write-Host "Setting up PATH and PSModulePath..."
-# add Pog dir to PSModulePath
-Add-EnvPSModulePath (Resolve-Path "$PSScriptRoot\app")
-# add binary dir to PATH
-Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
+if ($NoEnv) {
+    Write-Host "No changes to environment variables were made.`nTo use Pog in a new PowerShell session, run:"
+    Write-Host ('    Import-Module "' + $PSScriptRoot + '\app\Pog"') -ForegroundColor DarkGreen
+
+    Write-Host "To invoke commands exported by Pog packages, add the 'package_bin' directory to your shell PATH:"
+    Write-Host ('    $env:PATH = "' + $PSScriptRoot + '\data\package_bin;$env:PATH"') -ForegroundColor DarkGreen
+} else {
+    Write-Host "Setting up PATH and PSModulePath..."
+    # add Pog dir to PSModulePath
+    Add-EnvPSModulePath (Resolve-Path "$PSScriptRoot\app")
+    # add binary dir to PATH
+    Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
+}
 
 if ((Get-ExecutionPolicy -Scope CurrentUser) -notin @("RemoteSigned", "Unrestricted", "Bypass")) {
-    # since Pog is currently not signed, we need at least RemoteSigned to run
-    Write-Warning "Changing PowerShell execution policy for the current user to 'RemoteSigned'..."
-    # https://stackoverflow.com/questions/60541618/how-to-suppress-warning-message-from-script-when-calling-set-executionpolicy/60549569#60549569
-    try {Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force} catch [System.Security.SecurityException] {}
+    if ($NoExecutionPolicy) {
+        Write-Host "No changes to execution policy were made. Pog likely won't work until you change the execution policy to at least 'RemoteSigned'."
+    } else {
+        # since Pog is currently not signed, we need at least RemoteSigned to run
+        Write-Warning "Changing PowerShell execution policy for the current user to 'RemoteSigned'..."
+        # https://stackoverflow.com/questions/60541618/how-to-suppress-warning-message-from-script-when-calling-set-executionpolicy/60549569#60549569
+        try {Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force} catch [System.Security.SecurityException] {}
+    }
 }
 
 
