@@ -10,13 +10,23 @@ if ($PSVersionTable.PSVersion -lt "5.0") {
     throw "Pog requires at least PowerShell 5."
 }
 
-$IsDevModeEnabled = try {
-    [bool](Get-ItemPropertyValue "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" "AllowDevelopmentWithoutDevLicense")
-} catch {$false}
+$SymlinkPath = "$env:TEMP\Pog-symlink-test-$(New-Guid)"
+try {
+    # try creating a symlink in TEMP to itself
+    $null = cmd.exe /c mklink $SymlinkPath $SymlinkPath
+    $SymlinksAllowed = $LASTEXITCODE -eq 0
+} catch {
+    $SymlinksAllowed = $false
+}
+Remove-Item $SymlinkPath -ErrorAction Ignore
 
-if (-not $IsDevModeEnabled) {
-    throw "Windows Developer mode is not enabled. Currently, it must be enabled for Pog to work correctly, " +`
-        "since Pog internally uses symbolic links. Please enable developer mode in Settings."
+
+if (-not $SymlinksAllowed) {
+    throw ("Pog cannot create symbolic links, which are currently necessary for correct functionality. To allow creating symbolic links, do any of the following:`n" +`
+        "  1) Enable Developer Mode. (Settings -> Update & Security -> For developers -> Developer Mode)`n" +`
+        "  2) Allow your user account to create symbolic links using Group Policy.`n" +`
+        "     (Windows Settings -> Security Settings -> Local Policies -> User Rights Assignment -> Create symbolic links)`n" +`
+        "  3) Always run Pog as administrator.")
     return
 }
 
