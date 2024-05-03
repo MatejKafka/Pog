@@ -141,6 +141,9 @@ public sealed class ImportedPackage : Package, ILocalPackage {
 
     public override bool Exists => Directory.Exists(Path);
 
+    public FileInfo[] ExportedCommands => EnumerateExportedCommands().ToArray();
+    public FileInfo[] ExportedShortcuts => EnumerateExportedShortcuts().ToArray();
+
     internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, null) {
         Verify.Assert.FilePath(path);
         Verify.Assert.PackageName(packageName);
@@ -166,7 +169,7 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         InvalidateManifest();
     }
 
-    public bool RemoveExportedShortcuts() {
+    internal bool RemoveExportedShortcuts() {
         // shortcut dir is the root of the package, delete the shortcuts one-by-one instead of deleting the whole directory
         var deleted = false;
         foreach (var shortcut in EnumerateExportedShortcuts()) {
@@ -176,11 +179,11 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         return deleted;
     }
 
-    public bool RemoveExportedCommands() {
+    internal bool RemoveExportedCommands() {
         return DeleteDirectoryRel(PathConfig.PackagePaths.CommandDirRelPath);
     }
 
-    public bool RemoveShortcutStubs() {
+    internal bool RemoveShortcutStubs() {
         return DeleteDirectoryRel(PathConfig.PackagePaths.ShortcutStubDirRelPath);
     }
 
