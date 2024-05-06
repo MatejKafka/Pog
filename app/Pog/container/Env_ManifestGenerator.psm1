@@ -114,7 +114,7 @@ Export function Get-GitHubRelease {
 			[ValidatePattern("^[^/\s]+/[^/\s]+$")]
 			[string[]]
 		$Repository,
-			### Retrieves tags instead of releases.
+			### Retrieve tags instead of releases.
 			[switch]
 		$Tags
 	)

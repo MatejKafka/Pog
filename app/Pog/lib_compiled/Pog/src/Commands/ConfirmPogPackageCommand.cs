@@ -146,7 +146,7 @@ public sealed class ConfirmPogPackageCommand : PogCmdlet {
     private static readonly HashSet<string> AllowedDirs = new() {
         "app", "cache", "logs", "data", "config",
         ".pog", ".commands", // internal Pog dirs
-        ".user_private", // dir where user can put his custom files, scripts,...
+        ".user_private", // dir where users can put their custom files, scripts,...
     };
 
     private string GetFileList(IEnumerable<string> paths) {

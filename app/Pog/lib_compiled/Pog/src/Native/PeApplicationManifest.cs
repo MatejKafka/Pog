@@ -59,14 +59,14 @@ internal class PeApplicationManifest {
             changed = true;
             ws.Value.Add(new XElement(XName.Get("dpiAware", "http://schemas.microsoft.com/SMI/2005/WindowsSettings"),
                     new XText("true/pm")));
-        } else if (!NodeContainsValue(dpiAwareNode, new[] {"true/pm", "true"})) {
+        } else if (!NodeContainsValue(dpiAwareNode, ["true/pm", "true"])) {
             changed = true;
             dpiAwareNode.SetValue("true/pm");
         }
 
         var dpiAwarenessNode = Find("/asmv3:application/asmv3:windowsSettings/ws2016:dpiAwareness");
-        // no need to add dpiAwareness if it does not exists and dpiAware is already set
-        if (dpiAwarenessNode != null && !NodeContainsValue(dpiAwarenessNode, new[] {"permonitorv2", "permonitor"})) {
+        // no need to add dpiAwareness if it does not exist and dpiAware is already set
+        if (dpiAwarenessNode != null && !NodeContainsValue(dpiAwarenessNode, ["permonitorv2", "permonitor"])) {
             changed = true;
             dpiAwarenessNode.SetValue("PerMonitorV2");
         }

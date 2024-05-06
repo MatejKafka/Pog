@@ -132,7 +132,7 @@ function Set-Symlink {
 	}
 
 	Write-Debug "Creating symlink from '$LinkAbsPath' with target '$TargetStr'."
-	# New-Item -Type SymbolicLink has a dumb issue with relative paths, so we use the .NET methods instead
+	# New-Item -Type SymbolicLink has a dumb issue with relative paths, so we bypass it
 	#  https://github.com/PowerShell/PowerShell/issues/15235
 	return [Pog.FsUtils]::CreateSymbolicLink($LinkAbsPath, $TargetStr, $Target.PSIsContainer)
 }
@@ -204,7 +204,7 @@ Export function New-Symlink {
 			New-ParentDirectory $TargetPath
 			# $OriginalPath exists and it's not a symlink
 			if ((Test-Path $OriginalPath) -and -not $OriginalPathIsSymlink) {
-				# TODO: check if $OriginalPath is being used by another process; block if it is so
+				# TODO: check if $OriginalPath is being used by another process; block if it is
 				# move it to target and then create symlink
 				Move-Item $OriginalPath $TargetPath
 			} else {
