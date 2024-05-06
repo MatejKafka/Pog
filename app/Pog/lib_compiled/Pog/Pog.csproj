@@ -8,6 +8,7 @@
     <PublishRelease>true</PublishRelease>
     <!-- This is needed for XmlDoc2CmdletDoc to generate a PowerShell documentation file. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <XmlDoc2CmdletDocArguments>-ignoreMissing</XmlDoc2CmdletDocArguments>
 
     <LangVersion>default</LangVersion>
     <Nullable>enable</Nullable>
@@ -49,7 +50,7 @@
     <PackageReference Include="PowerShellStandard.Library" Version="7.0.0-preview.1"/>
     <PackageReference Include="System.Text.Json" Version="9.0.0-preview.2.24128.5"/>
     <PackageReference Include="System.Net.Http.Json" Version="9.0.0-preview.2.24128.5"/>
-    <PackageReference Include="MatejKafka.XmlDoc2CmdletDoc" Version="0.4.0">
+    <PackageReference Include="MatejKafka.XmlDoc2CmdletDoc" Version="0.4.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
