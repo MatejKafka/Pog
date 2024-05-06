@@ -122,7 +122,9 @@ Export function Get-GitHubRelease {
 	process {
 		foreach ($r in $Repository) {
 			$Endpoint = if ($Tags) {"tags"} else {"releases"}
-			$Url = "https://api.github.com/repos/$r/$Endpoint"
+			# 100 releases per page is the maximum: https://docs.github.com/en/rest/releases/releases#list-releases
+			$Url = "https://api.github.com/repos/$r/${Endpoint}?per_page=100"
+
 			Write-Verbose "Listing GitHub releases for '$r'... (URL: $Url)"
 
 			try {
