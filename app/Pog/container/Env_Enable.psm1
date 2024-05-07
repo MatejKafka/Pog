@@ -162,6 +162,7 @@ enum ItemType {File; Directory}
 
 #>
 Export function New-Symlink {
+	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory)]
 		$OriginalPath,
