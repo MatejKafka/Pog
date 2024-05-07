@@ -86,10 +86,14 @@ public abstract class QuotingArgumentCompleter : IArgumentCompleter {
 }
 
 public abstract class DirectoryListingArgumentCompleter : QuotingArgumentCompleter {
+    // allow * and ? wildcards
+    private static readonly char[] InvalidCharacters =
+            Path.GetInvalidFileNameChars().Where(c => c != '*' && c != '?').ToArray();
+
     protected abstract IEnumerable<string> GetMatchingItems(string searchPattern, IDictionary fakeBoundParameters);
 
     protected override IEnumerable<string> GetCompletions(string wordToComplete, IDictionary fakeBoundParameters) {
-        if (0 <= wordToComplete.IndexOfAny(Path.GetInvalidFileNameChars())) {
+        if (0 <= wordToComplete.IndexOfAny(InvalidCharacters)) {
             return Enumerable.Empty<string>();
         }
         return GetMatchingItems($"{wordToComplete}*", fakeBoundParameters);
