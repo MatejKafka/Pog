@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.Native;
 using Polyfills;
@@ -38,10 +39,27 @@ public static class FsUtils {
         return PogExports.GetSymbolicLinkTarget(linkPath);
     }
 
+    [PublicAPI]
     public static FileSystemInfo CreateSymbolicLink(string path, string targetPath, bool isDirectory) {
-        if (isDirectory) return PIO.Directory.CreateSymbolicLink(path, targetPath);
-        else return PIO.File.CreateSymbolicLink(path, targetPath);
+        try {
+            if (isDirectory) return PIO.Directory.CreateSymbolicLink(path, targetPath);
+            else return PIO.File.CreateSymbolicLink(path, targetPath);
+        } catch (COMException e) when (e.HResult == -2147023582) {
+            // -2147023582 (0x80070522) = A required privilege is not held by the client.
+            throw new UnauthorizedAccessException(SymlinkCreationErrorMessage, e);
+        }
     }
+
+    private const string SymlinkCreationErrorMessage =
+            """
+            Pog cannot create symbolic links, which are currently necessary for correct functionality.
+
+            To allow creating symbolic links, do any of the following, then re-run the command:
+              1) Enable Developer Mode. (Settings -> Update & Security -> For developers -> Developer Mode)
+              2) Allow your user account to create symbolic links using Group Policy.
+                 (Windows Settings -> Security Settings -> Local Policies -> User Rights Assignment -> Create symbolic links)
+              3) Always run Pog as administrator.
+            """;
 
     private static readonly Regex InvalidDosNameRegex = new(@"^(CON|PRN|AUX|NUL|COM\d|LPT\d)(\..+)?$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
