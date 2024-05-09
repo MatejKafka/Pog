@@ -7,48 +7,48 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Pog.Native;
 
-namespace Pog.Stub;
+namespace Pog.Shim;
 
 /**
- * This class provides support for working with Pog executable stubs. Do not use it directly with the template stub,
+ * This class provides support for working with Pog executable shims. Do not use it directly with the template shims,
  * first copy it, then modify the copy, and then move it into the final destination.
  *
- * ## How the stub works
- * Source of the stub is in the `lib_compiled/PogNative` directory.
- * When invoked, the stub loads the RCDATA resource with ID 1, which should contain the stub data, parses it, and then
+ * ## How the shim works
+ * Source of the shim is in the `lib_compiled/PogNative` directory.
+ * When invoked, the shim loads the RCDATA resource with ID 1, which should contain the shim data, parses it, and then
  * creates a job object, invokes CreateProcessW to spawn the target process, waits until the target process exits and
  * forwards the exit code.
  *
- * ## Stub data parameters
+ * ## Shim data parameters
  *
  * ### Target path
- * Path to the target executable is loaded from stub data, and passed directly to CreateProcessW in `lpApplicationName`.
+ * Path to the target executable is loaded from shim data, and passed directly to CreateProcessW in `lpApplicationName`.
  *
  * ### Working directory
  * Working directory is a single absolute path. If set, it is passed directly to the `lpCurrentDirectory` parameter
  * of CreateProcessW, otherwise the current working directory is retained.
  *
  * ### Command line
- * Command line prefix is loaded from stub data, which is a single string (escaping is done ahead of time), without the path
- * to the target. The stub retrieves its own command line using GetCommandLine, extracts the first argument (name under which
- * the stub was invoked), then creates the target command line by concatenating 1. argv[0], 2. the prepended command line
- * specified in the stub data, 3. rest of the original command line ("argv[0] stubArgs argv[1...]"). If `ReplaceArgv0`
+ * Command line prefix is loaded from shim data, which is a single string (escaping is done ahead of time), without the path
+ * to the target. The shim retrieves its own command line using GetCommandLine, extracts the first argument (name under which
+ * the shim was invoked), then creates the target command line by concatenating 1. argv[0], 2. the prepended command line
+ * specified in the shim data, 3. rest of the original command line ("argv[0] shimArgs argv[1...]"). If `ReplaceArgv0`
  * is true, target path is used instead of the original argv[0]. It is passed to the `lpCommandLine` parameter of CreateProcessW.
  *
  * ### Environment
- * Since most of the environment is typically retained, the stub modifies its own environment and then passes NULL
- * to the `lpEnvironment` parameter of CreateProcessW. The stub supports interpolating existing environment variables
+ * Since most of the environment is typically retained, the shim modifies its own environment and then passes NULL
+ * to the `lpEnvironment` parameter of CreateProcessW. The shim supports interpolating existing environment variables
  * into the value (e.g. "%APPDATA%/Path") and concatenating multiple segments of a list variable. The value string is parsed
- * in `StubExecutable` into a format that's more efficient for the stub (essentially, a list of tokens, where each token
+ * in `ShimExecutable` into a format that's more efficient for the shim (essentially, a list of tokens, where each token
  * is either an environment variable name, or a literal string).
  *
- * ## Stub data format
- * Strings in the stub are encoded in UTF-16 and terminated by 2 null bytes, unless specified otherwise.
+ * ## Shim data format
+ * Strings in the shim are encoded in UTF-16 and terminated by 2 null bytes, unless specified otherwise.
  * All offsets and sizes/lengths/counts are stored as uint32. If an offset is 0, it indicates that the field is not present.
  *
- * The stub data header is a version number, flag bitfield and an array of offsets, in the following order:
+ * The shim data header is a version number, flag bitfield and an array of offsets, in the following order:
  *  - uint16 Version number
- *  - uint16 Flags (<see cref="StubFlags"/>)
+ *  - uint16 Flags (<see cref="ShimFlags"/>)
  *  - Target path offset (must NOT be zero)
  *  - Working directory offset (may be zero)
  *  - Command line offset (may be zero)
@@ -61,7 +61,7 @@ namespace Pog.Stub;
  *  - Environment variable block has the following format:
  *    - Entry count
  *    - (Entry name offset, Entry value offset), repeated "Entry count" times
- *    The name offset points to a string, placed anywhere in the stub. The value offset points to a structure described below.
+ *    The name offset points to a string, placed anywhere in the shim. The value offset points to a structure described below.
  *
  * ### Environment variable value format
  * The value is stored in a linked-list-like structure of string segments with the following format:
@@ -70,8 +70,8 @@ namespace Pog.Stub;
  *  - String (for meaning, <see cref="SegmentFlags"/>)
  *  After each segment, padding is optionally inserted to align it to `sizeof(uint)`.
  */
-internal class StubDataEncoder {
-    public const ushort CurrentStubDataVersion = 3;
+internal class ShimDataEncoder {
+    public const ushort CurrentShimDataVersion = 3;
     private static readonly Encoding Encoding = Encoding.Unicode;
     private const ushort NullTerminator = 0;
     private const int HeaderSize = 2 * 2 + 4 * 4;
@@ -79,44 +79,44 @@ internal class StubDataEncoder {
     private readonly MemoryStream _stream;
     private readonly BinaryWriter _writer;
 
-    private StubDataEncoder() {
+    private ShimDataEncoder() {
         _stream = new MemoryStream(256);
         _writer = new BinaryWriter(_stream);
     }
 
-    public static uint ParseVersion(ReadOnlySpan<byte> stubData) {
-        Debug.Assert(stubData.Length > sizeof(ushort));
+    public static uint ParseVersion(ReadOnlySpan<byte> shimData) {
+        Debug.Assert(shimData.Length > sizeof(ushort));
         // version is the first uint in the header
-        return Unsafe.ReadUnaligned<ushort>(ref MemoryMarshal.GetReference(stubData));
+        return Unsafe.ReadUnaligned<ushort>(ref MemoryMarshal.GetReference(shimData));
     }
 
-    public static Span<byte> EncodeStub(StubExecutable stub) {
-        var encoder = new StubDataEncoder();
-        return encoder.Encode(stub);
+    public static Span<byte> EncodeShim(ShimExecutable shim) {
+        var encoder = new ShimDataEncoder();
+        return encoder.Encode(shim);
     }
 
-    private Span<byte> Encode(StubExecutable stub) {
+    private Span<byte> Encode(ShimExecutable shim) {
         // seek past the header, write it after we know offsets of all fields
         SeekAbs(HeaderSize);
 
         // write target path
-        var targetOffset = WriteNullTerminatedString(stub.TargetPath);
+        var targetOffset = WriteNullTerminatedString(shim.TargetPath);
 
         // write working directory
-        var wdOffset = stub.WorkingDirectory == null ? 0 : WriteNullTerminatedString(stub.WorkingDirectory);
+        var wdOffset = shim.WorkingDirectory == null ? 0 : WriteNullTerminatedString(shim.WorkingDirectory);
 
         // write arguments
-        var argsOffset = stub.Arguments == null ? 0 : WriteLengthPrefixedString(Win32Args.EscapeArguments(stub.Arguments));
+        var argsOffset = shim.Arguments == null ? 0 : WriteLengthPrefixedString(Win32Args.EscapeArguments(shim.Arguments));
 
         // write environment variables
-        var envOffset = stub.EnvironmentVariables == null ? 0 : WriteEnvironmentVariables(stub.EnvironmentVariables);
+        var envOffset = shim.EnvironmentVariables == null ? 0 : WriteEnvironmentVariables(shim.EnvironmentVariables);
 
         var endOffset = Position;
 
         // go back and write the header
         SeekAbs(0);
-        WriteUshort(CurrentStubDataVersion); // version, must be the first (see ParseVersion)
-        WriteUshort((ushort) (stub.ReplaceArgv0 ? StubFlags.ReplaceArgv0 : 0)); // flags
+        WriteUshort(CurrentShimDataVersion); // version, must be the first (see ParseVersion)
+        WriteUshort((ushort) (shim.ReplaceArgv0 ? ShimFlags.ReplaceArgv0 : 0)); // flags
         WriteUint(targetOffset);
         WriteUint(wdOffset);
         WriteUint(argsOffset);
@@ -151,7 +151,7 @@ internal class StubDataEncoder {
         return startOffset;
     }
 
-    /// Align writer position so that the values are safe to read from C++ in the stub.
+    /// Align writer position so that the values are safe to read from C++ in the shim.
     private void Align(long alignment) {
         // ensure alignment is a power of two
         Debug.Assert((alignment & (alignment - 1)) == 0);
@@ -168,7 +168,7 @@ internal class StubDataEncoder {
     private void WriteUint(long n) {WriteUint((uint) n);}
     //@formatter:on
 
-    private long WriteEnvironmentVariables(IReadOnlyCollection<(string, StubExecutable.EnvVarTemplate)> envVars) {
+    private long WriteEnvironmentVariables(IReadOnlyCollection<(string, ShimExecutable.EnvVarTemplate)> envVars) {
         Align(sizeof(uint));
         var startOffset = Position;
 
@@ -198,7 +198,7 @@ internal class StubDataEncoder {
         return startOffset;
     }
 
-    private long WriteEnvironmentVariableValue(StubExecutable.EnvVarTemplate value) {
+    private long WriteEnvironmentVariableValue(ShimExecutable.EnvVarTemplate value) {
         Align(sizeof(uint));
         var startOffset = Position;
 
@@ -220,7 +220,7 @@ internal class StubDataEncoder {
     }
 
     [Flags]
-    private enum StubFlags : ushort {
+    private enum ShimFlags : ushort {
         ReplaceArgv0 = 1,
     }
 

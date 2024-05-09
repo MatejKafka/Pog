@@ -2,7 +2,7 @@
 
 #include <Windows.h>
 #include <cassert>
-#include "StubData.hpp"
+#include "ShimData.hpp"
 #include "Buffer.hpp"
 #include "stdlib.hpp"
 #include "util.hpp"
@@ -168,20 +168,20 @@ static ChildHandles run_target(const wchar_t* target, wchar_t* command_line, con
 }
 
 int wmain() {
-    StubDataBuffer stub_data_buffer = load_stub_data();
-    StubData stub_data{stub_data_buffer};
+    ShimDataBuffer shim_data_buffer = load_shim_data();
+    ShimData shim_data{shim_data_buffer};
 
-    if (stub_data.version() != 3) {
-        panic(L"Incorrect Pog stub data version, this stub expects v3.");
+    if (shim_data.version() != 3) {
+        panic(L"Incorrect Pog shim data version, this shim expects v3.");
     }
 
-    auto flags = stub_data.flags();
+    auto flags = shim_data.flags();
     auto use_env_path = HAS_FLAG(flags, LOOKUP_TARGET_IN_PATH);
     auto replace_argv0 = HAS_FLAG(flags, REPLACE_ARGV0) || use_env_path;
 
-    auto target = stub_data.get_target();
-    auto working_dir = stub_data.get_working_directory();
-    auto extra_args = stub_data.get_arguments();
+    auto target = shim_data.get_target();
+    auto working_dir = shim_data.get_working_directory();
+    auto extra_args = shim_data.get_arguments();
     auto cmd_line = build_command_line(extra_args, replace_argv0 ? target : nullptr);
 
     if (use_env_path) {
@@ -197,7 +197,7 @@ int wmain() {
     }
 
     // write extracted environment variables to our environment
-    stub_data.enumerate_environment_variables([](auto name, auto value) {
+    shim_data.enumerate_environment_variables([](auto name, auto value) {
         DBG_LOG(L"env var '%ls': %ls\n", name, value);
         CHECK_ERROR_B(SetEnvironmentVariable(name, value));
     });

@@ -183,8 +183,8 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         return DeleteDirectoryRel(PathConfig.PackagePaths.CommandDirRelPath);
     }
 
-    internal bool RemoveShortcutStubs() {
-        return DeleteDirectoryRel(PathConfig.PackagePaths.ShortcutStubDirRelPath);
+    internal bool RemoveShortcutShims() {
+        return DeleteDirectoryRel(PathConfig.PackagePaths.ShortcutShimDirRelPath);
     }
 
     private bool DeleteDirectoryRel(string relDirPath) {
@@ -201,9 +201,9 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         return EnumerateFilesRel(PathConfig.PackagePaths.CommandDirRelPath);
     }
 
-    /// Enumerates full paths of all internal shortcut stubs.
-    internal IEnumerable<FileInfo> EnumerateShortcutStubs() {
-        return EnumerateFilesRel(PathConfig.PackagePaths.ShortcutStubDirRelPath);
+    /// Enumerates full paths of all internal shortcut shims.
+    internal IEnumerable<FileInfo> EnumerateShortcutShims() {
+        return EnumerateFilesRel(PathConfig.PackagePaths.ShortcutShimDirRelPath);
     }
 
     private IEnumerable<FileInfo> EnumerateFilesRel(string relDirPath, string searchPattern = "*") {

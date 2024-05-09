@@ -95,12 +95,11 @@ https://github.com/miurahr/aqtinstall
 - Export-Command should check if the file extension is in PATHEXT, especially if symlink is used
 - if manifest writer changes download URL, forgets to update the hash, and has the URL cached, Pog will silently seem to work, using the cached archive; maybe use url as part of the cache entry key? Figure out how that would interact with multiple mirrors
 - Add package for GIMP – https://www.gimp.org/man/gimp.html; environment variables like GIMP2_DIRECTORY
-- ssh - when full stub binaries are implemented, pass -F to 'ssh.exe' to support package-local config dir without symlinks from ~/.ssh
 - detect custom modifications to pog.psd1 inside a package and warn before overwriting (compare with repository manifest of the same version for differences)
 - FileDownloader - figure out how to make BITS use filename from HTTP header instead of last segment of URL (this is an issue for e.g. rustup, where -NoArchive is passed, so user sees the actual downloaded binary name)
 - substitute exe should correctly forward argv[0] (app name), so that e.g. ccache works
 - always check that we're in a filesystem provider, and then use .ProviderPath for native commands to support network share paths
 - manifest is not executed with strict mode
-- investigate whether application manifests could be used on the stub to disable display scaling for the target, instead of modifying the manifest of the target directly
+- investigate whether application manifests could be used on the shim to disable display scaling for the target, instead of modifying the manifest of the target directly
 - probably build a separate Pog.dll for powershell < 7 and powershell >= 7 (to avoid duplicate definitions for Span and similar polyfilled types)
-- consider whether unconditionally creating stubs for all exports would be better (otherwise what if .exe is used directly, and in next version, stub is added, and now half of the stuff in the system remembers and calls the old path (i.e. file associations)); this will also remove one place where symlinks are currently used for exporting commands
+- consider whether unconditionally creating shims for all exports would be better (otherwise what if .exe is used directly, and in next version, shim is added, and now half of the stuff in the system remembers and calls the old path (i.e. file associations)); this will also remove one place where symlinks are currently used for exporting commands

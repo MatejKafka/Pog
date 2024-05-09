@@ -13,11 +13,11 @@ public class EnableContainerContext : Container.EnvironmentContext<EnableContain
     /// <see cref="StaleShortcuts"/>
     public readonly HashSet<string> StaleCommands;
     /// <see cref="StaleShortcuts"/>
-    public readonly HashSet<string> StaleShortcutStubs;
+    public readonly HashSet<string> StaleShortcutShims;
 
     internal EnableContainerContext(ImportedPackage enabledPackage) {
         StaleShortcuts = [..enabledPackage.EnumerateExportedShortcuts().Select(f => f.FullName)];
         StaleCommands = [..enabledPackage.EnumerateExportedCommands().Select(f => f.FullName)];
-        StaleShortcutStubs = [..enabledPackage.EnumerateShortcutStubs().Select(f => f.FullName)];
+        StaleShortcutShims = [..enabledPackage.EnumerateShortcutShims().Select(f => f.FullName)];
     }
 }

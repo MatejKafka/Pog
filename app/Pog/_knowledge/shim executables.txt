@@ -68,12 +68,12 @@ to control this behavior more exactly, instead cast the string to [resolve] or [
 	#     ISSUE: how to deal with single-argument formats like '--param=value'
 	#            and '--param:value'?
 	#
-	<# Array of arguments that are passed to the target when the stub file is invoked.
-	   Any arguments that the stub file is invoked with are appended to the arguments
+	<# Array of arguments that are passed to the target when the shim file is invoked.
+	   Any arguments that the shim file is invoked with are appended to the arguments
 	   defined here.
 
 	   By default, all arguments starting with './' or '.\' are treated as relative
-	   paths and resolved during stub file creation (not when the stub is invoked).
+	   paths and resolved during shim file creation (not when the shim is invoked).
 	   See the command description if you need more control over the resolution
 	   ([resolve] and [noresolve] types). #>
 	[Alias("Arguments")]
@@ -83,7 +83,7 @@ $ArgumentList = @(),
 	   in addition to the environment variables inherited from the calling process.
 
 	   By default, variable values starting with './' or '.\' are treated as relative
-	   paths and resolved during stub file creation (NOT when the stub is invoked).
+	   paths and resolved during shim file creation (NOT when the shim is invoked).
 	   See the command description if you need more control over the resolution
 	   ([resolve] and [noresolve] types).
 

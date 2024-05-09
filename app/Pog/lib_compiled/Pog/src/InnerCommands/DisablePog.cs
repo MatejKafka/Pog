@@ -48,7 +48,7 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
 
         package.RemoveExportedCommands();
         package.RemoveExportedShortcuts();
-        package.RemoveShortcutStubs();
+        package.RemoveShortcutShims();
     }
 
     private void RemoveGloballyExportedShortcuts(ImportedPackage p) {

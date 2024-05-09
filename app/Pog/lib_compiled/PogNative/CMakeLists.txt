@@ -17,7 +17,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
-    # in release builds, we want to cut down the stub size as much as we can, since it's copied around a lot
+    # in release builds, we want to cut down the shim size as much as we can, since it's copied around a lot
 
     # do not link CRT (it blows up the binary size from 8 kB to 114 kB)
     add_link_options(/NODEFAULTLIB)
@@ -37,6 +37,6 @@ else()
 endif()
 
 # when compiling outside of debug mode, include our stdlib.cpp polyfill
-add_executable(PogExecutableStubTemplate src/pog_stub.cpp $<$<NOT:$<CONFIG:Debug>>:src/stdlib.cpp>)
+add_executable(PogShimTemplate src/pog_shim.cpp $<$<NOT:$<CONFIG:Debug>>:src/stdlib.cpp>)
 # export release build binary to lib_compiled dir
-set_target_properties(PogExecutableStubTemplate PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "../..")
+set_target_properties(PogShimTemplate PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "../..")

@@ -5,16 +5,16 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
-using Pog.Stub;
+using Pog.Shim;
 using Pog.Utils;
 
 namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
-[Cmdlet(VerbsData.Export, "Command", DefaultParameterSetName = StubPS)]
+[Cmdlet(VerbsData.Export, "Command", DefaultParameterSetName = ShimPS)]
 public class ExportCommandCommand : PSCmdlet {
     private const string SymlinkPS = "Symlink";
-    private const string StubPS = "Stub";
+    private const string ShimPS = "Shim";
 
     [Parameter(Mandatory = true, Position = 0)]
     [Verify.FileName]
@@ -24,32 +24,32 @@ public class ExportCommandCommand : PSCmdlet {
     [Verify.FilePath]
     public string TargetPath = null!;
 
-    [Parameter(ParameterSetName = StubPS)]
+    [Parameter(ParameterSetName = ShimPS)]
     [Verify.FilePath]
     public string? WorkingDirectory;
 
-    [Parameter(ParameterSetName = StubPS)]
+    [Parameter(ParameterSetName = ShimPS)]
     [Alias("Arguments")]
     public string[]? ArgumentList;
 
     // use IDictionary so that caller can use [ordered] if order is important
-    [Parameter(ParameterSetName = StubPS)]
+    [Parameter(ParameterSetName = ShimPS)]
     [Alias("Environment")]
     public IDictionary? EnvironmentVariables;
 
-    [Parameter(ParameterSetName = StubPS)]
+    [Parameter(ParameterSetName = ShimPS)]
     [Verify.FilePath]
     public string? MetadataSource;
 
     // useful when the manifest wants to invoke the binary during Enable (e.g. initial config generation in Syncthing)
     [Parameter] public SwitchParameter PassThru;
     [Parameter(ParameterSetName = SymlinkPS)] public SwitchParameter Symlink;
-    [Parameter(ParameterSetName = StubPS)] public SwitchParameter VcRedist;
+    [Parameter(ParameterSetName = ShimPS)] public SwitchParameter VcRedist;
     /// <summary><para type="description">
-    /// If set, argv[0] passed to the target is the absolute path to target, otherwise argv[0] is preserved from the stub.
+    /// If set, argv[0] passed to the target is the absolute path to target, otherwise argv[0] is preserved from the shim.
     /// This switch is typically not necessary, but sometimes having a different `argv[0]` breaks the target.
     /// </para></summary>
-    [Parameter(ParameterSetName = StubPS)] public SwitchParameter ReplaceArgv0;
+    [Parameter(ParameterSetName = ShimPS)] public SwitchParameter ReplaceArgv0;
 
     // ReSharper disable once InconsistentNaming
     // TODO: figure out some way to avoid this parameter without duplicating this cmdlet
@@ -70,7 +70,7 @@ public class ExportCommandCommand : PSCmdlet {
         var internalState = EnableContainerContext.GetCurrent(this);
         var rTargetPath = GetUnresolvedProviderPathFromPSPath(TargetPath)!;
         var commandDirRelPath = _InternalDoNotUse_Shortcut
-                ? PathConfig.PackagePaths.ShortcutStubDirRelPath
+                ? PathConfig.PackagePaths.ShortcutShimDirRelPath
                 : PathConfig.PackagePaths.CommandDirRelPath;
         var commandDirPath = GetUnresolvedProviderPathFromPSPath(commandDirRelPath);
 
@@ -97,17 +97,17 @@ public class ExportCommandCommand : PSCmdlet {
                     WriteVerbose($"Command {cmdName} is already exported as a symlink.");
                 }
             } else {
-                if (ExportCommandStubExecutable(cmdName, rLinkPath, rTargetPath)) {
-                    WriteInformation($"Exported command '{cmdName}' using a stub executable.", null);
+                if (ExportCommandShimExecutable(cmdName, rLinkPath, rTargetPath)) {
+                    WriteInformation($"Exported command '{cmdName}' using a shim executable.", null);
                 } else {
-                    WriteVerbose($"Command {cmdName} is already exported as a stub executable.");
+                    WriteVerbose($"Command {cmdName} is already exported as a shim executable.");
                 }
             }
 
             // mark this command as not stale
             //  (stale = e.g. leftover command from previous version that was removed for this version)
             if (_InternalDoNotUse_Shortcut) {
-                internalState.StaleShortcutStubs.Remove(rLinkPath);
+                internalState.StaleShortcutShims.Remove(rLinkPath);
             } else {
                 internalState.StaleCommands.Remove(rLinkPath);
             }
@@ -130,7 +130,7 @@ public class ExportCommandCommand : PSCmdlet {
         return true;
     }
 
-    private bool ExportCommandStubExecutable(string cmdName, string rLinkPath, string rTargetPath) {
+    private bool ExportCommandShimExecutable(string cmdName, string rLinkPath, string rTargetPath) {
         var rWorkingDirectory = WorkingDirectory == null ? null : GetUnresolvedProviderPathFromPSPath(WorkingDirectory)!;
         var rMetadataSource = MetadataSource == null ? null : GetUnresolvedProviderPathFromPSPath(MetadataSource);
 
@@ -155,27 +155,27 @@ public class ExportCommandCommand : PSCmdlet {
         }
 
         // TODO: argument and env resolution
-        var stub = new StubExecutable(rTargetPath, rWorkingDirectory, resolvedArgs, resolvedEnvVars, ReplaceArgv0);
+        var shim = new ShimExecutable(rTargetPath, rWorkingDirectory, resolvedArgs, resolvedEnvVars, ReplaceArgv0);
 
         if (File.Exists(rLinkPath)) {
             if ((new FileInfo(rLinkPath).Attributes & FileAttributes.ReparsePoint) != 0) {
                 // reparse point, not an ordinary file, remove
                 File.Delete(rLinkPath);
-                WriteDebug("Overwriting symlink with a stub executable...");
+                WriteDebug("Overwriting symlink with a shim executable...");
             } else {
                 try {
-                    return stub.UpdateStub(rLinkPath, rMetadataSource);
-                } catch (StubExecutable.OutdatedStubException) {
-                    // outdated stub exe, overwrite the stub with a new version
+                    return shim.UpdateShim(rLinkPath, rMetadataSource);
+                } catch (ShimExecutable.OutdatedShimException) {
+                    // outdated shim exe, overwrite with a new version
                     File.Delete(rLinkPath);
-                    WriteDebug("Old stub executable, replacing with an up-to-date one...");
+                    WriteDebug("Old shim executable, replacing with an up-to-date one...");
                 }
             }
         }
 
-        // copy empty stub to rLinkPath
-        File.Copy(InternalState.PathConfig.ExecutableStubPath, rLinkPath);
-        stub.WriteNewStub(rLinkPath, rMetadataSource);
+        // copy empty shim to rLinkPath
+        File.Copy(InternalState.PathConfig.ShimPath, rLinkPath);
+        shim.WriteNewShim(rLinkPath, rMetadataSource);
         return true;
     }
 
@@ -199,7 +199,7 @@ public class ExportCommandCommand : PSCmdlet {
     private List<KeyValuePair<string, string[]>> ResolveEnvironmentVariables(IDictionary envVars) {
         // if `envVars` is not a SortedDictionary, sort entries alphabetically, so that we get a consistent order
         // this is important, because iteration order of dictionaries apparently differs between .NET Framework
-        //  and .NET Core, and we want the stubs to be consistent between powershell.exe and pwsh.exe
+        //  and .NET Core, and we want the shims to be consistent between powershell.exe and pwsh.exe
         var envEnumerable = envVars is IOrderedDictionary
                 ? envVars.Cast<DictionaryEntry>()
                 : envVars.Cast<DictionaryEntry>().OrderBy(e => e.Key);
@@ -208,7 +208,7 @@ public class ExportCommandCommand : PSCmdlet {
             // this does not match strings (char is not an object)
             IEnumerable<object> enumerable => enumerable.SelectOptional(ResolveEnvironmentVariableValue)
                     .ToArray(),
-            _ => new[] {ResolveEnvironmentVariableValue(e.Value) ?? ""},
+            _ => [ResolveEnvironmentVariableValue(e.Value) ?? ""],
         })).ToList();
     }
 }

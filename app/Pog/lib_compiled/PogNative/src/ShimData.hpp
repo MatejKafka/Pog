@@ -8,12 +8,12 @@
 
 // https://learn.microsoft.com/en-us/windows/win32/procthread/environment-variables, including null terminator
 constexpr size_t MAX_ENV_VAR_SIZE = 32'768;
-using StubDataBuffer = span<const byte>;
+using ShimDataBuffer = span<const byte>;
 
-inline StubDataBuffer load_stub_data() {
+inline ShimDataBuffer load_shim_data() {
     auto resource_handle = FindResource(nullptr, MAKEINTRESOURCE(1), RT_RCDATA);
     if (resource_handle == nullptr) {
-        panic(L"Pog stub not configured yet.");
+        panic(L"Pog shim not configured yet.");
     }
     auto loaded_resource = CHECK_ERROR(LoadResource(nullptr, resource_handle));
     auto resource_ptr = CHECK_ERROR(LockResource(loaded_resource));
@@ -27,21 +27,21 @@ concept WcharPtrCallback = requires(Callback cb, const wchar_t* str) { cb(str); 
 template<typename Callback>
 concept EnvironmentVariableCallback = requires(Callback cb, const wchar_t* str) { cb(str, str); };
 
-enum class StubFlag : uint16_t { REPLACE_ARGV0 = 1, LOOKUP_TARGET_IN_PATH = 2, };
+enum class ShimFlag : uint16_t { REPLACE_ARGV0 = 1, LOOKUP_TARGET_IN_PATH = 2, };
 enum class EnvVarTokenFlag : uint16_t { ENV_VAR_NAME = 1, NEW_LIST_ITEM = 2, LAST_SEGMENT = 4, };
 
-struct StubHeader {
+struct ShimHeader {
     uint16_t version;
-    StubFlag flags;
+    ShimFlag flags;
     uint32_t target_offset;
     uint32_t working_directory_offset;
     uint32_t argument_offset;
     uint32_t environment_offset;
 };
 // ensure that no padding is added
-static_assert(sizeof(StubHeader) == 2 * 2 + 4 * 4);
+static_assert(sizeof(ShimHeader) == 2 * 2 + 4 * 4);
 
-class StubDataEnvironmentVariable {
+class ShimDataEnvironmentVariable {
 private:
     // do not make this struct packed, since then alignof() is 1, which breaks `.next()`
     struct EnvSegmentHeader {
@@ -162,19 +162,19 @@ private:
     }
 };
 
-// We intentionally don't do any bound checking. The worst that can happen is that the stub will crash...
-class StubData {
+// We intentionally don't do any bound checking. The worst that can happen is that the shim will crash...
+class ShimData {
 private:
-    const StubDataBuffer buffer;
+    const ShimDataBuffer buffer;
 
 public:
-    explicit StubData(const StubDataBuffer& buffer) : buffer(buffer) {}
+    explicit ShimData(const ShimDataBuffer& buffer) : buffer(buffer) {}
 
     [[nodiscard]] uint32_t version() const {
         return header().version;
     }
 
-    [[nodiscard]] StubFlag flags() const {
+    [[nodiscard]] ShimFlag flags() const {
         return header().flags;
     }
 
@@ -203,15 +203,15 @@ public:
         while (it != end) {
             auto* name = read_wstring(*it++);
             auto value_offset = *it++;
-            StubDataEnvironmentVariable::get_value((void*) &buffer[value_offset], [&](auto value) {
+            ShimDataEnvironmentVariable::get_value((void*) &buffer[value_offset], [&](auto value) {
                 callback(name, value);
             });
         }
     }
 
 private:
-    [[nodiscard]] const StubHeader& header() const {
-        return *(const StubHeader*) buffer.data();
+    [[nodiscard]] const ShimHeader& header() const {
+        return *(const ShimHeader*) buffer.data();
     }
 
     [[nodiscard]] const wchar_t* read_wstring(size_t offset) const {

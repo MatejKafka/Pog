@@ -39,7 +39,7 @@ try {
     $SrcLibCompiled = "$Root/app/Pog/lib_compiled"
     rm -Recurse app/Pog/lib_compiled/*
     # copy Pog binaries and vc redist
-    @("Pog.dll", "Pog.dll-Help.xml", "PogExecutableStubTemplate.exe", "vc_redist") `
+    @("Pog.dll", "Pog.dll-Help.xml", "PogShimTemplate.exe", "vc_redist") `
         | % {cp -Recurse $SrcLibCompiled/$_ app/Pog/lib_compiled/$_}
 
 

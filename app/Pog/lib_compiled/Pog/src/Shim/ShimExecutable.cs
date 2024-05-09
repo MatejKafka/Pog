@@ -6,26 +6,26 @@ using System.Linq;
 using Pog.Native;
 using Pog.Utils;
 
-namespace Pog.Stub;
+namespace Pog.Shim;
 
 // TODO: support tags ([noresolve], [resolve], [prepend], [append])
-// TODO: switch to stub data format with package-relative paths instead of absolute paths
+// TODO: switch to shim data format with package-relative paths instead of absolute paths
 // TODO: when copying PE resources, should we also enumerate languages?
 
-// Required operations with stubs:
-// 1) create a new stub (or overwrite an existing one)
-//    - store encoded stub data in RCDATA#1
+// Required operations with shims:
+// 1) create a new shim (or overwrite an existing one)
+//    - store encoded shim data in RCDATA#1
 //    - copy PE resources from target
-// 2) TODO: get owning package of a stub
-// 3) check if the configuration of a stub matches an expected one
-//    - encode stub data and compare with stored stub data
-//    - read target PE resources, compare with already copied PE resources in the stub
-public class StubExecutable {
-    // stub data are stored as an RCDATA resource at index 1
-    private static readonly PeResources.ResourceId StubDataResourceId = new(PeResources.ResourceType.RcData, 1);
+// 2) TODO: get owning package of a shim
+// 3) check if the configuration of a shim matches an expected one
+//    - encode shim data and compare with stored shim data
+//    - read target PE resources, compare with already copied PE resources in the shim
+public class ShimExecutable {
+    // shim data are stored as an RCDATA resource at index 1
+    private static readonly PeResources.ResourceId ShimDataResourceId = new(PeResources.ResourceType.RcData, 1);
     // TODO: bring back ResourceType.Manifest, but it will require some amount of parsing
-    //  e.g. Firefox declares required assemblies, which the stub doesn't see, so it fails
-    /// List of resource types which are copied from target to the stub.
+    //  e.g. Firefox declares required assemblies, which the shim doesn't see, so it fails
+    /// List of resource types which are copied from target to the shim.
     private static readonly PeResources.ResourceType[] CopiedResourceTypes = {
         PeResources.ResourceType.Icon, PeResources.ResourceType.IconGroup,
         PeResources.ResourceType.Version /*, ResourceType.Manifest*/
@@ -33,10 +33,10 @@ public class StubExecutable {
     /// List of supported target extensions. All listed extensions can be invoked directly by `CreateProcess(...)`.
     private static readonly string[] SupportedTargetExtensions = {".exe", ".com", ".cmd", ".bat"};
 
-    /// If true, argv[0] is always replaced with TargetPath, otherwise the path to the stub is kept as argv[0].
+    /// If true, argv[0] is always replaced with TargetPath, otherwise the path to the shim is kept as argv[0].
     public readonly bool ReplaceArgv0;
     // target must be a full path, accepting command names in PATH is not easily doable, because we need to know the target
-    //  subsystem to configure the stub; we could try to resolve the path, copy the subsystem and hope that it doesn't
+    //  subsystem to configure the shim; we could try to resolve the path, copy the subsystem and hope that it doesn't
     //  change, but that's kinda fragile
     public readonly string TargetPath;
     private readonly string _targetExtension;
@@ -44,14 +44,14 @@ public class StubExecutable {
     public readonly string[]? Arguments;
     public readonly (string, EnvVarTemplate)[]? EnvironmentVariables;
 
-    public StubExecutable(string targetPath, string? workingDirectory = null, string[]? arguments = null,
+    public ShimExecutable(string targetPath, string? workingDirectory = null, string[]? arguments = null,
             IEnumerable<KeyValuePair<string, string[]>>? environmentVariables = null, bool replaceArgv0 = false) {
         Debug.Assert(Path.IsPathRooted(targetPath));
 
         _targetExtension = Path.GetExtension(targetPath).ToLowerInvariant();
         if (!SupportedTargetExtensions.Contains(_targetExtension)) {
-            throw new UnsupportedStubTargetTypeException(
-                    $"Stub target '{targetPath}' has an unsupported extension. Supported extensions are: " +
+            throw new UnsupportedShimTargetTypeException(
+                    $"Shim target '{targetPath}' has an unsupported extension. Supported extensions are: " +
                     string.Join(", ", SupportedTargetExtensions));
         }
 
@@ -64,7 +64,7 @@ public class StubExecutable {
         EnvironmentVariables = environmentVariables?.Select(e => {
             if (e.Key.Contains("=")) {
                 throw new InvalidEnvironmentVariableNameException(
-                        $"Invalid stub executable environment variable name, contains '=': {e.Key}");
+                        $"Invalid shim executable environment variable name, contains '=': {e.Key}");
             }
             return (e.Key, new EnvVarTemplate(e.Value));
         }).ToArray();
@@ -74,128 +74,128 @@ public class StubExecutable {
         return _targetExtension is ".exe" or ".com";
     }
 
-    /// Ensures that the stub at stubPath is up-to-date.
-    /// <returns>true if anything changed, false if stub is up-to-date</returns>
-    /// <exception cref="OutdatedStubException"></exception>
-    public bool UpdateStub(string stubPath, string? resourceSrcPath = null) {
-        return IsTargetPeBinary() ? UpdateStubExe(stubPath, resourceSrcPath) : UpdateStubOther(stubPath, resourceSrcPath);
+    /// Ensures that the shim at shimPath is up-to-date.
+    /// <returns>true if anything changed, false if shim is up-to-date</returns>
+    /// <exception cref="OutdatedShimException"></exception>
+    public bool UpdateShim(string shimPath, string? resourceSrcPath = null) {
+        return IsTargetPeBinary() ? UpdateShimExe(shimPath, resourceSrcPath) : UpdateShimOther(shimPath, resourceSrcPath);
     }
 
-    /// <exception cref="OutdatedStubException"></exception>
-    private bool UpdateStubExe(string stubPath, string? resourceSrcPath) {
+    /// <exception cref="OutdatedShimException"></exception>
+    private bool UpdateShimExe(string shimPath, string? resourceSrcPath) {
         // copy subsystem from the target binary
         var targetSubsystem = PeSubsystem.GetSubsystem(TargetPath);
-        var originalSubsystem = PeSubsystem.SetSubsystem(stubPath, targetSubsystem);
+        var originalSubsystem = PeSubsystem.SetSubsystem(shimPath, targetSubsystem);
         var subsystemChanged = targetSubsystem != originalSubsystem;
 
         // copy resources from either target, or a separate module
-        var updatedResources = UpdateStubResources(stubPath, resourceSrcPath ?? TargetPath);
+        var updatedResources = UpdateShimResources(shimPath, resourceSrcPath ?? TargetPath);
 
         return subsystemChanged || updatedResources;
     }
 
     /// Updater method for targets that are not PE binaries, and don't have a subsystem and resources.
-    /// <exception cref="OutdatedStubException"></exception>
-    private bool UpdateStubOther(string stubPath, string? resourceSrcPath) {
+    /// <exception cref="OutdatedShimException"></exception>
+    private bool UpdateShimOther(string shimPath, string? resourceSrcPath) {
         // assume a console subsystem
-        var originalSubsystem = PeSubsystem.SetSubsystem(stubPath, PeSubsystem.WindowsSubsystem.WindowsCui);
+        var originalSubsystem = PeSubsystem.SetSubsystem(shimPath, PeSubsystem.WindowsSubsystem.WindowsCui);
         var subsystemChanged = originalSubsystem != PeSubsystem.WindowsSubsystem.WindowsCui;
 
         // target does not have any resources, since it's not a PE binary; either copy resources
         //  from a separate module, or delete any existing resources, if any
-        var updatedResources = UpdateStubResources(stubPath, resourceSrcPath);
+        var updatedResources = UpdateShimResources(shimPath, resourceSrcPath);
 
         return subsystemChanged || updatedResources;
     }
 
-    /// <exception cref="OutdatedStubException"></exception>
-    private bool UpdateStubResources(string stubPath, string? resourceSrcPath) {
-        var stubData = StubDataEncoder.EncodeStub(this);
+    /// <exception cref="OutdatedShimException"></exception>
+    private bool UpdateShimResources(string shimPath, string? resourceSrcPath) {
+        var shimData = ShimDataEncoder.EncodeShim(this);
 
         // updater is somewhat slow, only instantiate it if necessary
-        using var stubUpdater = new LazyDisposable<PeResources.ResourceUpdater>(
-                () => new PeResources.ResourceUpdater(stubPath));
+        using var shimUpdater = new LazyDisposable<PeResources.ResourceUpdater>(
+                () => new PeResources.ResourceUpdater(shimPath));
 
         // open the module we copy resources from, if any
         using var resourceSrc = resourceSrcPath == null ? null : new PeResources.Module(resourceSrcPath);
 
-        // `stub` must be closed before `.CommitChanges()` is called
-        using (var stubModule = new PeResources.Module(stubPath)) {
-            // ensure stub data is up to date
-            switch (CompareStubData(stubModule, stubData)) {
-                case StubDataStatus.Changed:
-                case StubDataStatus.NoStubData:
-                    stubUpdater.Value.SetResource(StubDataResourceId, stubData);
+        // `shim` must be closed before `.CommitChanges()` is called
+        using (var shimModule = new PeResources.Module(shimPath)) {
+            // ensure shim data is up to date
+            switch (CompareShimData(shimModule, shimData)) {
+                case ShimDataStatus.Changed:
+                case ShimDataStatus.NoShimData:
+                    shimUpdater.Value.SetResource(ShimDataResourceId, shimData);
                     break;
-                case StubDataStatus.OldVersion:
-                    // if the exe has outdated stub data, the exe itself is outdated
-                    throw new OutdatedStubException("Stub executable expects an older version of stub data, " +
-                                                    "replace it with an up-to-date version of the stub executable.");
+                case ShimDataStatus.OldVersion:
+                    // if the exe has outdated shim data, the exe itself is outdated
+                    throw new OutdatedShimException("Shim executable expects an older version of shim data, " +
+                                                    "replace it with an up-to-date version of the shim executable.");
             }
 
             foreach (var resourceType in CopiedResourceTypes) {
                 if (resourceSrc != null) {
                     // ensure copied resources are up-to-date with target
-                    UpdateResources(stubUpdater, stubModule, resourceSrc, resourceType);
+                    UpdateResources(shimUpdater, shimModule, resourceSrc, resourceType);
                 } else {
                     // delete any previously copied resources
-                    RemoveResources(stubUpdater, stubModule, resourceType);
+                    RemoveResources(shimUpdater, shimModule, resourceType);
                 }
             }
         }
 
         // write the changes
-        if (stubUpdater.IsValueCreated) {
-            stubUpdater.Value.CommitChanges();
+        if (shimUpdater.IsValueCreated) {
+            shimUpdater.Value.CommitChanges();
         }
 
-        return stubUpdater.IsValueCreated;
+        return shimUpdater.IsValueCreated;
     }
 
-    private enum StubDataStatus { Same, Changed, NoStubData, OldVersion }
+    private enum ShimDataStatus { Same, Changed, NoShimData, OldVersion }
 
-    private static StubDataStatus CompareStubData(PeResources.Module stub, Span<byte> newStubData) {
-        if (!stub.TryGetResource(StubDataResourceId, out var currentStubData)) {
-            return StubDataStatus.NoStubData;
+    private static ShimDataStatus CompareShimData(PeResources.Module shim, Span<byte> newShimData) {
+        if (!shim.TryGetResource(ShimDataResourceId, out var currentShimData)) {
+            return ShimDataStatus.NoShimData;
         }
-        if (StubDataEncoder.ParseVersion(currentStubData) != StubDataEncoder.CurrentStubDataVersion) {
-            return StubDataStatus.OldVersion;
+        if (ShimDataEncoder.ParseVersion(currentShimData) != ShimDataEncoder.CurrentShimDataVersion) {
+            return ShimDataStatus.OldVersion;
         }
-        return newStubData.SequenceEqual(currentStubData) ? StubDataStatus.Same : StubDataStatus.Changed;
+        return newShimData.SequenceEqual(currentShimData) ? ShimDataStatus.Same : ShimDataStatus.Changed;
     }
 
-    private void WriteNewStubResources(string stubPath, string? resourceSrcPath) {
-        var stubData = StubDataEncoder.EncodeStub(this);
-        using var stubUpdater = new PeResources.ResourceUpdater(stubPath);
+    private void WriteNewShimResources(string shimPath, string? resourceSrcPath) {
+        var shimData = ShimDataEncoder.EncodeShim(this);
+        using var shimUpdater = new PeResources.ResourceUpdater(shimPath);
 
-        // write stub data
-        stubUpdater.SetResource(StubDataResourceId, stubData);
+        // write shim data
+        shimUpdater.SetResource(ShimDataResourceId, shimData);
 
         if (resourceSrcPath != null) {
             using var target = new PeResources.Module(resourceSrcPath);
 
             // copy resources from target
             foreach (var resourceType in CopiedResourceTypes) {
-                CopyResources(stubUpdater, target, resourceType);
+                CopyResources(shimUpdater, target, resourceType);
             }
         }
 
-        stubUpdater.CommitChanges();
+        shimUpdater.CommitChanges();
     }
 
-    /// Configures a new stub. The stub binary at `stubPath` should already exist.
-    /// Assumes that the stub binary has no existing resources.
-    public void WriteNewStub(string stubPath, string? resourceSrcPath = null) {
+    /// Configures a new shim. The shim binary at `shimPath` should already exist.
+    /// Assumes that the shim binary has no existing resources.
+    public void WriteNewShim(string shimPath, string? resourceSrcPath = null) {
         if (IsTargetPeBinary()) {
             // copy subsystem from target binary
             var targetSubsystem = PeSubsystem.GetSubsystem(TargetPath);
-            PeSubsystem.SetSubsystem(stubPath, targetSubsystem);
+            PeSubsystem.SetSubsystem(shimPath, targetSubsystem);
 
-            // write stub data and copy resources from either target, or a separate module
-            WriteNewStubResources(stubPath, resourceSrcPath ?? TargetPath);
+            // write shim data and copy resources from either target, or a separate module
+            WriteNewShimResources(shimPath, resourceSrcPath ?? TargetPath);
         } else {
-            // write stub data, copy resources from the passed module, if any
-            WriteNewStubResources(stubPath, resourceSrcPath);
+            // write shim data, copy resources from the passed module, if any
+            WriteNewShimResources(shimPath, resourceSrcPath);
         }
     }
 
@@ -244,7 +244,7 @@ public class StubExecutable {
             updater.Value.CopyResourceFrom(src, new(type, name));
         }
 
-        // check if stub has extra resources
+        // check if shim has extra resources
         try {
             dest.IterateResourceNames(type, name => {
                 if (!srcNames.Contains(name)) {
@@ -258,9 +258,9 @@ public class StubExecutable {
         }
     }
 
-    public class UnsupportedStubTargetTypeException(string message) : ArgumentException(message);
+    public class UnsupportedShimTargetTypeException(string message) : ArgumentException(message);
 
-    public class OutdatedStubException(string message) : Exception(message);
+    public class OutdatedShimException(string message) : Exception(message);
 
     public class InvalidEnvironmentVariableNameException(string message) : Exception(message);
 
@@ -288,7 +288,7 @@ public class StubExecutable {
                 isEnvVarName = !isEnvVarName;
                 if (isEnvVarName && p.Contains("=")) {
                     throw new InvalidEnvironmentVariableNameException(
-                            $"Invalid stub executable environment variable name, contains '=': {p}");
+                            $"Invalid shim executable environment variable name, contains '=': {p}");
                 }
 
                 if (p == "") {

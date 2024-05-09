@@ -44,7 +44,7 @@ public class PathConfig {
 
         [PublicAPI] public const string ShortcutDirRelPath = ".";
         internal const string CommandDirRelPath = "./.commands";
-        internal const string ShortcutStubDirRelPath = "./.commands/shortcuts";
+        internal const string ShortcutShimDirRelPath = "./.commands/shortcuts";
 
         internal const string AppDirName = "app";
         internal const string CacheDirName = "cache";
@@ -74,7 +74,7 @@ public class PathConfig {
 
     public readonly string ContainerDir;
     public readonly string CompiledLibDir;
-    public readonly string ExecutableStubPath;
+    public readonly string ShimPath;
     public readonly string VcRedistDir;
 
     public readonly string ExportedCommandDir;
@@ -106,7 +106,7 @@ public class PathConfig {
 
         ContainerDir = $"{appRootDirPath}\\container";
         CompiledLibDir = $"{appRootDirPath}\\lib_compiled";
-        ExecutableStubPath = $"{CompiledLibDir}\\PogExecutableStubTemplate.exe";
+        ShimPath = $"{CompiledLibDir}\\PogShimTemplate.exe";
         VcRedistDir = $"{CompiledLibDir}\\vc_redist";
 
         ExportedCommandDir = $"{dataRootDirPath}\\package_bin";

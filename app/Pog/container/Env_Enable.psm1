@@ -17,14 +17,14 @@ function RemoveStaleExports {
 
 	$InternalState = [Pog.EnableContainerContext]::GetCurrent($PSCmdlet)
 
-	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutStubs.Count -gt 0) {
+	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutShims.Count -gt 0) {
 		Write-Debug "Removing stale shortcuts..."
 		$InternalState.StaleShortcuts | % {
 			$ShortcutName = [IO.Path]::GetFileNameWithoutExtension($_)
 			Remove-Item $_
 			Write-Information "Removed stale shortcut '$ShortcutName'."
 		}
-		Remove-Item $InternalState.StaleShortcutStubs
+		Remove-Item $InternalState.StaleShortcutShims
 	}
 
 	if ($InternalState.StaleCommands.Count -gt 0) {
@@ -423,7 +423,7 @@ Export function Export-Shortcut {
 
 
 	if ($ArgumentList -or $EnvironmentVariables -or $VcRedist) {
-		Write-Debug "Creating a hidden stub to set arguments and environment..."
+		Write-Debug "Creating a hidden shim to set arguments and environment..."
 		# if -EnvironmentVariables was used, create a hidden command and point the shortcut to it,
 		#  since shortcuts cannot set environment variables
 		# if -ArgumentList was passed, also create it, because if someone creates a file association by selecting

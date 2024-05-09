@@ -51,7 +51,7 @@ jobs:
       run: |
         cmake -B ./PogNative/cmake-build-release -S ./PogNative -DCMAKE_BUILD_TYPE=Release
         cmake --build ./PogNative/cmake-build-release --config Release
-        gi ./PogExecutableStubTemplate.exe
+        gi ./PogShimTemplate.exe
 
     - name: Copy VC Redistributable
       working-directory: app/Pog/lib_compiled
