@@ -28,13 +28,17 @@ public static class FsUtils {
                 .Select(f => f.Name);
     }
 
+    #region pwsh methods
+
     // this block of forwarding methods is here to allow simple usage from PowerShell
     //  without having to load Polyfills.dll manually before usage
 
+    [PublicAPI]
     public static string GetRelativePath(string from, string to) {
         return PIO.Path.GetRelativePath(from, to);
     }
 
+    [PublicAPI]
     public static string? GetSymbolicLinkTarget(string linkPath) {
         return PogExports.GetSymbolicLinkTarget(linkPath);
     }
@@ -49,6 +53,8 @@ public static class FsUtils {
             throw new UnauthorizedAccessException(SymlinkCreationErrorMessage, e);
         }
     }
+
+    #endregion
 
     private const string SymlinkCreationErrorMessage =
             """

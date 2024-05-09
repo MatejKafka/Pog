@@ -37,15 +37,14 @@ public class PackageRootConfig {
 
 [PublicAPI]
 public class PathConfig {
-    [PublicAPI]
     public static class PackagePaths {
-        public const string ManifestFileName = "pog.psd1";
-        public const string ManifestResourceDirName = ".pog";
-        public const string RepositoryTemplateDirName = ".template";
+        internal const string ManifestFileName = "pog.psd1";
+        internal const string ManifestResourceDirName = ".pog";
+        internal const string RepositoryTemplateDirName = ".template";
 
-        public const string ShortcutDirRelPath = ".";
-        public const string CommandDirRelPath = "./.commands";
-        public const string ShortcutStubDirRelPath = "./.commands/shortcuts";
+        [PublicAPI] public const string ShortcutDirRelPath = ".";
+        internal const string CommandDirRelPath = "./.commands";
+        internal const string ShortcutStubDirRelPath = "./.commands/shortcuts";
 
         internal const string AppDirName = "app";
         internal const string CacheDirName = "cache";
@@ -54,13 +53,13 @@ public class PathConfig {
         internal const string ConfigDirName = "config";
 
         /// Temporary directory where the previous ./app directory is moved when installing
-        /// a new version to support rollback in case of a failed install.
+        /// a new version to support rollback in case of a failed installation.
         internal const string AppBackupDirName = ".POG_INTERNAL_app_old";
         /// Temporary directory used for archive extraction.
         internal const string TmpExtractionDirName = ".POG_INTERNAL_install_tmp";
         /// Temporary directory where the new app directory is composed for multi-source installs before moving it in place.
         internal const string NewAppDirName = ".POG_INTERNAL_app_new";
-        /// Temporary path where a deleted directory is first moved so that the delete
+        /// Temporary path where a deleted directory is first moved so that the deletion
         /// is an atomic operation with respect to the original location.
         internal const string TmpDeleteDirName = ".POG_INTERNAL_delete_tmp";
     }
@@ -101,7 +100,7 @@ public class PathConfig {
     public PathConfig(string appRootDirPath, string dataRootDirPath) :
             this($"{appRootDirPath}\\app\\Pog", $"{dataRootDirPath}\\data", $"{dataRootDirPath}\\cache") {}
 
-    // if any new paths are added here, also add them to setup.ps1 in the root directory
+    // if any new paths are added here, also add them to `setup.ps1` in the root directory
     public PathConfig(string appRootDirPath, string dataRootDirPath, string cacheRootDirPath) {
         PackageRoots = new PackageRootConfig($"{dataRootDirPath}\\package_roots.txt");
 
