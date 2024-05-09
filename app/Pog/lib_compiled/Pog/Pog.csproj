@@ -67,8 +67,10 @@
 
     <PropertyGroup>
       <MergedOutputPath>$(ProjectDir)\..\$(ProjectName).dll</MergedOutputPath>
-      <MergedAssembly>$(AbsPublishDir)\_merged.dll</MergedAssembly>
-      <MainAssembly>$(AbsPublishDir)\Pog.dll</MainAssembly>
+      <!-- The merged assembly should be called the same as the project, even if it's later renamed,
+           since the assembly remembers the compile-time name. -->
+      <MergedAssembly>$(AbsPublishDir)\merged\$(ProjectName).dll</MergedAssembly>
+      <MainAssembly>$(AbsPublishDir)\$(ProjectName).dll</MainAssembly>
     </PropertyGroup>
 
     <ItemGroup>
