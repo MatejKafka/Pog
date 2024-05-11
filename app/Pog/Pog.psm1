@@ -46,6 +46,11 @@ Export function Set-PogRepository {
 #  to get the file updates right from a concurrency perspective
 # TODO: ^ figure out how to provide the functions safely
 Export function Edit-PogRootList {
+	### .SYNOPSIS
+	### 	Opens the configuration file listing package roots in a text editor.
+	[CmdletBinding()]
+	param()
+
 	$Path = [Pog.InternalState]::ImportedPackageManager.PackageRoots.PackageRootFile
 	Write-Information "Opening the package root list at '$Path' for editing in a text editor..."
 	Write-Information "Each line should contain a single absolute path to the package root directory."

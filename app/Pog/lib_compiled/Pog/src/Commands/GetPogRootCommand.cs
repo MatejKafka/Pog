@@ -5,7 +5,7 @@ using Pog.InnerCommands.Common;
 namespace Pog.Commands;
 
 /// <summary>
-/// <para type="synopsis">Returns a list of all registered package roots, even obsolete (non-existent) ones.</para>
+/// <para type="synopsis">Returns a list of paths to registered package roots.</para>
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogRoot", DefaultParameterSetName = ValidPS)]
