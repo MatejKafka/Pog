@@ -38,6 +38,11 @@ jobs:
         # just a stub manifest, will be replaced later
         Set-Content "$(pwd)\7zip\pog.psd1" '@{Private = $true; Enable = {Export-Command "7z" "./app/7z.exe" -VcRedist}}'
 
+    - name: Install Pester
+      working-directory: ..
+      shell: pwsh
+      run: Install-Module Pester -Force
+
 
     - name: Build Pog.dll
       working-directory: app/Pog/lib_compiled
@@ -76,6 +81,10 @@ jobs:
     - name: Pog.Tests
       working-directory: app/Pog/lib_compiled
       run: dotnet test --no-restore Pog.Tests
+
+    - name: Pester tests
+      working-directory: app/Pog
+      run: Invoke-Pester
 
     # install a few Pog packages to check that Pog works
     - name: Test Pog packages (PowerShell Core)
