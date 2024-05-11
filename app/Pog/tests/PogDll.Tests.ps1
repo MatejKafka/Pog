@@ -5,9 +5,9 @@ Describe "PogDll" {
         function InvokeWhatIfTest($FilePath) {
             # the test relies on the output from -WhatIf, which we cannot capture from inside powershell,
             #  so we have to run the test in a separate instance and compare the textual output
-            $RawOutput = & $PwshCmd -noprofile -noninteractive $FilePath $TestDir
+            $RawOutput = & $PwshCmd -noprofile -noninteractive $FilePath $TestDir.FullName
             # replace temporary test directory path with TEST_DIR to get consistent output
-            $SanitizedOutput = ($RawOutput -join "`n").Replace($TestDir, "TEST_DIR")
+            $SanitizedOutput = ($RawOutput -join "`n").Replace($TestDir.FullName, "TEST_DIR")
             return $SanitizedOutput
         }
     }
@@ -21,7 +21,7 @@ Describe "PogDll" {
     }
 
 	It "Import-Pog" {
-        $Reference = cat -Raw $PSScriptRoot\ImportPogTestInternal.reference.txt
+        $Reference = (cat -Raw $PSScriptRoot\ImportPogTestInternal.reference.txt).Replace("`r`n", "`n")
         $Output = InvokeWhatIfTest $PSScriptRoot\ImportPogTestInternal.ps1
 
         $OutBlocks = $Output -split "\n(?=--- .* ---\n)"

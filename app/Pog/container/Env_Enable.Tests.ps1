@@ -15,7 +15,7 @@ AfterAll {
 
 # FIXME: this doesn't trigger init and cleanup, which might be an issue
 
-Describe "Set-SymlinkedPath" {
+Describe "New-Symlink" {
 	BeforeAll {
 		Push-Location TestDrive: -StackName PogTests
 	}
@@ -42,7 +42,7 @@ Describe "Set-SymlinkedPath" {
 		mkdir src/src_only
 		mkdir target/target_only
 
-		Set-SymlinkedPath .\src .\target Directory -Merge
+		New-Symlink .\src .\target Directory -Merge
 
 		(Get-Item .\src).LinkType | Should -Be "SymbolicLink"
 		(Get-Item .\src).Target | Should -Be "target"
@@ -58,7 +58,7 @@ Describe "Set-SymlinkedPath" {
 		mkdir src/src_only
 		mkdir target/target_only
 
-		Set-SymlinkedPath .\src .\target Directory
+		New-Symlink .\src .\target Directory
 
 		(Get-Item .\src).LinkType | Should -Be "SymbolicLink"
 		(Get-Item .\src).Target | Should -Be "target"
@@ -73,7 +73,7 @@ Describe "Set-SymlinkedPath" {
 		rm src
 		$null = cmd /C mklink /D .\src target
 
-		Set-SymlinkedPath .\src .\target Directory
+		New-Symlink .\src .\target Directory
 
 		(Get-Item .\src).LinkType | Should -Be "SymbolicLink"
 		(Get-Item .\src).Target | Should -Be "target"
