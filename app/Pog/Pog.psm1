@@ -1,6 +1,12 @@
-using module .\Paths.psm1
 using module .\lib\Utils.psm1
 . $PSScriptRoot\lib\header.ps1
+
+# if there are any missing package roots, show a warning
+foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots) {
+	Write-Warning ("Could not find package root '$r'. Create the directory, or remove it" `
+			+ " from the package root list using the 'Edit-PogRootList' command.")
+}
+
 
 # re-export binary cmdlets from Pog.dll
 Export-ModuleMember -Alias pog -Cmdlet `
@@ -10,11 +16,37 @@ Export-ModuleMember -Alias pog -Cmdlet `
 	Clear-PogDownloadCache, Show-PogManifestHash
 
 
+Export function Set-PogRepository {
+	### .SYNOPSIS
+	### 	Selects the package repository used by other commands. Not thread-safe.
+	[CmdletBinding(DefaultParameterSetName="Local")]
+	param(
+			### URI of a remote repository to use.
+			[Parameter(Mandatory, ParameterSetName="Remote", Position=0)]
+			[Uri]
+		$Uri,
+			### Path to a local repository to use.
+			[Parameter(Mandatory, ParameterSetName="Local", Position=0)]
+			[string]
+		$Path
+	)
+
+	begin {
+		if ($Path) {
+			$null = [Pog.InternalState]::SetRepository([Pog.LocalRepository]::new((Resolve-Path $Path)))
+			Write-Information "Using a local repository: $([Pog.InternalState]::Repository.Path)"
+		} else {
+			$null = [Pog.InternalState]::SetRepository([Pog.RemoteRepository]::new($Uri))
+			Write-Information "Using a remote repository: $([Pog.InternalState]::Repository.Url)"
+		}
+	}
+}
+
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
 #  to get the file updates right from a concurrency perspective
 # TODO: ^ figure out how to provide the functions safely
 Export function Edit-PogRootList {
-	$Path = $PACKAGE_ROOTS.PackageRoots.PackageRootFile
+	$Path = [Pog.InternalState]::ImportedPackageManager.PackageRoots.PackageRootFile
 	Write-Information "Opening the package root list at '$Path' for editing in a text editor..."
 	Write-Information "Each line should contain a single absolute path to the package root directory."
 	# this opens the file for editing in a text editor (it's a .txt file)
@@ -55,11 +87,11 @@ Export function New-PogRepositoryPackage {
 	)
 
 	begin {
-		if ($REPOSITORY -isnot [Pog.LocalRepository]) {
+		if ([Pog.InternalState]::Repository -isnot [Pog.LocalRepository]) {
 			throw "Creating new packages is only supported for local repositories, not remote."
 		}
 
-		$c = $REPOSITORY.GetPackage($PackageName, $true, $false)
+		$c = [Pog.InternalState]::Repository.GetPackage($PackageName, $true, $false)
 
 		if ($c.Exists) {
             throw "Package '$($c.PackageName)' already exists in the repository at '$($c.Path)'.'"
@@ -107,15 +139,15 @@ Export function New-PogPackage {
 
 	begin {
 		$PackageRoot = if (-not $PackageRoot) {
-			$PACKAGE_ROOTS.DefaultPackageRoot
+			[Pog.InternalState]::ImportedPackageManager.DefaultPackageRoot
 		} else {
-			try {$PACKAGE_ROOTS.ResolveValidPackageRoot($PackageRoot)}
+			try {[Pog.InternalState]::ImportedPackageManager.ResolveValidPackageRoot($PackageRoot)}
 			catch [Pog.InvalidPackageRootException] {
 				$PSCmdlet.ThrowTerminatingError($_)
 			}
 		}
 
-		$p = $PACKAGE_ROOTS.GetPackage($PackageName, $PackageRoot, $false, $false, $false)
+		$p = [Pog.InternalState]::ImportedPackageManager.GetPackage($PackageName, $PackageRoot, $false, $false, $false)
 		if ($p.Exists) {
 			throw "Package already exists: $($p.Path)"
 		}
@@ -132,12 +164,12 @@ Export function New-PogPackage {
 function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$Force, [switch]$ListOnly) {
 	Write-Information "Checking updates for '$PackageName'..."
 
-	$g = try {$GENERATOR_REPOSITORY.GetPackage($PackageName, $true, $true)}
+	$g = try {[Pog.InternalState]::GeneratorRepository.GetPackage($PackageName, $true, $true)}
 		catch [Pog.PackageGeneratorNotFoundException] {throw $_}
 
 	$null = $g.ReloadManifest()
 
-	$c = try {$REPOSITORY.GetPackage($PackageName, $true, $true)}
+	$c = try {[Pog.InternalState]::Repository.GetPackage($PackageName, $true, $true)}
 		catch [Pog.RepositoryPackageNotFoundException] {throw $_}
 
 	if (-not $c.IsTemplated) {
@@ -175,7 +207,7 @@ Export function Update-PogManifest {
 	)
 
 	begin {
-		if ($REPOSITORY -isnot [Pog.LocalRepository]) {
+		if ([Pog.InternalState]::Repository -isnot [Pog.LocalRepository]) {
 			throw "Generating new packages is only supported for local repositories, not remote."
 		}
 
@@ -188,7 +220,7 @@ Export function Update-PogManifest {
 		$ShowProgressBar = $false
 		# by default, return all available packages
 		if (-not $PSBoundParameters.ContainsKey("PackageName") -and -not $MyInvocation.ExpectingInput) {
-			$PackageName = $GENERATOR_REPOSITORY.EnumerateGeneratorNames()
+			$PackageName = [Pog.InternalState]::GeneratorRepository.EnumerateGeneratorNames()
 			$ShowProgressBar = $true
 		}
 

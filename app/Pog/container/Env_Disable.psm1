@@ -1,4 +1,3 @@
-using module ..\..\Paths.psm1
 . $PSScriptRoot\..\lib\header.ps1
 
 <# This function is called after the container setup is finished to run the Disable script. #>

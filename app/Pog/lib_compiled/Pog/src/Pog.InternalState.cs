@@ -7,6 +7,9 @@ using Pog.Utils.Http;
 
 namespace Pog;
 
+/// <summary>
+/// This static class contains all module state that is persistent between invocations of Pog commands.
+/// </summary>
 public static class InternalState {
 #if DEBUG
     static InternalState() {
@@ -45,14 +48,11 @@ public static class InternalState {
         return false;
     }
 
-    /// Configure the package repository used to retrieve package manifests. Not thread-safe.
+    /// Sets the package repository used to retrieve package manifests. Do not use this method concurrently with other Pog
+    /// operations, since some cmdlets internally repeatedly access the repository and assume it won't change between accesses.
     [PublicAPI]
-    public static bool InitRepository(Func<IRepository> repositoryGenerator) {
-        if (_repository == null) {
-            _repository = repositoryGenerator();
-            return true;
-        }
-        return false;
+    public static IRepository? SetRepository(IRepository repository) {
+        return Interlocked.Exchange(ref _repository, repository);
     }
 
     private static PathConfig? _pathConfig;

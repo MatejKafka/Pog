@@ -1,4 +1,3 @@
-using module ..\Paths.psm1
 using module ..\lib\Utils.psm1
 using module ..\lib\Environment.psm1
 . $PSScriptRoot\..\lib\header.ps1

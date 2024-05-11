@@ -37,6 +37,7 @@
 		'New-PogRepositoryPackage'
 		'New-PogPackage'
 
+		'Set-PogRepository'
 		'Edit-PogRootList'
 	)
 

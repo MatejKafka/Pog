@@ -63,13 +63,11 @@ Export function SetupNewPogTestDir {
     # NOTE: for this to work, this must be called before the Pog PowerShell module is imported,
     #  otherwise this throws an exception
     if (-not [Pog.InternalState]::InitDataRoot($TestDir)) {
-        throw "TEST SETUP ERROR: Pog data root already configured"
+        throw "TEST SETUP ERROR: Pog data root already configured."
     }
 
     # use local repository
-    if (-not [Pog.InternalState]::InitRepository({[Pog.LocalRepository]::new("$TestDir\data\manifests")})) {
-        throw "TEST SETUP ERROR: Pog data root already configured"
-    }
+    $null = [Pog.InternalState]::SetRepository([Pog.LocalRepository]::new("$TestDir\data\manifests"))
 
     return $TestDir
 }
