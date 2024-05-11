@@ -31,6 +31,11 @@ Create a new local package:
 
     New-PogPackage <PackageName>
 
+Use a custom package repository:
+
+    Set-PogRepository <Path> # to use a local repository
+    Set-PogRepository -Uri <Uri> # to use a remote repository
+
 Get help for any Pog command using the PowerShell help system:
 
     man <CommandName>
