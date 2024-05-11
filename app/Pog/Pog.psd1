@@ -34,8 +34,8 @@
 
 	FunctionsToExport = @(
 		'Update-PogManifest'
+		'New-PogRepositoryPackage'
 		'New-PogPackage'
-		'New-PogImportedPackage'
 
 		'Edit-PogRootList'
 	)

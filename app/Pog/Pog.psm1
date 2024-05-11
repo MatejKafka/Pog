@@ -33,17 +33,23 @@ function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {
 # TODO: support creating new versions of existing packages (either create a blank package, or copy latest version and modify the Version field);
 #  also support automatically retrieving the hash and patching the manifest; ideally, for templated packages in the default form
 #  (templated Version + Hash), dev should be able to just call `New-PogPackage 7zip 30.01` and get a finished package without any further tweaking
-Export function New-PogPackage {
+Export function New-PogRepositoryPackage {
+	### .SYNOPSIS
+	### 	Create a new manifest in the configured package repository.
+	### 	Only supported for local repositories.
 	[CmdletBinding()]
 	[OutputType([Pog.LocalRepositoryPackage])]
 	param(
+			### Name of the new manifest. No manifest under that package name should exist.
 			[Parameter(Mandatory)]
 			[Pog.Verify+PackageName()]
 			[string]
 		$PackageName,
+			### Version of the new manifest.
 			[Parameter(Mandatory)]
 			[Pog.PackageVersion]
 		$Version,
+			### Create a templated package.
 			[switch]
 		$Templated
 	)
@@ -82,14 +88,18 @@ Export function New-PogPackage {
 	}
 }
 
-Export function New-PogImportedPackage {
+Export function New-PogPackage {
+	### .SYNOPSIS
+	### 	Creates a new empty package directory with a default manifest.
 	[CmdletBinding()]
 	[OutputType([Pog.ImportedPackage])]
 	param(
+			### Name of the new package.
 			[Parameter(Mandatory)]
 			[Pog.Verify+PackageName()]
 			[string]
 		$PackageName,
+			### Package root where the package is created. By default, the first package root is used.
 			[ArgumentCompleter([Pog.PSAttributes.ValidPackageRootPathCompleter])]
 			[string]
 		$PackageRoot
@@ -139,12 +149,13 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$
 }
 
 Export function Update-PogManifest {
-	# .SYNOPSIS
-	#	Generate new manifests in the package repository for the given package manifest generator.
+	### .SYNOPSIS
+	### 	Generate new manifests in a local package repository for the selected package manifest generator.
 	[CmdletBinding()]
 	[OutputType([Pog.LocalRepositoryPackage])]
 	param(
 			### Name of the manifest generator for which to generate new manifests.
+			### If not passed, all existing generators are invoked.
 			[Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
 			[ArgumentCompleter([Pog.PSAttributes.RepositoryPackageGeneratorNameCompleter])]
 			[string[]]
