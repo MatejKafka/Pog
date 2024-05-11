@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Management.Automation;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -85,6 +86,8 @@ public sealed class RemoteRepository : IRepository {
                 _ = Packages;
                 return true;
             } catch (RepositoryNotFoundException) {
+                return false;
+            } catch (HttpRequestException) {
                 return false;
             }
         }

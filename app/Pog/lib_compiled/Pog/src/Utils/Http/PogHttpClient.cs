@@ -33,7 +33,7 @@ internal class PogHttpClient() : HttpClient(new HttpClientHandler {UseCookies = 
         return await response.Content.ReadFromJsonAsync<JsonElement>(token).ConfigureAwait(false);
     }
 
-    public async Task<ZipArchive?> RetrieveZipArchiveAsync(string url, CancellationToken token = default) {
+    internal async Task<ZipArchive?> RetrieveZipArchiveAsync(string url, CancellationToken token = default) {
         // do not dispose, otherwise the returned stream would also get closed: https://github.com/dotnet/runtime/issues/28578
         var response = await RetrieveAsync(url, token).ConfigureAwait(false);
         if (response == null) return null;
@@ -41,8 +41,8 @@ internal class PogHttpClient() : HttpClient(new HttpClientHandler {UseCookies = 
     }
 
     // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
-    public JsonElement? RetrieveJson(string url) => RetrieveJsonAsync(url).GetAwaiter().GetResult();
+    internal JsonElement? RetrieveJson(string url) => RetrieveJsonAsync(url).GetAwaiter().GetResult();
 
     // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
-    public ZipArchive? RetrieveZipArchive(string url) => RetrieveZipArchiveAsync(url).GetAwaiter().GetResult();
+    internal ZipArchive? RetrieveZipArchive(string url) => RetrieveZipArchiveAsync(url).GetAwaiter().GetResult();
 }
