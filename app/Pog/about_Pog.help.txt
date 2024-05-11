@@ -1,0 +1,36 @@
+POG: A PORTABLE PACKAGE MANAGER
+
+Pog is an in-development package manager for Windows, written for PowerShell 5. Unlike
+most existing Windows package managers, which delegate to existing program installers,
+Pog manages the whole package installation process end-to-end, preferring installation
+from package archives instead. The packages are encapsulated by redirecting their
+default data directories to a package-local directory, This also provides first-class
+support for portable packages, which can be moved between machines without reinstallation.
+
+
+BASIC USAGE
+
+Install a package (use Tab to get a list of matching packages):
+
+    pog <PackageName>
+
+Uninstall a package:
+
+    Uninstall-Pog <PackageName>
+
+List packages:
+
+    Get-PogPackage # list installed packages
+    Get-PogRepositoryPackage # list available packages
+
+Modify the list of portable package directories (opens a text editor):
+
+    Edit-PogRootList
+
+Create a new local package:
+
+    New-PogPackage <PackageName>
+
+Get help for any Pog command using the PowerShell help system:
+
+    man <CommandName>
