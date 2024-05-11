@@ -10,9 +10,24 @@ support for portable packages, which can be moved between machines without reins
 
 BASIC USAGE
 
-Install a package (use Tab to get a list of matching packages):
+Install a package (press `Ctrl+Space` while typing to get a list of matching packages):
 
     pog <PackageName>
+
+Update a package to the latest version:
+
+    pog <PackageName> # same as first-time installation
+
+Install a specific version of a package:
+
+    pog <PackageName> <Version>
+
+Install two separate versions of a package:
+
+    # latest version of 7zip under the default name `7zip`
+    pog 7zip
+    # version 19.0 under the name `7zip-19.0`
+    pog 7zip 19.0 -TargetName 7zip-19.0
 
 Uninstall a package:
 

@@ -1,14 +1,14 @@
-# Pog – a WIP portable package manager for Windows
+# Pog: A portable package manager for Windows
 
-Short intro: [https://pog.matejkafka.com](https://pog.matejkafka.com)
+Short visual intro: [https://pog.matejkafka.com](https://pog.matejkafka.com) (slighly outdated)
 
-Note that this is very much an unfinished project.
+Pog is an in-development package manager for Windows, written for PowerShell 5. Unlike most existing Windows package managers, which delegate to existing program installers, Pog manages the whole package installation process end-to-end, preferring installation from package archives instead. The packages are encapsulated by redirecting their default data directories to a package-local directory, This also provides first-class support for portable packages, which can be moved between machines without reinstallation.
 
----
+**The project is pretty usable in its current state, but there's a lot of on-going development, and the documentation is lacking. If anything seems broken or you're not sure how to do something, feel free to open an issue. :)**
 
-## Overview
+## Usage
 
-Pog is an in-development package manager for Windows, written for PowerShell Core. Unlike most existing Windows package managers, which delegate to existing program installers, Pog manages the whole package installation process end-to-end, preferring installation from package archives instead. The packages are encapsulated by redirecting their default data directories to a package-local directory, This also provides first-class support for portable packages, which can be moved between machines without reinstallation.
+Refer to the [about_Pog](./app/Pog/about_Pog.help.txt) help page, which is also available from PowerShell using `man about_Pog` after Pog is installed.
 
 ## Installation
 
@@ -35,26 +35,6 @@ Ideally, I would like Pog to be able to update itself. However, it internally us
 4. Delete everything except for the `cache` and `data` directory.
 5. Copy the contents of the `Pog` directory from the archive into the `Pog` directory from step 3.
 6. Run the extracted `setup.cmd` script.
-
-## Basic usage
-
-Install a package (use `Tab` to get a list of matching packages):
-```powershell
-pog <PackageName>
-```
-
-Uninstall a package:
-
-```powershell
-Uninstall-Pog <PackageName>
-```
-
-List packages:
-
-```powershell
-Get-PogPackage # list installed packages
-Get-PogRepositoryPackage # list available packages
-```
 
 ## Building
 
