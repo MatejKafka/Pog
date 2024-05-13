@@ -1,4 +1,5 @@
-﻿using System.Management.Automation;
+﻿using System.IO;
+using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
@@ -42,7 +43,17 @@ public sealed class UninstallPogCommand() : ImportedPackageCommand(true) {
         }
 
         if (!KeepData) {
-            // delete the whole package directory
+            // delete all subdirectories first; this way, the package remains valid even if something fails
+            //  (e.g. due to an opened file); TODO: check for used files similarly to Install-Pog
+            foreach (var e in Directory.EnumerateDirectories(package.Path)) {
+                if (e == package.ManifestResourceDirPath) {
+                    continue;
+                }
+                FsUtils.EnsureDeleteDirectory(e);
+            }
+
+            // delete the whole package directory, including the manifest
+            // TODO: it might be nice to make this atomic, and do the same with setup in Import-Pog
             FsUtils.EnsureDeleteDirectory(package.Path);
             WriteInformation($"Uninstalled package '{package.PackageName}'.");
         } else {
