@@ -12,7 +12,7 @@ namespace Pog;
 /// but it behaves sanely for all the version formats I encountered yet.
 /// </summary>
 [PublicAPI]
-public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVersion> {
+public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatable<PackageVersion>, IEquatable<string> {
     /// Main part of the version – dot-separated numbers, not necessarily semver.
     public readonly int[] Main;
     /// Development version suffix – "beta.1", "preview-1.2.3",...
@@ -102,7 +102,12 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         return this._versionString;
     }
 
-    public int CompareTo(PackageVersion v2) {
+
+    public int CompareTo(PackageVersion? v2) {
+        if (v2 == null) {
+            return 1;
+        }
+
         var v1 = this;
         // compare the main (semi-semver) part
         // if one of the versions is shorter than the other, treat the extra fields as zeros
@@ -151,23 +156,26 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         return 0;
     }
 
-    public static bool operator ==(PackageVersion? v1, PackageVersion? v2) => v1?.Equals(v2) ?? v2 is null;
-    public static bool operator !=(PackageVersion? v1, PackageVersion? v2) => !(v1 == v2);
-    public static bool operator <(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) < 0;
-    public static bool operator >(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) > 0;
-    public static bool operator >=(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) >= 0;
-    public static bool operator <=(PackageVersion v1, PackageVersion v2) => v1.CompareTo(v2) <= 0;
+    // we want a non-generic comparison, since that's what PowerShell likes to use
+    public int CompareTo(object? obj) {
+        if (obj is PackageVersion v) return CompareTo(v);
+        if (obj is string s) return CompareTo(s);
+        if (obj is null) return 1;
+        throw new ArgumentException("Object is not comparable with Pog.PackageVersion.");
+    }
+
 
     public override bool Equals(object? obj) {
         if (obj is string str && Equals(str)) return true;
-        return obj is PackageVersion other && Equals(other);
+        if (obj is PackageVersion other && Equals(other)) return true;
+        return false;
     }
 
     public bool Equals(PackageVersion? v2) {
         return _versionString == v2?._versionString;
     }
 
-    public bool Equals(string v2) {
+    public bool Equals(string? v2) {
         return _versionString == v2;
     }
 
@@ -175,19 +183,13 @@ public class PackageVersion : IComparable<PackageVersion>, IEquatable<PackageVer
         return _versionString.GetHashCode();
     }
 
-    public static PackageVersion GetLatestVersion(IEnumerable<PackageVersion> versions) {
-        return versions.Max();
-    }
 
-    public static PackageVersion GetLatestVersion(IEnumerable<string> versions) {
-        return GetLatestVersion(versions.Select(v => new PackageVersion(v)));
-    }
-
-    // this overload seems necessary, because the other two are not resolved as viable for a PowerShell array
-    // PowerShell automatically casts the values to PackageVersion, so a string[] overload is not necessary
-    public static PackageVersion GetLatestVersion(PackageVersion[] versions) {
-        return versions.Max();
-    }
+    public static bool operator ==(PackageVersion? v1, PackageVersion? v2) => v1?.Equals(v2) ?? v2 is null;
+    public static bool operator !=(PackageVersion? v1, PackageVersion? v2) => !(v1 == v2);
+    public static bool operator <(PackageVersion? v1, PackageVersion? v2) => v1?.CompareTo(v2) < 0;
+    public static bool operator >(PackageVersion? v1, PackageVersion? v2) => v1?.CompareTo(v2) > 0;
+    public static bool operator <=(PackageVersion? v1, PackageVersion? v2) => v1?.CompareTo(v2) <= 0;
+    public static bool operator >=(PackageVersion? v1, PackageVersion? v2) => v1?.CompareTo(v2) >= 0;
 
     private static IEnumerable<(T1, T2)> ZipLongest<T1, T2>(T1[] first, T2[] second, T1 pad1, T2 pad2) {
         var firstExp = first.Concat(Enumerable.Repeat(pad1, Math.Max(second.Length - first.Length, 0)));
