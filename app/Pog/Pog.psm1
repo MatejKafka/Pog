@@ -166,7 +166,7 @@ Export function New-PogPackage {
 }
 
 
-function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$Force, [switch]$ListOnly) {
+function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$Force, [switch]$ListOnly, $GitHubToken) {
 	Write-Information "Checking updates for '$PackageName'..."
 
 	$g = try {[Pog.InternalState]::GeneratorRepository.GetPackage($PackageName, $true, $true)}
@@ -182,7 +182,7 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$
 			"manifest generators are only supported for existing templated packages."
 	}
 
-	Invoke-Container -Modules $PSScriptRoot\container\Env_ManifestGenerator.psm1 -ArgumentList @($g, $c, $Version, $Force, $ListOnly)
+	Invoke-Container -Modules $PSScriptRoot\container\Env_ManifestGenerator.psm1 -ArgumentList @($g, $c, $Version, $Force, $ListOnly, $GitHubToken)
 }
 
 Export function Update-PogManifest {
@@ -208,7 +208,11 @@ Export function Update-PogManifest {
 		$Force,
 			### Only retrieve and list versions, do not generate manifests.
 			[switch]
-		$ListOnly
+		$ListOnly,
+			### GitHuh access token, automatically used by the provided cmdlets communicating with GitHub.
+			### One possible use case is increasing the API rate limit, which is quite low for unauthenticated callers.
+			[securestring]
+		$GitHubToken
 	)
 
 	begin {
@@ -248,7 +252,7 @@ Export function Update-PogManifest {
 			}
 
 			try {
-				UpdateSinglePackage $pn $Version -Force:$Force -ListOnly:$ListOnly
+				UpdateSinglePackage $pn $Version -Force:$Force -ListOnly:$ListOnly -GitHubToken:$GitHubToken
 			} catch {& {
 				$ErrorActionPreference = "Continue"
 				$PSCmdlet.WriteError($_)

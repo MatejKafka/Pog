@@ -40,15 +40,19 @@ function RetrievePackageVersions([Pog.PackageGenerator]$Generator, $ExistingVers
 }
 
 # TODO: think what utility cmdlets can Pog reasonably provide and which is best left to existing tools like iwr/import
-# FIXME: if -Force is passed, track if there are any leftover manifests (for removed versions) and delete them
+# FIXME: if -Force is passed, track if there are any leftover manifests (for removed versions) and delete them after prompting
 Export function __main {
 	param(
 		[Pog.PackageGenerator]$Generator,
 		[Pog.LocalRepositoryVersionedPackage]$Package,
 		[string[]]$Version,
 		[bool]$Force,
-		[bool]$ListOnly
+		[bool]$ListOnly,
+		[securestring]$GitHubToken
 	)
+
+	# TODO: move this to a new ContainerContext
+	$script:GitHubToken = $GitHubToken
 
 	# list available versions without existing manifest (unless -Force is set, then all versions are listed)
 	# only generate manifests for versions that don't already exist, unless -Force is passed
@@ -132,6 +136,9 @@ Export function Get-GitHubRelease {
 			$Endpoint = if ($Tags) {"tags"} else {"releases"}
 			# 100 releases per page is the maximum: https://docs.github.com/en/rest/releases/releases#list-releases
 			$Url = "https://api.github.com/repos/$r/${Endpoint}?per_page=100"
+			$ExtraArgs = if ($script:GitHubToken) {
+				@{Authentication = "Bearer"; Token = $script:GitHubToken}
+			}
 
 			Write-Verbose "Listing GitHub releases for '$r'... (URL: $Url)"
 
@@ -139,7 +146,7 @@ Export function Get-GitHubRelease {
 				# piping through Write-Output enumerates the array returned by irm into individual values
 				#  (see https://github.com/PowerShell/PowerShell/issues/15280)
 				# -FollowRelLink automatically goes through all pages to get older releases
-				Invoke-RestMethod -FollowRelLink $Url | Write-Output
+				Invoke-RestMethod -FollowRelLink $Url @ExtraArgs | Write-Output
 			} catch [Microsoft.PowerShell.Commands.HttpResponseException] {
 				$e = $_.Exception
 				if ($e.StatusCode -eq 404) {
