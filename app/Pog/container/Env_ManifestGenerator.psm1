@@ -73,6 +73,8 @@ Export function __main {
 		return $GeneratedVersions | % {$Package.GetVersionPackage($_.Version, $false)}
 	}
 
+	$TemplateKeys = [Pog.ManifestTemplateFile]::GetTemplateKeys($Package.TemplatePath)
+
 	# generate manifest for each version
 	foreach ($v in $GeneratedVersions) {
 		$p = $Package.GetVersionPackage($v.Version, $false)
@@ -96,6 +98,12 @@ Export function __main {
 		if ($TemplateData -isnot [Hashtable] -and $TemplateData -isnot [System.Collections.Specialized.OrderedDictionary]) {
 			$Type = if ($TemplateData) {$TemplateData.GetType().ToString()} else {"null"}
 			throw "Manifest generator for package '$($p.PackageName)' did not generate a [Hashtable] for version '$($p.Version)', got '$Type'."
+		}
+
+		if (Compare-Object $TemplateKeys ([string[]]$TemplateData.Keys)) {
+			throw "Keys of the generated manifest for version '$($v.Version)' do not match the template:`n" +`
+				"    Template keys: $($TemplateKeys -join ", ")`n" +`
+				"    Generated manifest keys: $($TemplateData.Keys -join ", ")"
 		}
 
 		# write out the manifest
