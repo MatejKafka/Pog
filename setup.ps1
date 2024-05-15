@@ -135,10 +135,10 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
 
 if ($NoEnv) {
     Write-Host "No changes to environment variables were made.`nTo use Pog in a new PowerShell session, run:"
-    Write-Host ('    Import-Module "' + $PSScriptRoot + '\app\Pog"') -ForegroundColor DarkGreen
+    Write-Host ('    Import-Module "' + $PSScriptRoot + '\app\Pog"') -ForegroundColor Green
 
     Write-Host "To invoke commands exported by Pog packages, add the 'package_bin' directory to your shell PATH:"
-    Write-Host ('    $env:PATH = "' + $PSScriptRoot + '\data\package_bin;$env:PATH"') -ForegroundColor DarkGreen
+    Write-Host ('    $env:PATH = "' + $PSScriptRoot + '\data\package_bin;$env:PATH"') -ForegroundColor Green
 } else {
     Write-Host "Setting up PATH and PSModulePath..."
     # add Pog dir to PSModulePath
@@ -160,5 +160,9 @@ if ((Get-ExecutionPolicy -Scope CurrentUser) -notin @("RemoteSigned", "Unrestric
 
 
 Write-Host ""
-Write-Host "It seems Pog is setup correctly and working now. :)"
+Write-Host "It seems Pog is now correctly set up. :)"
 Write-Host ""
+Write-Host "To install a package, run the following command (press Ctrl+Space for auto-complete):"
+Write-Host '    pog <PackageName>' -ForegroundColor Green
+Write-Host "To access the documentation, use the built-in PowerShell help system:"
+Write-Host '    man about_Pog' -ForegroundColor Green
