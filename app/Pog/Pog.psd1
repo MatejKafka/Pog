@@ -1,6 +1,6 @@
 @{
 	RootModule = 'Pog.psm1'
-	ModuleVersion = '0.8.0'
+	ModuleVersion = '0.8.1'
 	GUID = 'decb807b-afa1-4111-ad81-bfe9aa7dd44d'
 	Author = 'Matej Kafka'
 	CompatiblePSEditions = @('Desktop', 'Core')
