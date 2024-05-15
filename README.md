@@ -15,7 +15,10 @@ Refer to the [about_Pog](./app/Pog/about_Pog.help.txt) help page, which is also 
 Run the following snippet in PowerShell:
 
 ```powershell
-iex (iwr pog.matejkafka.com/install.ps1)
+# Pog is installed to the current directory
+cd dir/where/to/install/Pog
+
+iex (irm pog.matejkafka.com/install.ps1)
 ```
 
 Alternatively, you can manually install Pog by following these steps:

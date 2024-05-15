@@ -19,6 +19,10 @@ $PSDefaultParameterValues = @{
 if ($PSVersionTable.PSVersion -lt "5.0") {
     throw "Pog requires at least PowerShell 5."
 }
+if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
+    throw "Pog requires x64. Sorry, ARM is not supported for now."
+}
+
 
 $SymlinkPath = "$env:TEMP\Pog-symlink-test-$(New-Guid)"
 try {
@@ -30,15 +34,16 @@ try {
 }
 Remove-Item $SymlinkPath -ErrorAction Ignore
 
-
 if (-not $SymlinksAllowed) {
-    throw ("Pog cannot create symbolic links, which are currently necessary for correct functionality. To allow creating symbolic links, do any of the following:`n" +`
+    throw ("Pog cannot create symbolic links, which are currently necessary for correct functionality.`n" +`
+        "To allow creating symbolic links, do any of the following and re-run '$PSCommandPath':`n" +`
         "  1) Enable Developer Mode. (Settings -> Update & Security -> For developers -> Developer Mode)`n" +`
         "  2) Allow your user account to create symbolic links using Group Policy.`n" +`
         "     (Windows Settings -> Security Settings -> Local Policies -> User Rights Assignment -> Create symbolic links)`n" +`
         "  3) Always run Pog as administrator.")
     return
 }
+
 
 # need to call unblock before importing any modules
 Write-Host "Unblocking Pog PowerShell files..."
