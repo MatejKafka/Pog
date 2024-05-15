@@ -2,7 +2,7 @@
 
 Short visual intro: [https://pog.matejkafka.com](https://pog.matejkafka.com) (slighly outdated)
 
-Pog is an in-development package manager for Windows, written for PowerShell 5. Unlike most existing Windows package managers, which delegate to existing program installers, Pog manages the whole package installation process end-to-end, preferring installation from package archives instead. The packages are encapsulated by redirecting their default data directories to a package-local directory, This also provides first-class support for portable packages, which can be moved between machines without reinstallation.
+Pog is an in-development package manager for Windows, written for PowerShell 5. Unlike most existing Windows package managers, which delegate to existing program installers, Pog installs packages from static archives with a readable package manifest. The packages are encapsulated by redirecting their default data directories to a package-local directory, providing first-class support for portable packages, which can be moved between machines without reinstallation.
 
 **The project is pretty usable in its current state, but there's a lot of on-going development, and the documentation is lacking. If anything seems broken or you're not sure how to do something, feel free to open an issue. :)**
 
@@ -38,6 +38,15 @@ Ideally, I would like Pog to be able to update itself. However, it internally us
 4. Delete everything except for the `cache` and `data` directory.
 5. Copy the contents of the `Pog` directory from the archive into the `Pog` directory from step 3.
 6. Run the extracted `setup.cmd` script.
+
+### Uninstallation
+
+To uninstall Pog itself:
+
+1. Remove the `.../Pog/data/package_bin` directory from the `PATH` environment variable.
+2. Remove the `.../Pog/app` directory from the `PSModulePath` environment variable.
+3. Remove the `Pog` subdirectory in the Start menu (`[System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::StartMenu)`).
+4. Delete the Pog installation directory.
 
 ## Building
 
