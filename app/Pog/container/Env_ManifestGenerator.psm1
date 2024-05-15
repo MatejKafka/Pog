@@ -138,6 +138,8 @@ Export function Get-GitHubRelease {
 			$Url = "https://api.github.com/repos/$r/${Endpoint}?per_page=100"
 			$ExtraArgs = if ($script:GitHubToken) {
 				@{Authentication = "Bearer"; Token = $script:GitHubToken}
+			} else {
+				@{}
 			}
 
 			Write-Verbose "Listing GitHub releases for '$r'... (URL: $Url)"
