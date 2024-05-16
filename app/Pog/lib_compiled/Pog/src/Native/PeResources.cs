@@ -255,13 +255,6 @@ internal static class PeResources {
             }
         }
 
-        /// <inheritdoc cref="SetResource(ResourceId, System.ReadOnlySpan{byte})"/>
-        public void SetResource(ResourceId resourceId, byte[] resource) => SetResource(resourceId, resource.AsSpan());
-
-        public void CopyResourceFrom(Module srcModule, ResourceId id) {
-            SetResource(id, srcModule.GetResource(id));
-        }
-
         public unsafe void DeleteResource(ResourceId id) {
             if (!Win32.UpdateResource(_handle, (ushort) id.Type, id.Name, id.Language, (void*) 0, 0)) {
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());

@@ -204,7 +204,7 @@ public class ShimExecutable {
             PeResources.ResourceType type) {
         try {
             src.IterateResourceNames(type, name => {
-                updater.CopyResourceFrom(src, new(type, name));
+                updater.SetResource(new(type, name), src.GetResource(new(type, name)));
                 return true;
             });
         } catch (PeResources.ResourceNotFoundException) {
@@ -231,17 +231,17 @@ public class ShimExecutable {
             PeResources.ResourceType type) {
         // list resources of `type` in src
         if (!src.TryGetResourceNames(type, out var srcNames)) {
-            srcNames = new();
+            srcNames = [];
         }
 
         // copy all non-matching resources
-        foreach (var name in srcNames) {
-            var srcResource = src.GetResource(new(type, name));
-            if (dest.TryGetResource(new(type, name), out var destResource) && srcResource.SequenceEqual(destResource)) {
+        foreach (var id in srcNames.Select(name => new PeResources.ResourceId(type, name))) {
+            var srcResource = src.GetResource(id);
+            if (dest.TryGetResource(id, out var destResource) && srcResource.SequenceEqual(destResource)) {
                 continue;
             }
             // missing resource, copy it
-            updater.Value.CopyResourceFrom(src, new(type, name));
+            updater.Value.SetResource(id, srcResource);
         }
 
         // check if shim has extra resources
