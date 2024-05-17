@@ -212,7 +212,8 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
 
     private void ValidatePackageVersion(LocalRepositoryPackage p, bool validateManifestDir = true) {
         if (validateManifestDir) {
-            ValidateManifestDirectory(p.GetDescriptionString(), p.Path);
+            var path = p is TemplatedLocalRepositoryPackage tp ? tp.TemplateDirPath : p.Path;
+            ValidateManifestDirectory(p.GetDescriptionString(), path);
         }
 
         // validate the manifest
