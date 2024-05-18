@@ -20,7 +20,7 @@ Run the following snippet in PowerShell:
 # Pog is installed to the current directory
 cd dir/where/to/install/Pog
 
-iex (irm pog.matejkafka.com/install.ps1)
+iex (irm https://pog.matejkafka.com/install.ps1)
 ```
 
 Alternatively, you can manually install Pog by following these steps:
