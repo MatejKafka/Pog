@@ -21,7 +21,7 @@
 		'Disable-Pog'
 		'Uninstall-Pog'
 
-		'Get-PogRepositoryPackage'
+		'Find-PogPackage'
 		'Get-PogPackage'
 		'Confirm-PogPackage'
 		'Confirm-PogRepositoryPackage'

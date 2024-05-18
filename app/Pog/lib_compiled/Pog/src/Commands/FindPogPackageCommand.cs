@@ -10,15 +10,15 @@ namespace Pog.Commands;
 /// <summary>
 /// <para type="synopsis">Lists packages available in the package repository.</para>
 /// <para type="description">
-/// The `Get-PogRepositoryPackage` cmdlet lists packages from the package repository.
+/// The `Find-PogPackage` cmdlet lists packages from the package repository.
 /// Each package is represented by a single `Pog.RepositoryPackage` instance. By default, only the latest version
 /// of each package is returned. If you want to list all available versions, use the `-AllVersions` switch parameter.
 /// </para>
 /// </summary>
 [PublicAPI]
-[Cmdlet(VerbsCommon.Get, "PogRepositoryPackage", DefaultParameterSetName = VersionPS)]
+[Cmdlet(VerbsCommon.Find, "PogPackage", DefaultParameterSetName = VersionPS)]
 [OutputType(typeof(RepositoryPackage))]
-public sealed class GetPogRepositoryPackageCommand : PogCmdlet {
+public sealed class FindPogPackageCommand : PogCmdlet {
     private const string VersionPS = "Version";
     private const string AllVersionsPS = "AllVersions";
 

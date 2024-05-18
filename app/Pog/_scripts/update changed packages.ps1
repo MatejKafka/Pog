@@ -4,7 +4,7 @@ $ImportedPackages = Get-PogPackage | ? {$_.Version -and $_.ManifestName}
 
 $RepositoryPackageMap = @{}
 $ImportedPackages | % ManifestName | select -Unique
-    | Get-PogRepositoryPackage -LoadManifest:(-not $NoManifestCheck) -ErrorAction Ignore
+    | Find-PogPackage -LoadManifest:(-not $NoManifestCheck) -ErrorAction Ignore
     | % {
         $RepositoryPackageMap[$_.PackageName] = $_
     }

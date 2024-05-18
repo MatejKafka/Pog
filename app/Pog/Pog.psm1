@@ -11,7 +11,7 @@ foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots)
 # re-export binary cmdlets from Pog.dll
 Export-ModuleMember -Alias pog -Cmdlet `
 	Invoke-Pog, Import-Pog, Install-Pog, Enable-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
-	Get-PogPackage, Get-PogRepositoryPackage, Get-PogRoot, `
+	Get-PogPackage, Find-PogPackage, Get-PogRoot, `
 	Confirm-PogPackage, Confirm-PogRepositoryPackage, `
 	Clear-PogDownloadCache, Show-PogManifestHash
 

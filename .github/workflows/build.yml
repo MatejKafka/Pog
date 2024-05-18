@@ -94,7 +94,7 @@ jobs:
         $InformationPreference = "Continue"
         Import-Module ./app/Pog -Verbose
 
-        Write-Host "Available packages: $(@(Get-PogRepositoryPackage -AllVersions).Count)"
+        Write-Host "Available packages: $(@(Find-PogPackage -AllVersions).Count)"
         pog fzf, zstd, Jujutsu
 
         Get-PogPackage
@@ -115,7 +115,7 @@ jobs:
         $InformationPreference = "Continue"
         Import-Module ./app/Pog -Verbose
 
-        Write-Host "Available packages: $(@(Get-PogRepositoryPackage -AllVersions).Count)"
+        Write-Host "Available packages: $(@(Find-PogPackage -AllVersions).Count)"
         pog fzf, zstd, Jujutsu
 
         Get-PogPackage

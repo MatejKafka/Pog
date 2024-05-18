@@ -44,23 +44,23 @@ CreateImportedPackage $Roots[1] test2-imported test2 1.2.3
 
 
 title "Package"
-test {Import-Pog (Get-PogRepositoryPackage test1)}
-test {Import-Pog (Get-PogRepositoryPackage test1, test2)}
-test {Import-Pog (Get-PogRepositoryPackage test1) -TargetName target}
-test {Import-Pog (Get-PogRepositoryPackage test1) -TargetPackageRoot $Roots[1]}
-test {Import-Pog (Get-PogRepositoryPackage test1) -TargetName target -TargetPackageRoot $Roots[1]}
-test {Import-Pog (Get-PogRepositoryPackage test1) (Get-PogPackage test1-imported)}
-test {Get-PogRepositoryPackage test1, test2 | Import-Pog}
-test {Get-PogRepositoryPackage test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]}
+test {Import-Pog (Find-PogPackage test1)}
+test {Import-Pog (Find-PogPackage test1, test2)}
+test {Import-Pog (Find-PogPackage test1) -TargetName target}
+test {Import-Pog (Find-PogPackage test1) -TargetPackageRoot $Roots[1]}
+test {Import-Pog (Find-PogPackage test1) -TargetName target -TargetPackageRoot $Roots[1]}
+test {Import-Pog (Find-PogPackage test1) (Get-PogPackage test1-imported)}
+test {Find-PogPackage test1, test2 | Import-Pog}
+test {Find-PogPackage test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]}
 
 title "Package, should fail"
-test {Import-Pog (Get-PogRepositoryPackage test1) -TargetPackageRoot "$TEST_DIR\nonexistent"}
-test {Import-Pog (Get-PogRepositoryPackage test1) -TargetName target, target2}
-test {Import-Pog (Get-PogRepositoryPackage test1, test2) -TargetName target}
-test {Import-Pog (Get-PogRepositoryPackage test1) (Get-PogPackage test1-imported, test1-imported)}
-test {Import-Pog (Get-PogRepositoryPackage test1, test2) (Get-PogPackage test1-imported)}
-test {Get-PogRepositoryPackage test1 | Import-Pog -TargetName target}
-test {Get-PogRepositoryPackage test1 | Import-Pog -Version 1.0.0}
+test {Import-Pog (Find-PogPackage test1) -TargetPackageRoot "$TEST_DIR\nonexistent"}
+test {Import-Pog (Find-PogPackage test1) -TargetName target, target2}
+test {Import-Pog (Find-PogPackage test1, test2) -TargetName target}
+test {Import-Pog (Find-PogPackage test1) (Get-PogPackage test1-imported, test1-imported)}
+test {Import-Pog (Find-PogPackage test1, test2) (Get-PogPackage test1-imported)}
+test {Find-PogPackage test1 | Import-Pog -TargetName target}
+test {Find-PogPackage test1 | Import-Pog -Version 1.0.0}
 
 
 title "PackageName"
@@ -83,7 +83,7 @@ test {Import-Pog test1, test2 -TargetName target}
 test {Import-Pog test1 -TargetName test1, test2}
 test {Import-Pog test1, test2 1.0.0}
 test {Import-Pog -Version 1.0.0}
-test {Import-Pog (Get-PogRepositoryPackage test1) 1.0.0}
+test {Import-Pog (Find-PogPackage test1) 1.0.0}
 
 
 title "Target/TargetName"
