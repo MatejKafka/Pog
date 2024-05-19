@@ -152,22 +152,27 @@ public sealed class Container : IDisposable {
     }
 
     private static void CopyPreferenceVariablesToRunspace(Runspace rs, OutputStreamConfig streamConfig) {
-        rs.SessionStateProxy.SetVariable("ProgressPreference", streamConfig.Progress);
-        rs.SessionStateProxy.SetVariable("WarningPreference", streamConfig.Warning);
-        rs.SessionStateProxy.SetVariable("InformationPreference", streamConfig.Information);
-        rs.SessionStateProxy.SetVariable("VerbosePreference", streamConfig.Verbose);
-        rs.SessionStateProxy.SetVariable("DebugPreference", streamConfig.Debug);
-        rs.SessionStateProxy.SetVariable("ConfirmPreference", streamConfig.Confirm);
+        void Set<T>(string name, T? value) {
+            if (value == null) return;
+            rs.SessionStateProxy.SetVariable(name, value);
+        }
+
+        Set("ProgressPreference", streamConfig.Progress);
+        Set("WarningPreference", streamConfig.Warning);
+        Set("InformationPreference", streamConfig.Information);
+        Set("VerbosePreference", streamConfig.Verbose);
+        Set("DebugPreference", streamConfig.Debug);
+        Set("ConfirmPreference", streamConfig.Confirm);
     }
 
     [PublicAPI]
     public record struct OutputStreamConfig(
-            ActionPreference Progress,
-            ActionPreference Warning,
-            ActionPreference Information,
-            ActionPreference Verbose,
-            ActionPreference Debug,
-            ConfirmImpact Confirm);
+            ActionPreference? Progress,
+            ActionPreference? Warning,
+            ActionPreference? Information,
+            ActionPreference? Verbose,
+            ActionPreference? Debug,
+            ConfirmImpact? Confirm);
 
     private const string EnvContextVarName = "_PogInternalContext";
 

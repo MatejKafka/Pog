@@ -34,24 +34,33 @@ internal class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(c
         _container?.Stop();
     }
 
-    private object GetPreferenceVariableValue(string varName, string? paramName, Func<object, object>? mapParam) {
-        var parentVar = Cmdlet.SessionState.PSVariable.Get(varName); // get var from parent scope
-        return paramName != null && mapParam != null &&
-               Cmdlet.MyInvocation.BoundParameters.TryGetValue(paramName, out var obj)
-                ? mapParam(obj) // map the passed parameter
-                : parentVar.Value; // use the preference variable value from the parent scope
+    // PowerShell does not give us any simple way to just ask for the effective value of a preference variable
+    // instead, we have to effectively reimplement the algorithm PowerShell uses internally; fun
+    private T? GetPreferenceVariableValue<T>(string varName, string? paramName, Func<object, T>? mapParam) where T : struct {
+        if (paramName != null && mapParam != null &&
+            Cmdlet.MyInvocation.BoundParameters.TryGetValue(paramName, out var obj)) {
+            return mapParam(obj);
+        } else {
+            var parentVar = Cmdlet.SessionState.PSVariable.Get(varName); // get var from parent scope
+            return parentVar?.Value switch {
+                null => null,
+                T v => v,
+                // https://github.com/PowerShell/PowerShell/issues/3483
+                var v => Enum.TryParse(v.ToString(), out T pref) ? pref : null,
+            };
+        }
     }
 
     private Container.OutputStreamConfig ReadStreamPreferenceVariables() {
         var config = new Container.OutputStreamConfig(
-                (ActionPreference) GetPreferenceVariableValue("ProgressPreference", null, null),
-                (ActionPreference) GetPreferenceVariableValue("WarningPreference", "WarningAction", param => param),
-                (ActionPreference) GetPreferenceVariableValue("InformationPreference", "InformationAction", param => param),
-                (ActionPreference) GetPreferenceVariableValue("VerbosePreference", "Verbose",
+                GetPreferenceVariableValue<ActionPreference>("ProgressPreference", null, null),
+                GetPreferenceVariableValue("WarningPreference", "WarningAction", param => (ActionPreference) param),
+                GetPreferenceVariableValue("InformationPreference", "InformationAction", param => (ActionPreference) param),
+                GetPreferenceVariableValue("VerbosePreference", "Verbose",
                         param => (SwitchParameter) param ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
-                (ActionPreference) GetPreferenceVariableValue("DebugPreference", "Debug",
+                GetPreferenceVariableValue("DebugPreference", "Debug",
                         param => (SwitchParameter) param ? ActionPreference.Continue : ActionPreference.SilentlyContinue),
-                (ConfirmImpact) GetPreferenceVariableValue("ConfirmPreference", "Confirm",
+                GetPreferenceVariableValue("ConfirmPreference", "Confirm",
                         param => (SwitchParameter) param ? ConfirmImpact.Low : ConfirmImpact.None)
         );
 
