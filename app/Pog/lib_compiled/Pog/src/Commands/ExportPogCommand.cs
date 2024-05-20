@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
@@ -57,7 +58,7 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
     }
 
     private void ExportCommands(ImportedPackage p) {
-        // TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and warn the user if it's not
+        // TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and notify the user if it's not
         foreach (var command in p.EnumerateExportedCommands()) {
             var cmdName = command.GetBaseName();
             var targetPath = Path.Combine(InternalState.PathConfig.ExportedCommandDir, command.Name);
@@ -82,8 +83,20 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
                 foreach (var collidingCmdPath in matchingCommands) File.Delete(collidingCmdPath);
             }
 
-            FsUtils.CreateSymbolicLink(targetPath, command.FullName, false);
+            try {
+                FsUtils.CreateSymbolicLink(targetPath, command.FullName, false);
+            } catch (Exception e) {
+                var category = e is UnauthorizedAccessException
+                        ? ErrorCategory.PermissionDenied
+                        : ErrorCategory.NotSpecified;
+                ThrowTerminatingError(new CommandExportException(
+                                $"Could not export command '{cmdName}' from '{p.PackageName}', " +
+                                $"symbolic link creation failed: {e.Message}", e),
+                        "CommandExportFailed", category, cmdName);
+            }
             WriteInformation($"Exported command '{cmdName}' from '{p.PackageName}'.", null);
         }
     }
+
+    public class CommandExportException(string message, Exception innerException) : Exception(message, innerException);
 }

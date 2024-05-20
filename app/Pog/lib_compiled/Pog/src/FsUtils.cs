@@ -50,7 +50,13 @@ public static class FsUtils {
             else return PIO.File.CreateSymbolicLink(path, targetPath);
         } catch (COMException e) when (e.HResult == -2147023582) {
             // -2147023582 (0x80070522) = A required privilege is not held by the client.
-            throw new UnauthorizedAccessException(SymlinkCreationErrorMessage, e);
+            throw new SymbolicLinkNotAllowedException(SymlinkCreationErrorMessage, e);
+        }
+    }
+
+    public class SymbolicLinkNotAllowedException : SystemException {
+        internal SymbolicLinkNotAllowedException(string message, Exception inner) : base(message, inner) {
+            HResult = -2147023582;
         }
     }
 
