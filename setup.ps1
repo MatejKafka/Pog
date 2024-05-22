@@ -143,7 +143,7 @@ if ($NoEnv) {
 } else {
     Write-Host "Setting up PATH and PSModulePath..."
     # add Pog dir to PSModulePath
-    Add-EnvPSModulePath (Resolve-Path "$PSScriptRoot\app")
+    Add-EnvPSModulePath -Prepend (Resolve-Path "$PSScriptRoot\app")
     # add binary dir to PATH
     Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
 }
