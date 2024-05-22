@@ -93,9 +93,16 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
 # now, we should be ready to import Pog
 Import-Module $PSScriptRoot\app\Pog
 
+# TODO: prompt to run Enable-Pog and Export-Pog for all packages (at least in the primary package root),
+#  so that everything is ready for the user in case of the portable scenario
+
+# FIXME: this won't run when Pog is reenabled in the portable scenario
 if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
     try {
-        $7z = Get-PogPackage 7zip
+        # wrap all Pog invocations in a scriptblock; otherwise, in case when there's already one Pog installation
+        #  and we're setting up another one, PowerShell will notice that we're calling Pog while loading this script
+        #  and happily load the previously installed Pog module from PSModulePath; sigh
+        $7z = & {Get-PogPackage 7zip}
     } catch {
         throw "Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
             "Please install Pog from a release, not by cloning the repository directly."
@@ -104,7 +111,7 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
 
     try {
         Write-Information ""
-        $7z | Enable-Pog -PassThru | Export-Pog
+        & {$7z | Enable-Pog -PassThru | Export-Pog}
     } catch {
         throw ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
         return
@@ -119,7 +126,7 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
 if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
     try {
         Write-Information ""
-        pog OpenedFilesView
+        & {pog OpenedFilesView}
     } catch {
         throw ("Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
         return
