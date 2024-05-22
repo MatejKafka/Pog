@@ -52,8 +52,8 @@ Export function Edit-PogRootList {
 	param()
 
 	$Path = [Pog.InternalState]::ImportedPackageManager.PackageRoots.PackageRootFile
-	Write-Information "Opening the package root list at '$Path' for editing in a text editor..."
-	Write-Information "Each line should contain a single absolute path to the package root directory."
+	Write-Host "Opening the package root list at '$Path' for editing in a text editor..."
+	Write-Host "Each line should contain a single absolute path to the package root directory."
 	# this opens the file for editing in a text editor (it's a .txt file)
 	Start-Process $Path
 }

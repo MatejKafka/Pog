@@ -85,7 +85,8 @@ $ROOT_FILE_PATH = Join-Path $PSScriptRoot "./data/package_roots.txt"
 if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
     $DefaultContentRoot = Resolve-Path $PSScriptRoot\..
     Write-Host "Registering a Pog package root at '$DefaultContentRoot'..."
-    Set-Content $ROOT_FILE_PATH -Value $DefaultContentRoot
+    # use a relative path, so that the package root is valid even if Pog is moved
+    Set-Content $ROOT_FILE_PATH -Value "..\.."
 }
 
 # ====================================================================================

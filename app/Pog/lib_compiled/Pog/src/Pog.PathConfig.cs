@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -11,27 +11,24 @@ namespace Pog;
 //  it is quite complex to do it in a robust way that supports simultaneous changes from multiple instances of Pog,
 //  and even harder to make it performant; the provided package roots should always reflect current state of the
 //  config file (so for caching, we'll need a file watcher thread to update the cache)
-//
-// TODO: think through whether it would be a good idea to support relative paths in the package root file
-//  if yes, which directory should they be relative from?
 [PublicAPI]
 public class PackageRootConfig {
     public readonly string PackageRootFile;
+    private string _resolutionBaseDir;
 
-    public string[] ValidPackageRoots => ReadPackageRoots(Directory.Exists);
-    public string[] MissingPackageRoots => ReadPackageRoots(r => !Directory.Exists(r));
-    public string[] AllPackageRoots => ReadPackageRoots(_ => true);
+    public string[] ValidPackageRoots => ReadPackageRoots().Where(Directory.Exists).ToArray();
+    public string[] MissingPackageRoots => ReadPackageRoots().Where(r => !Directory.Exists(r)).ToArray();
+    public string[] AllPackageRoots => ReadPackageRoots().ToArray();
 
     internal PackageRootConfig(string packageRootFilePath) {
         PackageRootFile = packageRootFilePath;
+        _resolutionBaseDir = Path.GetDirectoryName(packageRootFilePath)!;
     }
 
-    private string[] ReadPackageRoots(Func<string, bool> pathPredicate) {
+    private IEnumerable<string> ReadPackageRoots() {
         InstrumentationCounter.PackageRootFileReads.Increment();
         return File.ReadLines(PackageRootFile, Encoding.UTF8)
-                .Select(Path.GetFullPath)
-                .Where(pathPredicate)
-                .ToArray();
+                .Select(p => Path.GetFullPath(Path.Combine(_resolutionBaseDir, p)));
     }
 }
 
