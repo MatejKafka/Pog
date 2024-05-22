@@ -149,7 +149,16 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
     }
 
     public override IEnumerable<PackageVersion> EnumerateVersions(string searchPattern = "*") {
-        return _repository.Packages[PackageName] ?? Enumerable.Empty<PackageVersion>();
+        var versions = _repository.Packages[PackageName];
+        if (versions == null) {
+            return [];
+        }
+        if (searchPattern == "*") {
+            return versions;
+        }
+
+        var pattern = new WildcardPattern(searchPattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
+        return versions.Where(v => pattern.IsMatch(v.ToString()));
     }
 
     public override IEnumerable<string> EnumerateVersionStrings(string searchPattern = "*") {
