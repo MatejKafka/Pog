@@ -143,12 +143,12 @@ public sealed class ValidPackageRootPathCompleter : QuotingArgumentCompleter {
 public sealed class RepositoryPackageVersionCompleter : DirectoryListingArgumentCompleter {
     protected override IEnumerable<string> GetMatchingItems(string searchPattern, IDictionary fakeBoundParameters) {
         if (!fakeBoundParameters.Contains("PackageName")) {
-            return Enumerable.Empty<string>();
+            return [];
         }
 
         var packageName = fakeBoundParameters["PackageName"];
         if (packageName == null) {
-            return Enumerable.Empty<string>();
+            return [];
         }
         if (packageName is Array {Length: 1} arr) {
             packageName = arr.GetValue(0);
@@ -157,12 +157,12 @@ public sealed class RepositoryPackageVersionCompleter : DirectoryListingArgument
         // package name like `7.1` will be passed as a double, and `7` as an int
         // this filters out unexpected types, and also arrays, which we cannot sensibly auto-complete
         if (packageName is not string && packageName is not int && packageName is not double) {
-            return Enumerable.Empty<string>();
+            return [];
         }
 
         var package = InternalState.Repository.GetPackage(packageName.ToString(), false, false);
         if (!package.Exists) {
-            return Enumerable.Empty<string>(); // no such package
+            return []; // no such package
         }
         return package.EnumerateVersions(searchPattern).Select(v => v.ToString());
     }
