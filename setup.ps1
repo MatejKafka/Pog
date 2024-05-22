@@ -27,7 +27,7 @@ if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
 $SymlinkPath = "$env:TEMP\Pog-symlink-test-$(New-Guid)"
 try {
     # try creating a symlink in TEMP to itself
-    $null = cmd.exe /c mklink $SymlinkPath $SymlinkPath
+    $null = cmd.exe /c mklink $SymlinkPath $SymlinkPath 2>$null
     $SymlinksAllowed = $LASTEXITCODE -eq 0
 } catch {
     $SymlinksAllowed = $false
