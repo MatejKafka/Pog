@@ -53,7 +53,8 @@ Export function Edit-PogRootList {
 
 	$Path = [Pog.InternalState]::ImportedPackageManager.PackageRoots.PackageRootFile
 	Write-Host "Opening the package root list at '$Path' for editing in a text editor..."
-	Write-Host "Each line should contain a single absolute path to the package root directory."
+	Write-Host "Each line should contain a single path to the package root directory."
+	Write-Host "Both absolute and relative paths are allowed, relative paths are resolved from the path of the edited file."
 	# this opens the file for editing in a text editor (it's a .txt file)
 	Start-Process $Path
 }
