@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param(
     ### Do not add Pog to PATH and PSModulePath. You must then import Pog into your
     ### PowerShell session manually using `Import-Module` with a path to the module,
@@ -9,18 +10,19 @@ param(
 )
 
 Set-StrictMode -Version Latest
-
 $ErrorActionPreference = "Stop"
-$PSDefaultParameterValues = @{
-    "*:ErrorAction" = "Stop"
+
+function abort($ErrorMsg) {
+    # use ThrowTerminatingError instead of throw so that the error is rendered without removed newlines in ConciseView
+    $PSCmdlet.ThrowTerminatingError([System.Management.Automation.ErrorRecord]::new($ErrorMsg, $null, "NotSpecified", $null))
 }
 
 
 if ($PSVersionTable.PSVersion -lt "5.0") {
-    throw "Pog requires at least PowerShell 5."
+    abort "Pog requires at least PowerShell 5."
 }
 if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
-    throw "Pog requires x64. Sorry, ARM is not supported for now."
+    abort "Pog requires x64. Sorry, ARM is not supported for now."
 }
 
 
@@ -35,13 +37,14 @@ try {
 Remove-Item $SymlinkPath -ErrorAction Ignore
 
 if (-not $SymlinksAllowed) {
-    throw ("Pog cannot create symbolic links, which are currently necessary for correct functionality.`n" +`
-        "To allow creating symbolic links, do any of the following and re-run '$PSCommandPath':`n" +`
-        "  1) Enable Developer Mode. (Settings -> Update & Security -> For developers -> Developer Mode)`n" +`
-        "  2) Allow your user account to create symbolic links using Group Policy.`n" +`
-        "     (Windows Settings -> Security Settings -> Local Policies -> User Rights Assignment -> Create symbolic links)`n" +`
-        "  3) Always run Pog as administrator.")
-    return
+    abort @"
+Pog cannot create symbolic links, which are currently necessary for correct functionality.
+To allow creating symbolic links, do any of the following and re-run '$PSCommandPath':
+  1) Enable Developer Mode. (Settings -> Update & Security -> For developers -> Developer Mode)
+  2) Allow your user account to create symbolic links using Group Policy.
+     (Windows Settings -> Security Settings -> Local Policies -> User Rights Assignment -> Create symbolic links)
+  3) Always run Pog as administrator.
+"@
 }
 
 
@@ -104,22 +107,19 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
         #  and happily load the previously installed Pog module from PSModulePath; sigh
         $7z = & {Get-PogPackage 7zip}
     } catch {
-        throw "Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
+        abort "Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
             "Please install Pog from a release, not by cloning the repository directly."
-        return
     }
 
     try {
         Write-Information ""
         & {$7z | Enable-Pog -PassThru | Export-Pog}
     } catch {
-        throw ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
-        return
+        abort ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
     }
 
     if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
-        throw "Setup of '7zip' was successful, but we cannot find the 7z.exe binary that should be provided by the package."
-        return
+        abort "Setup of '7zip' was successful, but we cannot find the 7z.exe binary that should be provided by the package."
     }
 }
 
@@ -128,13 +128,11 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
         Write-Information ""
         & {pog OpenedFilesView}
     } catch {
-        throw ("Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
-        return
+        abort ("Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
     }
 
     if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
-        throw "Setup of 'OpenedFilesView' was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
-        return
+        abort "Setup of 'OpenedFilesView' was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
     }
 }
 
