@@ -9,7 +9,7 @@ param(
     [switch]$NoExecutionPolicy
 )
 
-Set-StrictMode -Version Latest
+Set-StrictMode -Version 3
 $ErrorActionPreference = "Stop"
 
 function abort($ErrorMsg) {
@@ -69,7 +69,7 @@ function newdir($Dir) {
         # exists, but not a directory
         $null = rm -Recurse $Dir
     }
-    Write-Host "Creating directory '$Dir'."
+    Write-Host "Creating directory '$Dir'..."
     $null = New-Item -Type Directory -Force $Dir
 }
 
@@ -100,6 +100,7 @@ Import-Module $PSScriptRoot\app\Pog
 #  so that everything is ready for the user in case of the portable scenario
 
 # FIXME: this won't run when Pog is reenabled in the portable scenario
+#  if we implement the universal setup above, this won't matter anymore
 if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
     try {
         # wrap all Pog invocations in a scriptblock; otherwise, in case when there's already one Pog installation
@@ -137,32 +138,11 @@ if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
 }
 
 
-# TODO: prompt before doing these user-wide changes
-
-if ($NoEnv) {
-    Write-Host "No changes to environment variables were made.`nTo use Pog in a new PowerShell session, run:"
-    Write-Host ('    Import-Module "' + $PSScriptRoot + '\app\Pog"') -ForegroundColor Green
-
-    Write-Host "To invoke commands exported by Pog packages, add the 'package_bin' directory to your shell PATH:"
-    Write-Host ('    $env:PATH = "' + $PSScriptRoot + '\data\package_bin;$env:PATH"') -ForegroundColor Green
-} else {
-    Write-Host "Setting up PATH and PSModulePath..."
-    # add Pog dir to PSModulePath
-    Add-EnvPSModulePath -Prepend (Resolve-Path "$PSScriptRoot\app")
-    # add binary dir to PATH
-    Add-EnvPath -Prepend (Resolve-Path "$PSScriptRoot\data\package_bin")
-}
-
-if ((Get-ExecutionPolicy -Scope CurrentUser) -notin @("RemoteSigned", "Unrestricted", "Bypass")) {
-    if ($NoExecutionPolicy) {
-        Write-Host "No changes to execution policy were made. Pog likely won't work until you change the execution policy to at least 'RemoteSigned'."
-    } else {
-        # since Pog is currently not signed, we need at least RemoteSigned to run
-        Write-Warning "Changing PowerShell execution policy for the current user to 'RemoteSigned'..."
-        # https://stackoverflow.com/questions/60541618/how-to-suppress-warning-message-from-script-when-calling-set-executionpolicy/60549569#60549569
-        try {Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force} catch [System.Security.SecurityException] {}
-    }
-}
+# set up environment variables and execution policy
+& {Enable-Pog Pog -PackageArguments @{
+    NoEnv = $NoEnv
+    NoExecutionPolicy = $NoExecutionPolicy
+}}
 
 
 Write-Host ""

@@ -2,7 +2,7 @@
 
 Short visual intro: [https://pog.matejkafka.com](https://pog.matejkafka.com) (slighly outdated)
 
-Pog is a **fast**, in-development package manager for Windows, managing **encapsulated, portable applications**. As a frequent Linux user, I always enjoyed the hassle-free experience of installing software. Windows have multiple package managers, but other than Scoop, all of them are unreasonably slow and fiddly, and Scoop is a bit too minimal for my taste and does not fully utilize portable packages. Pog is an attempt to provide Linux-level user experience in a Windows-native way.
+Pog is a **fast**, in-development package manager for Windows, managing **encapsulated, portable applications**. As a frequent Linux user, I always enjoyed the hassle-free experience of installing software. Windows has multiple package managers, but other than Scoop, all of them are unreasonably slow and fiddly, and Scoop is a bit too minimal for my taste and does not fully utilize portable packages. Pog is an attempt to provide Linux-level user experience in a Windows-native way.
 
 Unlike most existing Windows package managers, which delegate to existing program installers, Pog installs packages from static archives with a readable package manifest. The packages are encapsulated by redirecting their default data directories to a package-local directory, providing first-class support for portable packages, where multiple versions can be installed side-by-side and even moved between machines without reinstallation.
 
@@ -45,9 +45,9 @@ Ideally, I would like Pog to be able to update itself. However, it internally us
 
 To uninstall Pog itself:
 
-1. Remove the `.../Pog/data/package_bin` directory from the `PATH` environment variable.
-2. Remove the `.../Pog/app` directory from the `PSModulePath` environment variable.
-3. Remove the `Pog` subdirectory in the Start menu (`[System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::StartMenu)`).
+1. Run `Get-PogPackage | ? PackageName -ne Pog | Uninstall-Pog` to uninstall all installed packages.
+2. Run `Disable-Pog Pog` to unregister Pog from the system.
+3. Close all PowerShell sessions where Pog is loaded.
 4. Delete the Pog installation directory.
 
 ## Building
