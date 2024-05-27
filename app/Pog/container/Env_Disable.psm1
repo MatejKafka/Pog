@@ -1,5 +1,7 @@
 . $PSScriptRoot\..\lib\header.ps1
 
+Export-ModuleMember -Cmdlet Remove-EnvVarEntry
+
 <# This function is called after the container setup is finished to run the Disable script. #>
 Export function __main {
     # __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
