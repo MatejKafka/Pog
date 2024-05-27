@@ -1,6 +1,7 @@
 using module .\Utils.psm1
 . $PSScriptRoot\header.ps1
 
+Export-ModuleMember -Cmdlet Remove-EnvVarEntry
 
 function Update-EnvVar {
 	param(
@@ -22,52 +23,33 @@ function Update-EnvVar {
 }
 
 
-<#
-.SYNOPSIS
-	Sets environment variable.
-.PARAMETER VarName
-	Name of modified environment variable.
-.PARAMETER Value
-	Value to add.
-.PARAMETER Systemwide
-	If set, system environemnt variable will be set. Otherwise, user environment variable will be set.
-#>
 Export function Set-EnvVar {
+	### .SYNOPSIS
+	### 	Sets an environment variable.
+	[CmdletBinding()]
 	param(
+			### Name of the modified environment variable.
 			[Parameter(Mandatory)]
 			[string]
 		$VarName,
+			### The value to set.
 			[Parameter(Mandatory)]
 			[string]
-		$Value,
-			[switch]
-		$Systemwide
+		$Value
 	)
 
-	$Target = if ($Systemwide) {[EnvironmentVariableTarget]::Machine}
-		else {[EnvironmentVariableTarget]::User}
-
-	$TargetReadable = if ($Systemwide) {"system-wide"} else {"for current user"}
-
-	$OldValue = [Environment]::GetEnvironmentVariable($VarName, $Target)
+	$OldValue = [Environment]::GetEnvironmentVariable($VarName, [System.EnvironmentVariableTarget]::User)
 	if ($OldValue -eq $Value) {
-		Write-Verbose "'env:$VarName' already set to '$Value' $TargetReadable."
+		Write-Verbose "'env:$VarName' already set to '$Value' for the current user."
 		# the var might be set in system, but our process might have the old/no value
 		# this ensures that after this call, value of $env:VarName is up to date
 		[Environment]::SetEnvironmentVariable($VarName, $Value, [System.EnvironmentVariableTarget]::Process)
 		return
 	}
 
-	Write-Warning "Setting environment variable 'env:$VarName' to '$Value' $TargetReadable..."
+	Write-Warning "Setting environment variable 'env:$VarName' to '$Value' for the current user..."
 
-	try {
-		[Environment]::SetEnvironmentVariable($VarName, $Value, $Target)
-	} catch [System.Security.SecurityException] {
-		# insufficient permission
-		throw "Cannot update system-wide environment variable 'env:$VarName' without administrator privileges."
-	}
-
-	[Environment]::SetEnvironmentVariable($VarName, $Value, $Target)
+	[Environment]::SetEnvironmentVariable($VarName, $Value, [System.EnvironmentVariableTarget]::User)
 	# also set the variable for the current process
 	[Environment]::SetEnvironmentVariable($VarName, $Value, [System.EnvironmentVariableTarget]::Process)
 }
@@ -89,61 +71,45 @@ function AddToProcessEnv($VarName, $Value, [switch]$Prepend) {
 	}
 }
 
-<#
-.SYNOPSIS
-	Appends item to a given system-scope environment variable.
-.PARAMETER VarName
-	Name of modified environment variable.
-.PARAMETER Value
-	Value to add.
-.PARAMETER Systemwide
-	If set, system environment variable will be set. Otherwise, user environment variable will be set.
-#>
 Export function Add-EnvVar {
+	### .SYNOPSIS
+	### 	Appends an item to a given user-level environment variable.
+	[CmdletBinding()]
 	param(
+			### Name of the modified environment variable.
 			[Parameter(Mandatory)]
 			[string]
 		$VarName,
+			### The value to add.
 			[Parameter(Mandatory)]
 			[string]
 		$Value,
 			[switch]
-		$Prepend,
-			[switch]
-		$Systemwide
+		$Prepend
 	)
 
-	$Target = if ($Systemwide) {[EnvironmentVariableTarget]::Machine}
-		else {[EnvironmentVariableTarget]::User}
-
-	$TargetReadable = if ($Systemwide) {"system-wide"} else {"for current user"}
-
-	$OldValue = [Environment]::GetEnvironmentVariable($VarName, $Target)
+	$OldValue = [Environment]::GetEnvironmentVariable($VarName, [System.EnvironmentVariableTarget]::User)
 
 	if ($null -eq $OldValue) {
 		# variable not set yet
-		Set-EnvVar $VarName $Value -Systemwide:$Systemwide
+		Set-EnvVar $VarName $Value
 		return
 	}
 
+	# FIXME: check for trailing / or \
 	if ($OldValue.Split([IO.Path]::PathSeparator).Contains($Value)) {
-		Write-Verbose "Value '$Value' already present in 'env:$VarName' $TargetReadable."
+		Write-Verbose "Value '$Value' already present in 'env:$VarName' for the current user."
 		# the var might be set in system, but our process might have the old/no value
 		# this ensures that after this call, value of $env:VarName is up to date
 		AddToProcessEnv $VarName $Value -Prepend:$Prepend
 		return
 	}
 
-	Write-Warning "Adding '$Value' to 'env:$VarName' $TargetReadable..."
+	Write-Warning "Adding '$Value' to 'env:$VarName' for the current user..."
 
 	$NewValue = CombineEnvValues $OldValue $Value -Prepend:$Prepend
 
-	try {
-		[Environment]::SetEnvironmentVariable($VarName, $NewValue, $Target)
-	} catch [System.Security.SecurityException] {
-		# insufficient permission
-		throw "Cannot update system-wide environment variable 'env:$VarName' without administrator privileges."
-	}
+	[Environment]::SetEnvironmentVariable($VarName, $NewValue, [System.EnvironmentVariableTarget]::User)
 
 	# also set the variable for the current process
 	# do not reload the variable, since that could remove process-scope modifications
@@ -151,54 +117,4 @@ Export function Add-EnvVar {
 
 	$Verb = if ($Prepend) {"Prepended"} else {"Appended"}
 	Write-Information "$Verb '$Value' to 'env:$VarName'."
-}
-
-<#
-.SYNOPSIS
-	Adds directory to PATH env variable.
-.PARAMETER Directory
-	Directory path to add.
-.PARAMETER Systemwide
-	If set, system-wide environment variable will be set (requires elevation).
-	Otherwise, user environment variable will be set.
-#>
-Export function Add-EnvPath {
-	param(
-			[ValidateScript({Test-Path -PathType Container -LiteralPath $_})]
-			[Parameter(Mandatory)]
-			[string]
-		$Directory,
-			[switch]
-		$Prepend,
-			[switch]
-		$Systemwide
-	)
-
-	$AbsPath = Resolve-VirtualPath $Directory
-	Add-EnvVar "Path" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
-}
-
-<#
-.SYNOPSIS
-	Adds directory to PSModulePath env variable.
-.PARAMETER Directory
-	Directory path to add.
-.PARAMETER Systemwide
-	If set, system-wide environment variable will be set (requires elevation).
-	Otherwise, user environment variable will be set.
-#>
-Export function Add-EnvPSModulePath {
-	param(
-			[ValidateScript({Test-Path -PathType Container -LiteralPath $_})]
-			[Parameter(Mandatory)]
-			[string]
-		$Directory,
-			[switch]
-		$Prepend,
-			[switch]
-		$Systemwide
-	)
-
-	$AbsPath = Resolve-VirtualPath $Directory
-	Add-EnvVar "PSModulePath" $AbsPath -Prepend:$Prepend -Systemwide:$Systemwide
 }

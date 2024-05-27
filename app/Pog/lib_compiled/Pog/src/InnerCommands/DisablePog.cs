@@ -52,23 +52,21 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
     }
 
     private void RemoveGloballyExportedShortcuts(ImportedPackage p) {
-        foreach (var startMenuDir in new[] {PathConfig.StartMenuUserExportDir, PathConfig.StartMenuSystemExportDir}) {
-            if (!Directory.Exists(startMenuDir)) {
-                continue;
-            }
+        if (!Directory.Exists(PathConfig.StartMenuExportDir)) {
+            return;
+        }
 
-            foreach (var shortcut in p.EnumerateExportedShortcuts()) {
-                var shortcutName = shortcut.GetBaseName();
-                var targetPath = Path.Combine(startMenuDir, shortcut.Name);
-                var target = new FileInfo(targetPath);
+        foreach (var shortcut in p.EnumerateExportedShortcuts()) {
+            var shortcutName = shortcut.GetBaseName();
+            var targetPath = $"{PathConfig.StartMenuExportDir}\\{shortcut.Name}";
+            var target = new FileInfo(targetPath);
 
-                if (!target.Exists || !FsUtils.FileContentEqual(shortcut, target)) {
-                    WriteVerbose($"Shortcut '{shortcutName}' is not exported in '{startMenuDir}'.");
-                } else {
-                    // found a matching shortcut, delete it
-                    target.Delete();
-                    WriteInformation($"Removed an exported shortcut '{shortcutName}'.");
-                }
+            if (!target.Exists || !FsUtils.FileContentEqual(shortcut, target)) {
+                WriteVerbose($"Shortcut '{shortcutName}' is not exported to the Start menu.");
+            } else {
+                // found a matching shortcut, delete it
+                target.Delete();
+                WriteInformation($"Removed an exported shortcut '{shortcutName}'.");
             }
         }
     }

@@ -63,11 +63,8 @@ public class PathConfig {
 
     public const string DefaultRemoteRepositoryUrl = "https://matejkafka.github.io/PogPackages/";
 
-    /// Directory where exported shortcuts from packages are copied (system-wide).
-    public static readonly string StartMenuSystemExportDir =
-            Path.Combine(GetFolderPath(SpecialFolder.CommonStartMenu), "Pog");
     /// Directory where exported shortcuts from packages are copied (per-user).
-    public static readonly string StartMenuUserExportDir = Path.Combine(GetFolderPath(SpecialFolder.StartMenu), "Pog");
+    public static readonly string StartMenuExportDir = $"{GetFolderPath(SpecialFolder.StartMenu)}\\Pog";
 
     public readonly string ContainerDir;
     public readonly string CompiledLibDir;

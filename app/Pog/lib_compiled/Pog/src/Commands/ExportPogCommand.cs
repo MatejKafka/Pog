@@ -17,21 +17,6 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
-    /// <summary><para type="description">
-    /// Export shortcuts to the system-wide start menu for all users, instead of the user-specific start menu.
-    /// </para></summary>
-    [Parameter] public SwitchParameter Systemwide;
-
-    private string _startMenuDir = null!;
-
-    protected override void BeginProcessing() {
-        base.BeginProcessing();
-
-        _startMenuDir = Systemwide ? PathConfig.StartMenuSystemExportDir : PathConfig.StartMenuUserExportDir;
-        // ensure the dir exists
-        Directory.CreateDirectory(_startMenuDir);
-    }
-
     protected override void ProcessPackage(ImportedPackage package) {
         ExportShortcuts(package);
         ExportCommands(package);
@@ -39,8 +24,11 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
 
     private void ExportShortcuts(ImportedPackage p) {
         foreach (var shortcut in p.EnumerateExportedShortcuts()) {
+            // ensure the start menu dir exists
+            Directory.CreateDirectory(PathConfig.StartMenuExportDir);
+
             var shortcutName = shortcut.GetBaseName();
-            var targetPath = Path.Combine(_startMenuDir, shortcut.Name);
+            var targetPath = $"{PathConfig.StartMenuExportDir}\\{shortcut.Name}";
             var target = new FileInfo(targetPath);
 
             if (target.Exists) {
@@ -58,7 +46,6 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
     }
 
     private void ExportCommands(ImportedPackage p) {
-        // TODO: check if $PATH_CONFIG.ExportedCommandDir is in PATH, and notify the user if it's not
         foreach (var command in p.EnumerateExportedCommands()) {
             var cmdName = command.GetBaseName();
             var targetPath = Path.Combine(InternalState.PathConfig.ExportedCommandDir, command.Name);
