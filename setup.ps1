@@ -22,6 +22,12 @@ function abort($ErrorMsg) {
 }
 
 
+$LoadedPogModule = Get-Module Pog
+if ($LoadedPogModule -and $LoadedPogModule.Path -ne "$PSScriptRoot\app\Pog\Pog.psm1") {
+    abort ("Another Pog instance ($($LoadedPogModule.Path)) is already loaded in the current PowerShell session. " +`
+        "Please re-run '$PSCommandPath' in a new PowerShell session.")
+}
+
 if ($PSVersionTable.PSVersion -lt "5.0") {
     abort "Pog requires at least PowerShell 5."
 }
