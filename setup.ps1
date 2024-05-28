@@ -6,7 +6,11 @@ param(
     [switch]$NoEnv,
 
     ### Do not automatically update user-wide PowerShell execution policy to allow running local scripts.
-    [switch]$NoExecutionPolicy
+    [switch]$NoExecutionPolicy,
+
+    ### Controls if all packages are enabled and exported.
+    [ValidateSet("All", "Prompt", "None")]
+    [string]$Enable = "Prompt"
 )
 
 Set-StrictMode -Version 3
@@ -93,9 +97,6 @@ if (-not (Test-Path -PathType Leaf $ROOT_FILE_PATH)) {
 # now, we should be ready to import Pog
 Import-Module $PSScriptRoot\app\Pog
 
-# TODO: prompt to run Enable-Pog and Export-Pog for all packages (at least in the primary package root),
-#  so that everything is ready for the user in case of the portable scenario
-
 # wrap all Pog invocations in a scriptblock; otherwise, in case when there's already one Pog installation
 #  and we're setting up another one, PowerShell will notice that we're calling Pog while loading this script
 #  and happily load the previously installed Pog module from PSModulePath; sigh
@@ -147,6 +148,35 @@ Import-Module $PSScriptRoot\app\Pog
     NoEnv = $NoEnv
     NoExecutionPolicy = $NoExecutionPolicy
 }}
+
+
+# check if user already installed any packages; if so, prompt to enable & export them
+#  so that everything is ready for the user in case of the portable scenario
+$ExtraPackages = & {Get-PogPackage} | ? PackageName -notin "Pog", "7zip", "OpenedFilesView"
+if ($ExtraPackages) {
+    $ShouldEnable = switch ($Enable) {
+        "All" {$true}
+        "None" {$false}
+        "Prompt" {
+            $t = "Enable installed packages"
+            $m = "If you are setting up Pog because you moved it to a new computer, the installed packages must be re-configured.`n" +`
+                "Enable all $(@($ExtraPackages).Count) installed packages?"
+            switch ($Host.UI.PromptForChoice($t, $m, @("&Yes", "&No"), 0)) {
+                0 {$true} # Yes
+                1 { # No
+                    Write-Host "Not enabling installed packages. To enable them manually, run:"
+                    Write-Host "    Get-PogPackage | Enable-Pog -PassThru | Export-Pog" -ForegroundColor Green
+                    $false
+                }
+            }
+        }
+    }
+
+    if ($ShouldEnable) {
+        # TODO: when some form of support for parallel setup is implemented, use it
+        $ExtraPackages | Enable-Pog -PassThru | Export-Pog
+    }
+}
 
 
 Write-Host ""
