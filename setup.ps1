@@ -164,10 +164,16 @@ if ($ExtraPackages) {
         "All" {$true}
         "None" {$false}
         "Prompt" {
-            $t = "Enable installed packages"
-            $m = "If you are setting up Pog because you moved it to a new computer, the installed packages must be re-configured.`n" +`
+            $Title = "Enable installed packages"
+            $Message = "If you are setting up Pog because you moved it to a new computer, the installed packages must be re-configured.`n" +`
                 "Enable all $(@($ExtraPackages).Count) installed packages?"
-            switch ($Host.UI.PromptForChoice($t, $m, @("&Yes", "&No"), 0)) {
+            $Choice = try {
+                $Host.UI.PromptForChoice($Title, $Message, @("&Yes", "&No"), 0)
+            } catch [System.Management.Automation.PSInvalidOperationException] {
+                1 # non-interactive mode, do not automatically enable
+            }
+
+            switch ($Choice) {
                 0 {$true} # Yes
                 1 { # No
                     Write-Host "Not enabling installed packages. To enable them manually, run:"
