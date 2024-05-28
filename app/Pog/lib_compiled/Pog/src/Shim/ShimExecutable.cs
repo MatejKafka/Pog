@@ -85,13 +85,19 @@ public class ShimExecutable {
     private bool UpdateShimExe(string shimPath, string? resourceSrcPath) {
         // copy subsystem from the target binary
         var targetSubsystem = PeSubsystem.GetSubsystem(TargetPath);
-        var originalSubsystem = PeSubsystem.SetSubsystem(shimPath, targetSubsystem);
-        var subsystemChanged = targetSubsystem != originalSubsystem;
+        // first read the shim subsystem, maybe we don't need to update it at all
+        // it would be faster to read and update it in one step, but when the shim is in use,
+        //  we cannot open it for writing
+        var shimSubsystem = PeSubsystem.GetSubsystem(shimPath);
+        var subsystemMatches = targetSubsystem == shimSubsystem;
+        if (!subsystemMatches) {
+            PeSubsystem.SetSubsystem(shimPath, targetSubsystem);
+        }
 
         // copy resources from either target, or a separate module
         var updatedResources = UpdateShimResources(shimPath, resourceSrcPath ?? TargetPath);
 
-        return subsystemChanged || updatedResources;
+        return !subsystemMatches || updatedResources;
     }
 
     /// Updater method for targets that are not PE binaries, and don't have a subsystem and resources.
