@@ -72,8 +72,6 @@ function newdir($Dir) {
     $null = New-Item -Type Directory -Force $Dir
 }
 
-Write-Host "Setting up all directories required by Pog..."
-
 newdir "./data"
 newdir "./cache"
 newdir "./data/manifest_generators"
@@ -98,41 +96,48 @@ Import-Module $PSScriptRoot\app\Pog
 # TODO: prompt to run Enable-Pog and Export-Pog for all packages (at least in the primary package root),
 #  so that everything is ready for the user in case of the portable scenario
 
-# FIXME: this won't run when Pog is reenabled in the portable scenario
-#  if we implement the universal setup above, this won't matter anymore
-if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
-    try {
-        # wrap all Pog invocations in a scriptblock; otherwise, in case when there's already one Pog installation
-        #  and we're setting up another one, PowerShell will notice that we're calling Pog while loading this script
-        #  and happily load the previously installed Pog module from PSModulePath; sigh
-        $7z = & {Get-PogPackage 7zip}
-    } catch {
-        abort "Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
-            "Please install Pog from a release, not by cloning the repository directly."
+# wrap all Pog invocations in a scriptblock; otherwise, in case when there's already one Pog installation
+#  and we're setting up another one, PowerShell will notice that we're calling Pog while loading this script
+#  and happily load the previously installed Pog module from PSModulePath; sigh
+
+# setup 7zip
+& {
+    $7z = Get-PogPackage 7zip -ErrorAction Ignore
+    if (-not $7z) {
+        abort ("Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
+            "Please install Pog from a release, not by cloning the repository directly.")
     }
 
     try {
-        Write-Information ""
-        & {$7z | Enable-Pog -PassThru | Export-Pog}
+        $7z | Enable-Pog -PassThru | Export-Pog
     } catch {
-        abort ("Failed to enable the '7zip' package, required for correct functioning of Pog: " + $_)
+        abort "Failed to enable the '7zip' package, required for correct functioning of Pog: $_"
     }
 
     if (-not (Test-Path ([Pog.InternalState]::PathConfig.Path7Zip))) {
-        abort "Setup of '7zip' was successful, but we cannot find the 7z.exe binary that should be provided by the package."
+        abort "Setup of '7zip' was successful, but Pog cannot find the 7z.exe binary that should be provided by the package."
     }
 }
 
-if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
-    try {
-        Write-Information ""
-        & {pog OpenedFilesView}
-    } catch {
-        abort ("Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: " + $_)
+# setup OpenedFilesView
+& {
+    $ofw = Get-PogPackage OpenedFilesView -ErrorAction Ignore
+    if ($ofw) {
+        try {
+            $ofw | Enable-Pog -PassThru | Export-Pog
+        } catch {
+            abort "Failed to enable the 'OpenedFilesView' package, required for correct functioning of Pog: $_"
+        }
+    } else {
+        try {
+            pog OpenedFilesView
+        } catch {
+            abort "Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: $_"
+        }
     }
 
     if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
-        abort "Setup of 'OpenedFilesView' was successful, but we cannot find the OpenedFilesView.exe binary that should be provided by the package."
+        abort "Setup of 'OpenedFilesView' was successful, but Pog cannot find the OpenedFilesView.exe binary that should be provided by the package."
     }
 }
 
