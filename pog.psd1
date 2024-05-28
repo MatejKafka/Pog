@@ -20,13 +20,10 @@
 		# needed for Get-/Set-ExecutionPolicy
 		Import-Module Microsoft.PowerShell.Security
 
-		# TODO: prompt before doing these user-wide changes
-
 		if ($NoEnv) {
 			Write-Host "No changes to environment variables were made. To use Pog in a new PowerShell session, run:"
 			Write-Host ("    . '$(Resolve-Path "./shell.ps1")'") -ForegroundColor Green
 		} else {
-			Write-Host "Setting up PATH and PSModulePath..."
 			# add Pog dir to PSModulePath
 		    Add-EnvVar PSModulePath -Prepend (Resolve-Path "./app")
 		    # add binary dir to PATH
