@@ -1,14 +1,14 @@
 param([switch]$NoModule)
 
-Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+Set-StrictMode -Version 3
+$ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
 
 # pass `-ErrorAction Stop` to all commands; this is a second line of defence
 #  after `$ErrorActionPreference` and ideally shouldn't be needed, but in some
 #  contexts (e.g. apparently when calling $PSCmdlet.WriteError), it is necessary
 #  to locally override $ErrorActionPreference
 $script:PSDefaultParameterValues = @{
-	"*:ErrorAction" = "Stop"
+	"*:ErrorAction" = [System.Management.Automation.ActionPreference]::Stop
 }
 
 if (-not (Test-Path Env:POG_DEBUG)) {
