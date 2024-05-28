@@ -113,9 +113,25 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
             Run = ps => ps.AddCommand("__main").AddArgument(package.Manifest).AddArgument(PackageArguments ?? new()),
         });
 
-        // Enable container should not output anything, show a warning
-        foreach (var o in it) {
-            WriteWarning($"ENABLE: {o}");
+        try {
+            // Enable container should not output anything, show a warning
+            foreach (var o in it) {
+                WriteWarning($"ENABLE: {o}");
+            }
+        } catch (RuntimeException e) {
+            // something failed inside the container
+
+            var ii = e.ErrorRecord.InvocationInfo;
+            // replace the position info with a custom listing, since the script path is missing
+            var graphic = ii.PositionMessage.Substring(ii.PositionMessage.IndexOf('\n') + 1);
+            var positionMsg = $"At {package.ManifestPath}, Enable:{ii.ScriptLineNumber}\n" + graphic;
+
+            var ee = new EnableScriptFailedException(
+                    $"Enable script for package '{package.PackageName}' failed. Please fix the package manifest or " +
+                    $"report the issue to the package maintainer:\n" +
+                    $"    {e.Message.Replace("\n", "\n    ")}\n\n" +
+                    $"    {positionMsg.Replace("\n", "\n    ")}\n", e);
+            ThrowTerminatingError(ee, "EnableFailed", ErrorCategory.NotSpecified, package);
         }
     }
 
@@ -126,6 +142,8 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
                      $" what we can do.");
         return null;
     }
+
+    public class EnableScriptFailedException(string message, Exception innerException) : Exception(message, innerException);
 
     public class DuplicateManifestArgumentException(string message) : ArgumentException(message);
 }
