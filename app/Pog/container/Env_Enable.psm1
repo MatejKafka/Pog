@@ -1,11 +1,9 @@
 using module ..\lib\Utils.psm1
-using module ..\lib\Environment.psm1
 . $PSScriptRoot\..\lib\header.ps1
 
 
-# not sure if we should expose this, PowerShell (private package) uses it to set PSModulePath
-Export-ModuleMember -Function Add-EnvVar, Set-EnvVar
-Export-ModuleMember -Cmdlet Export-Command, Disable-DisplayScaling
+# not sure if we should expose the env cmdlets, Pog, PowerShell and Scoop (private package) uses them
+Export-ModuleMember -Cmdlet Add-EnvVar, Set-EnvVar, Export-Command, Disable-DisplayScaling
 
 # TODO: maybe change Export-Pog to create a marker that "user wants this package exported",
 # TODO: probably also remove exports of the stale commands/shortcuts

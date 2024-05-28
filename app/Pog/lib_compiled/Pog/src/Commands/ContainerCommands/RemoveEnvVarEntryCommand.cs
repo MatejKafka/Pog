@@ -21,7 +21,8 @@ public class RemoveEnvVarEntryCommand : PogCmdlet {
             Directory = Directory.Substring(0, Directory.Length - 1);
         }
 
-        var pattern = new Regex(Regex.Escape(Directory) + "[\\/]*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var pattern = new Regex("^" + Regex.Escape(Directory) + "[\\/]*$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         // remove from user-level env var
         if (RemoveEnvVarPathEntry(EnvironmentVariableTarget.User, pattern, out var deleted)) {
