@@ -35,9 +35,9 @@
 				Write-Host "No changes to execution policy were made. Pog likely won't work until you change the execution policy to at least 'RemoteSigned'."
 			} else {
 				# since Pog is currently not signed, we need at least RemoteSigned to run
-				Write-Warning "Changing PowerShell execution policy for the current user to 'RemoteSigned'..."
 				# https://stackoverflow.com/questions/60541618/how-to-suppress-warning-message-from-script-when-calling-set-executionpolicy/60549569#60549569
 				try {Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force} catch [System.Security.SecurityException] {}
+				Write-Warning "Changed PowerShell execution policy to 'RemoteSigned' for the current user."
 			}
 		}
 
