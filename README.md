@@ -10,7 +10,7 @@ Unlike most existing Windows package managers, which delegate to existing progra
 
 ## Usage
 
-Refer to the [about_Pog](./app/Pog/about_Pog.help.txt) help page, which is also available from PowerShell using `man about_Pog` after Pog is installed.
+Refer to the [about_Pog](./app/Pog/about_Pog.help.txt) help page, which is also available from PowerShell using `man about_Pog` after Pog is installed. For a description of the package configuration environment (useful for package maintainers), see the [about_PogEnable](./app/Pog/about_PogEnable.help.txt) help topic.
 
 ## Installation
 
