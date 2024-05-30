@@ -50,16 +50,22 @@ To uninstall Pog itself:
 3. Close all PowerShell sessions where Pog is loaded.
 4. Delete the Pog installation directory.
 
+## Project structure
+
+Pog is implemented as a PowerShell module, which lives at `app/Pog` (the `app` directory is added to `PSModulePath` during installation). The main entry point to the module is `app/Pog/Pog.psm1`, which defines a few of the public functions and re-exports binary cmdlets defined in `app/Pog/lib_compiled/Pog.dll`, a .NET assembly built from the sources in `app/Pog/lib_compiled/Pog`.
+
+To run scripts from package manifests and generators, Pog uses a custom restricted PowerShell environment. The environment is set up in the `Pog.Container` class in `Pog.dll`, and the entry points to the environments are stored in `app/Pog/container`, such as `app/Pog/container/Env_Enable.psm1` for the `Enable` script environment.
+
 ## Building
 
 Pog is composed of 4 parts:
 
-1. `app/Pog`: The main PowerShell module (`Pog.psm1` and imported modules). You don't need to build this.
+1. `app/Pog`: The main PowerShell module (`Pog.psm1` and imported modules). You don't need to build it.
 2. `app/Pog/lib_compiled/Pog`: The `Pog.dll` C# library, where a lot of the core functionality lives. The library targets `.netstandard2.0`.
-3. `app/Pog/lib_compiled/PogNative`: The `PogShimTemplate.exe` executable shim.
+3. `app/Pog/lib_compiled/PogNative`: The `PogShimTemplate.exe` executable shim, built in C++20 and compiled using CMake.
 4. `app/Pog/lib_compiled/vc_redist`: Directory of VC Redistributable DLLs, used by some packages with the `-VcRedist` switch parameter on `Export-Command`/`Export-Shortcut`.
 
-After all parts are ready, import the main module (`Import-Module app/Pog` from the root directory). Note that Pog assumes that the top-level directory is inside a package root, and it will place its data and cache directories in the top-level directory.
+After all parts are compiled according to the instructions below, import the main module (`Import-Module app/Pog` from the root directory). Note that Pog assumes that the top-level directory is inside a package root, and it will place its data and cache directories in the top-level directory.
 
 ### `lib_compiled/Pog`
 
@@ -72,7 +78,7 @@ dotnet publish
 
 ### `lib_compiled/PogNative`
 
-This project contains the executable shim used to set arguments and environment variables when exporting entry points to a package using `Export-Command` and `Export-Shortcut`. The output binary should appear at `lib_compiled/PogShimTemplate.exe`.
+This project contains the executable shim used to set arguments and environment variables when exporting entry points to a package using `Export-Command` and `Export-Shortcut`. The output binary should be automatically placed at `lib_compiled/PogShimTemplate.exe`.
 
 Build it using CMake and a recent-enough version of MSVC:
 
