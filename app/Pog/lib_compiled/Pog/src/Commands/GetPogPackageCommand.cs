@@ -24,7 +24,7 @@ public sealed class GetPogPackageCommand : PogCmdlet {
     public string[]? PackageName;
 
     /// <summary><para type="description">
-    /// Path to the content root in which to list packages. If not passed, installed packages from all package roots are returned.
+    /// Path to the package root in which to list packages. If not passed, matching packages in all package roots are returned.
     /// </para></summary>
     [Parameter(ValueFromPipelineByPropertyName = true)]
     [ArgumentCompleter(typeof(PSAttributes.ValidPackageRootPathCompleter))]

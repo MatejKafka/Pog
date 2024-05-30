@@ -11,8 +11,9 @@ namespace Pog.Commands;
 /// <summary>
 /// <para type="synopsis">Imports a package manifest from the repository.</para>
 /// <para type="description">
-/// Imports a package from the repository by copying the package manifest to the target path,
-/// where it can be installed by calling `Install-Pog` and the remaining installation stage cmdlets.
+/// Imports a package from the repository by copying the package manifest to the target path.
+/// To fully install a package (equivalent to e.g. `winget install`), use the `pog` command, or run the following stages
+/// of installation manually by invoking `Install-Pog`, `Enable-Pog` and `Export-Pog`.
 /// </para>
 /// </summary>
 [PublicAPI]

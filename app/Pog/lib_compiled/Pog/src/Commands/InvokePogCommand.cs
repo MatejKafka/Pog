@@ -11,9 +11,19 @@ namespace Pog.Commands;
 //  seems like there's no way to get that information using public APIs; investigate
 
 /// <summary>
-/// <para type="synopsis">Import, install, enable and export a package.</para>
+/// <para type="synopsis">Install a package from the package repository.</para>
 /// <para type="description">
-/// Runs all four installation stages in order. This cmdlet accepts the same arguments as <c>Import-Pog</c>.
+/// Pog installs packages in four discrete steps:
+///  1) The package manifest is downloaded from the package repository and placed into the package directory.
+///     This step can be invoked separately using the `Import-Pog` cmdlet.
+///  2) All package sources are downloaded and extracted to the `app` subdirectory inside the package (`Install-Pog` cmdlet).
+///  3) The package setup script is executed. After this step, the package is usable by directly invoking the shortcuts
+///     in the top-level package directory or the exported commands in the `.commands` subdirectory. (`Enable-Pog` cmdlet)
+///  4) The shortcuts and commands are exported to the Start menu and to a directory on PATH, respectively. (`Export-Pog` cmdlet)
+///
+/// The `Invoke-Pog` (typically invoked using the alias `pog`) installs a package from the package repository by running
+/// all four installation stages in order, accepting the same arguments as <c>Import-Pog</c>.
+/// This cmdlet is roughly equivalent to `Invoke-Pog @Args -PassThru | Install-Pog -PassThru | Enable-Pog -PassThru | Export-Pog`.
 /// </para>
 /// </summary>
 [PublicAPI]

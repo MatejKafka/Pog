@@ -351,7 +351,7 @@ public class InstallFromUrlCommand : PogCmdlet {
         _lockFileListShown = false;
 
         try {
-            // TODO: automatically continue when the listed processes are closed
+            // TODO: automatically continue when the listed processes are closed or close the files (might be hard to detect)
             Host.UI.Write(LockedFilePrintColor, ConsoleColor.Black,
                     "\nPlease close the applications listed above, then press Enter to continue...: ");
             Host.UI.ReadLine();

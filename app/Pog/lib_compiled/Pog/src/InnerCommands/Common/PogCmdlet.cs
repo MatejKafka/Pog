@@ -4,6 +4,9 @@ using System.Management.Automation;
 
 namespace Pog.InnerCommands.Common;
 
+/// <summary>
+/// A custom PSCmdlet subclass which adds useful internal methods used by most Pog cmdlets.
+/// </summary>
 public class PogCmdlet : PSCmdlet, IDisposable {
     private HashSet<BaseCommand>? _currentlyExecutingCommands;
 
@@ -89,7 +92,7 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         public CommandStopContext(PogCmdlet cmdlet, BaseCommand cmd) {
             _cmdlet = cmdlet;
             _command = cmd;
-            _cmdlet._currentlyExecutingCommands ??= new();
+            _cmdlet._currentlyExecutingCommands ??= [];
             _cmdlet._currentlyExecutingCommands.Add(_command);
         }
 

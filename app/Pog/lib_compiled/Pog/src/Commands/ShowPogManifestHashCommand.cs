@@ -6,10 +6,10 @@ using Pog.InnerCommands;
 namespace Pog.Commands;
 
 /// <summary>
-/// <para type="synopsis">Download resources for the given package and show the SHA-256 hashes.</para>
+/// <para type="synopsis">Downloads all resources needed to install the given package and shows the SHA-256 hashes.</para>
 /// <para type="description">
 /// Download all resources specified in the package manifest, store them in the download cache and show the SHA-256 hash.
-/// This cmdlet is useful for retrieving the archive hash when writing a package manifest.
+/// This cmdlet is useful for retrieving the hashes when writing a package manifest.
 /// </para>
 /// </summary>
 [PublicAPI]

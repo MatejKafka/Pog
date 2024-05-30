@@ -33,6 +33,7 @@ public sealed class FindPogPackageCommand : PogCmdlet {
     // TODO: figure out how to remove this parameter when -PackageName is an array
     /// <summary><para type="description">
     /// Return only a single package with the given version. An exception is thrown if the version is not found.
+    /// This parameter is only supported when a single package name is passed in <see cref="PackageName"/>.
     /// </para></summary>
     [Parameter(Position = 1, ParameterSetName = VersionPS)]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
