@@ -60,14 +60,12 @@ public sealed class ClearPogDownloadCacheCommand : PogCmdlet {
             var totalSize = 0ul;
             foreach (var entry in entries.OrderByDescending(e => e.Size)) {
                 totalSize += entry.Size;
-                var sourceStr = string.Join(", ", entry.SourcePackages.Select(s =>
-                        s.PackageName + (s.ManifestVersion == null ? "" : $" v{s.ManifestVersion}")));
-                WriteHost($"{entry.Size / Megabyte,10:F2} MB - {sourceStr}");
+                WriteHost($"{entry.Size / Megabyte,10:F2} MB - {GetEntryOwnerStr(entry)}");
             }
 
             var title = $"Remove the listed package archives, freeing ~{totalSize / Gigabyte:F2} GB of space?";
-            var message = "This will not affect already installed applications. Reinstalling an application " +
-                          "will take longer, as it will have to be downloaded again.";
+            var message = "This will not affect already installed packages. Reinstalling a package will take longer, " +
+                          "as it will have to be downloaded again.";
             if (ShouldContinue(message, title)) {
                 // delete the entries
                 foreach (var entry in entries) {
@@ -87,9 +85,17 @@ public sealed class ClearPogDownloadCacheCommand : PogCmdlet {
             _cache.DeleteEntry(entry);
             return true;
         } catch (CacheEntryInUseException e) {
-            WriteError(e, "EntryInUse", ErrorCategory.ResourceBusy, entry);
+            var newE = new CacheEntryInUseException(
+                    $"Cannot clear a cache entry for '{GetEntryOwnerStr(entry)}', it is currently in use by " +
+                    $"another Pog instance. Please wait until the installation finishes and try again.", e);
+            WriteError(newE, "EntryInUse", ErrorCategory.ResourceBusy, entry);
             return false;
         }
+    }
+
+    private static string GetEntryOwnerStr(SharedFileCache.CacheEntryInfo entry) {
+        return string.Join(", ", entry.SourcePackages.Select(s =>
+                s.PackageName + (s.ManifestVersion == null ? "" : $" v{s.ManifestVersion}")));
     }
 
     private void OnInvalidCacheEntry(InvalidCacheEntryException e) {

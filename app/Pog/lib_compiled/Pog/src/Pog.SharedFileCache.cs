@@ -33,9 +33,18 @@ public class CacheEntryAlreadyExistsException(string entryKey) : Exception($"Cac
 public class InvalidAddedCacheEntryException(string message) : Exception(message);
 
 [PublicAPI]
-public class CacheEntryInUseException(string entryKey)
-        : Exception($"Cannot delete the cache entry, it is currently in use: '{entryKey}'") {
-    public readonly string EntryKey = entryKey;
+public class CacheEntryInUseException : Exception {
+    public readonly string EntryKey;
+
+    public CacheEntryInUseException(string entryKey)
+            : base($"Cannot delete the cache entry, it is currently in use: '{entryKey}'") {
+        EntryKey = entryKey;
+    }
+
+    public CacheEntryInUseException(string message, CacheEntryInUseException innerException)
+            : base(message, innerException) {
+        EntryKey = innerException.EntryKey;
+    }
 }
 
 // cache structure:
