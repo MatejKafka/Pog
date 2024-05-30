@@ -1,0 +1,48 @@
+POG PACKAGE ENABLE SCRIPTS
+==========================
+
+Most Pog package manifests have an `Enable` block, which configures the packaged application
+to run in portable mode, sets up configuration files and exports entry points to the package.
+
+The `Enable` block is a PowerShell scriptblock, which may run arbitrary PowerShell code.
+To ease package configuration, Pog provides a library of idempotent functions for common
+actions – most packages only need to invoke some of these functions in a sequence, without
+the need for any custom scripting.
+
+To see examples of idiomatic `Enable` scripts, view the main Pog package repository at
+`https://github.com/MatejKafka/PogPackages`. The following commands are currently available:
+
+ - `New-File`: ensures that a file exists, optionally setting the content or updating it
+
+ - `New-Directory`: ensures that a directory exists
+
+ - `New-Symlink`: ensures that a symbolic link and its target exist
+
+ - `Disable-DisplayScaling`: disables the default system display scaling for older applications
+                             that do not have support for internal display scaling
+
+ - `Export-Command`: exports a command-line command from the package; supports setting a fixed
+                     working directory and passing extra arguments and environment variables
+
+ - `Export-Shortcut`: exports a shortcut (.lnk) file from the package; typically used for graphical applications
+
+To access the full documentation for a specific function, import the `Env_Enable.psm1` module
+from `Pog/app/Pog/container/Env_Enable.psm1`, which is loaded in the environment where `Enable`
+scripts are invoked, and use the standard `man` command (e.g. `man Export-Command`).
+
+
+PACKAGE STRUCTURE
+
+Each installed package is a single directory with a fixed structure. Each package should only
+create the directories that it uses:
+
+ - `app/`: the installed application binaries and other resources, automatically populated
+           during package installation
+
+ - `data/`: internal application data that are primarily changed by the application
+
+ - `config/`: application configuration files that are primarily edited by the user
+
+ - `cache/`: ephemeral data that the application can recreate if necessary
+
+ - `logs/`: application logs that are indended for the user or the developer

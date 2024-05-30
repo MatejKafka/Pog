@@ -159,19 +159,31 @@ enum ItemType {File; Directory}
 
 #>
 Export function New-Symlink {
+	### .SYNOPSIS
+	### 	Ensure that a symbolic link exists at the passed path and that the target exists.
 	[CmdletBinding()]
 	param(
+			### Path where the symbolic link is created.
 			[Parameter(Mandatory)]
+			[string]
 		$OriginalPath,
+			### The target path of the symbolic link, relative to the package directory (not to the symbolic link).
 			[Parameter(Mandatory)]
+			[string]
 		$TargetPath,
-			[switch]
-		$Merge,
-			# if target is supposed to be 'File' or 'Directory'
+			### The type of the symbolic link target – either `File` or `Directory`.
 			[Parameter(Mandatory)]
 			[Alias("Type")]
 			[ItemType]
-		$ItemType
+		$ItemType,
+
+			### If this switch is passed, -ItemType is a Directory and -OriginalPath is a directory instead of a symbolic link,
+			### files and directories from -OriginalPath are moved to -TargetPath.
+			###
+			### This is useful in cases where you symlink a plugin directory or similar from the application directory to allow
+			### the user to add custom plugins.
+			[switch]
+		$Merge
 	)
 
 	begin {
@@ -223,12 +235,22 @@ Export function New-Symlink {
 }
 
 
-<# Ensures that the directory at the provided path exists. #>
 Export function New-Directory {
+	### .SYNOPSIS
+	### 	Ensures that the directory at the provided path exists. If the directory does not exist,
+	###     it is created. If the path refers to a file, the cmdlet throws an error.
+	###     Parent directories are automatically created.
 	[CmdletBinding()]
 	param(
-		[Parameter(Mandatory)]$Path,
-		[scriptblock]$DefaultContent = {param($Dir)}
+			### Path to the created directory.
+			[Parameter(Mandatory)]
+			[string]
+		$Path,
+			### If passed and the directory does not exist, the scriptblock is invoked and receives a `DirectoryInfo`
+			### object for the newly created directory. You may use this scriptblock to create the default content
+			### for the directory.
+			[scriptblock]
+		$DefaultContent = {param([System.IO.DirectoryInfo]$Dir)}
 	)
 
 	if (Test-Path -Type Container $Path) {
@@ -248,15 +270,23 @@ Export function New-Directory {
 }
 
 
-<# Create a new file with the specified content, or update an existing file. #>
 Export function New-File {
+	### .SYNOPSIS
+	### 	Ensures that the file at the provided path exists. If the file does not exist, it is created, otherwise the content
+	###     is updated using the scriptblock passed to the -ContentUpdater parameter. If the path refers to a directory, the cmdlet
+	###     throws an error. Parent directories are automatically created.
 	[CmdletBinding(DefaultParameterSetName="ScriptBlocks")]
 	param(
+			### Path to the created file.
 			[Parameter(Mandatory, Position=0)]
 			[string]
 		$Path,
-			# if file does not exist, use output of this script block to populate it
-			# file is left empty if this is not passed
+
+			### If the file does not exist, the passed scriptblock is invoked and the file is populated with the returned value.
+			### Otherwise, the file is left empty. As an alternative option, the scriptblock may also create and populate the file directly.
+			### The scriptblock receives the absolute path to the file as the first argument and also as pipeline input ($_).
+			###
+			### Instead of a scriptblock, a path to a source file may also be passed, which is copied to populate the file.
 			[Parameter(Position=1, ParameterSetName="ScriptBlocks")]
 			[ValidateScript({
 				if ($_ -is [scriptblock]) {return $true}
@@ -267,12 +297,20 @@ Export function New-File {
 				throw "-DefaultContent must be either a script block, or a path to an existing template file, got '$($_.GetType())'."
 			})]
 		$DefaultContent = {},
-			# If file does exist and this is passed, the script block is ran with reference to the file.
-			# NOTE: You have to save the output yourself (this was deemed a more robust and typically more efficient
-			#       solution than just returning the desired new content).
+
+			### If the file already exists, this scriptblock is invoked and receives the `FileInfo` object representing the file
+			### as the first argument and also as the pipeline input ($_). This is typically used with configuration files to update
+			### any stored absolute paths to portable directories when the package is moved.
+			###
+			### Note that you must store the modified content of the file inside the scriptblock yourself.
+			### Currently, no ready-made parsers for common formats are provided; for XML, use the built-in [xml] type;
+			### for JSON, use the `ConvertFrom-Json` cmdlet.
 			[Parameter(Position=2, ParameterSetName="ScriptBlocks")]
 			[scriptblock]
 		$ContentUpdater = $null,
+
+
+			### If set, the file content is unconditionally overwritten by the output of the passed scriptblock or static string.
 			[Parameter(ParameterSetName="FixedContent")]
 			[ValidateScript({
 				if ($_ -is [scriptblock] -or $_ -is [string]) {return $true}
@@ -352,26 +390,45 @@ Export function New-File {
 
 
 Export function Export-Shortcut {
+	### .SYNOPSIS
+	### 	Exports a shortcut (.lnk) entry point to the package and places the created shortcut in the root of the package directory.
+	###     The user can invoke the shortcut to run the packaged application.
 	[CmdletBinding(PositionalBinding = $false)]
 	param(
+			### Name of the exported shortcut, without an extension.
 			[Parameter(Mandatory, Position = 0)]
 			[string]
 		$ShortcutName,
+			### Path to the invoked target.
 			[Parameter(Mandatory, Position = 1)]
 			[string]
 		$TargetPath,
 
+			### Path to the icon file used to set the shortcut icon. The path should refer to an .ico file,
+			### or an executable with an embedded icon.
 			[Alias("Icon")]
 		$IconPath,
+			### Description of the shortcut. By default, the file name of the target without the extension is used.
 		$Description,
 
+			### Working directory to set while invoking the target.
 		$WorkingDirectory,
+
+			### An argv-like array of arguments which are prepended to the command line that the target is invoked with.
+			### All arguments that start with `./` or `.\` are resolved into absolute paths.
 			[Alias("Arguments")]
 			[string[]]
 		$ArgumentList,
+			### A dictionary of environment variables to set before invoking the target. The key must be a string, the value
+			### must either be a string, or an array of strings, which is combined using the path separator (;).
+			### All variable values that start with `./` or `.\` are resolved into absolute paths. Environment variable
+			### substitution is supported using the `%NAME%` syntax and expanded when the shortcut is invoked
+			### (e.g. in `KEY = "%VAR%\..."`, `%VAR%` is replaced at runtime with the actual value of the `VAR` environment variable).
     		[Alias("Environment")]
-    		[Hashtable]
+    		[System.Collections.IDictionary]
 		$EnvironmentVariables,
+			### If set, a directory containing an up-to-date version of the Microsoft Visual C++ redistributable libraries
+			### (vcruntime140.dll and similar) is added to PATH. The redistributable libraries are shipped with Pog.
 			[switch]
 		$VcRedist
 	)
