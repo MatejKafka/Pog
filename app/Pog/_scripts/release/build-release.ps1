@@ -1,5 +1,5 @@
 <# Creates a new Pog release from latest commit, storing it in _releases dir in the root of the repository. #>
-param([Parameter(Mandatory)][string]$Version, [switch]$WorkingTree, [switch]$Run)
+param([string]$Version = "HEAD", [switch]$WorkingTree, [switch]$Run)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -43,25 +43,27 @@ try {
         | % {cp -Recurse $SrcLibCompiled/$_ app/Pog/lib_compiled/$_}
 
 
-    # validate manifest versions
-    $PogPackageVersion = (Import-PowerShellDataFile ./app/Pog/Pog.psd1).ModuleVersion
-    $PogPSModuleVersion = (Import-PowerShellDataFile ./pog.psd1).Version
-    $PogDllVersion = (gi ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
+    if ($Version -ne "HEAD") {
+        # validate manifest versions
+        $PogPackageVersion = (Import-PowerShellDataFile ./app/Pog/Pog.psd1).ModuleVersion
+        $PogPSModuleVersion = (Import-PowerShellDataFile ./pog.psd1).Version
+        $PogDllVersion = (gi ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
 
-    if ($PogPSModuleVersion -ne $Version) {
-        throw "Pog.psd1 PS module version does not match"
-    }
-    if ($PogPackageVersion -ne $Version) {
-        throw "pog.psd1 package manifest version does not match"
-    }
-    if ($PogDllVersion -ne $Version) {
-        throw "Pog.dll product version does not match"
+        if ($PogPSModuleVersion -ne $Version) {
+            throw "Pog.psd1 PS module version does not match"
+        }
+        if ($PogPackageVersion -ne $Version) {
+            throw "pog.psd1 package manifest version does not match"
+        }
+        if ($PogDllVersion -ne $Version) {
+            throw "Pog.dll product version does not match"
+        }
     }
 
 
     cd $Root/_releases/tmp
 
-    Compress-Archive * ../Pog-v${Version}.zip -Force
+    Compress-Archive * ../Pog-v${Version}.zip -Force -PassThru
 } finally {
     cd $OrigWd
     rm -Recurse $Root/_releases/tmp
