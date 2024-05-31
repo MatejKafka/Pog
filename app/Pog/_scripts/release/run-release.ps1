@@ -6,7 +6,7 @@ param([Parameter(Mandatory)][string]$Version, [Parameter(DontShow)][switch]$_InS
 
 if ($_InSandbox) {
     # enable developer mode
-    reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
+    $null = reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
 
     $null = mkdir $env:USERPROFILE/Desktop/Pog-test
     cd $env:USERPROFILE/Desktop/Pog-test
