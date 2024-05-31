@@ -10,17 +10,18 @@ namespace Pog.Commands;
 // TODO: to rollback on error or Ctrl-C, we will first need to know 1) which part of the pipeline failed, 2) which package failed
 //  seems like there's no way to get that information using public APIs; investigate
 
+// FIXME: when XmlDoc2CmdletDoc syntax is changed to something saner, format the list accordingly
 /// <summary>
 /// <para type="synopsis">Install a package from the package repository.</para>
-/// <para type="description">
-/// Pog installs packages in four discrete steps:
-///  1) The package manifest is downloaded from the package repository and placed into the package directory.
-///     This step can be invoked separately using the `Import-Pog` cmdlet.
-///  2) All package sources are downloaded and extracted to the `app` subdirectory inside the package (`Install-Pog` cmdlet).
-///  3) The package setup script is executed. After this step, the package is usable by directly invoking the shortcuts
-///     in the top-level package directory or the exported commands in the `.commands` subdirectory. (`Enable-Pog` cmdlet)
-///  4) The shortcuts and commands are exported to the Start menu and to a directory on PATH, respectively. (`Export-Pog` cmdlet)
+/// <para type="description">Pog installs packages in four discrete steps:</para>
+/// <para type="description">1) The package manifest is downloaded from the package repository and placed into the package
+/// directory. This step can be invoked separately using the `Import-Pog` cmdlet.</para>
+/// <para type="description">2) All package sources are downloaded and extracted to the `app` subdirectory inside the package (`Install-Pog` cmdlet).</para>
+/// <para type="description">3) The package setup script is executed. After this step, the package is usable by directly invoking the shortcuts
+/// in the top-level package directory or the exported commands in the `.commands` subdirectory. (`Enable-Pog` cmdlet)</para>
+/// <para type="description">4) The shortcuts and commands are exported to the Start menu and to a directory on PATH, respectively. (`Export-Pog` cmdlet)</para>
 ///
+/// <para type="description">
 /// The `Invoke-Pog` (typically invoked using the alias `pog`) installs a package from the package repository by running
 /// all four installation stages in order, accepting the same arguments as <c>Import-Pog</c>.
 /// This cmdlet is roughly equivalent to `Invoke-Pog @Args -PassThru | Install-Pog -PassThru | Enable-Pog -PassThru | Export-Pog`.
