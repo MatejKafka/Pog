@@ -140,4 +140,9 @@ public static partial class Win32 {
         FAIL_IMMEDIATELY = 0x00000001,
         WAIT = 0x00000000,
     }
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern unsafe bool QueryDosDevice(char* lpDeviceName, char* lpTargetPath, uint ucchMax);
+
+    public const int MAX_PATH = 260;
 }

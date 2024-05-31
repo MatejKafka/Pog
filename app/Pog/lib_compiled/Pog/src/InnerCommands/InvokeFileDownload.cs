@@ -77,7 +77,9 @@ internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<strin
 
         var bitsParams = new Hashtable {
             {"Source", SourceUrl},
-            {"Destination", tmpDownloadTarget},
+            // since the BITS service runs under SYSTEM, it does not see user-level `subst` drives;
+            //  we must resolve any subst path to the actual drive before passing the path to BITS
+            {"Destination", FsUtils.ResolveSubstPath(tmpDownloadTarget)},
             {"DisplayName", ProgressActivity.Activity},
             {"Description", ProgressActivity.Description},
             // passing -Dynamic allows BITS to communicate with badly-mannered servers that don't support HEAD requests,
