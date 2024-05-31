@@ -2,9 +2,6 @@ using module ..\lib\Utils.psm1
 . $PSScriptRoot\..\lib\header.ps1
 
 
-# not sure if we should expose the env cmdlets, Pog, PowerShell and Scoop (private package) uses them
-Export-ModuleMember -Cmdlet Add-EnvVar, Set-EnvVar, Export-Command, Disable-DisplayScaling
-
 # TODO: maybe change Export-Pog to create a marker that "user wants this package exported",
 # TODO: probably also remove exports of the stale commands/shortcuts
 #  and then handle updates of the exported items in Enable-Pog?
@@ -35,7 +32,7 @@ function RemoveStaleExports {
 }
 
 <# This function is called after the container setup is finished to run the Enable script. #>
-Export function __main {
+function __main {
 	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
 	param([Pog.PackageManifest]$Manifest, $PackageArguments)
 
@@ -158,9 +155,9 @@ enum ItemType {File; Directory}
 		else:
 
 #>
-Export function New-Symlink {
+function New-Symlink {
 	### .SYNOPSIS
-	### 	Ensure that a symbolic link exists at the passed path and that the target exists.
+	### Ensure that a symbolic link exists at the passed path and that the target exists.
 	[CmdletBinding()]
 	param(
 			### Path where the symbolic link is created.
@@ -235,11 +232,11 @@ Export function New-Symlink {
 }
 
 
-Export function New-Directory {
+function New-Directory {
 	### .SYNOPSIS
-	### 	Ensures that the directory at the provided path exists. If the directory does not exist,
-	###     it is created. If the path refers to a file, the cmdlet throws an error.
-	###     Parent directories are automatically created.
+	### Ensures that the directory at the provided path exists. If the directory does not exist,
+	### it is created. If the path refers to a file, the cmdlet throws an error.
+	### Parent directories are automatically created.
 	[CmdletBinding()]
 	param(
 			### Path to the created directory.
@@ -270,11 +267,11 @@ Export function New-Directory {
 }
 
 
-Export function New-File {
+function New-File {
 	### .SYNOPSIS
-	### 	Ensures that the file at the provided path exists. If the file does not exist, it is created, otherwise the content
-	###     is updated using the scriptblock passed to the -ContentUpdater parameter. If the path refers to a directory, the cmdlet
-	###     throws an error. Parent directories are automatically created.
+	### Ensures that the file at the provided path exists. If the file does not exist, it is created, otherwise the content
+	### is updated using the scriptblock passed to the -ContentUpdater parameter. If the path refers to a directory, the cmdlet
+	### throws an error. Parent directories are automatically created.
 	[CmdletBinding(DefaultParameterSetName="ScriptBlocks")]
 	param(
 			### Path to the created file.
@@ -389,10 +386,10 @@ Export function New-File {
 }
 
 
-Export function Export-Shortcut {
+function Export-Shortcut {
 	### .SYNOPSIS
-	### 	Exports a shortcut (.lnk) entry point to the package and places the created shortcut in the root of the package directory.
-	###     The user can invoke the shortcut to run the packaged application.
+	### Exports a shortcut (.lnk) entry point to the package and places the created shortcut in the root of the package directory.
+	### The user can invoke the shortcut to run the packaged application.
 	[CmdletBinding(PositionalBinding = $false)]
 	param(
 			### Name of the exported shortcut, without an extension.
@@ -519,3 +516,9 @@ Export function Export-Shortcut {
 	$S.Save()
 	Write-Information "Set up a shortcut called '$ShortcutName' (target: '$TargetPath')."
 }
+
+
+# not sure if we should expose the env cmdlets, Pog, PowerShell and Scoop (private packages) use them
+Export-ModuleMember `
+	-Cmdlet Add-EnvVar, Set-EnvVar, Export-Command, Disable-DisplayScaling `
+	-Function __main, New-File, New-Directory, New-Symlink, Export-Shortcut

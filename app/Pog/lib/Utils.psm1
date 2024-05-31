@@ -1,12 +1,12 @@
 . $PSScriptRoot\header.ps1
 
 
-Export function Resolve-VirtualPath {
+function Resolve-VirtualPath {
 	param([Parameter(Mandatory)]$Path)
 	return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 }
 
-Export function Invoke-DollarUnder {
+function Invoke-DollarUnder {
 	param([Parameter(Mandatory)][scriptblock]$Sb, $DollarUnder, [Parameter(ValueFromRemainingArguments)][object[]]$ExtraArgs)
 
 	try {
@@ -16,3 +16,5 @@ Export function Invoke-DollarUnder {
 		throw $_.Exception.InnerException
 	}
 }
+
+Export-ModuleMember -Function Resolve-VirtualPath, Invoke-DollarUnder

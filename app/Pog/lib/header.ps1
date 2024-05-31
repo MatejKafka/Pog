@@ -1,5 +1,3 @@
-param([switch]$NoModule)
-
 Set-StrictMode -Version 3
 $ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
 
@@ -16,37 +14,4 @@ if (-not (Test-Path Env:POG_DEBUG)) {
 } else {
 	# load debug build of the compiled library
 	Import-Module $PSScriptRoot\..\lib_compiled\Pog\bin\Debug\netstandard2.0\Pog.dll
-}
-
-if (-not $NoModule) {
-	# all exports are done using the Export hacky fn
-	Export-ModuleMember
-
-	function Export {
-		param (
-				[Parameter(Mandatory)]
-				[ValidateSet("function", "variable", "alias")]
-			$Type,
-				[Parameter(Mandatory)]
-				[string]
-			$Name,
-				[Parameter(Mandatory)]
-			$Value
-		)
-
-		switch ($Type) {
-			"function" {
-				Set-Item "function:script:$Name" $Value
-				Export-ModuleMember $Name
-			}
-			"variable" {
-				Set-Variable -Scope Script $Name $Value
-				Export-ModuleMember -Variable $Name
-			}
-			"alias" {
-				New-Alias -Scope Script $Name $Value
-				Export-ModuleMember -Alias $Name
-			}
-		}
-	}
 }

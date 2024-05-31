@@ -8,17 +8,9 @@ foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots)
 }
 
 
-# re-export binary cmdlets from Pog.dll
-Export-ModuleMember -Alias pog -Cmdlet `
-	Invoke-Pog, Import-Pog, Install-Pog, Enable-Pog, Export-Pog, Disable-Pog, Uninstall-Pog, `
-	Get-PogPackage, Find-PogPackage, Get-PogRoot, `
-	Confirm-PogPackage, Confirm-PogRepositoryPackage, `
-	Clear-PogDownloadCache, Show-PogManifestHash
-
-
-Export function Set-PogRepository {
+function Set-PogRepository {
 	### .SYNOPSIS
-	### 	Selects the package repository used by other commands. Not thread-safe.
+	### Selects the package repository used by other commands. Not thread-safe.
 	[CmdletBinding(DefaultParameterSetName="Local")]
 	param(
 			### URI of a remote repository to use.
@@ -45,9 +37,9 @@ Export function Set-PogRepository {
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
 #  to get the file updates right from a concurrency perspective
 # TODO: ^ figure out how to provide the functions safely
-Export function Edit-PogRootList {
+function Edit-PogRootList {
 	### .SYNOPSIS
-	### 	Opens the configuration file listing package roots in a text editor.
+	### Opens the configuration file listing package roots in a text editor.
 	[CmdletBinding()]
 	param()
 
@@ -71,10 +63,10 @@ function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {
 # TODO: support creating new versions of existing packages (either create a blank package, or copy latest version and modify the Version field);
 #  also support automatically retrieving the hash and patching the manifest; ideally, for templated packages in the default form
 #  (templated Version + Hash), dev should be able to just call `New-PogPackage 7zip 30.01` and get a finished package without any further tweaking
-Export function New-PogRepositoryPackage {
+function New-PogRepositoryPackage {
 	### .SYNOPSIS
-	### 	Create a new manifest in the configured package repository.
-	### 	Only supported for local repositories.
+	### Create a new manifest in the configured package repository.
+	### Only supported for local repositories.
 	[CmdletBinding()]
 	[OutputType([Pog.LocalRepositoryPackage])]
 	param(
@@ -126,9 +118,9 @@ Export function New-PogRepositoryPackage {
 	}
 }
 
-Export function New-PogPackage {
+function New-PogPackage {
 	### .SYNOPSIS
-	### 	Creates a new empty package directory with a default manifest.
+	### Creates a new empty package directory with a default manifest.
 	[CmdletBinding()]
 	[OutputType([Pog.ImportedPackage])]
 	param(
@@ -186,9 +178,9 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$
 	Invoke-Container -Modules $PSScriptRoot\container\Env_ManifestGenerator.psm1 -ArgumentList @($g, $c, $Version, $Force, $ListOnly, $GitHubToken)
 }
 
-Export function Update-PogManifest {
+function Update-PogManifest {
 	### .SYNOPSIS
-	### 	Generate new manifests in a local package repository for the selected package manifest generator.
+	### Generate new manifests in a local package repository for the selected package manifest generator.
 	[CmdletBinding()]
 	[OutputType([Pog.LocalRepositoryPackage])]
 	param(

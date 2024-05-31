@@ -11,7 +11,7 @@ using Pog.Utils;
 namespace Pog.Commands.ContainerCommands;
 
 /// <summary>
-/// <para type="synopsis">Exports a command line entry point to the package, which the can invoke to run the packaged application.</para>
+/// <para type="synopsis">Exports a command line entry point to the package, which the user can invoke to run the packaged application.</para>
 /// </summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Command", DefaultParameterSetName = ShimPS)]
@@ -71,7 +71,7 @@ public class ExportCommandCommand : PSCmdlet {
     /// <summary><para type="description">
     /// If set, the target is exported using a symbolic link instead of a shim executable.
     /// Note that if the target depends on dynamic libraries (.dll) stored in the same directory,
-    /// using a symbolic link will likely not work.
+    /// using a symbolic link will likely result in errors about missing dynamic libraries when invoked.
     /// </para></summary>
     [Parameter(ParameterSetName = SymlinkPS)] public SwitchParameter Symlink;
 

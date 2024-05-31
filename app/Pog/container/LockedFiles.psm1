@@ -107,7 +107,7 @@ Ensures that the existing .\app directory can be removed (no locked files from o
 Prints all processes that hold a lock over a file in an existing .\app directory, then waits until user closes them,
 in a loop, until there are no locked files in the directory.
 #>
-Export function ShowLockedFileList {
+function ShowLockedFileList {
 	param($ForegroundColor)
 	$Fg = $ForegroundColor
 
@@ -143,3 +143,6 @@ Export function ShowLockedFileList {
 		}
 	}
 }
+
+
+Export-ModuleMember -Function ShowLockedFileList

@@ -26,21 +26,21 @@ $ManifestStr = @'
 }
 '@
 
-Export function CreateManifest {
+function CreateManifest {
     param($Name, $Version)
     $DirPath = "$([Pog.InternalState]::Repository.Path)\$Name\$Version"
     $null = mkdir $DirPath
     RenderTemplate $ManifestStr "$DirPath\pog.psd1" @{NAME = $Name; VERSION = $Version}
 }
 
-Export function CreateImportedPackage {
+function CreateImportedPackage {
     param($Root, $ImportedName, $Name, $Version)
     $DirPath = "$Root\$ImportedName"
     $null = mkdir $DirPath
     RenderTemplate $ManifestStr "$DirPath\pog.psd1" @{NAME = $Name; VERSION = $Version}
 }
 
-Export function CreatePackageRoots {
+function CreatePackageRoots {
     param([string[]]$Roots)
     $PackageRoots = [Pog.InternalState]::PathConfig.PackageRoots
     $null = mkdir -Force (Split-Path ($PackageRoots.PackageRootFile))
@@ -48,7 +48,7 @@ Export function CreatePackageRoots {
     Set-Content $PackageRoots.PackageRootFile -Value $Roots
 }
 
-Export function SetupNewPogTestDir {
+function SetupNewPogTestDir {
     param([Parameter(Mandatory)][string]$TestDir)
 
     $TestDir = mkdir -Force $TestDir
@@ -71,3 +71,6 @@ Export function SetupNewPogTestDir {
 
     return $TestDir
 }
+
+
+Export-ModuleMember -Function CreateManifest, CreateImportedPackage, CreatePackageRoots, SetupNewPogTestDir

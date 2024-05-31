@@ -10,7 +10,10 @@
 	#  and it does not seem possible to export unprefixed aliases
 
 	VariablesToExport = @()
-	AliasesToExport = @('pog')
+
+	AliasesToExport = @(
+		'pog'
+	)
 
 	CmdletsToExport = @(
 		'Invoke-Pog'

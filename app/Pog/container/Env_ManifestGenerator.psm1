@@ -39,9 +39,8 @@ function RetrievePackageVersions([Pog.PackageGenerator]$Generator, $ExistingVers
 	}
 }
 
-# TODO: think what utility cmdlets can Pog reasonably provide and which is best left to existing tools like iwr/import
 # FIXME: if -Force is passed, track if there are any leftover manifests (for removed versions) and delete them after prompting
-Export function __main {
+function __main {
 	param(
 		[Pog.PackageGenerator]$Generator,
 		[Pog.LocalRepositoryVersionedPackage]$Package,
@@ -119,7 +118,7 @@ Export function __main {
 }
 
 
-Export function Get-GitHubRelease {
+function Get-GitHubRelease {
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory, ValueFromPipeline)]
@@ -165,7 +164,7 @@ Export function Get-GitHubRelease {
 	}
 }
 
-Export function Get-HashFromChecksumFile {
+function Get-HashFromChecksumFile {
 	[CmdletBinding(DefaultParameterSetName="FileName", PositionalBinding=$false)]
 	param(
 			[Parameter(Mandatory, Position=0)]
@@ -192,3 +191,6 @@ Export function Get-HashFromChecksumFile {
 		}
 	}
 }
+
+
+Export-ModuleMember -Function __main, Get-GitHubRelease, Get-HashFromChecksumFile

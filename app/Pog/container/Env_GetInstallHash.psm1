@@ -2,7 +2,7 @@
 
 
 <# This function is called after the container setup is finished to run the passed manifest. #>
-Export function __main {
+function __main {
     param([Pog.PackageManifest]$Manifest)
 
     $Hashes = @()
@@ -33,3 +33,5 @@ Export function __main {
         }
     }
 }
+
+Export-ModuleMember -Function __main
