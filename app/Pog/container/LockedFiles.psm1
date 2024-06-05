@@ -50,11 +50,20 @@ function GetDllhostOwner {
 	}
 }
 
+function Get-OFVPath {
+	$OpenedFilesViewPath = [Pog.InternalState]::PathConfig.PathOpenedFilesView
+	if (-not (Test-Path $OpenedFilesViewPath)) {
+		return $null
+	} else {
+		return $OpenedFilesViewPath
+	}
+}
+
 <# Lists processes that have a lock (an open handle without allowed sharing) on a file under $DirPath. #>
 function ListProcessesLockingFiles($DirPath) {
 	# http://www.nirsoft.net/utils/opened_files_view.html
-	$OpenedFilesViewPath = [Pog.InternalState]::PathConfig.PathOpenedFilesView
-	if (-not (Test-Path $OpenedFilesViewPath)) {
+	$OpenedFilesViewPath = Get-OFVPath
+	if (-not $OpenedFilesViewPath) {
 		Write-Verbose "Skipping locked file listing, since OpenedFilesView is not installed."
 		return
 	}
@@ -123,6 +132,9 @@ function ShowLockedFileList {
 		Write-Host -ForegroundColor $Fg ("There is an existing package installation, which we cannot overwrite, as there are" +`
 			" file(s) opened by an unknown running process.`nIs it possible that some program from" +`
 			" the package is running or that another running program is using a file from this package?")
+		if (-not (Get-OFVPath)) {
+			Write-Host -ForegroundColor $Fg "`nTo have Pog automatically identify the processes locking the files, install the 'OpenedFilesView' package."
+		}
 		return
 	}
 

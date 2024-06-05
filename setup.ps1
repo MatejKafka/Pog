@@ -58,6 +58,17 @@ To allow creating symbolic links, do any of the following and re-run '$PSCommand
 }
 
 
+# first, start the BITS service in the background, which is used for downloading packages
+# the user it likely to want to install a package after installing Pog, and BITS takes a bit of time to start up
+$BitsJob = Start-Job {Start-Service BITS}
+$null = Register-ObjectEvent -InputObject $BitsJob -EventName StateChanged -Action {
+    # when the job finishes, automatically remove it
+    Unregister-Event $EventSubscriber.SourceIdentifier
+    Remove-Job $EventSubscriber.SourceIdentifier
+    Remove-Job -Id $EventSubscriber.SourceObject.Id
+}
+
+
 # need to call unblock before importing any modules
 Write-Host "Unblocking Pog PowerShell files..."
 & {
@@ -126,28 +137,6 @@ Import-Module $PSScriptRoot\app\Pog
     }
 }
 
-# setup OpenedFilesView
-& {
-    $ofw = Get-PogPackage OpenedFilesView -ErrorAction Ignore
-    if ($ofw) {
-        try {
-            $ofw | Enable-Pog -PassThru | Export-Pog
-        } catch {
-            abort "Failed to enable the 'OpenedFilesView' package, required for correct functioning of Pog: $_"
-        }
-    } else {
-        try {
-            pog OpenedFilesView
-        } catch {
-            abort "Failed to install the 'OpenedFilesView' package, required for correct functioning of Pog: $_"
-        }
-    }
-
-    if (-not (Test-Path ([Pog.InternalState]::PathConfig.PathOpenedFilesView))) {
-        abort "Setup of 'OpenedFilesView' was successful, but Pog cannot find the OpenedFilesView.exe binary that should be provided by the package."
-    }
-}
-
 
 # set up environment variables and execution policy
 & {Enable-Pog Pog -PackageArguments @{
@@ -158,7 +147,7 @@ Import-Module $PSScriptRoot\app\Pog
 
 # check if user already installed any packages; if so, prompt to enable & export them
 #  so that everything is ready for the user in case of the portable scenario
-$ExtraPackages = & {Get-PogPackage} | ? PackageName -notin "Pog", "7zip", "OpenedFilesView"
+$ExtraPackages = & {Get-PogPackage} | ? PackageName -notin "Pog", "7zip"
 if ($ExtraPackages) {
     $ShouldEnable = switch ($Enable) {
         "All" {$true}
