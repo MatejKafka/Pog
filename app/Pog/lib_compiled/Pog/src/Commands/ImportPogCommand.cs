@@ -332,8 +332,14 @@ public sealed class ImportPogCommand : PackageCommandBase {
             return true;
         }
 
+        if (targetManifest?.Version != null && targetManifest.Version < package.Version) {
+            // target is older than the imported package, continue silently
+            return true;
+        }
+
         // prompt for confirmation
-        var title = $"Overwrite an existing package manifest for '{target.PackageName}'?";
+        var downgrading = targetManifest?.Version != null && targetManifest.Version > package.Version;
+        var title = $"{(downgrading ? "Downgrade" : "Overwrite")} an existing package manifest for '{target.PackageName}'?";
         var manifestDescription =
                 targetManifest == null ? "" : $" (manifest '{targetManifest.Name}', version '{targetManifest.Version}')";
         var message = $"There is already an imported package '{target.PackageName}' at '{target.Path}'" +
