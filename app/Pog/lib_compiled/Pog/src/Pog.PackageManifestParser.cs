@@ -13,7 +13,7 @@ namespace Pog;
 internal static class PackageManifestParser {
     /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
     /// unwrapping any script-blocks (see the other methods).
-    public static Hashtable LoadManifest(string manifestPath) {
+    public static (string, Hashtable) LoadManifest(string manifestPath) {
         if (!File.Exists(manifestPath)) {
             throw new PackageManifestNotFoundException($"Package manifest file is missing, expected path: {manifestPath}",
                     manifestPath);
@@ -24,18 +24,19 @@ internal static class PackageManifestParser {
             throw new PackageManifestParseException(manifestPath, errors);
         }
 
-        return ParseLoadedManifest(ast, manifestPath);
+        var manifestText = ast.Extent.Text;
+        return (manifestText, ParseLoadedManifest(ast, manifestPath));
     }
 
     /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
     /// unwrapping any script-blocks (see the other methods).
-    public static Hashtable LoadManifest(string manifestStr, string manifestSource) {
+    public static (string, Hashtable) LoadManifest(string manifestStr, string manifestSource) {
         var ast = Parser.ParseInput(manifestStr, out _, out var errors);
         if (errors.Length > 0) {
             throw new PackageManifestParseException(manifestSource, errors);
         }
 
-        return ParseLoadedManifest(ast, manifestSource);
+        return (manifestStr, ParseLoadedManifest(ast, manifestSource));
     }
 
     private static Hashtable ParseLoadedManifest(Ast ast, string manifestSource) {

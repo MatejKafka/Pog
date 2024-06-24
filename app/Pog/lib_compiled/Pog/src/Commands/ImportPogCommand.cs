@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Management.Automation;
+using DiffPlex.DiffBuilder;
+using DiffPlex.DiffBuilder.Model;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 
@@ -150,6 +152,11 @@ public sealed class ImportPogCommand : PackageCommandBase {
     /// Return a [Pog.ImportedPackage] object with information about the imported package.
     /// </para></summary>
     [Parameter] public SwitchParameter PassThru;
+
+    /// <summary><para type="description">
+    /// Show a diff from the previous imported manifest.
+    /// </para></summary>
+    [Parameter] public SwitchParameter Diff;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
@@ -312,8 +319,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
         try {
             // try to load the (possibly) existing manifest
             // TODO: maybe add a method to only load the name and version from the manifest and skip full validation?
-            target.ReloadManifest();
-            targetManifest = target.Manifest;
+            targetManifest = target.ReloadManifest();
         } catch (PackageNotFoundException) {
             // the package does not exist, no need to confirm
             return true;
@@ -326,6 +332,25 @@ public sealed class ImportPogCommand : PackageCommandBase {
             return true;
         } catch (Exception e) when (e is IPackageManifestException) {
             WriteWarning($"Found an existing package manifest at '{target.Path}', but it is not valid.");
+        }
+
+        if (Diff && targetManifest != null) {
+            // TODO: also probably check if any supporting files in .pog changed
+            var diff = InlineDiffBuilder.Diff(targetManifest.RawString, package.Manifest.RawString);
+            if (diff.HasDifferences) {
+                foreach (var d in diff.Lines) {
+                    ConsoleColor? color = d.Type switch {
+                        ChangeType.Inserted => ConsoleColor.DarkGreen,
+                        ChangeType.Deleted => ConsoleColor.DarkRed,
+                        ChangeType.Modified => ConsoleColor.Gray,
+                        _ => null,
+                    };
+
+                    if (color != null) {
+                        WriteHost(d.Text, foregroundColor: color);
+                    }
+                }
+            }
         }
 
         if (Force) {

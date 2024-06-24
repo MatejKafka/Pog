@@ -75,32 +75,33 @@ public record PackageManifest {
     public readonly ScriptBlock? Disable;
 
     public readonly Hashtable Raw;
+    public readonly string RawString;
 
     /// <inheritdoc cref="PackageManifest(string, RepositoryPackage?)"/>
     public PackageManifest(string manifestPath) : this(manifestPath, null) {}
 
     /// <param name="manifestPath">Path to the manifest file.</param>
     /// <param name="owningPackage">If parsing a repository manifest, this should be the package that owns the manifest.</param>
-    /// <inheritdoc cref="PackageManifest(Hashtable, string, RepositoryPackage?)"/>
+    /// <inheritdoc cref="PackageManifest(ValueTuple{string, Hashtable}, string, RepositoryPackage?)"/>
     internal PackageManifest(string manifestPath, RepositoryPackage? owningPackage = null)
             : this(PackageManifestParser.LoadManifest(manifestPath), manifestPath, owningPackage) {}
 
     /// <param name="manifestStr">String from which the manifest is parsed.</param>
     /// <param name="manifestSource">Source describing the origin of the manifest string, used for better error reporting.</param>
     /// <param name="owningPackage">If parsing a repository manifest, this should be the package that owns the manifest.</param>
-    /// <inheritdoc cref="PackageManifest(Hashtable, string, RepositoryPackage?)"/>
+    /// <inheritdoc cref="PackageManifest(ValueTuple{string, Hashtable}, string, RepositoryPackage?)"/>
     internal PackageManifest(string manifestStr, string manifestSource, RepositoryPackage? owningPackage = null)
             : this(PackageManifestParser.LoadManifest(manifestStr, manifestSource), manifestSource, owningPackage) {}
 
     /// <exception cref="PackageManifestNotFoundException">The package manifest file does not exist.</exception>
     /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
     /// <exception cref="InvalidPackageManifestStructureException">The package manifest was correctly parsed, but has invalid structure.</exception>
-    private PackageManifest(Hashtable manifest, string manifestSource, RepositoryPackage? owningPackage = null) {
+    private PackageManifest((string, Hashtable) manifest, string manifestSource, RepositoryPackage? owningPackage = null) {
         InstrumentationCounter.ManifestLoads.Increment();
 
-        Raw = manifest;
+        (RawString, Raw) = manifest;
         // parse the raw manifest into properties on this object
-        var parser = new HashtableParser(manifest);
+        var parser = new HashtableParser(Raw);
 
         Private = parser.ParseScalar<bool>("Private", false) ?? false;
         if (Private) {
