@@ -5,9 +5,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 
-/// <summary>
-/// <para type="synopsis">Retrieves a file from the passed URL and calculates the SHA-256 hash, storing the file in the download cache.</para>
-/// </summary>
+/// <summary>Retrieves a file from the passed URL and calculates the SHA-256 hash, storing the file in the download cache.</summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "CachedUrlHash")]
 [OutputType(typeof(string))]

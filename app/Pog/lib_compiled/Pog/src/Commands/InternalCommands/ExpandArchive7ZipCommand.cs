@@ -9,17 +9,13 @@ namespace Pog.Commands.InternalCommands;
 
 public class Failed7ZipArchiveExtractionException(string message) : Exception(message);
 
-/// <summary>
-/// <para type="synopsis">Extracts files from a specified archive file using 7Zip.</para>
-/// </summary>
+/// <summary>Extracts files from a specified archive file using 7Zip.</summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Expand, "Archive7Zip")]
 public class ExpandArchive7ZipCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string ArchivePath = null!;
     [Parameter(Mandatory = true, Position = 1)] public string TargetPath = null!;
-    /// <summary><para type="description">
     /// If passed, only paths inside the archive matching at least one of the filters are extracted.
-    /// </para></summary>
     [Parameter] public string[]? Filter;
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
 

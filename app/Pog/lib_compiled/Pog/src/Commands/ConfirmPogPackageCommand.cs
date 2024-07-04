@@ -10,14 +10,12 @@ using Pog.Utils;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Validates an installed package.</para>
-/// <para type="description">
+/// <summary>>Validates an installed package.</summary>
+/// <para>
 /// Supported parameter modes:
 /// 1) no arguments, no pipeline input -> Validates structure of all installed packages and package roots.
 /// 2) PackageName / Package -> Validates the selected installed package.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Confirm, "PogPackage", DefaultParameterSetName = DefaultPS)]
 public sealed class ConfirmPogPackageCommand : PogCmdlet {
@@ -28,9 +26,7 @@ public sealed class ConfirmPogPackageCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackagePS, ValueFromPipeline = true)]
     public ImportedPackage[] Package = null!;
 
-    /// <summary><para type="description">
     /// Names of installed packages to validate. If not passed, all installed packages are validated.
-    /// </para></summary>
     [Parameter(Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
     [ArgumentCompleter(typeof(PSAttributes.ImportedPackageNameCompleter))]
     public string[]? PackageName;

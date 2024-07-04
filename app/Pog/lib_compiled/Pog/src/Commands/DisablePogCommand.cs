@@ -5,13 +5,11 @@ using Pog.InnerCommands;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Disables a package, preventing further use and reverting all externally visible changes.</para>
-/// <para type="description">
+/// <summary>Disables a package, preventing further use and reverting all externally visible changes.</summary>
+/// <para>
 /// Disables a package, removing exported commands and shortcuts and cleaning up any external modifications.
 /// After this command completes, there should not be any leftovers from the package outside its package directory.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Disable, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public sealed class DisablePogCommand() : ImportedPackageCommand(true) {

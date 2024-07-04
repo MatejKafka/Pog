@@ -6,19 +6,15 @@ using Pog.InnerCommands;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Uninstalls a package.</para>
-/// <para type="description">
+/// <summary>Uninstalls a package.</summary>
+/// <para>
 /// Uninstalls a package by first disabling it (see `Disable-Pog`) and then deleting the package directory.
 /// If -KeepData is passed, only the app, cache and logs directories are deleted and persistent data are left intact.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Uninstall, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public sealed class UninstallPogCommand() : ImportedPackageCommand(true) {
-    /// <summary><para type="description">
     /// Keep the package directory, only disable the package and delete the app directory.
-    /// </para></summary>
     [Parameter] public SwitchParameter KeepData;
 
     protected override void ProcessPackage(ImportedPackage package) {

@@ -8,12 +8,10 @@ using Pog.Utils;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Exports shortcuts and commands from the package.</para>
-/// <para type="description">
+/// <summary>Exports shortcuts and commands from the package.</summary>
+/// <para>
 /// Exports shortcuts from the package to the start menu, and commands to an internal Pog directory that's available on $env:PATH.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public sealed class ExportPogCommand() : ImportedPackageCommand(false) {

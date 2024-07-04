@@ -7,14 +7,12 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Lists packages available in the package repository.</para>
-/// <para type="description">
+/// <summary>Lists packages available in the package repository.</summary>
+/// <para>
 /// The `Find-PogPackage` cmdlet lists packages from the package repository.
 /// Each package is represented by a single `Pog.RepositoryPackage` instance. By default, only the latest version
 /// of each package is returned. If you want to list all available versions, use the `-AllVersions` switch parameter.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Find, "PogPackage", DefaultParameterSetName = VersionPS)]
 [OutputType(typeof(RepositoryPackage))]
@@ -22,33 +20,25 @@ public sealed class FindPogPackageCommand : PogCmdlet {
     private const string VersionPS = "Version";
     private const string AllVersionsPS = "AllVersions";
 
-    /// <summary><para type="description">
     /// Names of packages to return. If not passed, all repository packages are returned.
-    /// </para></summary>
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
     [ValidateNotNullOrEmpty]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
     public string[]? PackageName;
 
     // TODO: figure out how to remove this parameter when -PackageName is an array
-    /// <summary><para type="description">
     /// Return only a single package with the given version. An exception is thrown if the version is not found.
     /// This parameter is only supported when a single package name is passed in <see cref="PackageName"/>.
-    /// </para></summary>
     [Parameter(Position = 1, ParameterSetName = VersionPS)]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
-    /// <summary><para type="description">
     /// Return all available versions of each repository package. By default, only the latest one is returned.
-    /// </para></summary>
     [Parameter(ParameterSetName = AllVersionsPS)]
     public SwitchParameter AllVersions;
 
-    /// <summary><para type="description">
     /// Load manifests for all returned packages. This is typically significantly faster than calling
     /// <see cref="Package.ReloadManifest()"/> separately on each package, since the loading is parallelized.
-    /// </para></summary>
     [Parameter] public SwitchParameter LoadManifest;
 
     /// List of asynchronously loading manifests.

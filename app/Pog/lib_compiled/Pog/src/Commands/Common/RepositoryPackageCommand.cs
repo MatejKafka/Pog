@@ -12,14 +12,12 @@ public abstract class RepositoryPackageCommand : PackageCommandBase {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackagePS, ValueFromPipeline = true)]
     public RepositoryPackage[] Package = null!;
 
-    /// <summary><para type="description">Name of the repository package.</para></summary>
+    /// Name of the repository package.
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
     public string[] PackageName = null!;
 
-    /// <summary><para type="description">
     /// Version of the repository package to retrieve. By default, the latest version is used.
-    /// </para></summary>
     [Parameter(Position = 1, ParameterSetName = PackageNamePS)]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;

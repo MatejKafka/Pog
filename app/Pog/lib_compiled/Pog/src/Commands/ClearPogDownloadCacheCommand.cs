@@ -6,35 +6,27 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Removes all cached package archives in the local download cache matching the search criteria.</para>
-/// <para type="description">
+/// <summary>Removes all cached package archives in the local download cache matching the search criteria.</summary>
+/// <para>
 /// The `Clear-PogDownloadCache` cmdlet lists all package archives stored in the local download cache that are older than
 /// the specified date. After confirmation, the archives are deleted. If a deleted archive is currently in use (the package is
 /// currently being installed), a non-terminating error is raised and the entry is left intact.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Clear, "PogDownloadCache", DefaultParameterSetName = DaysPS)]
 public sealed class ClearPogDownloadCacheCommand : PogCmdlet {
     private const string DatePS = "Date";
     private const string DaysPS = "Days";
 
-    /// <summary><para type="description">
     /// Sets a date used to filter the removed archives. Only archives which were last used before the passed date are removed.
-    /// </para></summary>
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = DatePS)]
     public DateTime? DateBefore;
 
-    /// <summary><para type="description">
     /// Archives that were not used in the last <see cref="DaysBefore"/> days are removed.
-    /// </para></summary>
     [Parameter(Position = 0, ParameterSetName = DaysPS)]
     public ulong DaysBefore = 0;
 
-    /// <summary><para type="description">
     /// Do not prompt for confirmation and delete the matching cache entries immediately.
-    /// </para></summary>
     [Parameter]
     public SwitchParameter Force;
 

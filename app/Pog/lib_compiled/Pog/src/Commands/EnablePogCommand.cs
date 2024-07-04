@@ -8,20 +8,14 @@ using Pog.InnerCommands;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Enables an installed package to allow external usage.</para>
-/// <para type="description">
-/// Enables an installed package, setting up required files and exporting public commands and shortcuts.
-/// </para>
-/// </summary>
+/// <summary>Enables an installed package to allow external usage.</summary>
+/// <para>Enables an installed package, setting up required files and exporting public commands and shortcuts.</para>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Enable, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicParameters {
-    /// <summary><para type="description">
     /// Extra parameters to pass to the Enable script in the package manifest. For interactive usage, prefer to use the
     /// automatically generated parameters on this command (e.g. instead of passing `@{Arg = Value}` to this parameter,
     /// pass `-_Arg Value` as a standard parameter to this cmdlet), which gives you autocomplete and early name/type checking.
-    /// </para></summary>
     [Parameter(Position = 1)]
     public Hashtable? PackageArguments = null;
 

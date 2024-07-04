@@ -10,52 +10,40 @@ using Pog.Utils;
 
 namespace Pog.Commands.ContainerCommands;
 
-/// <summary>
-/// <para type="synopsis">Exports a command line entry point to the package, which the user can invoke to run the packaged application.</para>
-/// </summary>
+/// <summary>Exports a command line entry point to the package, which the user can invoke to run the packaged application.</summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Command", DefaultParameterSetName = ShimPS)]
 public class ExportCommandCommand : PSCmdlet {
     private const string SymlinkPS = "Symlink";
     private const string ShimPS = "Shim";
 
-    /// <summary><para type="description">
     /// Name of the exported command, without an extension.
-    /// </para></summary>
     [Parameter(Mandatory = true, Position = 0)]
     [Verify.FileName]
     public string[] CommandName = null!;
 
-    /// <summary><para type="description">
     /// Path to the invoked target. Note that it must either be an executable (.exe) or a batch file (.cmd/.bat).
-    /// </para></summary>
     [Parameter(Mandatory = true, Position = 1)]
     [Verify.FilePath]
     public string TargetPath = null!;
 
-    /// <summary><para type="description">
     /// Working directory to set while invoking the target.
-    /// </para></summary>
     [Parameter(ParameterSetName = ShimPS)]
     [Verify.FilePath]
     public string? WorkingDirectory;
 
-    /// <summary><para type="description">
     /// An argv-like array of arguments which are prepended to the command line that the target is invoked with.
     /// All arguments that start with `./` or `.\` are resolved into absolute paths.
-    /// </para></summary>
     [Parameter(ParameterSetName = ShimPS)]
     [Alias("Arguments")]
     public string[]? ArgumentList;
 
     // use IDictionary so that caller can use [ordered] if order is important
-    /// <summary><para type="description">
     /// A dictionary of environment variables to set before invoking the target. The key must be a string, the value
     /// must either be a string, or an array of strings, which is combined using the path separator (;).
     /// All variable values that start with `./` or `.\` are resolved into absolute paths. Environment variable
     /// substitution is supported using the `%NAME%` syntax and expanded when the shortcut is invoked
     /// (e.g. in `KEY = "%VAR%\..."`, `%VAR%` is replaced at runtime with the actual value of the `VAR` environment variable).
-    /// </para></summary>
     [Parameter(ParameterSetName = ShimPS)]
     [Alias("Environment")]
     public IDictionary? EnvironmentVariables;
@@ -68,23 +56,17 @@ public class ExportCommandCommand : PSCmdlet {
     [Parameter] public SwitchParameter PassThru;
 
 
-    /// <summary><para type="description">
     /// If set, the target is exported using a symbolic link instead of a shim executable.
     /// Note that if the target depends on dynamic libraries (.dll) stored in the same directory,
     /// using a symbolic link will likely result in errors about missing dynamic libraries when invoked.
-    /// </para></summary>
     [Parameter(ParameterSetName = SymlinkPS)] public SwitchParameter Symlink;
 
-    /// <summary><para type="description">
     /// If set, a directory containing an up-to-date version of the Microsoft Visual C++ redistributable libraries
     /// (vcruntime140.dll and similar) is added to PATH. The redistributable libraries are shipped with Pog.
-    /// </para></summary>
     [Parameter(ParameterSetName = ShimPS)] public SwitchParameter VcRedist;
 
-    /// <summary><para type="description">
     /// If set, argv[0] passed to the target is the absolute path to target, otherwise argv[0] is preserved from the shim.
     /// This switch is typically not necessary, but sometimes having a different `argv[0]` breaks the target.
-    /// </para></summary>
     [Parameter(ParameterSetName = ShimPS)] public SwitchParameter ReplaceArgv0;
 
     // ReSharper disable once InconsistentNaming

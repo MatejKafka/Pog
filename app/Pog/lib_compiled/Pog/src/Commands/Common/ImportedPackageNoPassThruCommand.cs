@@ -14,9 +14,7 @@ public abstract class ImportedPackageNoPassThruCommand : PackageCommandBase {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackagePS, ValueFromPipeline = true)]
     public ImportedPackage[]? Package = null;
 
-    /// <summary><para type="description">
     /// Name of the package. This is the target name, not necessarily the manifest app name.
-    /// </para></summary>
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
     [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[]? PackageName = null;

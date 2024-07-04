@@ -10,14 +10,12 @@ using Pog.Commands.Common;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Imports a package manifest from the repository.</para>
-/// <para type="description">
+/// <summary>Imports a package manifest from the repository.</summary>
+/// <para>
 /// Imports a package from the repository by copying the package manifest to the target path.
 /// To fully install a package (equivalent to e.g. `winget install`), use the `pog` command, or run the following stages
 /// of installation manually by invoking `Install-Pog`, `Enable-Pog` and `Export-Pog`.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Import, "Pog", DefaultParameterSetName = PackageName_PS, SupportsShouldProcess = true)]
 [OutputType(typeof(ImportedPackage))]
@@ -94,18 +92,14 @@ public sealed class ImportPogCommand : PackageCommandBase {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = Package_Target_PS)]
     public RepositoryPackage[] Package = null!;
 
-    /// <summary><para type="description">
     /// Names of the repository packages to import.
-    /// </para></summary>
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageName_TargetName_PS, ValueFromPipeline = true)]
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageName_Target_PS)]
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageName_PS)]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
     public string[] PackageName = null!;
 
-    /// <summary><para type="description">
     /// Specific version of the package to import. By default, the latest version is imported.
-    /// </para></summary>
     [Parameter(Position = 1, ParameterSetName = PackageName_Target_PS)]
     [Parameter(Position = 1, ParameterSetName = PackageName_TargetName_PS)]
     [Parameter(Position = 1, ParameterSetName = PackageName_PS)]
@@ -121,20 +115,16 @@ public sealed class ImportPogCommand : PackageCommandBase {
     [Parameter(Mandatory = true, ParameterSetName = PackageName_Target_PS)]
     public ImportedPackage[] Target = null!;
 
-    /// <summary><para type="description">
     /// Name of the imported package. By default, this is the same as the repository package name.
     /// Use this parameter to distinguish multiple installations of the same package.
-    /// </para></summary>
     [Parameter(Mandatory = true, ParameterSetName = TargetName_PS)]
     [Parameter(ParameterSetName = Package_TargetName_PS)]
     [Parameter(ParameterSetName = PackageName_TargetName_PS)]
     [ArgumentCompleter(typeof(PSAttributes.ImportedPackageNameCompleter))]
     public string[]? TargetName;
 
-    /// <summary><para type="description">
     /// Path to a registered package root, where the package should be imported.
     /// If not set, the default (first) package root is used.
-    /// </para></summary>
     [Parameter(ParameterSetName = TargetName_PS)]
     [Parameter(ParameterSetName = Package_TargetName_PS)]
     [Parameter(ParameterSetName = PackageName_TargetName_PS)]
@@ -143,19 +133,13 @@ public sealed class ImportPogCommand : PackageCommandBase {
 
     #endregion
 
-    /// <summary><para type="description">
     /// Overwrite an existing package without prompting for confirmation.
-    /// </para></summary>
     [Parameter] public SwitchParameter Force;
 
-    /// <summary><para type="description">
     /// Return a [Pog.ImportedPackage] object with information about the imported package.
-    /// </para></summary>
     [Parameter] public SwitchParameter PassThru;
 
-    /// <summary><para type="description">
     /// Show a diff from the previous imported manifest.
-    /// </para></summary>
     [Parameter] public SwitchParameter Diff;
 
     protected override void BeginProcessing() {

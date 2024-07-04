@@ -16,11 +16,7 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
     [Parameter(Mandatory = true)] public string ArchivePath = null!;
     [Parameter(Mandatory = true)] public string TargetPath = null!;
     [Parameter] public string? RawTargetPath;
-    /// <summary>
-    /// <para type="description">
     /// If passed, only paths inside the archive matching at least one of the filters are extracted.
-    /// </para>
-    /// </summary>
     [Parameter] public string[]? Filter = null;
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
 

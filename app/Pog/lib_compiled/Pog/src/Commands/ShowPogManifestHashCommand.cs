@@ -5,13 +5,11 @@ using Pog.InnerCommands;
 
 namespace Pog.Commands;
 
-/// <summary>
-/// <para type="synopsis">Downloads all resources needed to install the given package and shows the SHA-256 hashes.</para>
-/// <para type="description">
+/// <summary>Downloads all resources needed to install the given package and shows the SHA-256 hashes.</summary>
+/// <para>
 /// Download all resources specified in the package manifest, store them in the download cache and show the SHA-256 hash.
 /// This cmdlet is useful for retrieving the hashes when writing a package manifest.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Show, "PogManifestHash", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public sealed class ShowPogManifestHashCommand : RepositoryPackageCommand {
@@ -20,10 +18,8 @@ public sealed class ShowPogManifestHashCommand : RepositoryPackageCommand {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = ImportedPS, ValueFromPipeline = true)]
     public ImportedPackage[] ImportedPackage = null!; // accept even imported packages
 
-    /// <summary><para type="description">
     /// Download files with low priority, which results in better network responsiveness
     /// for other programs, but possibly slower download speed.
-    /// </para></summary>
     [Parameter]
     public SwitchParameter LowPriority;
 

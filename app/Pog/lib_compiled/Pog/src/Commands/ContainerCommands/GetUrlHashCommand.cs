@@ -13,9 +13,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 
-/// <summary>
-/// <para type="synopsis">Retrieves a file from the passed URL and calculates the SHA-256 hash.</para>
-/// </summary>
+/// <summary>Retrieves a file from the passed URL and calculates the SHA-256 hash.</summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "UrlHash")]
 [OutputType(typeof(string))]

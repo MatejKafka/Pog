@@ -11,15 +11,13 @@ using Pog.Utils;
 namespace Pog.Commands;
 
 // TODO: only works on local repository, either document it or extend it to remote repositories (probably don't)
-/// <summary>
-/// <para type="synopsis">Validates a repository package.</para>
-/// <para type="description">
+/// <summary>Validates a repository package.</summary>
+/// <para>
 /// Supported parameter modes:
 /// 1) no arguments, no pipeline input -> Validates structure of the whole repository, including all packages.
 /// 2) PackageName, no Version -> Validates root of the package and all versions.
 /// 3) PackageName + Version / Package -> Validates the selected version of the package.
 /// </para>
-/// </summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Confirm, "PogRepositoryPackage", DefaultParameterSetName = DefaultPS)]
 public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
@@ -30,12 +28,12 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackagePS, ValueFromPipeline = true)]
     public LocalRepositoryPackage[] Package = null!;
 
-    /// <summary><para type="description">Name of the repository package.</para></summary>
+    /// Name of the repository package.
     [Parameter(Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
     public string[]? PackageName = null;
 
-    /// <summary><para type="description">Version of the repository package to validate.</para></summary>
+    /// Version of the repository package to validate.
     [Parameter(Position = 1, ParameterSetName = PackageNamePS)]
     [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
