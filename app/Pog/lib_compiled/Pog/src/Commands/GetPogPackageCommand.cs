@@ -1,4 +1,5 @@
-﻿using System.Management.Automation;
+﻿using System.Linq;
+using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
 
@@ -15,7 +16,6 @@ namespace Pog.Commands;
 public sealed class GetPogPackageCommand : PogCmdlet {
     /// Names of installed packages to return. If not passed, all installed packages are returned.
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
-    [ValidateNotNullOrEmpty]
     [ArgumentCompleter(typeof(PSAttributes.ImportedPackageNameCompleter))]
     public string[]? PackageName;
 
@@ -38,7 +38,7 @@ public sealed class GetPogPackageCommand : PogCmdlet {
         }
 
         // do not eagerly load the manifest
-        if (PackageName == null) {
+        if (PackageName == null || !PackageName.Any()) {
             WriteObjectEnumerable(_packages.Enumerate(PackageRoot, false));
         } else {
             foreach (var pn in PackageName) {
