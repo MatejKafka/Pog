@@ -15,17 +15,21 @@ function RemoveStaleExports {
 		Write-Debug "Removing stale shortcuts..."
 		$InternalState.StaleShortcuts | % {
 			$ShortcutName = [IO.Path]::GetFileNameWithoutExtension($_)
-			Remove-Item $_
+			Remove-Item -LiteralPath $_
 			Write-Information "Removed stale shortcut '$ShortcutName'."
 		}
-		Remove-Item $InternalState.StaleShortcutShims
+
+		# need to use pipeline, the HashSet is stringified when passed as an argument
+		$InternalState.StaleShortcutShims | % {
+			Remove-Item -LiteralPath $_
+		}
 	}
 
 	if ($InternalState.StaleCommands.Count -gt 0) {
 		Write-Debug "Removing stale commands..."
 		$InternalState.StaleCommands | % {
 			$CommandName = [IO.Path]::GetFileNameWithoutExtension($_)
-			Remove-Item $_
+			Remove-Item -LiteralPath $_
 			Write-Information "Removed stale command '$CommandName'."
 		}
 	}
@@ -42,15 +46,20 @@ function __main {
 		#  it would be automatically bound to our SessionState; not really sure why GetNewClosure() binds it to
 		#  a different scope
 		& $Manifest.Enable.GetNewClosure() @PackageArguments
-	} finally {
+	} catch {
 		try {
 			# remove shotcuts and commands that were not re-exported during this Enable run
 			RemoveStaleExports
 		} catch {
 			# don't throw, we'd lose the original exception
-			Write-Warning ('Cleanup failed: ' + $_)
+			Write-Warning ('Cleanup of exported entry points failed: ' + $_)
 		}
+		throw
 	}
+
+	# remove shotcuts and commands that were not re-exported during this Enable run
+	# called separately to propagate any exceptions normally
+	RemoveStaleExports
 }
 
 
