@@ -60,7 +60,8 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
             while (_process.StandardError.ReadLine() is {} line) {
                 var match = ProgressPrintRegex.Match(line);
                 if (match.Success) {
-                    progressBar.UpdatePercent(int.Parse(match.Groups[1].Value));
+                    // sometimes, 7zip reports percentages higher than 100, not sure why
+                    progressBar.UpdatePercent(Math.Min(int.Parse(match.Groups[1].Value), 100));
                 } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan")
                                                            || line == "  0%" || line == "100%") {
                     // ignore these prints, they are expected
@@ -110,7 +111,11 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
     }
 
     private void CleanupTargetDir() {
-        FsUtils.EnsureDeleteDirectory(TargetPath);
+        try {
+            FsUtils.EnsureDeleteDirectory(TargetPath);
+        } catch {
+            WriteWarning($"Failed to clean up output directory due to an error: {TargetPath}");
+        }
     }
 
     /// Should be called when Ctrl-c is pressed by the user.
