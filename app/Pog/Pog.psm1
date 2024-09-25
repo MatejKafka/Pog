@@ -160,7 +160,7 @@ function New-PogPackage {
 
 
 function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$Force, [switch]$ListOnly, $GitHubToken) {
-	Write-Information "Checking updates for '$PackageName'..."
+	Write-Verbose "Checking updates for '$PackageName'..."
 
 	$g = try {[Pog.InternalState]::GeneratorRepository.GetPackage($PackageName, $true, $true)}
 		catch [Pog.PackageGeneratorNotFoundException] {throw $_}
