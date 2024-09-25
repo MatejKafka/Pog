@@ -7,6 +7,7 @@ using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
+using Pog.PSAttributes;
 
 namespace Pog.Commands;
 
@@ -96,14 +97,14 @@ public sealed class ImportPogCommand : PackageCommandBase {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageName_TargetName_PS, ValueFromPipeline = true)]
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageName_Target_PS)]
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageName_PS)]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageNameCompleter))]
     public string[] PackageName = null!;
 
     /// Specific version of the package to import. By default, the latest version is imported.
     [Parameter(Position = 1, ParameterSetName = PackageName_Target_PS)]
     [Parameter(Position = 1, ParameterSetName = PackageName_TargetName_PS)]
     [Parameter(Position = 1, ParameterSetName = PackageName_PS)]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
     #endregion
@@ -120,7 +121,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
     [Parameter(Mandatory = true, ParameterSetName = TargetName_PS)]
     [Parameter(ParameterSetName = Package_TargetName_PS)]
     [Parameter(ParameterSetName = PackageName_TargetName_PS)]
-    [ArgumentCompleter(typeof(PSAttributes.ImportedPackageNameCompleter))]
+    [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[]? TargetName;
 
     /// Path to a registered package root, where the package should be imported.
@@ -128,7 +129,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
     [Parameter(ParameterSetName = TargetName_PS)]
     [Parameter(ParameterSetName = Package_TargetName_PS)]
     [Parameter(ParameterSetName = PackageName_TargetName_PS)]
-    [ArgumentCompleter(typeof(PSAttributes.ValidPackageRootPathCompleter))]
+    [ArgumentCompleter(typeof(ValidPackageRootPathCompleter))]
     public string? TargetPackageRoot;
 
     #endregion
@@ -320,6 +321,9 @@ public sealed class ImportPogCommand : PackageCommandBase {
 
         if (Diff && targetManifest != null) {
             // TODO: also probably check if any supporting files in .pog changed
+            // FIXME: in typical scenarios, the `.Manifest` access is the only reason why the manifest is parsed;
+            //  figure out how to either get a raw string, or copy over the repository manifest to the imported package
+            //  (since the target manifest is typically immediately used, loading it here won't cause much overhead)
             var diff = InlineDiffBuilder.Diff(targetManifest.RawString, package.Manifest.RawString);
             if (diff.HasDifferences) {
                 foreach (var d in diff.Lines) {

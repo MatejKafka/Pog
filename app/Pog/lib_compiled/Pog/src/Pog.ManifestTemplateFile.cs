@@ -7,11 +7,13 @@ using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Text;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 
 namespace Pog;
 
 public static class ManifestTemplateFile {
     /// Returns a list of all templated keys in the template file.
+    [PublicAPI]
     public static string[] GetTemplateKeys(string templatePath) {
         LoadFile(templatePath, out var tokens);
 

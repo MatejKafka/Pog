@@ -45,7 +45,7 @@ public class InvalidPackageManifestStructureException : Exception, IPackageManif
     public readonly string ManifestSource;
     public readonly List<string> Issues;
 
-    public InvalidPackageManifestStructureException(string manifestSource, List<string> issues) {
+    internal InvalidPackageManifestStructureException(string manifestSource, List<string> issues) {
         ManifestSource = manifestSource;
         Issues = issues;
     }
@@ -56,7 +56,7 @@ public class InvalidPackageManifestStructureException : Exception, IPackageManif
 
 /// <summary>Package manifest had a ScriptBlock as the 'Install.Url' property, but it did not return a valid URL.</summary>
 public class InvalidPackageManifestUrlScriptBlockException : Exception, IPackageManifestException {
-    public InvalidPackageManifestUrlScriptBlockException(string message) : base(message) {}
+    internal InvalidPackageManifestUrlScriptBlockException(string message) : base(message) {}
 }
 
 [PublicAPI]
