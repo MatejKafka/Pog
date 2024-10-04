@@ -5,8 +5,8 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.InternalCommands;
 
-/// Internal container command for downloading files during installation.
-/// supported use cases:
+// Internal container command for downloading files during installation.
+// supported use cases:
 //  - download a file with a known hash, for installation
 //    = pass -ExpectedHash
 //  - download a file with an unknown hash, cannot be cached
