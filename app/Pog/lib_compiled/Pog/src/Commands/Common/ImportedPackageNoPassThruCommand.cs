@@ -11,6 +11,8 @@ public abstract class ImportedPackageNoPassThruCommand : PackageCommandBase {
     protected const string PackageNamePS = "PackageName";
     protected const string DefaultPS = PackageNamePS;
 
+    /// Package to operate on. You can retrieve the package object either using <c>Get-PogPackage</c> or by using
+    /// the <c>-PassThru</c> switch of one of the other Pog cmdlets that operate on imported packages.
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackagePS, ValueFromPipeline = true)]
     public ImportedPackage[]? Package = null;
 

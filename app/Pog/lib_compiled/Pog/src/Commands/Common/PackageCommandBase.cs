@@ -35,10 +35,6 @@ public abstract class PackageCommandBase : PogCmdlet {
         return packageName.SelectOptional(pn => GetImportedPackage(pn, packageRoot, loadManifest));
     }
 
-    protected ImportedPackage? GetImportedPackage(string packageName, bool loadManifest) {
-        return GetImportedPackage(packageName, null, loadManifest);
-    }
-
     protected ImportedPackage? GetImportedPackage(string packageName, string? packageRoot, bool loadManifest) {
         try {
             if (packageRoot != null) {

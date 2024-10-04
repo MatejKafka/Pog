@@ -35,10 +35,18 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
             return null;
         }
 
-        var package = EnumerateParameterPackages().FirstOrDefault();
-        // we may get no package in case the package does not exist, or manifest is invalid
-        if (package == null) {
-            return null;
+        // parameters are null-coalesced, because mandatory parameters are not enforced in dynamicparam
+        // also, we cannot use EnumerateParameterPackages here, because it uses WriteError, which is not allowed in dynamicparam
+        //  (a dumb design limitation, if you ask me)
+        ImportedPackage package;
+        if (ParameterSetName == PackagePS) {
+            if (Package == null || Package.Length == 0) return null;
+            package = Package[0];
+            package.EnsureManifestIsLoaded();
+        } else {
+            var pn = PackageName?.FirstOrDefault();
+            if (pn == null) return null;
+            package = InternalState.ImportedPackageManager.GetPackage(pn, true, true);
         }
 
         if (package.Manifest.Enable == null) {
