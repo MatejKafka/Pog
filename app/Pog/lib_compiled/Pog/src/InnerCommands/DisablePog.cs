@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using Pog.InnerCommands.Common;
@@ -46,9 +47,24 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         RemoveGloballyExportedCommands(package);
         RemoveGloballyExportedShortcuts(package);
 
-        package.RemoveExportedCommands();
-        package.RemoveExportedShortcuts();
-        package.RemoveShortcutShims();
+        // remove the internal exports, prompting the user to stop the program if some of them are in use
+        // FIXME: since these are binaries, OpenedFilesView does not see the handles, so we get just a generic error message,
+        //  not sure why; RestartManager correctly detects them, maybe use it instead of OFV for exports specifically?
+        var exportPath = $"{package.Path}\\{PathConfig.PackagePaths.CommandDirRelPath}";
+        while (true) {
+            try {
+                package.RemoveExportedCommands();
+                package.RemoveExportedShortcuts();
+                package.RemoveShortcutShims();
+                break;
+            } catch (UnauthorizedAccessException) {
+                InvokePogCommand(new ShowLockedFileList(Cmdlet) {
+                    Path = exportPath,
+                    MessagePrefix = "Cannot remove exported entry points,",
+                    Wait = true,
+                });
+            }
+        }
     }
 
     private void RemoveGloballyExportedShortcuts(ImportedPackage p) {

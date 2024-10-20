@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 
@@ -30,6 +31,11 @@ public abstract class BaseCommand(PogCmdlet cmdlet) {
     protected void WriteWarning(string text) => Cmdlet.WriteWarning(text);
     protected void WriteError(ErrorRecord errorRecord) => Cmdlet.WriteError(errorRecord);
     protected void WriteProgress(ProgressRecord progressRecord) => Cmdlet.WriteProgress(progressRecord);
+
+    protected void WriteHost(string message, bool noNewline = false,
+            ConsoleColor? foregroundColor = null, ConsoleColor? backgroundColor = null) {
+        Cmdlet.WriteHost(message, noNewline, foregroundColor, backgroundColor);
+    }
 
     protected void WriteInformation(object messageData, string[]? tags = null) {
         Cmdlet.WriteInformation(messageData, tags);

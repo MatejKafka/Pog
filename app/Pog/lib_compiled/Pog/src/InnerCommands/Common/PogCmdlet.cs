@@ -55,11 +55,12 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         }
     }
 
-    protected void WriteHost(string message, bool noNewline = false, ConsoleColor? foregroundColor = null) {
+    protected internal void WriteHost(string message, bool noNewline = false,
+            ConsoleColor? foregroundColor = null, ConsoleColor? backgroundColor = null) {
         // information messages tagged PSHOST are treated specially by the host
         // would be nice if this was documented somewhere, eh?
         WriteInformation(new HostInformationMessage {
-            Message = message, NoNewLine = noNewline, ForegroundColor = foregroundColor,
+            Message = message, NoNewLine = noNewline, ForegroundColor = foregroundColor, BackgroundColor = backgroundColor,
         }, ["PSHOST"]);
     }
 

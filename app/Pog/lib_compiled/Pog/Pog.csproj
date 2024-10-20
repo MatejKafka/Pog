@@ -50,8 +50,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="JetBrains.Annotations" Version="2023.3.0"/>
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0"/>
     <!-- This would be better with PrivateAssets="all", but we cannot do that because it breaks ILRepack. -->
     <PackageReference Include="PowerShellStandard.Library" Version="7.0.0-preview.1"/>
+    <PackageReference Include="System.Management" Version="9.0.0-preview.1.24080.9"/>
     <PackageReference Include="System.Text.Json" Version="9.0.0-preview.2.24128.5"/>
     <PackageReference Include="System.Net.Http.Json" Version="9.0.0-preview.2.24128.5"/>
     <PackageReference Include="MatejKafka.XmlDoc2CmdletDoc" Version="0.6.0">

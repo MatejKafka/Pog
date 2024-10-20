@@ -335,39 +335,23 @@ public class InstallFromUrlCommand : PogCmdlet {
         }
     }
 
-    private const ConsoleColor LockedFilePrintColor = ConsoleColor.Red;
-
     private void WaitForLockedFiles(string dirPath, int attemptNumber, bool checkDirItself) {
         WriteDebug("The previous app directory seems to be used.");
-
-        if (!_lockFileListShown) {
-            // FIXME: better message
-            WriteHost("The package seems to be in use, trying to find the offending processes...");
-            // FIXME: port to C#
-            InvokeCommand.InvokeScript($"ShowLockedFileList {LockedFilePrintColor}");
-        }
-
+        InvokePogCommand(new ShowLockedFileList(this) {
+            Path = _appDirPath,
+            MessagePrefix = "Cannot overwrite an existing package installation,",
+            NoList = _lockFileListShown,
+            Wait = true,
+        });
         // if this gets called a second time, the user did not close everything, print the up-to-date list again
         _lockFileListShown = false;
-
-        try {
-            // TODO: automatically continue when the listed processes are closed or close the files (might be hard to detect)
-            Host.UI.Write(LockedFilePrintColor, ConsoleColor.Black,
-                    "\nPlease close the applications listed above, then press Enter to continue...: ");
-            Host.UI.ReadLine();
-        } catch (PSInvalidOperationException e) {
-            // Host is not interactive, just throw an exception
-            var exception = new PSInvalidOperationException(
-                    "Cannot overwrite an existing package installation, because processes listed in the output above " +
-                    "are working with files inside the package.", e);
-            // TODO: shouldn't this be a non-terminating error?
-            ThrowTerminatingError(exception, "PackageInUse", ErrorCategory.ResourceBusy, _appDirPath);
-        }
     }
 
     private void ShowLockedFileInfo(string dirPath) {
-        // FIXME: port to C#
-        InvokeCommand.InvokeScript($"ShowLockedFileList {LockedFilePrintColor}");
+        InvokePogCommand(new ShowLockedFileList(this) {
+            Path = _appDirPath,
+            MessagePrefix = "Cannot overwrite an existing package installation,",
+        });
         _lockFileListShown = true;
     }
 
