@@ -90,7 +90,7 @@ public static class ManifestTemplateFile {
             }
 
             return (key.Value, p.Item2);
-        }).ToDictionary(p => p.Item1, p => p.Item2);
+        }).ToDictionary(p => p.Item1, p => p.Item2, StringComparer.InvariantCultureIgnoreCase);
     }
 
     /// Serializes the passed dictionary into a valid PowerShell data file (.psd1).
