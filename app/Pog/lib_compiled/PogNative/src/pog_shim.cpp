@@ -176,20 +176,21 @@ int wmain() {
     }
 
     auto flags = shim_data.flags();
-    auto use_env_path = HAS_FLAG(flags, LOOKUP_TARGET_IN_PATH);
-    auto replace_argv0 = HAS_FLAG(flags, REPLACE_ARGV0) || use_env_path;
+    auto null_target = HAS_FLAG(flags, NULL_TARGET);
+    auto replace_argv0 = HAS_FLAG(flags, REPLACE_ARGV0) || null_target;
 
     auto target = shim_data.get_target();
     auto working_dir = shim_data.get_working_directory();
     auto extra_args = shim_data.get_arguments();
     auto cmd_line = build_command_line(extra_args, replace_argv0 ? target : nullptr);
 
-    if (use_env_path) {
-        target = nullptr; // null target makes CreateProcess use argv[0] of `cmd_line` and look it up in PATH
+    if (null_target) {
+        // null target makes CreateProcess parse lpCommandLine (`cmd_line`) and use argv[0] as target
+        target = nullptr;
     }
 
     DBG_LOG(L"override argv[0]: %ls\n", replace_argv0 ? L"yes" : L"no");
-    DBG_LOG(L"lookup target in PATH: %ls\n", use_env_path ? L"yes" : L"no");
+    DBG_LOG(L"null target: %ls\n", null_target ? L"yes" : L"no");
     DBG_LOG(L"target: %ls\n", target);
     DBG_LOG(L"command line: %ls\n", cmd_line.data());
     if (working_dir) {
