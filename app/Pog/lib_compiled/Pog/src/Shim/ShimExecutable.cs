@@ -31,8 +31,10 @@ public class ShimExecutable {
         PeResources.ResourceType.Version /*, ResourceType.Manifest*/
     };
     /// List of supported target extensions. All listed extensions can be invoked directly by `CreateProcess(...)`.
-    private static readonly string[] SupportedTargetExtensions = {".exe", ".com", ".cmd", ".bat"};
+    private static readonly string[] SupportedTargetExtensions = [".exe", ".com", ".cmd", ".bat"];
 
+    /// If true, use argv[0] as the shim target instead of specifying target in a separate `CreateProcess` parameter.
+    public readonly bool Argv0AsTarget;
     /// If true, argv[0] is always replaced with TargetPath, otherwise the path to the shim is kept as argv[0].
     public readonly bool ReplaceArgv0;
     // target must be a full path, accepting command names in PATH is not easily doable, because we need to know the target
@@ -55,9 +57,15 @@ public class ShimExecutable {
                     string.Join(", ", SupportedTargetExtensions));
         }
 
-        // .cmd/.bat file handler seems to use argv[0] as the target passed to `cmd.exe /c` not lpApplicationName,
+        var isBatchFile = _targetExtension is ".cmd" or ".bat";
+
+        // see documentation of ShimFlags.NullTarget, item 2); for an example of where this is necessary, try `Export-Command`
+        //  on a batch file inside a package with a space in its name (e.g. `VS Code`) and invoke the shim with a quoted path
+        //  that does NOT contain a space (e.g. `cmd /c 'code "D:\test\"'`)
+        Argv0AsTarget = isBatchFile;
+        // batch file handler seems to use argv[0] as the target passed to `cmd.exe /c` instead of `lpApplicationName`,
         //  which results in an infinite process spawning loop when the original argv[0] is retained
-        ReplaceArgv0 = replaceArgv0 || _targetExtension is ".cmd" or ".bat";
+        ReplaceArgv0 = replaceArgv0 || isBatchFile || Argv0AsTarget;
         TargetPath = targetPath;
         WorkingDirectory = workingDirectory;
         Arguments = arguments;

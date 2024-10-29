@@ -101,22 +101,22 @@ internal class ShimDataEncoder {
 
         // write target path
         var targetOffset = WriteNullTerminatedString(shim.TargetPath);
-
         // write working directory
         var wdOffset = shim.WorkingDirectory == null ? 0 : WriteNullTerminatedString(shim.WorkingDirectory);
-
         // write arguments
         var argsOffset = shim.Arguments == null ? 0 : WriteLengthPrefixedString(Win32Args.EscapeArguments(shim.Arguments));
-
         // write environment variables
         var envOffset = shim.EnvironmentVariables == null ? 0 : WriteEnvironmentVariables(shim.EnvironmentVariables);
-
         var endOffset = Position;
+
+        var flags = (ShimFlags) 0;
+        if (shim.ReplaceArgv0) flags |= ShimFlags.ReplaceArgv0;
+        if (shim.Argv0AsTarget) flags |= ShimFlags.NullTarget;
 
         // go back and write the header
         SeekAbs(0);
         WriteUshort(CurrentShimDataVersion); // version, must be the first (see ParseVersion)
-        WriteUshort((ushort) (shim.ReplaceArgv0 ? ShimFlags.ReplaceArgv0 : 0)); // flags
+        WriteUshort((ushort) flags);
         WriteUint(targetOffset);
         WriteUint(wdOffset);
         WriteUint(argsOffset);
@@ -221,7 +221,17 @@ internal class ShimDataEncoder {
 
     [Flags]
     private enum ShimFlags : ushort {
+        /// Replace argv[0] (the name of the binary) in the original command line the shim was invoked
+        /// with with path to the target. If the target does not rely on argv[0] matching the binary path,
+        /// it is better to leave the original argv[0] to e.g. get the correct path in help text.
         ReplaceArgv0 = 1,
+        /// Pass null to the `lpApplicationName` parameter of `CreateProcess`. This has two important effects:
+        /// 1) If target is not an absolute path, it is looked up in PATH.
+        /// 2) If target is a batch file, `CreateProcess` correctly constructs the command line to work around the stupid
+        ///    cmd.exe behavior for `/c` where the outermost quotes of the command line are stripped (see `cmd /?`, part
+        ///    starting with "If /C or /K is specified"). When `lpApplicationName` is not null, this handling is suppressed
+        ///    (I'd love to hear the history behind that design choice).
+        NullTarget = 2,
     }
 
     [Flags]
