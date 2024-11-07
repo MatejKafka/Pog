@@ -22,6 +22,41 @@ public interface IRepository {
     public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist);
 }
 
+/// Allows the user to access multiple repositories at the same time in a descending order of priority.
+[PublicAPI]
+public class RepositoryList(IRepository[] repositories) : IRepository {
+    public readonly IRepository[] Repositories = repositories;
+    public bool Exists => Repositories.All(r => r.Exists);
+
+    public IEnumerable<string> EnumeratePackageNames(string searchPattern = "*") {
+        // deduplicate shadowed packages from multiple repositories
+        return Repositories.SelectMany(repo => repo.EnumeratePackageNames(searchPattern))
+                .Distinct()
+                .OrderBy(pn => pn, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public IEnumerable<RepositoryVersionedPackage> Enumerate(string searchPattern = "*") {
+        // allow "duplicate" packages here, since they're actually distinct
+        return Repositories.SelectMany(repo => repo.Enumerate(searchPattern))
+                .OrderBy(p => p.PackageName, StringComparer.OrdinalIgnoreCase);
+    }
+
+    // FIXME: figure out how to support combining package versions for a single package from multiple repositories
+    //  e.g. repo 1 has Firefox v100, repo 2 has Firefox v101; if you search for Firefox v101, the search will fail,
+    //  because this method will return Firefox from repo 1, and Find-PogPackage will not enumerate repo 2 at all
+    // FIXME: related ^, `Find-PogPackage p` will only return a single `p` package, but `Find-PogPackage `*p*` will return both
+    public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist) {
+        foreach (var r in Repositories) {
+            var p = r.GetPackage(packageName, resolveName, false);
+            if (p.Exists) {
+                return p;
+            }
+        }
+        throw new RepositoryPackageNotFoundException(
+                $"Package {packageName} does not exist in any of the configured repositories.");
+    }
+}
+
 /// <summary>
 /// Class representing a package with multiple available versions. Each version is represented by an `IRepositoryPackage`.
 /// </summary>

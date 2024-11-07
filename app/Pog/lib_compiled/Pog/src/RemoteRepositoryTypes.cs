@@ -50,7 +50,7 @@ internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, Packag
         }
 
         // check that package names were sorted on server
-        Debug.Assert(_packageNames.SequenceEqual(_packageNames.OrderBy(pn => pn)));
+        Debug.Assert(_packageNames.SequenceEqual(_packageNames.OrderBy(pn => pn, StringComparer.OrdinalIgnoreCase)));
     }
 
     public PackageVersion[]? this[string key] => _packageVersions.TryGetValue(key, out var val) ? val.Item2 : null;
