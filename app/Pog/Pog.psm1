@@ -11,26 +11,35 @@ foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots)
 function Set-PogRepository {
 	### .SYNOPSIS
 	### Selects the package repository used by other commands. Not thread-safe.
-	[CmdletBinding(DefaultParameterSetName="Local")]
+	[CmdletBinding()]
 	param(
-			### URI of a remote repository to use.
-			[Parameter(Mandatory, ParameterSetName="Remote", Position=0)]
-			[Uri]
-		$Uri,
-			### Path to a local repository to use.
-			[Parameter(Mandatory, ParameterSetName="Local", Position=0)]
-			[string]
-		$Path
+			### Ref (local path or remote URL) to repositories to use. The type of repository to use
+			### is distinguished based on a `http://` or `https://` prefix for remote repositories,
+			### anything else is treated as filesystem path to a local repository.
+			[Parameter(Mandatory)]
+		$Ref
 	)
 
 	begin {
-		if ($Path) {
-			$null = [Pog.InternalState]::SetRepository([Pog.LocalRepository]::new((Resolve-Path $Path)))
-			Write-Information "Using a local repository: $([Pog.InternalState]::Repository.Path)"
-		} else {
-			$null = [Pog.InternalState]::SetRepository([Pog.RemoteRepository]::new($Uri))
-			Write-Information "Using a remote repository: $([Pog.InternalState]::Repository.Url)"
+		$Repos = foreach ($r in $Ref) {
+			if ($r -like "http://*" -or $r -like "https://*") {
+				$Repo = [Pog.RemoteRepository]::new([uri]$r)
+				Write-Information "Using a remote repository: $($Repo.Url)"
+			} else {
+				$Repo = [Pog.LocalRepository]::new((Resolve-Path $r))
+				Write-Information "Using a local repository: $($Repo.Path)"
+			}
+			$Repo
 		}
+
+		# if only a single repo is set, do not wrap it in RepositoryList to improve performance a bit for lookups
+		$Repo = if (@($Repos).Count -eq 1) {
+			$Repos
+		} else {
+			[Pog.RepositoryList]::new($Repos)
+		}
+
+		$null = [Pog.InternalState]::SetRepository($Repo)
 	}
 }
 
@@ -86,7 +95,8 @@ function New-PogRepositoryPackage {
 
 	begin {
 		if ([Pog.InternalState]::Repository -isnot [Pog.LocalRepository]) {
-			throw "Creating new packages is only supported for local repositories, not remote."
+			throw ("Creating new packages is only supported for local repositories, not remote. To add a package to a remote repository, " +`
+				"create it in a local repository and then add it to the remote repository (typically with a Git push / PR).")
 		}
 
 		$c = [Pog.InternalState]::Repository.GetPackage($PackageName, $true, $false)
