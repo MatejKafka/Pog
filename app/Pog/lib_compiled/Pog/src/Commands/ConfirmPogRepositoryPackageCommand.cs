@@ -6,6 +6,7 @@ using System.Management.Automation;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
+using Pog.PSAttributes;
 using Pog.Utils;
 
 namespace Pog.Commands;
@@ -30,18 +31,18 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
 
     /// Name of the repository package.
     [Parameter(Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageNameCompleter))]
     public string[]? PackageName = null;
 
     /// Version of the repository package to validate.
     [Parameter(Position = 1, ParameterSetName = PackageNamePS)]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
     private LocalRepository _repo = null!;
     private bool _noIssues = true;
 
-    private static readonly Regex QuoteHighlightRegex = new(@"'([^']+)'",
+    private static readonly Regex QuoteHighlightRegex = new("'([^']+)'",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private void AddIssue(string message) {
@@ -208,6 +209,8 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         }
     }
 
+    // FIXME: when there's an issue in the template, this will print a warning a for each version; maybe add a heuristic
+    //  where a warning is collapsed if it's relevant for all versions?
     private void ValidatePackageVersion(LocalRepositoryPackage p, bool validateManifestDir = true) {
         if (validateManifestDir) {
             var path = p is TemplatedLocalRepositoryPackage tp ? tp.TemplateDirPath : p.Path;
@@ -218,7 +221,7 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         try {
             p.ReloadManifest();
         } catch (Exception e) when (e is IPackageManifestException) {
-            AddIssue($"Invalid manifest for package '{p.PackageName}', version '{p.Version}: {e.Message}");
+            AddIssue($"Invalid manifest for package '{p.PackageName}', version '{p.Version}': {e.Message}");
             return;
         }
 
