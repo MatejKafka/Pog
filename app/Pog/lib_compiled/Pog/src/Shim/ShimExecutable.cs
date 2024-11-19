@@ -25,6 +25,7 @@ public class ShimExecutable {
     private static readonly PeResources.ResourceId ShimDataResourceId = new(PeResources.ResourceType.RcData, 1);
     // TODO: bring back ResourceType.Manifest, but it will require some amount of parsing
     //  e.g. Firefox declares required assemblies, which the shim doesn't see, so it fails
+    //  also, some binaries (e.g. mmc.exe seem to have multiple manifests)
     /// List of resource types which are copied from target to the shim.
     private static readonly PeResources.ResourceType[] CopiedResourceTypes = {
         PeResources.ResourceType.Icon, PeResources.ResourceType.IconGroup,
