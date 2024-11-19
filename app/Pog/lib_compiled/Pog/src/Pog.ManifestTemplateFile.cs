@@ -20,11 +20,6 @@ public static class ManifestTemplateFile {
         return EnumerateTemplateKeys(tokens).Select(k => k.Item1).ToArray();
     }
 
-    public static void Substitute(string templatePath, string templateDataPath, string outputPath) {
-        // by default, WriteAllText emits UTF-8 without BOM; this is important for `MatchesRepositoryManifest()`
-        File.WriteAllText(outputPath, Substitute(templatePath, templateDataPath));
-    }
-
     public static string Substitute(string templatePath, string templateDataPath) {
         InstrumentationCounter.ManifestTemplateSubstitutions.Increment();
 

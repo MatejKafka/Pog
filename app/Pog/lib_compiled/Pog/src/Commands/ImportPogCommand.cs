@@ -267,9 +267,8 @@ public sealed class ImportPogCommand : PackageCommandBase {
     private void ImportPackage(RepositoryPackage package, ImportedPackage target) {
         // TODO: in the PowerShell version, we used to run Confirm-PogRepositoryManifest here;
         //  think through whether it's a good idea to add that back
+        package.EnsureManifestIsLoaded();
 
-        // FIXME: for templated manifests, `MatchesRepositoryManifest` will build the manifest once,
-        //  and then .ImportTo will build it a second time; figure out how to avoid the duplication
         if (!Force && package.MatchesImportedManifest(target)) {
             // not happy with this being a warning, but WriteHost is imo not the right one to use here,
             // and WriteInformation will not be visible for users with default $InformationPreference

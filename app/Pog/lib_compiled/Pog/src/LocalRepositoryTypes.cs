@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using JetBrains.Annotations;
-using Pog.Utils;
 using IOPath = System.IO.Path;
 using PPaths = Pog.PathConfig.PackagePaths;
 
@@ -98,9 +97,12 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
     public abstract string ManifestPath {get;}
     internal override string ExpectedPathStr => $"expected path: {Path}";
     protected abstract string ManifestResourceDirPath {get;}
-    protected abstract void ImportManifestTo(string targetManifestPath);
 
     public override void ImportTo(ImportedPackage target) {
+        // load manifest to ensure that it is valid; this is not strictly necessary, but it's a good sanity check and we'd
+        //  load it below anyway
+        EnsureManifestIsLoaded();
+
         // remove any previous manifest
         target.RemoveManifest();
         // ensure target directory exists
@@ -113,7 +115,10 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
         }
 
         // write the manifest
-        ImportManifestTo(target.ManifestPath);
+        // we're loading the manifest anyway for validation, so write it out directly without going back to the filesystem;
+        //  this risks inconsistencies between the filesystem and the cached manifest (e.g. torn import with new resource dir
+        //  but old manifest), but since we expect the package objects to be short-lived, this shouldn't be an issue
+        File.WriteAllText(target.ManifestPath, Manifest.RawString);
 
         Debug.Assert(MatchesImportedManifest(target));
     }
@@ -128,13 +133,9 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
         var importedManifest = new FileInfo(p.ManifestPath);
         if (!importedManifest.Exists) {
             return false;
-        } else if (this is DirectLocalRepositoryPackage dp) {
-            return importedManifest.Exists && FsUtils.FileContentEqual(new FileInfo(dp.ManifestPath), importedManifest);
-        } else if (this is TemplatedLocalRepositoryPackage tp) {
-            var repoManifest = Encoding.UTF8.GetBytes(tp.GetManifestString());
-            return FsUtils.FileContentEqual(repoManifest, importedManifest);
         } else {
-            throw new UnreachableException();
+            var repoManifestBytes = Encoding.UTF8.GetBytes(Manifest.RawString);
+            return FsUtils.FileContentEqual(repoManifestBytes, importedManifest);
         }
     }
 }
@@ -145,10 +146,6 @@ public sealed class DirectLocalRepositoryPackage(LocalRepositoryVersionedPackage
     public override string ManifestPath => $"{Path}\\{PPaths.ManifestFileName}";
     protected override string ManifestResourceDirPath => $"{Path}\\{PPaths.ManifestResourceDirName}";
     public override bool Exists => Directory.Exists(Path);
-
-    protected override void ImportManifestTo(string targetManifestPath) {
-        File.Copy(ManifestPath, targetManifestPath);
-    }
 
     protected override PackageManifest LoadManifest() {
         if (!Exists) {
@@ -168,19 +165,12 @@ public sealed class TemplatedLocalRepositoryPackage(LocalRepositoryVersionedPack
     public string TemplateDirPath => ((LocalRepositoryVersionedPackage) Container).TemplateDirPath;
     public string TemplatePath => ((LocalRepositoryVersionedPackage) Container).TemplatePath;
 
-    protected override void ImportManifestTo(string targetManifestPath) {
-        // TODO: figure out how to avoid calling .Substitute twice when first validating, and then importing the package
-        ManifestTemplateFile.Substitute(TemplatePath, ManifestPath, targetManifestPath);
-    }
-
     protected override PackageManifest LoadManifest() {
         if (!Exists) {
             throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Path}'.");
         }
-        return new PackageManifest(GetManifestString(), ManifestPath, owningPackage: this);
-    }
 
-    internal string GetManifestString() {
-        return ManifestTemplateFile.Substitute(TemplatePath, ManifestPath);
+        var manifestStr = ManifestTemplateFile.Substitute(TemplatePath, ManifestPath);
+        return new PackageManifest(manifestStr, ManifestPath, owningPackage: this);
     }
 }

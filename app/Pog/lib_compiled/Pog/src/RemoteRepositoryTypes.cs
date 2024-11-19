@@ -343,7 +343,7 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         }
 
         var manifestStr = ReadArchiveEntryAsString(manifestEntry, Encoding.UTF8);
-        return new PackageManifest(manifestStr, Url, this);
+        return new PackageManifest(manifestStr, Url, owningPackage: this);
     }
 
     private string ReadArchiveEntryAsString(ZipArchiveEntry entry, Encoding encoding) {
