@@ -100,9 +100,17 @@ public sealed class RemoteRepository : IRepository {
         Url = new Uri(repositoryBaseUrl).ToString();
 
         _packagesLazy = new(PackageCacheExpiration, () => {
+            // FIXME: we're doing a network request while holding a mutex over the cache, other threads will be stuck waiting
+            //  until this one finishes the request
             return new(InternalState.HttpClient.RetrieveJson(Url) ??
                        throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"), Url);
         });
+    }
+
+    /// List of available packages and their versions is cached locally for a short duration. This method invalidates
+    /// the cache, causing it to be retrieved again on the next access.
+    public void InvalidateCache() {
+        _packagesLazy.Invalidate();
     }
 
     public IEnumerable<string> EnumeratePackageNames(string searchPattern = "*") {
