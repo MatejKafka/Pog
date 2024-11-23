@@ -511,6 +511,12 @@ function Export-Shortcut {
 	# noop when not present
 	$null = [Pog.EnableContainerContext]::GetCurrent($PSCmdlet).StaleShortcuts.Remove($ShortcutPath)
 
+	if ((Test-Path $ShortcutPath) -and -not [Pog.FsUtils]::FileExistsCaseSensitive($ShortcutPath)) {
+		Write-Debug "Updating casing of an exported shortcut..."
+		# casing mismatch, behave as if we're creating a new shortcut
+		Remove-Item -LiteralPath $ShortcutPath
+	}
+
 	$S = $Shell.CreateShortcut($ShortcutPath)
 
 	if (Test-Path $ShortcutPath) {

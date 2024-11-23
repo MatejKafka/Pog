@@ -1,0 +1,24 @@
+--- Export direct ---
+Enabling private package 'test-direct'...
+Set up a shortcut called 'test' (target: 'C:\Windows\system32\cmd.exe').
+test.lnk
+--- Export with hidden stub ---
+Enabling private package 'test-shim'...
+Set up a shortcut called 'test' (target: 'C:\Windows\system32\cmd.exe').
+test.lnk
+--- Export direct (re-run) ---
+Enabling private package 'test-direct'...
+test.lnk
+--- Export with hidden stub (re-run) ---
+Enabling private package 'test-shim'...
+test.lnk
+--- Export direct with changed casing ---
+Enabling private package 'test-direct'...
+Set up a shortcut called 'TEST' (target: 'C:\Windows\system32\cmd.exe').
+Removed stale shortcut 'test'.
+TEST.lnk
+--- Export shim with changed casing ---
+Enabling private package 'test-shim'...
+Set up a shortcut called 'TEST' (target: 'C:\Windows\system32\cmd.exe').
+Removed stale shortcut 'test'.
+TEST.lnk

@@ -47,4 +47,9 @@ Describe "PogDll" {
         $Output = InvokeWhatIfTest $PSScriptRoot\Export-Command\test.ps1
         EvaluateWhatIfTest $Output (cat -Raw $PSScriptRoot\Export-Command\reference.txt)
     }
+
+    It "Export-Shortcut" {
+        $Output = InvokeWhatIfTest $PSScriptRoot\Export-Shortcut\test.ps1
+        EvaluateWhatIfTest $Output (cat -Raw $PSScriptRoot\Export-Shortcut\reference.txt)
+    }
 }
