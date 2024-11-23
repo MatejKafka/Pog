@@ -25,6 +25,28 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
         // remove possible leftover from previous invocation
         _proxiedParams = null;
 
+        ImportedPackage? package;
+        try {
+            package = GetDynamicParamPackage();
+            // no package passed
+            if (package == null) return null;
+        } catch {
+            // loading the passed package failed; it will be loaded again in the main body, so just ignore it for now
+            //  to get consistent errors
+            return null;
+        }
+
+        if (package.Manifest.Enable == null) {
+            // behave as if the scriptblock had no parameters
+            return _proxiedParams = new DynamicCommandParameters();
+        } else {
+            var paramBuilder = new DynamicCommandParameters.Builder(
+                    "_", DynamicCommandParameters.ParameterCopyFlags.NoPosition, HandleUnknownAttribute);
+            return _proxiedParams = paramBuilder.CopyParameters(package.Manifest.Enable);
+        }
+    }
+
+    private ImportedPackage? GetDynamicParamPackage() {
         if (Package == null && PackageName == null) {
             return null;
         }
@@ -38,24 +60,15 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
         // parameters are null-coalesced, because mandatory parameters are not enforced in dynamicparam
         // also, we cannot use EnumerateParameterPackages here, because it uses WriteError, which is not allowed in dynamicparam
         //  (a dumb design limitation, if you ask me)
-        ImportedPackage package;
         if (ParameterSetName == PackagePS) {
             if (Package == null || Package.Length == 0) return null;
-            package = Package[0];
+            var package = Package[0];
             package.EnsureManifestIsLoaded();
+            return package;
         } else {
             var pn = PackageName?.FirstOrDefault();
             if (pn == null) return null;
-            package = InternalState.ImportedPackageManager.GetPackage(pn, true, true);
-        }
-
-        if (package.Manifest.Enable == null) {
-            // behave as if the scriptblock had no parameters
-            return _proxiedParams = new DynamicCommandParameters();
-        } else {
-            var paramBuilder = new DynamicCommandParameters.Builder(
-                    "_", DynamicCommandParameters.ParameterCopyFlags.NoPosition, HandleUnknownAttribute);
-            return _proxiedParams = paramBuilder.CopyParameters(package.Manifest.Enable);
+            return InternalState.ImportedPackageManager.GetPackage(pn, true, true);
         }
     }
 
