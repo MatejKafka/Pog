@@ -86,8 +86,14 @@ jobs:
       working-directory: app/Pog/lib_compiled
       run: dotnet test --no-restore Pog.Tests
 
-    - name: Pester tests
+    - name: Pester tests (PowerShell Core)
       working-directory: app/Pog
+      shell: pwsh
+      run: Invoke-Pester
+
+    - name: Pester tests (PowerShell 5)
+      working-directory: app/Pog
+      shell: powershell
       run: Invoke-Pester
 
     # install a few Pog packages to check that Pog works
