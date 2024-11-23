@@ -91,11 +91,11 @@ function MergeDirectories {
 		if (Test-Path $Target) {
 			if ($PreferTarget) {return}  # skip
 			# overwrite with new version
-			Remove-Item -Recurse $Target
+			Remove-Item -Recurse -LiteralPath $Target
 		}
 		Move-Item $_ $Target
 	}
-	Remove-Item -Recurse $SrcDir
+	Remove-Item -Recurse -LiteralPath $SrcDir
 }
 
 function Set-Symlink {
@@ -129,7 +129,7 @@ function Set-Symlink {
 		}
 
 		# not a correct item, delete and recreate
-		Remove-Item -Recurse -Force $LinkAbsPath
+		Remove-Item -Recurse -Force -LiteralPath $LinkAbsPath
 	} else {
 		New-ParentDirectory $LinkAbsPath
 	}
@@ -211,7 +211,7 @@ function New-Symlink {
 		if ((Test-Path $TargetPath) -and -not (Test-Path -Type $TestType $TargetPath)) {
 			Write-Warning "Item '$TargetPath' exists, but it's not '$ItemType'. Replacing..."
 			# mismatch between requested and real target type
-			Remove-Item -Recurse $TargetPath
+			Remove-Item -Recurse -LiteralPath $TargetPath
 		}
 
 		# TargetPath matches item type
