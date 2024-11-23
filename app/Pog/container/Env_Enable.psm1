@@ -103,7 +103,7 @@ function MergeDirectories {
 			# overwrite with new version
 			Remove-Item -Recurse -LiteralPath $Target
 		}
-		Move-Item $_ $Target
+		Move-Item $_.FullName $Target
 	}
 	Remove-Item -Recurse -LiteralPath $SrcDir
 }
