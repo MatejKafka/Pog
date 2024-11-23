@@ -13,8 +13,8 @@ $ManifestTemplate = @'
     Private = $true
     Enable = {
         # export any binary, not important
-        Export-Shortcut '{{EXPORT}}' (gcm cmd.exe).Path -Environment $(if ([bool]'{{SHIM}}') {
-            @{X = "y"}
+        Export-Shortcut '{{EXPORT}}' (gcm cmd.exe).Path -Environment $(if ('{{SHIM}}') {
+            @{X = '{{SHIM}}'}
         } else {
             $null
         })
@@ -22,10 +22,10 @@ $ManifestTemplate = @'
 }
 '@
 
-function Set-Manifest($Path, $ExportName, [switch]$Shim) {
+function Set-Manifest($Path, $ExportName, $Shim = "") {
     RenderTemplate $ManifestTemplate $Path @{
         EXPORT = $ExportName
-        SHIM = if ($Shim) {'$true'} else {'$false'}
+        SHIM = $Shim
     }
 }
 
@@ -45,7 +45,7 @@ $null = mkdir $Root\test-direct, $Root\test-shim
 
 
 Set-Manifest $Root\test-direct\pog.psd1 test
-Set-Manifest $Root\test-shim\pog.psd1 test -Shim
+Set-Manifest $Root\test-shim\pog.psd1 test -Shim X
 
 title "Export direct"
 test test-direct
@@ -60,10 +60,15 @@ title "Export with hidden stub (re-run)"
 test test-shim
 
 Set-Manifest $Root\test-direct\pog.psd1 TEST
-Set-Manifest $Root\test-shim\pog.psd1 TEST -Shim
+Set-Manifest $Root\test-shim\pog.psd1 TEST -Shim X
 
 title "Export direct with changed casing"
 test test-direct
 
 title "Export shim with changed casing"
+test test-shim
+
+Set-Manifest $Root\test-shim\pog.psd1 TEST -Shim Y
+
+title "Export shim with internal shim changes"
 test test-shim

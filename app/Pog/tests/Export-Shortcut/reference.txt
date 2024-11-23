@@ -22,3 +22,7 @@ Enabling private package 'test-shim'...
 Set up a shortcut called 'TEST' (target: 'C:\Windows\system32\cmd.exe').
 Removed stale shortcut 'test'.
 TEST.lnk
+--- Export shim with internal shim changes ---
+Enabling private package 'test-shim'...
+Set up a shortcut called 'TEST' (target: 'C:\Windows\system32\cmd.exe').
+TEST.lnk

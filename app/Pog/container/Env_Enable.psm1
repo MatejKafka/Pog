@@ -492,6 +492,7 @@ function Export-Shortcut {
 	}
 
 
+	$ShimChanged = $false
 	if ($ArgumentList -or $EnvironmentVariables -or $VcRedist) {
 		Write-Debug "Creating a hidden shim to set arguments and environment..."
 		# if -EnvironmentVariables was used, create a hidden command and point the shortcut to it,
@@ -504,7 +505,9 @@ function Export-Shortcut {
 			-ArgumentList $ArgumentList `
 			-VcRedist:$VcRedist `
 			-ReplaceArgv0 `
-			-Verbose:$false -Debug:$false -InformationAction SilentlyContinue
+			-Verbose:$false -Debug:$false -InformationAction SilentlyContinue -InformationVariable InfoOutput
+		# this is very hacky, but it's the simplest way to see if Export-Command updated something
+		$ShimChanged = [bool]$InfoOutput
 	}
 
 	# this shortcut was refreshed, not stale, remove it
@@ -517,6 +520,7 @@ function Export-Shortcut {
 		Remove-Item -LiteralPath $ShortcutPath
 	}
 
+	$InfoMsg = "Set up a shortcut called '$ShortcutName' (target: '$TargetPath')."
 	$S = $Shell.CreateShortcut($ShortcutPath)
 
 	if (Test-Path $ShortcutPath) {
@@ -525,7 +529,11 @@ function Export-Shortcut {
 				-and $S.WorkingDirectory -eq $WorkingDirectory `
 				-and $S.IconLocation -eq $Icon `
 				-and $S.Description -eq $Description) {
-			Write-Verbose "Shortcut '$ShortcutName' is already configured."
+			if ($ShimChanged) {
+				Write-Information $InfoMsg
+			} else {
+				Write-Verbose "Shortcut '$ShortcutName' is already configured."
+			}
 			return
 		} else {
 			Write-Verbose "Shortcut at '$ShortcutPath' already exists, reusing it..."
@@ -539,7 +547,7 @@ function Export-Shortcut {
 	$S.Description = $Description
 
 	$S.Save()
-	Write-Information "Set up a shortcut called '$ShortcutName' (target: '$TargetPath')."
+	Write-Information $InfoMsg
 }
 
 
