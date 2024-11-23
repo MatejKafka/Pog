@@ -8,10 +8,14 @@ Describe "PogDll" {
             $PwshArgs = @("-noprofile", "-noninteractive", $FilePath, $TestDir.FullName)
             Write-Verbose "Test command: $PwshCmd $PwshArgs"
 
+            $PSNativeCommandUseErrorActionPreference = $false
             $RawOutput = & $PwshCmd @PwshArgs
+            if ($LastExitCode -ne 0) {
+                throw "Test PowerShell invocation failed:`n$RawOutput"
+            }
+
             # replace temporary test directory path with TEST_DIR to get consistent output
             $SanitizedOutput = ($RawOutput -join "`n").Replace($TestDir.FullName, "TEST_DIR")
-
             Write-Verbose "Test output:`n$SanitizedOutput"
             return $SanitizedOutput
         }
