@@ -138,7 +138,8 @@ public class ExportCommandCommand : PSCmdlet {
 
     private bool ExportCommandSymlink(string cmdName, string rLinkPath, string rTargetPath) {
         if (File.Exists(rLinkPath)) {
-            if (rTargetPath == FsUtils.GetSymbolicLinkTarget(rLinkPath)) {
+            // ensure we have the correct casing
+            if (FsUtils.FileExistsCaseSensitive(rLinkPath) && rTargetPath == FsUtils.GetSymbolicLinkTarget(rLinkPath)) {
                 return false;
             }
             File.Delete(rLinkPath);
@@ -162,10 +163,10 @@ public class ExportCommandCommand : PSCmdlet {
         var resolvedEnvVars = EnvironmentVariables == null ? null : ResolveEnvironmentVariables(EnvironmentVariables);
         if (VcRedist) {
             // add the Pog vcredist dir to PATH
-            resolvedEnvVars ??= new();
+            resolvedEnvVars ??= [];
             var pathI = resolvedEnvVars.FindIndex(e => e.Key == "PATH");
             if (pathI == -1) {
-                resolvedEnvVars.Add(new("PATH", new[] {InternalState.PathConfig.VcRedistDir, "%PATH%"}));
+                resolvedEnvVars.Add(new("PATH", [InternalState.PathConfig.VcRedistDir, "%PATH%"]));
             } else {
                 var path = resolvedEnvVars[pathI];
                 resolvedEnvVars[pathI] = new(path.Key, path.Value.Prepend(InternalState.PathConfig.VcRedistDir).ToArray());
@@ -177,23 +178,31 @@ public class ExportCommandCommand : PSCmdlet {
 
         if (File.Exists(rLinkPath)) {
             if ((new FileInfo(rLinkPath).Attributes & FileAttributes.ReparsePoint) != 0) {
+                WriteDebug("Overwriting symlink with a shim executable...");
                 // reparse point, not an ordinary file, remove
                 File.Delete(rLinkPath);
-                WriteDebug("Overwriting symlink with a shim executable...");
+            } else if (!FsUtils.FileExistsCaseSensitive(rLinkPath)) {
+                WriteDebug("Updating casing of an exported command...");
+                File.Delete(rLinkPath);
             } else {
                 try {
                     return shim.UpdateShim(rLinkPath, rMetadataSource);
                 } catch (ShimExecutable.OutdatedShimException) {
-                    // outdated shim exe, overwrite with a new version
-                    File.Delete(rLinkPath);
                     WriteDebug("Old shim executable, replacing with an up-to-date one...");
+                    File.Delete(rLinkPath);
                 }
             }
         }
 
         // copy empty shim to rLinkPath
         File.Copy(InternalState.PathConfig.ShimPath, rLinkPath);
-        shim.WriteNewShim(rLinkPath, rMetadataSource);
+        try {
+            shim.WriteNewShim(rLinkPath, rMetadataSource);
+        } catch {
+            // clean up the empty shim
+            FsUtils.EnsureDeleteFile(rLinkPath);
+            throw;
+        }
         return true;
     }
 

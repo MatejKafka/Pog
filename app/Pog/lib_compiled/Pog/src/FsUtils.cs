@@ -158,12 +158,18 @@ public static class FsUtils {
 
     /// Return `childName`, but with casing matching the name as stored in the filesystem, if it already exists.
     public static string GetResolvedChildName(string parent, string childName) {
+        return TryGetResolvedChildName(parent, childName, out var resolved) ? resolved : childName;
+    }
+
+    public static bool TryGetResolvedChildName(string parent, string childName, out string resolvedName) {
         Verify.Assert.FileName(childName);
         try {
-            return new DirectoryInfo(parent).EnumerateFileSystemInfos(childName).Single().Name;
+            resolvedName = new DirectoryInfo(parent).EnumerateFileSystemInfos(childName).Single().Name;
+            return true;
         } catch (InvalidOperationException) {
-            // the child does not exist yet, return the name as-is
-            return childName;
+            // the child does not exist
+            resolvedName = null!;
+            return false;
         }
     }
 
@@ -397,5 +403,15 @@ public static class FsUtils {
     /// <remarks><paramref name="strPtr"/> buffer must be at least as large as <paramref name="str"/>.</remarks>
     private static unsafe bool StrPtrStartsWith(string str, char* strPtr) {
         return str.AsSpan().SequenceEqual(new ReadOnlySpan<char>(strPtr, str.Length));
+    }
+
+    public static bool FileExistsCaseSensitive(string parent, string childName) {
+        return TryGetResolvedChildName(parent, childName, out var resolved) && resolved == childName;
+    }
+
+    // this overload may be too high-level
+    [PublicAPI]
+    public static bool FileExistsCaseSensitive(string path) {
+        return FileExistsCaseSensitive(Path.GetDirectoryName(path)!, Path.GetFileName(path));
     }
 }

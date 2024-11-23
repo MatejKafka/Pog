@@ -5,7 +5,7 @@ function RenderTemplate($Template, $DestinationPath, [Hashtable]$TemplateData) {
     foreach ($Entry in $TemplateData.GetEnumerator()) {
         $Template = $Template.Replace("'{{$($Entry.Key)}}'", "'" + $Entry.Value.Replace("'", "''") + "'")
     }
-    $null = New-Item -Path $DestinationPath -Value $Template
+    Set-Content $DestinationPath -Value $Template -NoNewline
 }
 
 
@@ -34,10 +34,14 @@ function CreateManifest {
 }
 
 function CreateImportedPackage {
-    param($Root, $ImportedName, $Name, $Version)
+    param($Root, $ImportedName, $Name, $Version, $Manifest)
     $DirPath = "$Root\$ImportedName"
     $null = mkdir $DirPath
-    RenderTemplate $ManifestStr "$DirPath\pog.psd1" @{NAME = $Name; VERSION = $Version}
+    if ($Manifest) {
+        $Manifest | Set-Content "$DirPath\pog.psd1" -NoNewline
+    } else {
+        RenderTemplate $ManifestStr "$DirPath\pog.psd1" @{NAME = $Name; VERSION = $Version}
+    }
 }
 
 function CreatePackageRoots {
@@ -73,4 +77,4 @@ function SetupNewPogTestDir {
 }
 
 
-Export-ModuleMember -Function CreateManifest, CreateImportedPackage, CreatePackageRoots, SetupNewPogTestDir
+Export-ModuleMember -Function CreateManifest, CreateImportedPackage, CreatePackageRoots, SetupNewPogTestDir, RenderTemplate

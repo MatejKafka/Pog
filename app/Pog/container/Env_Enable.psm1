@@ -15,13 +15,20 @@ function RemoveStaleExports {
 		Write-Debug "Removing stale shortcuts..."
 		$InternalState.StaleShortcuts | % {
 			$ShortcutName = [IO.Path]::GetFileNameWithoutExtension($_)
-			Remove-Item -LiteralPath $_
+			if ([Pog.FsUtils]::FileExistsCaseSensitive($_)) {
+				# do not delete if the casing changed, but still print the message;
+				# this is pretty ugly and fragile, but we want to keep exactly the same output as if the name
+				#  of the command changed, not just the casing
+				Remove-Item -LiteralPath $_
+			}
 			Write-Information "Removed stale shortcut '$ShortcutName'."
 		}
 
-		# need to use pipeline, the HashSet is stringified when passed as an argument
 		$InternalState.StaleShortcutShims | % {
-			Remove-Item -LiteralPath $_
+			if ([Pog.FsUtils]::FileExistsCaseSensitive($_)) {
+				# same as above
+				Remove-Item -LiteralPath $_
+			}
 		}
 	}
 
@@ -29,7 +36,10 @@ function RemoveStaleExports {
 		Write-Debug "Removing stale commands..."
 		$InternalState.StaleCommands | % {
 			$CommandName = [IO.Path]::GetFileNameWithoutExtension($_)
-			Remove-Item -LiteralPath $_
+			if ([Pog.FsUtils]::FileExistsCaseSensitive($_)) {
+				# same as above
+				Remove-Item -LiteralPath $_
+			}
 			Write-Information "Removed stale command '$CommandName'."
 		}
 	}

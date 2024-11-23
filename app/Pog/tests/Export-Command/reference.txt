@@ -1,0 +1,24 @@
+--- Export shim ---
+Enabling private package 'test-shim'...
+Exported command 'test' using a symlink.
+test.exe
+--- Export symlink ---
+Enabling private package 'test-symlink'...
+Exported command 'test' using a symlink.
+test.exe
+--- Export shim (re-run) ---
+Enabling private package 'test-shim'...
+test.exe
+--- Export symlink (re-run) ---
+Enabling private package 'test-symlink'...
+test.exe
+--- Export shim with changed casing ---
+Enabling private package 'test-shim'...
+Exported command 'TEST' using a symlink.
+Removed stale command 'test'.
+TEST.exe
+--- Export symlink with changed casing ---
+Enabling private package 'test-symlink'...
+Exported command 'TEST' using a symlink.
+Removed stale command 'test'.
+TEST.exe
