@@ -10,6 +10,13 @@ env:
   # C:\ drive in gh action is much slower than D:\, move everything we can to D:\
   DOTNET_INSTALL_DIR: D:\dotnet
 
+  # versions of dependencies needed for building and bootstrapping Pog
+  # these should be updated periodically with the following command:
+  # Find-PogPackage ILRepack, UPX, 7zip | % {"VERSION_$($_.PackageName.ToUpperInvariant()): `"$($_.Version)`""}
+  VERSION_ILREPACK: "2.0.29"
+  VERSION_UPX: "4.2.3"
+  VERSION_7ZIP: "24.08"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -25,23 +32,44 @@ jobs:
       with:
         dotnet-version: 9.0.x
 
+    # needed to build Pog.dll
     - name: Install ILRepack
       shell: pwsh
       run: |
-        iwr https://www.nuget.org/api/v2/package/ILRepack/2.0.29 -OutFile D:\ilrepack.nupkg
+        iwr "https://www.nuget.org/api/v2/package/ILRepack/${env:VERSION_ILREPACK}" -OutFile D:\ilrepack.nupkg
         Expand-Archive D:\ilrepack.nupkg D:\ilrepack
         # add to PATH for following steps
         Add-Content $env:GITHUB_PATH D:\ilrepack\tools
 
+    # needed to build PogShimTemplate.exe
+    - name: Install UPX
+      shell: pwsh
+      run: |
+        iwr "https://github.com/upx/upx/releases/download/v${env:VERSION_UPX}/upx-${env:VERSION_UPX}-win64.zip" -OutFile D:\upx.zip
+        Expand-Archive D:\upx.zip D:\upx_tmp
+        mv D:\upx_tmp\* D:\upx
+        rm D:\upx_tmp
+        # add to PATH for following steps
+        Add-Content $env:GITHUB_PATH D:\upx
+
+    # needed to install any Pog package (including an up-to-date 7zip)
     - name: Install bootstrap 7zip
       working-directory: ..
       shell: pwsh
       run: |
-        iwr https://www.7-zip.org/a/7z2403-x64.exe -OutFile D:\7zip.exe
+        iwr "https://www.7-zip.org/a/7z$($env:VERSION_7ZIP.Replace('.', ''))-x64.exe" -OutFile D:\7zip.exe
         Start-Process -Wait D:\7zip.exe -ArgumentList /S, /D=$(pwd)\7zip\app
         # just a stub manifest, will be replaced later
         Set-Content "$(pwd)\7zip\pog.psd1" '@{Private = $true; Enable = {Export-Command "7z" "./app/7z.exe" -VcRedist}}'
 
+    - name: Verify build dependencies
+      shell: pwsh
+      run: |
+        gcm ilrepack.exe
+        gcm upx.exe
+        gcm 7z.exe
+
+    # used for PowerShell unit tests
     - name: Install Pester
       working-directory: ..
       shell: pwsh
