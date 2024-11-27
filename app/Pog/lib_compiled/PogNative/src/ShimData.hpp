@@ -29,7 +29,7 @@ concept EnvironmentVariableCallback = requires(Callback cb, const wchar_t* str) 
 
 // for documentation of these enums, see `ShimDataEncoder.cs`
 enum class ShimFlag : uint16_t { REPLACE_ARGV0 = 1, NULL_TARGET = 2, };
-enum class EnvVarTokenFlag : uint16_t { ENV_VAR_NAME = 1, NEW_LIST_ITEM = 2, LAST_SEGMENT = 4, };
+enum class EnvVarTokenFlag : uint16_t { ENV_VAR_NAME = 1, NEW_LIST_ITEM = 2, LAST_SEGMENT = 4, RECESSIVE = 8, };
 
 struct ShimHeader {
     uint16_t version;
@@ -65,8 +65,17 @@ private:
     };
 
 public:
-    static void get_value(void* start_ptr, WcharPtrCallback auto value_cb) {
+    static void get_value(const wchar_t* env_var_name, void* start_ptr, WcharPtrCallback auto value_cb) {
         auto first_segment = (const EnvSegmentHeader*) start_ptr;
+
+        // this flag is only valid on the first segment
+        if (HAS_FLAG(first_segment->flags, RECESSIVE)) {
+            // if the env var exists, use it instead of our value
+            if (read_env_var(env_var_name, [&](auto env_value) { value_cb(env_value.data()); })) {
+                // env var found and processed
+                return;
+            }
+        }
 
         // fast path for the most common case of a single segment
         if (HAS_FLAG(first_segment->flags, LAST_SEGMENT)) {
@@ -204,7 +213,7 @@ public:
         while (it != end) {
             auto* name = read_wstring(*it++);
             auto value_offset = *it++;
-            ShimDataEnvironmentVariable::get_value((void*) &buffer[value_offset], [&](auto value) {
+            ShimDataEnvironmentVariable::get_value(name, (void*) &buffer[value_offset], [&](auto value) {
                 callback(name, value);
             });
         }

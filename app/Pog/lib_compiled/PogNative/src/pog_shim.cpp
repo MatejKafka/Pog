@@ -171,8 +171,8 @@ int wmain() {
     ShimDataBuffer shim_data_buffer = load_shim_data();
     ShimData shim_data{shim_data_buffer};
 
-    if (shim_data.version() != 3) {
-        panic(L"Incorrect Pog shim data version, this shim expects v3.");
+    if (shim_data.version() != 4) {
+        panic(L"Incorrect Pog shim data version, this shim expects v4.");
     }
 
     auto flags = shim_data.flags();
