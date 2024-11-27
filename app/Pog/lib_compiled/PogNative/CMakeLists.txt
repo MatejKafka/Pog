@@ -40,3 +40,9 @@ endif()
 add_executable(PogShimTemplate src/pog_shim.cpp $<$<NOT:$<CONFIG:Debug>>:src/stdlib.cpp>)
 # export release build binary to lib_compiled dir
 set_target_properties(PogShimTemplate PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "../..")
+
+if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+    # pack the executable with `upx`
+    add_custom_command(TARGET PogShimTemplate POST_BUILD
+            COMMAND upx --ultra-brute "$<TARGET_FILE:PogShimTemplate>")
+endif()
