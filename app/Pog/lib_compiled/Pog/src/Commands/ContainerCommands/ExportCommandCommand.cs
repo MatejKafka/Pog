@@ -137,6 +137,9 @@ public class ExportCommandCommand : PSCmdlet {
     }
 
     private bool ExportCommandSymlink(string cmdName, string rLinkPath, string rTargetPath) {
+        // use relative symlink target when the target is inside the package directory to make the package easier to move
+        rTargetPath = GetRelativeTargetPathForLocalPath(rLinkPath, rTargetPath);
+
         if (File.Exists(rLinkPath)) {
             // ensure we have the correct casing
             if (FsUtils.FileExistsCaseSensitive(rLinkPath) && rTargetPath == FsUtils.GetSymbolicLinkTarget(rLinkPath)) {
@@ -144,9 +147,17 @@ public class ExportCommandCommand : PSCmdlet {
             }
             File.Delete(rLinkPath);
         }
-        // TODO: add back support for relative paths
         FsUtils.CreateSymbolicLink(rLinkPath, rTargetPath, isDirectory: false);
         return true;
+    }
+
+    /// If <c>target</c> is inside the package directory, return a relative path from <c>linkPath</c>, otherwise return <c>target</c> as-is.
+    private string GetRelativeTargetPathForLocalPath(string rLinkPath, string rTargetPath) {
+        if (FsUtils.EscapesDirectory(SessionState.Path.CurrentFileSystemLocation.ProviderPath, rTargetPath)) {
+            // points outside the package dir, should not be too common
+            return rTargetPath;
+        }
+        return FsUtils.GetRelativePath(Path.GetDirectoryName(rLinkPath)!, rTargetPath);
     }
 
     private bool ExportCommandShimExecutable(string cmdName, string rLinkPath, string rTargetPath) {
