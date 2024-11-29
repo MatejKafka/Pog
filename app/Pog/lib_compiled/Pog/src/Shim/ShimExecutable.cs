@@ -8,7 +8,7 @@ using Pog.Utils;
 
 namespace Pog.Shim;
 
-// TODO: support tags ([noresolve], [resolve], [prepend], [append])
+// TODO: support tags ([noresolve], [resolve], [prepend], [append], [recessive])
 // TODO: switch to shim data format with package-relative paths instead of absolute paths
 // TODO: when copying PE resources, should we also enumerate languages?
 
@@ -282,11 +282,14 @@ public class ShimExecutable {
     public class EnvVarTemplate {
         public record struct Segment(bool IsEnvVarName, bool NewSegment, string String);
 
-        public readonly List<Segment> Segments = new();
+        public readonly bool Recessive;
+        public readonly List<Segment> Segments = [];
 
-        public EnvVarTemplate(IEnumerable<string> rawValueList) {
+        public EnvVarTemplate(IEnumerable<string> rawValueList, bool recessive = false) {
+            Recessive = recessive;
+
             foreach (var v in rawValueList) {
-                ParseSingleValue(v);
+                ParseAndSetSingleValue(v);
             }
 
             if (Segments.Count == 0) {
@@ -295,7 +298,7 @@ public class ShimExecutable {
             }
         }
 
-        private void ParseSingleValue(string value) {
+        private void ParseAndSetSingleValue(string value) {
             var parts = value.Split('%');
             var isEnvVarName = true;
             var first = true;

@@ -71,7 +71,7 @@ namespace Pog.Shim;
  *  After each segment, padding is optionally inserted to align it to `sizeof(uint)`.
  */
 internal class ShimDataEncoder {
-    public const ushort CurrentShimDataVersion = 3;
+    public const ushort CurrentShimDataVersion = 4;
     private static readonly Encoding Encoding = Encoding.Unicode;
     private const ushort NullTerminator = 0;
     private const int HeaderSize = 2 * 2 + 4 * 4;
@@ -204,9 +204,11 @@ internal class ShimDataEncoder {
 
         for (var i = 0; i < value.Segments.Count; i++) {
             var s = value.Segments[i];
-            var flags = (s.NewSegment ? SegmentFlags.NewListItem : 0) |
-                        (s.IsEnvVarName ? SegmentFlags.EnvVarName : 0) |
-                        (i == value.Segments.Count - 1 ? SegmentFlags.LastSegment : 0);
+            var flags = 0
+                        | (s.NewSegment ? SegmentFlags.NewListItem : 0)
+                        | (s.IsEnvVarName ? SegmentFlags.EnvVarName : 0)
+                        | (i == value.Segments.Count - 1 ? SegmentFlags.LastSegment : 0)
+                        | (i == 0 && value.Recessive ? SegmentFlags.Recessive : 0);
 
             WriteUint(s.String.Length);
             WriteUshort((ushort) flags);
@@ -243,5 +245,8 @@ internal class ShimDataEncoder {
         NewListItem = 2,
         /// This is the last segment of the value (stops traversal).
         LastSegment = 4,
+        /// If the corresponding environment variable already exists, keep its value and stop processing this variable.
+        /// Only valid on the first segment.
+        Recessive = 8,
     }
 }
