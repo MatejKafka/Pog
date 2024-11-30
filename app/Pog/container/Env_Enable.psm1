@@ -2,49 +2,6 @@ using module ..\lib\Utils.psm1
 . $PSScriptRoot\..\lib\header.ps1
 
 
-# TODO: maybe change Export-Pog to create a marker that "user wants this package exported",
-# TODO: probably also remove exports of the stale commands/shortcuts
-#  and then handle updates of the exported items in Enable-Pog?
-function RemoveStaleExports {
-	[CmdletBinding()]
-	param()
-
-	$InternalState = [Pog.EnableContainerContext]::GetCurrent($PSCmdlet)
-
-	if ($InternalState.StaleShortcuts.Count -gt 0 -or $InternalState.StaleShortcutShims.Count -gt 0) {
-		Write-Debug "Removing stale shortcuts..."
-		$InternalState.StaleShortcuts | % {
-			$ShortcutName = [IO.Path]::GetFileNameWithoutExtension($_)
-			if ([Pog.FsUtils]::FileExistsCaseSensitive($_)) {
-				# do not delete if the casing changed, but still print the message;
-				# this is pretty ugly and fragile, but we want to keep exactly the same output as if the name
-				#  of the command changed, not just the casing
-				Remove-Item -LiteralPath $_
-			}
-			Write-Information "Removed stale shortcut '$ShortcutName'."
-		}
-
-		$InternalState.StaleShortcutShims | % {
-			if ([Pog.FsUtils]::FileExistsCaseSensitive($_)) {
-				# same as above
-				Remove-Item -LiteralPath $_
-			}
-		}
-	}
-
-	if ($InternalState.StaleCommands.Count -gt 0) {
-		Write-Debug "Removing stale commands..."
-		$InternalState.StaleCommands | % {
-			$CommandName = [IO.Path]::GetFileNameWithoutExtension($_)
-			if ([Pog.FsUtils]::FileExistsCaseSensitive($_)) {
-				# same as above
-				Remove-Item -LiteralPath $_
-			}
-			Write-Information "Removed stale command '$CommandName'."
-		}
-	}
-}
-
 <# This function is called after the container setup is finished to run the Enable script. #>
 function __main {
 	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
@@ -59,7 +16,7 @@ function __main {
 	} catch {
 		try {
 			# remove shotcuts and commands that were not re-exported during this Enable run
-			RemoveStaleExports
+			Remove-StaleExports
 		} catch {
 			# don't throw, we'd lose the original exception
 			Write-Warning ('Cleanup of exported entry points failed: ' + $_)
@@ -69,7 +26,7 @@ function __main {
 
 	# remove shotcuts and commands that were not re-exported during this Enable run
 	# called separately to propagate any exceptions normally
-	RemoveStaleExports
+	Remove-StaleExports
 }
 
 
