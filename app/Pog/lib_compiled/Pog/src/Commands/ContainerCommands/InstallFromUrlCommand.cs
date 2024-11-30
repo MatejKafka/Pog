@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
-using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.InnerCommands;
@@ -180,23 +179,11 @@ public class InstallFromUrlCommand : PogCmdlet {
             var parentPath = Path.GetDirectoryName(targetPath)!;
             // ensure parent directory exists
             Directory.CreateDirectory(parentPath);
-
-            for (var i = 0;; i++) {
-                try {
-                    usedDir.MoveTo(targetPath);
-                    break;
-                } catch (IOException e) when (e.HResult == -2147024891) {
-                    // E_ACCESSDENIED; this typically means that Defender has a burning need to touch stuff inside the directory
-                    if (i >= 15) {
-                        throw; // too many attempts, dunno what's going on
-                    }
-                    // wait a bit and retry, linear back-off
-                    Thread.Sleep(i);
-                }
-            }
+            usedDir.MoveToWithRetries(targetPath);
         } else {
-            // TODO: handle existing target (overwrite?)
-            FsUtils.MoveDirectoryContents(usedDir, targetPath);
+            // move just the contents and merge a single level of targetPath and usedDir
+            // we don't try to do a recursive merge, it wasn't needed so far, and it has less obvious failure modes
+            usedDir.MoveContentToWithRetries(targetPath);
         }
 
         // remove any unused files from the extraction dir

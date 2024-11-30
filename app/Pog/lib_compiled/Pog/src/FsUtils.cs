@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.Native;
@@ -224,14 +225,14 @@ public static class FsUtils {
     }
 
     /// Assumes that <paramref name="targetDir"/> exists.
-    public static void MoveDirectoryContents(DirectoryInfo srcDir, string targetDir) {
+    public static void MoveContentToWithRetries(this DirectoryInfo srcDir, string targetDir) {
         foreach (var entry in srcDir.EnumerateFileSystemInfos()) {
             var targetPath = Path.Combine(targetDir, entry.Name);
             // shrug, not all .NET APIs are nice...
             if (entry is FileInfo file) {
-                file.MoveTo(targetPath);
+                file.MoveToWithRetries(targetPath);
             } else if (entry is DirectoryInfo dir) {
-                dir.MoveTo(targetPath);
+                dir.MoveToWithRetries(targetPath);
             }
         }
     }
@@ -245,6 +246,33 @@ public static class FsUtils {
                 file.CopyTo(entryTargetPath);
             else if (entry is DirectoryInfo dir) {
                 CopyDirectory(dir, entryTargetPath);
+            }
+        }
+    }
+
+    /// Attempts to repeatedly move a file to fix issues with an anti-viruses and similar software holding short locks on the file.
+    public static void MoveToWithRetries(this FileInfo srcFile, string targetPath) {
+        MoveWithRetries(() => srcFile.MoveTo(targetPath));
+    }
+
+    /// Attempts to repeatedly move a directory to fix issues with an anti-viruses and similar software holding short locks on the directory.
+    public static void MoveToWithRetries(this DirectoryInfo srcDir, string targetPath) {
+        MoveWithRetries(() => srcDir.MoveTo(targetPath));
+    }
+
+    private static void MoveWithRetries(Action moveFn) {
+        const int maxAttempts = 10;
+        for (var attemptI = 1;; attemptI++) {
+            try {
+                moveFn();
+                break;
+            } catch (IOException e) when (e.HResult == -2147024891) {
+                // E_ACCESSDENIED; this typically means that Defender has a burning need to touch the moved object
+                if (attemptI >= maxAttempts) {
+                    throw; // too many attempts, dunno what's going on
+                }
+                // wait a bit and retry, linear back-off
+                Thread.Sleep(attemptI);
             }
         }
     }
