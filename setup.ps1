@@ -36,6 +36,29 @@ if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
 }
 
 
+# check if the volume Pog is extracted in supports junctions
+$JunctionPath = "$PSScriptRoot\.setup_junction_test"
+try {
+    $null = New-Item -Type Junction $JunctionPath -Target $PSScriptRoot
+} catch {
+    if ($_.Exception.Message -eq "Incorrect function.") {
+        # junctions not supported on the current volume
+        abort @"
+The folder where Pog is installed ('$PSScriptRoot') is on a filesystem that does not support junctions (e.g. FAT32).
+This typically happens when you attempt to install Pog on a USB flash drive. To resolve the issue, either:
+  1) Re-format the drive to a more modern filesystem such as NTFS or ReFS. An easy way to do this is through File Explorer:
+     This PC -> Right click the drive -> Format -> Set "File System" to "NTFS" -> Click "Start"
+  2) Move Pog to a different drive (the C:\ system drive should always work).
+"@
+    } else {
+        # junction creation failed for another reason
+        # try to continue and see if we fail with something else
+    }
+}
+Remove-Item $JunctionPath -ErrorAction Ignore
+
+
+# check if symlinks are enabled on the machine
 $SymlinkPath = "$env:TEMP\Pog-symlink-test-$(New-Guid)"
 try {
     # try creating a symlink in TEMP to itself
@@ -58,7 +81,7 @@ To allow creating symbolic links, do any of the following and re-run '$PSCommand
 }
 
 
-# first, start the BITS service in the background, which is used for downloading packages
+# before running the actual setup, start the BITS service in the background, which is used for downloading packages
 # the user it likely to want to install a package after installing Pog, and BITS takes a bit of time to start up
 $BitsJob = Start-Job {Start-Service BITS}
 $null = Register-ObjectEvent -InputObject $BitsJob -EventName StateChanged -Action {
@@ -68,13 +91,12 @@ $null = Register-ObjectEvent -InputObject $BitsJob -EventName StateChanged -Acti
     Remove-Job -Id $EventSubscriber.SourceObject.Id
 }
 
-
 # need to call unblock before importing any modules
 Write-Host "Unblocking Pog PowerShell files..."
 & {
     gi $PSScriptRoot/app/Pog/lib_compiled/*
     ls -Recurse $PSScriptRoot/app -File -Filter *.ps*1
- } | Unblock-File
+} | Unblock-File
 
 # these modules only use library functions, so it is safe to import them even during setup
 Import-Module $PSScriptRoot/app/Pog/lib/Utils
