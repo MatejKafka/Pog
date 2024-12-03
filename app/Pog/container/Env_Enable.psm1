@@ -450,14 +450,15 @@ function Export-Shortcut {
 
 
 	$ShimChanged = $false
-	if ($ArgumentList -or $EnvironmentVariables -or $VcRedist) {
+	if ($WorkingDirectory -or $ArgumentList -or $EnvironmentVariables -or $VcRedist) {
 		Write-Debug "Creating a hidden shim to set arguments and environment..."
-		# if -EnvironmentVariables was used, create a hidden command and point the shortcut to it,
-		#  since shortcuts cannot set environment variables
-		# if -ArgumentList was passed, also create it, because if someone creates a file association by selecting
+		# in general, we do not want to set anything important in the shortcut and centralize everything in the hidden shim
+		# for -EnvironmentVariables, we have to use a shim, since shortcuts cannot set environment variables
+		# for -ArgumentList, we also need to use it, because if someone creates a file association by selecting
 		#  the shortcut, the command line is lost (yeah, Windows are kinda stupid sometimes)
 		$Target = Export-Command -_InternalDoNotUse_Shortcut -PassThru `
 			$ShortcutName $TargetPath `
+			-WorkingDirectory $WorkingDirectory `
 			-EnvironmentVariables $EnvironmentVariables `
 			-ArgumentList $ArgumentList `
 			-VcRedist:$VcRedist `
@@ -483,7 +484,7 @@ function Export-Shortcut {
 	if (Test-Path $ShortcutPath) {
 		if ($S.TargetPath -eq $Target `
 				-and $S.Arguments -eq "" `
-				-and $S.WorkingDirectory -eq $WorkingDirectory `
+				-and $S.WorkingDirectory -eq "" `
 				-and $S.IconLocation -eq $Icon `
 				-and $S.Description -eq $Description) {
 			if ($ShimChanged) {
@@ -499,7 +500,7 @@ function Export-Shortcut {
 
 	$S.TargetPath = $Target
 	$S.Arguments = ""
-	$S.WorkingDirectory = $WorkingDirectory
+	$S.WorkingDirectory = ""
 	$S.IconLocation = $Icon
 	$S.Description = $Description
 
