@@ -37,31 +37,35 @@ public static class Verify {
     }
 
     public class PackageNameAttribute : ValidateArgumentsAttribute {
-        protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            ValidateList<string>(arguments, PackageName);
+        protected override void Validate(object? arguments, EngineIntrinsics engineIntrinsics) {
+            ValidateArrayParam<string>(arguments, PackageName);
         }
     }
 
     public class Sha256HashAttribute : ValidateArgumentsAttribute {
-        protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            ValidateList<string>(arguments, Sha256Hash);
+        protected override void Validate(object? arguments, EngineIntrinsics engineIntrinsics) {
+            ValidateArrayParam<string>(arguments, Sha256Hash);
         }
     }
 
     public class FileNameAttribute : ValidateArgumentsAttribute {
-        protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            ValidateList<string>(arguments, FileName);
+        protected override void Validate(object? arguments, EngineIntrinsics engineIntrinsics) {
+            ValidateArrayParam<string>(arguments, FileName);
         }
     }
 
     public class FilePathAttribute : ValidateArgumentsAttribute {
-        protected override void Validate(object arguments, EngineIntrinsics engineIntrinsics) {
-            ValidateList<string>(arguments, FilePath);
+        protected override void Validate(object? arguments, EngineIntrinsics engineIntrinsics) {
+            ValidateArrayParam<string>(arguments, FilePath);
         }
     }
 
-    private static void ValidateList<T>(object arguments, Action<T> validator) {
-        if (arguments is T[] list) {
+    private static void ValidateArrayParam<T>(object? arguments, Action<T> validator) {
+        if (arguments == null) {
+            // for optional parameters, null is ok
+            // for mandatory parameters, we shouldn't even be called and pwsh should catch it
+            return;
+        } else if (arguments is T[] list) {
             foreach (var item in list) validator(item);
         } else {
             validator((T) arguments);
@@ -71,7 +75,7 @@ public static class Verify {
     internal static class Is {
         public static bool PackageName(string packageName) {
             // forbid Unix-style dot-files as package names
-            return Is.FileName(packageName) && packageName[0] != '.';
+            return FileName(packageName) && packageName[0] != '.';
         }
 
         public static bool Sha256Hash(string str) {
