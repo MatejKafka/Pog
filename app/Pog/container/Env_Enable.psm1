@@ -406,6 +406,7 @@ function Export-Shortcut {
 		$VcRedist
 	)
 
+	$Ctx = [Pog.EnableContainerContext]::GetCurrent($PSCmdlet)
 	$Shell = New-Object -ComObject "WScript.Shell"
 	# Shell object has different CWD, have to resolve all paths
 	$ShortcutPath = Resolve-VirtualPath ([Pog.PathConfig+PackagePaths]::ShortcutDirRelPath + "/$ShortcutName.lnk")
@@ -447,6 +448,7 @@ function Export-Shortcut {
 		# TODO: copy description from versioninfo resource of the target
 		$Description = [System.IO.Path]::GetFileNameWithoutExtension($TargetPath)
 	}
+	$Description += " ($($Ctx.Package.PackageName))"
 
 
 	$ShimChanged = $false
@@ -470,7 +472,7 @@ function Export-Shortcut {
 
 	# this shortcut was refreshed, not stale, remove it
 	# noop when not present
-	$null = [Pog.EnableContainerContext]::GetCurrent($PSCmdlet).StaleShortcuts.Remove($ShortcutPath)
+	$null = $Ctx.StaleShortcuts.Remove($ShortcutPath)
 
 	if ((Test-Path $ShortcutPath) -and -not [Pog.FsUtils]::FileExistsCaseSensitive($ShortcutPath)) {
 		Write-Debug "Updating casing of an exported shortcut..."
