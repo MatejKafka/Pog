@@ -213,7 +213,30 @@ public sealed class ImportedPackage : Package, ILocalPackage {
                     .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden));
         } catch (DirectoryNotFoundException) {
             // if nothing was exported, the directory might not exist
-            return Enumerable.Empty<FileInfo>();
+            return [];
+        }
+    }
+
+    internal bool RemoveGloballyExportedShortcut(FileInfo shortcut) {
+        var targetPath = $"{PathConfig.StartMenuExportDir}\\{shortcut.Name}";
+        var target = new FileInfo(targetPath);
+        if (!target.Exists || !FsUtils.FileContentEqual(shortcut, target)) {
+            return false;
+        } else {
+            // found a matching shortcut, delete it
+            target.Delete();
+            return true;
+        }
+    }
+
+    internal bool RemoveGloballyExportedCommand(FileInfo command) {
+        var targetPath = IOPath.Combine(InternalState.PathConfig.ExportedCommandDir, command.Name);
+        if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
+            // found a matching command, delete it
+            File.Delete(targetPath);
+            return true;
+        } else {
+            return false;
         }
     }
 

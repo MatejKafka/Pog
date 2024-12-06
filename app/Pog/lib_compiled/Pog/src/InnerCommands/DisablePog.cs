@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using System.Management.Automation;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -68,36 +67,21 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
     }
 
     private void RemoveGloballyExportedShortcuts(ImportedPackage p) {
-        if (!Directory.Exists(PathConfig.StartMenuExportDir)) {
-            return;
-        }
-
         foreach (var shortcut in p.EnumerateExportedShortcuts()) {
-            var shortcutName = shortcut.GetBaseName();
-            var targetPath = $"{PathConfig.StartMenuExportDir}\\{shortcut.Name}";
-            var target = new FileInfo(targetPath);
-
-            if (!target.Exists || !FsUtils.FileContentEqual(shortcut, target)) {
-                WriteVerbose($"Shortcut '{shortcutName}' is not exported to the Start menu.");
+            if (p.RemoveGloballyExportedShortcut(shortcut)) {
+                WriteInformation($"Removed an exported shortcut '{shortcut.GetBaseName()}'.");
             } else {
-                // found a matching shortcut, delete it
-                target.Delete();
-                WriteInformation($"Removed an exported shortcut '{shortcutName}'.");
+                WriteVerbose($"Shortcut '{shortcut.GetBaseName()}' is not exported to the Start menu.");
             }
         }
     }
 
     private void RemoveGloballyExportedCommands(ImportedPackage p) {
         foreach (var command in p.EnumerateExportedCommands()) {
-            var cmdName = command.GetBaseName();
-            var targetPath = Path.Combine(InternalState.PathConfig.ExportedCommandDir, command.Name);
-
-            if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
-                // found a matching command, delete it
-                File.Delete(targetPath);
-                WriteInformation($"Removed an exported command '{cmdName}'.");
+            if (p.RemoveGloballyExportedCommand(command)) {
+                WriteInformation($"Removed an exported command '{command.GetBaseName()}'.");
             } else {
-                WriteVerbose($"Command '{cmdName}' is not exported.");
+                WriteVerbose($"Command '{command.GetBaseName()}' is not exported.");
             }
         }
     }
