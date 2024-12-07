@@ -39,6 +39,12 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
     [ArgumentCompleter(typeof(RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
+    // we have some packages that do not provide versioned binaries in the repository,
+    //  so skipping this specific check is useful
+    /// If set, do not warn about missing checksums in packages.
+    [Parameter]
+    public SwitchParameter IgnoreMissingHash;
+
     private LocalRepository _repo = null!;
     private bool _noIssues = true;
 
@@ -237,7 +243,7 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
 
         if (p.Manifest.Install is {} installParams) {
             foreach (var ip in installParams) {
-                if (ip.ExpectedHash == null) {
+                if (ip.ExpectedHash == null && !IgnoreMissingHash) {
                     AddIssue($"Missing checksum in package '{p.PackageName}', version '{p.Version}'. " +
                              "This means that during installation, Pog cannot verify if the downloaded file is the same" +
                              "one that the package author intended. This may or may not be a problem on its own, but " +
