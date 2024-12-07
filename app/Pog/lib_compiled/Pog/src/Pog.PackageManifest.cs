@@ -203,7 +203,7 @@ public record PackageManifest {
 
         var expectedHash = parser.ParseScalar<string>("Hash", false);
         if (expectedHash == "") {
-            // allow empty hash, otherwise Show-PogManifestHash would be less ergonomic
+            // allow empty hash, otherwise Show-PogSourceHash would be less ergonomic
             expectedHash = null;
         }
         if (expectedHash != null && !Verify.Is.Sha256Hash(expectedHash)) {

@@ -26,22 +26,25 @@
 
 		'Find-Pog'
 		'Get-Pog'
+
 		'Confirm-Pog'
 		'Confirm-PogRepository'
 
-		'Show-PogManifestHash'
+		'Show-PogSourceHash'
 		'Clear-PogDownloadCache'
 
 		'Get-PogRoot'
 	)
 
 	FunctionsToExport = @(
-		'Update-PogManifest'
+		'Update-PogRepository'
+		# FIXME: these two names are inconsistent with the other commnands (explicit "Package" suffix),
+		#  but I could not figure out a better name
 		'New-PogRepositoryPackage'
 		'New-PogPackage'
 
 		'Set-PogRepository'
-		'Edit-PogRootList'
+		'Edit-PogRoot'
 	)
 
 	FormatsToProcess = 'Pog.Format.ps1xml'

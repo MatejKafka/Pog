@@ -11,8 +11,8 @@ namespace Pog.Commands;
 /// This cmdlet is useful for retrieving the hashes when writing a package manifest.
 /// </para>
 [PublicAPI]
-[Cmdlet(VerbsCommon.Show, "PogManifestHash", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
-public sealed class ShowPogManifestHashCommand : RepositoryPackageCommand {
+[Cmdlet(VerbsCommon.Show, "PogSourceHash", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
+public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
     private const string ImportedPS = "ImportedPackage";
 
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = ImportedPS, ValueFromPipeline = true)]

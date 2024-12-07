@@ -4,7 +4,7 @@ using module .\lib\Utils.psm1
 # if there are any missing package roots, show a warning
 foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots) {
 	Write-Warning ("Could not find package root '$r'. Create the directory, or remove it" `
-			+ " from the package root list using the 'Edit-PogRootList' command.")
+			+ " from the package root list using the 'Edit-PogRoot' command.")
 }
 
 
@@ -46,7 +46,7 @@ function Set-PogRepository {
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
 #  to get the file updates right from a concurrency perspective
 # TODO: ^ figure out how to provide the functions safely
-function Edit-PogRootList {
+function Edit-PogRoot {
 	### .SYNOPSIS
 	### Opens the configuration file listing package roots in a text editor.
 	[CmdletBinding()]
@@ -188,7 +188,7 @@ function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$
 	Invoke-Container -Modules $PSScriptRoot\container\Env_ManifestGenerator.psm1 -ArgumentList @($g, $c, $Version, $Force, $ListOnly, $GitHubToken)
 }
 
-function Update-PogManifest {
+function Update-PogRepository {
 	### .SYNOPSIS
 	### Generate new manifests in a local package repository for the selected package manifest generator.
 	[CmdletBinding()]
