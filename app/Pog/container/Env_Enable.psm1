@@ -451,24 +451,29 @@ function Export-Shortcut {
 	$Description += " ($($Ctx.Package.PackageName))"
 
 
-	$ShimChanged = $false
-	if ($WorkingDirectory -or $ArgumentList -or $EnvironmentVariables -or $VcRedist) {
-		Write-Debug "Creating a hidden shim to set arguments and environment..."
-		# in general, we do not want to set anything important in the shortcut and centralize everything in the hidden shim
-		# for -EnvironmentVariables, we have to use a shim, since shortcuts cannot set environment variables
-		# for -ArgumentList, we also need to use it, because if someone creates a file association by selecting
-		#  the shortcut, the command line is lost (yeah, Windows are kinda stupid sometimes)
-		$Target = Export-Command -_InternalDoNotUse_Shortcut -PassThru `
-			$ShortcutName $TargetPath `
-			-WorkingDirectory $WorkingDirectory `
-			-EnvironmentVariables $EnvironmentVariables `
-			-ArgumentList $ArgumentList `
-			-VcRedist:$VcRedist `
-			-ReplaceArgv0 `
-			-Verbose:$false -Debug:$false -InformationAction SilentlyContinue -InformationVariable InfoOutput
-		# this is very hacky, but it's the simplest way to see if Export-Command updated something
-		$ShimChanged = [bool]$InfoOutput
-	}
+	# originally, the hidden shim was only created when -EnvironmentVariables was passed, since we cannot set env vars on a shortcut
+	# over time, it was also used for -ArgumentList and -WorkingDirectory, because if someone creates a file association
+	#  by selecting the shortcut, the command line is lost (yeah, Windows are kinda stupid sometimes)
+	#
+	# however, only creating the shim for some shortcuts causes issues:
+	#  1) if an older version of a package invokes the target directly, the system copies the target path somewhere
+	#     (e.g. a file association) and the next version adds an argument/env var, it will not be picked up
+	#  2) without the shim, we do not have any way of checking which package an exported shortcut belongs to without
+	#     resorting to fragile solutions such as sneaking metadata after the end of the .lnk file or into an ADS
+	#
+	# therefore, we now always create the shim; the shim invocation overhead is ~6 ms on my pretty average laptop,
+	#  which is imo acceptable since .lnk shortcuts are typically not invoked on hot code paths, unlike commands
+	$Target = Export-Command -_InternalDoNotUse_Shortcut -PassThru `
+		$ShortcutName $TargetPath `
+		-WorkingDirectory $WorkingDirectory `
+		-EnvironmentVariables $EnvironmentVariables `
+		-ArgumentList $ArgumentList `
+		-VcRedist:$VcRedist `
+		-ReplaceArgv0 `
+		-Verbose:$false -Debug:$false -InformationAction SilentlyContinue -InformationVariable InfoOutput
+	# this is very hacky, but it's the simplest way to see if Export-Command updated something
+	$ShimChanged = [bool]$InfoOutput
+
 
 	# this shortcut was refreshed, not stale, remove it
 	# noop when not present
@@ -480,7 +485,7 @@ function Export-Shortcut {
 		Remove-Item -LiteralPath $ShortcutPath
 	}
 
-	$InfoMsg = "Set up a shortcut called '$ShortcutName' (target: '$TargetPath')."
+	$InfoMsg = "Exported shortcut '$ShortcutName'."
 	$S = $Shell.CreateShortcut($ShortcutPath)
 
 	if (Test-Path $ShortcutPath) {
