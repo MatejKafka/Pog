@@ -26,12 +26,12 @@ public class Win32ArgsTests {
 
     [Fact]
     public void TestWhitespace() {
-        TestArgs(new[] {"cmd", " ", "   ", " \t ", "\n", "test\ntest", "\t\t\t"});
+        TestArgs(["cmd", " ", "   ", " \t ", "\n", "test\ntest", "\t\t\t"]);
     }
 
     [Fact]
     public void TestQuote() {
-        TestArgs(new[] {"test\"test"});
+        TestArgs(["test\"test"]);
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class Win32ArgsTests {
         }
     }
 
-    private void TestArgs(IReadOnlyCollection<string> args) {
+    private static void TestArgs(IReadOnlyCollection<string> args) {
         var commandLine = Win32Args.EscapeArguments(args);
         // CommandLineToArgv has special rules for the first argument, give it a dummy
         // TODO: shouldn't we add a flag?
