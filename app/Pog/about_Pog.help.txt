@@ -42,8 +42,8 @@ Uninstall a package:
 
 List packages:
 
-    Get-PogPackage # list installed packages
-    Find-PogPackage # list available packages
+    Get-Pog # list installed packages
+    Find-Pog # list available packages
 
 Modify the list of portable package directories (opens a text editor):
 

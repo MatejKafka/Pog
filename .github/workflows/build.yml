@@ -132,10 +132,10 @@ jobs:
         $InformationPreference = "Continue"
         Import-Module ./app/Pog -Verbose
 
-        Write-Host "Available packages: $(@(Find-PogPackage -AllVersions).Count)"
+        Write-Host "Available packages: $(@(Find-Pog -AllVersions).Count)"
         pog fzf, zstd, Jujutsu
 
-        Get-PogPackage
+        Get-Pog
 
         Write-Host ""
         Write-Host "fzf: $(fzf --version)"
@@ -154,10 +154,10 @@ jobs:
         $InformationPreference = "Continue"
         Import-Module ./app/Pog -Verbose
 
-        Write-Host "Available packages: $(@(Find-PogPackage -AllVersions).Count)"
+        Write-Host "Available packages: $(@(Find-Pog -AllVersions).Count)"
         pog fzf, zstd, Jujutsu
 
-        Get-PogPackage
+        Get-Pog
 
         Write-Host ""
         Write-Host "fzf: $(fzf --version)"

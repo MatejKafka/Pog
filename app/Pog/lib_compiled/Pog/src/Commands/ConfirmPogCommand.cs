@@ -6,19 +6,20 @@ using System.Management.Automation;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
+using Pog.PSAttributes;
 using Pog.Utils;
 
 namespace Pog.Commands;
 
-/// <summary>>Validates an installed package.</summary>
+/// <summary>>Validates that an installed package is well-formed.</summary>
 /// <para>
 /// Supported parameter modes:
 /// 1) no arguments, no pipeline input -> Validates structure of all installed packages and package roots.
 /// 2) PackageName / Package -> Validates the selected installed package.
 /// </para>
 [PublicAPI]
-[Cmdlet(VerbsLifecycle.Confirm, "PogPackage", DefaultParameterSetName = DefaultPS)]
-public sealed class ConfirmPogPackageCommand : PogCmdlet {
+[Cmdlet(VerbsLifecycle.Confirm, "Pog", DefaultParameterSetName = DefaultPS)]
+public sealed class ConfirmPogCommand : PogCmdlet {
     protected const string PackagePS = "Package";
     protected const string PackageNamePS = "PackageName";
     protected const string DefaultPS = PackageNamePS;
@@ -28,7 +29,7 @@ public sealed class ConfirmPogPackageCommand : PogCmdlet {
 
     /// Names of installed packages to validate. If not passed, all installed packages are validated.
     [Parameter(Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
-    [ArgumentCompleter(typeof(PSAttributes.ImportedPackageNameCompleter))]
+    [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[]? PackageName;
 
     private readonly ImportedPackageManager _packages = InternalState.ImportedPackageManager;

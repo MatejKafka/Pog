@@ -24,10 +24,10 @@
 		'Disable-Pog'
 		'Uninstall-Pog'
 
-		'Find-PogPackage'
-		'Get-PogPackage'
-		'Confirm-PogPackage'
-		'Confirm-PogRepositoryPackage'
+		'Find-Pog'
+		'Get-Pog'
+		'Confirm-Pog'
+		'Confirm-PogRepository'
 
 		'Show-PogManifestHash'
 		'Clear-PogDownloadCache'

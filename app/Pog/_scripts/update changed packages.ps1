@@ -1,10 +1,10 @@
 param([switch]$ListOnly, [switch]$ManifestCheck)
 
-$ImportedPackages = Get-PogPackage | ? {$_.Version -and $_.ManifestName}
+$ImportedPackages = Get-Pog | ? {$_.Version -and $_.ManifestName}
 
 $RepositoryPackageMap = @{}
 $ImportedPackages | % ManifestName | select -Unique
-    | Find-PogPackage -LoadManifest:$ManifestCheck -ErrorAction Ignore
+    | Find-Pog -LoadManifest:$ManifestCheck -ErrorAction Ignore
     | % {
         $RepositoryPackageMap[$_.PackageName] = $_
     }

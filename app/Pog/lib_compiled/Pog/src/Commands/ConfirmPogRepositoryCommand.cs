@@ -11,17 +11,17 @@ using Pog.Utils;
 
 namespace Pog.Commands;
 
-// TODO: only works on local repository, either document it or extend it to remote repositories (probably don't)
-/// <summary>Validates a repository package.</summary>
+// TODO: allow passing the local repository as an argument?
+/// <summary>Validates that a package from a local repository is well-formed.</summary>
 /// <para>
 /// Supported parameter modes:
-/// 1) no arguments, no pipeline input -> Validates structure of the whole repository, including all packages.
+/// 1) no arguments, no pipeline input -> Validates structure of the whole local repository, including all packages.
 /// 2) PackageName, no Version -> Validates root of the package and all versions.
 /// 3) PackageName + Version / Package -> Validates the selected version of the package.
 /// </para>
 [PublicAPI]
-[Cmdlet(VerbsLifecycle.Confirm, "PogRepositoryPackage", DefaultParameterSetName = DefaultPS)]
-public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
+[Cmdlet(VerbsLifecycle.Confirm, "PogRepository", DefaultParameterSetName = DefaultPS)]
+public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
     protected const string PackagePS = "Package";
     protected const string PackageNamePS = "PackageName";
     protected const string DefaultPS = PackageNamePS;
@@ -61,8 +61,8 @@ public sealed class ConfirmPogRepositoryPackageCommand : PogCmdlet {
         if (InternalState.Repository is LocalRepository r) {
             _repo = r;
         } else {
-            // TODO: implement
-            throw new RuntimeException("Validation of remote repositories is not yet supported.");
+            throw new RuntimeException("Validation of remote repositories and repository lists is not supported. " +
+                                       "Please explicitly set a local repository.");
         }
 
         if (Version != null) {

@@ -4,33 +4,34 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
+using Pog.PSAttributes;
 
 namespace Pog.Commands;
 
 /// <summary>Lists packages available in the package repository.</summary>
 /// <para>
-/// The `Find-PogPackage` cmdlet lists packages from the package repository.
+/// The `Find-Pog` cmdlet lists packages from the package repository.
 /// Each package is represented by a single `Pog.RepositoryPackage` instance. By default, only the latest version
 /// of each package is returned. If you want to list all available versions, use the `-AllVersions` switch parameter.
 /// </para>
 [PublicAPI]
-[Cmdlet(VerbsCommon.Find, "PogPackage", DefaultParameterSetName = VersionPS)]
+[Cmdlet(VerbsCommon.Find, "Pog", DefaultParameterSetName = VersionPS)]
 [OutputType(typeof(RepositoryPackage))]
-public sealed class FindPogPackageCommand : PogCmdlet {
+public sealed class FindPogCommand : PogCmdlet {
     private const string VersionPS = "Version";
     private const string AllVersionsPS = "AllVersions";
 
     /// Names of packages to return. If not passed, all repository packages are returned.
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
     [ValidateNotNullOrEmpty]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageNameCompleter))]
     public string[]? PackageName;
 
     // TODO: figure out how to remove this parameter when -PackageName is an array
     /// Return only a single package with the given version. An exception is thrown if the version is not found.
     /// This parameter is only supported when a single package name is passed in <see cref="PackageName"/>.
     [Parameter(Position = 1, ParameterSetName = VersionPS)]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
     /// Return all available versions of each repository package. By default, only the latest one is returned.

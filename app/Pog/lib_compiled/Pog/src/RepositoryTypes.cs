@@ -43,8 +43,18 @@ public class RepositoryList(IRepository[] repositories) : IRepository {
 
     // FIXME: figure out how to support combining package versions for a single package from multiple repositories
     //  e.g. repo 1 has Firefox v100, repo 2 has Firefox v101; if you search for Firefox v101, the search will fail,
-    //  because this method will return Firefox from repo 1, and Find-PogPackage will not enumerate repo 2 at all
-    // FIXME: related ^, `Find-PogPackage p` will only return a single `p` package, but `Find-PogPackage `*p*` will return both
+    //  because this method will return Firefox from repo 1, and Find-Pog will not enumerate repo 2 at all;
+    // FIXME: related ^, `Find-Pog p` will only return a single `p` package, but `Find-Pog `*p*` will return both
+    // TODO: what to do with same-named packages with different versions in different repos? we could have
+    //  a RepositoryVersionedPackageList which combines multiple packages (the interface seems open enough), but I'm not sure
+    //  it makes sense to implement this, maybe it's best to just keep the current behavior
+    //  options:
+    //  1) merge available package versions across all repos with RepositoryVersionedPackageList (imo it's too risky,
+    //     but it's roughly what e.g. `apt` does, so users might be familiar with it; hardest to implement)
+    //  2) take the first package found and ignore anything later (currently implemented, imo reasonable compromise)
+    //  3) if a query is ambiguous (multiple matching packages from different repos), error out and force the user
+    //     to explicitly specify the repo to use (most robust, easy to implement but have to always poll all repos,
+    //     also need to add UI for specifying the repo, which probably makes the UI a bit more complex)
     public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist) {
         foreach (var r in Repositories) {
             var p = r.GetPackage(packageName, resolveName, false);

@@ -142,7 +142,7 @@ Import-Module $PSScriptRoot\app\Pog
 
 # setup 7zip
 & {
-    $7z = Get-PogPackage 7zip -ErrorAction Ignore
+    $7z = Get-Pog 7zip -ErrorAction Ignore
     if (-not $7z) {
         abort ("Could not find the '7zip' package, required for correct functioning of Pog. It should be distributed with Pog itself. " +`
             "Please install Pog from a release, not by cloning the repository directly.")
@@ -169,7 +169,7 @@ Import-Module $PSScriptRoot\app\Pog
 
 # check if user already installed any packages; if so, prompt to enable & export them
 #  so that everything is ready for the user in case of the portable scenario
-$ExtraPackages = & {Get-PogPackage} | ? PackageName -notin "Pog", "7zip"
+$ExtraPackages = & {Get-Pog} | ? PackageName -notin "Pog", "7zip"
 if ($ExtraPackages) {
     $ShouldEnable = switch ($Enable) {
         "All" {$true}
@@ -188,7 +188,7 @@ if ($ExtraPackages) {
                 0 {$true} # Yes
                 1 { # No
                     Write-Host "Not enabling installed packages. To enable them manually, run:"
-                    Write-Host "    Get-PogPackage | Enable-Pog -PassThru | Export-Pog" -ForegroundColor Green
+                    Write-Host "    Get-Pog | Enable-Pog -PassThru | Export-Pog" -ForegroundColor Green
                     $false
                 }
             }

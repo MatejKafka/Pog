@@ -1,51 +1,51 @@
 --- Package ---
-Import-Pog (Find-PogPackage test1)
+Import-Pog (Find-Pog test1)
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1'.
 
-Import-Pog (Find-PogPackage test1, test2)
+Import-Pog (Find-Pog test1, test2)
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1'.
 What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root0\test2'.
 
-Import-Pog (Find-PogPackage test1) -TargetName target
+Import-Pog (Find-Pog test1) -TargetName target
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\target'.
 
-Import-Pog (Find-PogPackage test1) -TargetPackageRoot $Roots[1]
+Import-Pog (Find-Pog test1) -TargetPackageRoot $Roots[1]
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\test1'.
 
-Import-Pog (Find-PogPackage test1) -TargetName target -TargetPackageRoot $Roots[1]
+Import-Pog (Find-Pog test1) -TargetName target -TargetPackageRoot $Roots[1]
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\target'.
 
-Import-Pog (Find-PogPackage test1) (Get-PogPackage test1-imported)
+Import-Pog (Find-Pog test1) (Get-Pog test1-imported)
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
 
-Find-PogPackage test1, test2 | Import-Pog
+Find-Pog test1, test2 | Import-Pog
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1'.
 What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root0\test2'.
 
-Find-PogPackage test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]
+Find-Pog test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\test1'.
 What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2'.
 
 --- Package, should fail ---
-Import-Pog (Find-PogPackage test1) -TargetPackageRoot "$TEST_DIR\nonexistent"
+Import-Pog (Find-Pog test1) -TargetPackageRoot "$TEST_DIR\nonexistent"
 TERMINATING ERROR: The passed package root is not registered: TEST_DIR\nonexistent
 
-Import-Pog (Find-PogPackage test1) -TargetName target, target2
+Import-Pog (Find-Pog test1) -TargetName target, target2
 TERMINATING ERROR: At most one target must be specified when a source package is provided to avoid ambiguity.
 
-Import-Pog (Find-PogPackage test1, test2) -TargetName target
+Import-Pog (Find-Pog test1, test2) -TargetName target
 TERMINATING ERROR: At most one source package must be specified when an explicit target is specified.
 
-Import-Pog (Find-PogPackage test1) (Get-PogPackage test1-imported, test1-imported)
+Import-Pog (Find-Pog test1) (Get-Pog test1-imported, test1-imported)
 TERMINATING ERROR: At most one target must be specified when a source package is provided to avoid ambiguity.
 
-Import-Pog (Find-PogPackage test1, test2) (Get-PogPackage test1-imported)
+Import-Pog (Find-Pog test1, test2) (Get-Pog test1-imported)
 TERMINATING ERROR: At most one source package must be specified when an explicit target is specified.
 
-Find-PogPackage test1 | Import-Pog -TargetName target
+Find-Pog test1 | Import-Pog -TargetName target
 TERMINATING ERROR: -TargetName must not be passed together with pipeline input.
 
-Find-PogPackage test1 | Import-Pog -Version 1.0.0
+Find-Pog test1 | Import-Pog -Version 1.0.0
 TERMINATING ERROR: -Version must not be passed together with pipeline input.
 
 --- PackageName ---
@@ -65,7 +65,7 @@ What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\test1'.
 Import-Pog test1 -TargetName target -TargetPackageRoot $Roots[1]
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\target'.
 
-Import-Pog test1 -Target (Get-PogPackage test1-imported)
+Import-Pog test1 -Target (Get-Pog test1-imported)
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
 
 Import-Pog test1 1.0.0
@@ -80,7 +80,7 @@ What if: Importing package 'test1', version '1.0.0' to 'TEST_DIR\root1\test1'.
 Import-Pog test1 1.0.0 -TargetName target -TargetPackageRoot $Roots[1]
 What if: Importing package 'test1', version '1.0.0' to 'TEST_DIR\root1\target'.
 
-Import-Pog test1 1.0.0 -Target (Get-PogPackage test1-imported)
+Import-Pog test1 1.0.0 -Target (Get-Pog test1-imported)
 What if: Importing package 'test1', version '1.0.0' to 'TEST_DIR\root0\test1-imported'.
 
 "test1", "test2" | Import-Pog
@@ -104,7 +104,7 @@ TERMINATING ERROR: -Version must not be passed when -PackageName contains multip
 Import-Pog -Version 1.0.0
 PARAMETER BINDING EXCEPTION
 
-Import-Pog (Find-PogPackage test1) 1.0.0
+Import-Pog (Find-Pog test1) 1.0.0
 PARAMETER BINDING EXCEPTION
 
 --- Target/TargetName ---
@@ -118,14 +118,14 @@ What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2-imp
 Import-Pog -TargetName test1-imported -TargetPackageRoot $Roots[0]
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
 
-Import-Pog (Get-PogPackage test1-imported)
+Import-Pog (Get-Pog test1-imported)
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
 
-Import-Pog (Get-PogPackage test1-imported, test2-imported)
+Import-Pog (Get-Pog test1-imported, test2-imported)
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
 What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2-imported'.
 
-Get-PogPackage test1-imported, test2-imported | Import-Pog
+Get-Pog test1-imported, test2-imported | Import-Pog
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
 What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2-imported'.
 

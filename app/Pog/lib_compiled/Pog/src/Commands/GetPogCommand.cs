@@ -2,26 +2,27 @@
 using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
+using Pog.PSAttributes;
 
 namespace Pog.Commands;
 
 /// <summary>Lists installed packages.</summary>
 /// <para>
-/// The `Get-PogPackage` cmdlet lists installed packages. Each package is represented by a single `Pog.ImportedPackage` instance.
+/// The `Get-Pog` cmdlet lists installed packages. Each package is represented by a single `Pog.ImportedPackage` instance.
 /// By default, packages from all package roots are returned, unless the `-PackageRoot` parameter is set.
 /// </para>
 [PublicAPI]
-[Cmdlet(VerbsCommon.Get, "PogPackage")]
+[Cmdlet(VerbsCommon.Get, "Pog")]
 [OutputType(typeof(ImportedPackage))]
-public sealed class GetPogPackageCommand : PogCmdlet {
+public sealed class GetPogCommand : PogCmdlet {
     /// Names of installed packages to return. If not passed, all installed packages are returned.
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
-    [ArgumentCompleter(typeof(PSAttributes.ImportedPackageNameCompleter))]
+    [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[]? PackageName;
 
     /// Path to the package root in which to list packages. If not passed, matching packages in all package roots are returned.
     [Parameter(ValueFromPipelineByPropertyName = true)]
-    [ArgumentCompleter(typeof(PSAttributes.ValidPackageRootPathCompleter))]
+    [ArgumentCompleter(typeof(ValidPackageRootPathCompleter))]
     public string? PackageRoot;
 
     private readonly ImportedPackageManager _packages = InternalState.ImportedPackageManager;

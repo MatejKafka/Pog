@@ -39,7 +39,7 @@ IconIndex=$index
 
 
 Import-Module Pog
-foreach ($p in Get-PogPackage $PackageName) {
+foreach ($p in Get-Pog $PackageName) {
 	try {addIcon $p.Path}
 	catch {Write-Warning ($p.PackageName + ": $_")}
 }

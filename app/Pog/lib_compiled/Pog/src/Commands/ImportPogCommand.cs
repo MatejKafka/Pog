@@ -265,7 +265,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
     }
 
     private void ImportPackage(RepositoryPackage package, ImportedPackage target) {
-        // TODO: in the PowerShell version, we used to run Confirm-PogRepositoryManifest here;
+        // TODO: in the PowerShell version, we used to run Confirm-PogRepository here;
         //  think through whether it's a good idea to add that back
         package.EnsureManifestIsLoaded();
 

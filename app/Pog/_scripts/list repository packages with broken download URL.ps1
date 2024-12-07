@@ -1,4 +1,4 @@
-Find-PogPackage -AllVersions
+Find-Pog -AllVersions
     | % {$_.Manifest.Install}
     | % ResolveUrl
     | % -ThrottleLimit 50 -Parallel {

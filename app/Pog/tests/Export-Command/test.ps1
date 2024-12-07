@@ -27,7 +27,7 @@ function Set-Manifest($Path, $ExportName, [switch]$Symlink) {
 
 function test($PackageName) {
     Enable-Pog $PackageName
-    Get-PogPackage $PackageName | % ExportedCommands | % Name
+    Get-Pog $PackageName | % ExportedCommands | % Name
 }
 
 

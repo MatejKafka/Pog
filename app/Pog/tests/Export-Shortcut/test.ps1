@@ -31,7 +31,7 @@ function Set-Manifest($Path, $ExportName, $Shim = "") {
 
 function test($PackageName) {
     Enable-Pog $PackageName
-    Get-PogPackage $PackageName | % ExportedShortcuts | % Name
+    Get-Pog $PackageName | % ExportedShortcuts | % Name
 }
 
 
