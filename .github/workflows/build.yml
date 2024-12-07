@@ -144,6 +144,7 @@ jobs:
 
         Write-Host ""
         Uninstall-Pog fzf, zstd, Jujutsu
+        Clear-PogDownloadCache -Force
 
     # the same test in PowerShell 5, to test compatibility
     - name: Test Pog packages (PowerShell 5)
@@ -165,3 +166,4 @@ jobs:
 
         Write-Host ""
         Uninstall-Pog fzf, zstd, Jujutsu
+        Clear-PogDownloadCache -Force
