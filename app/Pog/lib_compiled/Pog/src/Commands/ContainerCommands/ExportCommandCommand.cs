@@ -24,12 +24,12 @@ public class ExportCommandCommand : PSCmdlet {
 
     /// Path to the invoked target. Note that it must either be an executable (.exe) or a batch file (.cmd/.bat).
     [Parameter(Mandatory = true, Position = 1)]
-    [Verify.FilePath]
+    [Verify.ExistingPath("Command target")]
     public string TargetPath = null!;
 
     /// Working directory to set while invoking the target.
     [Parameter(ParameterSetName = ShimPS)]
-    [Verify.FilePath]
+    [Verify.ExistingPath("Command working directory")]
     public string? WorkingDirectory;
 
     /// An argv-like array of arguments which are prepended to the command line that the target is invoked with.
@@ -48,8 +48,9 @@ public class ExportCommandCommand : PSCmdlet {
     [Alias("Environment")]
     public IDictionary? EnvironmentVariables;
 
+    /// Path to an .exe to copy icons and similar PE resources from. If not passed, <see cref="TargetPath"/> is used instead.
     [Parameter(ParameterSetName = ShimPS)]
-    [Verify.FilePath]
+    [Verify.ExistingPath("Command metadata source")]
     public string? MetadataSource;
 
     // useful when the manifest wants to invoke the binary during Enable (e.g. initial config generation in Syncthing)
@@ -77,13 +78,6 @@ public class ExportCommandCommand : PSCmdlet {
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
-
-        foreach (var cmdName in CommandName) {
-            Verify.FileName(cmdName);
-        }
-        Verify.FilePath(TargetPath);
-        if (WorkingDirectory != null) Verify.FilePath(WorkingDirectory);
-        if (MetadataSource != null) Verify.FilePath(MetadataSource);
 
         var internalState = EnableContainerContext.GetCurrent(this);
         var rTargetPath = GetUnresolvedProviderPathFromPSPath(TargetPath)!;

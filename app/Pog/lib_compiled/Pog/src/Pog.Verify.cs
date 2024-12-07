@@ -60,6 +60,16 @@ public static class Verify {
         }
     }
 
+    public class ExistingPathAttribute(string targetName = "Path") : ValidateArgumentsAttribute {
+        protected override void Validate(object? arguments, EngineIntrinsics engineIntrinsics) {
+            ValidateArrayParam<string>(arguments, p => {
+                if (!engineIntrinsics.InvokeProvider.Item.Exists(p)) {
+                    throw new ValidationMetadataException($"{targetName} does not exist: {p}");
+                }
+            });
+        }
+    }
+
     private static void ValidateArrayParam<T>(object? arguments, Action<T> validator) {
         if (arguments == null) {
             // for optional parameters, null is ok
