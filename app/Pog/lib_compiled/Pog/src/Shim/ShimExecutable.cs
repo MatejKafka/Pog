@@ -26,10 +26,13 @@ public class ShimExecutable {
     // TODO: bring back ResourceType.Manifest, but it will require some amount of parsing
     //  e.g. Firefox declares required assemblies, which the shim doesn't see, so it fails
     //  also, some binaries (e.g. mmc.exe seem to have multiple manifests)
+    // TODO: if the Manifest resource is also copied, it should probably be always copied from the target? but the point of
+    //  MetadataSource was iirc to allow using a batch file launcher but use metadata of the actual target, in which case
+    //  we want the manifest of the MetadataSource?
     /// List of resource types which are copied from target to the shim.
     private static readonly PeResources.ResourceType[] CopiedResourceTypes = {
         PeResources.ResourceType.Icon, PeResources.ResourceType.IconGroup,
-        PeResources.ResourceType.Version /*, ResourceType.Manifest*/
+        PeResources.ResourceType.Version, /*ResourceType.Manifest,*/
     };
     /// List of supported target extensions. All listed extensions can be invoked directly by `CreateProcess(...)`.
     private static readonly string[] SupportedTargetExtensions = [".exe", ".com", ".cmd", ".bat"];
@@ -84,6 +87,11 @@ public class ShimExecutable {
     }
 
     /// Ensures that the shim at shimPath is up-to-date.
+    /// <param name="shimPath">Path an existing initialized shim executable to update.</param>
+    /// <param name="resourceSrcPath">
+    /// Optional path to an .exe to copy resources such as the icon from.
+    /// If not passed and the shim target is an .exe, it is used instead.
+    /// </param>
     /// <returns>true if anything changed, false if shim is up-to-date</returns>
     /// <exception cref="OutdatedShimException"></exception>
     public bool UpdateShim(string shimPath, string? resourceSrcPath = null) {
