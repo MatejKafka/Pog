@@ -418,9 +418,7 @@ function Export-Shortcut {
 
 	Write-Debug "Resolved shortcut target: $Target"
 
-	if (-not $WorkingDirectory) {
-		$WorkingDirectory = Split-Path $Target
-	} else {
+	if ($WorkingDirectory) {
 		$WorkingDirectory = Resolve-VirtualPath $WorkingDirectory
 		if (-not [System.IO.Directory]::Exists($WorkingDirectory)) {
 			throw "Shortcut working directory does not exist: $WorkingDirectory"
