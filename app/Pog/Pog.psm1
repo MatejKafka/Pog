@@ -1,5 +1,5 @@
-using module .\lib\Utils.psm1
-. $PSScriptRoot\lib\header.ps1
+using module .\Utils.psm1
+. $PSScriptRoot\header.ps1
 
 # if there are any missing package roots, show a warning
 foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots) {

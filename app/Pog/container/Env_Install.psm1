@@ -1,5 +1,5 @@
-using module ..\lib\Utils.psm1
-. $PSScriptRoot\..\lib\header.ps1
+using module ..\Utils.psm1
+. $PSScriptRoot\..\header.ps1
 
 function __main {
 	param([Pog.PackageManifest]$Manifest)

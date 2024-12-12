@@ -1,7 +1,7 @@
 using module ..\TestEnvironmentSetup.psm1
 param([Parameter(Mandatory)][string]$TestDirPath)
 
-. $PSScriptRoot\..\..\lib\header.ps1
+. $PSScriptRoot\..\..\header.ps1
 
 
 function title($Title) {

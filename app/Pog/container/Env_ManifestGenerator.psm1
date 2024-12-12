@@ -1,5 +1,5 @@
-using module .\..\lib\Utils.psm1
-. $PSScriptRoot\..\lib\header.ps1
+using module ..\Utils.psm1
+. $PSScriptRoot\..\header.ps1
 
 # TODO: provide support for simple version comparison; currently, the author must do something like
 #  `[Pog.PackageVersion]$_.tag_name.Substring(1) -ge [Pog.PackageVersion]"0.8.0"}`, we could provide something like

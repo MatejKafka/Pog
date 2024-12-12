@@ -100,7 +100,7 @@ Write-Host "Unblocking Pog PowerShell files..."
 } | Unblock-File
 
 # these modules only use library functions, so it is safe to import them even during setup
-Import-Module $PSScriptRoot/app/Pog/lib/Utils
+Import-Module $PSScriptRoot/app/Pog/Utils
 
 
 function newdir($Dir) {

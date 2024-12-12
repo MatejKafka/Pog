@@ -1,4 +1,4 @@
-. $PSScriptRoot\..\lib\header.ps1
+. $PSScriptRoot\..\header.ps1
 
 
 <# This function is called after the container setup is finished to run the passed manifest. #>

@@ -1,4 +1,4 @@
-. $PSScriptRoot\..\lib\header.ps1
+. $PSScriptRoot\..\header.ps1
 
 
 function RenderTemplate($Template, $DestinationPath, [Hashtable]$TemplateData) {
