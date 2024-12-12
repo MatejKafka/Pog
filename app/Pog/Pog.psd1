@@ -37,6 +37,7 @@
 	)
 
 	FunctionsToExport = @(
+		'Update-Pog'
 		'Update-PogRepository'
 		# FIXME: these two names are inconsistent with the other commnands (explicit "Package" suffix),
 		#  but I could not figure out a better name

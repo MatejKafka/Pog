@@ -169,6 +169,63 @@ function New-PogPackage {
 }
 
 
+# this is a temporary function which is not very well thought through
+function Update-Pog {
+	### .SYNOPSIS
+	### Lists outdated installed packages and updates selected packages to the latest version.
+	[CmdletBinding()]
+	param(
+			[ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
+			[Pog.Verify+PackageName()]
+			[string[]]
+		$PackageName,
+			[switch]
+		$ListOnly,
+			[switch]
+		$ManifestCheck,
+			[switch]
+		$Force
+	)
+
+	$ImportedPackages = Get-Pog $PackageName | ? {$_.Version -and $_.ManifestName}
+
+	$RepositoryPackageMap = @{}
+	$ImportedPackages | % ManifestName `
+		| select -Unique `
+		| Find-Pog -LoadManifest:$ManifestCheck -ErrorAction Ignore `
+		| % {$RepositoryPackageMap[$_.PackageName] = $_}
+
+	$OutdatedPackages = $ImportedPackages | % {
+		$r = $RepositoryPackageMap[$_.ManifestName]
+		if (-not $r) {
+			return
+		}
+
+		if ($r.Version -gt $_.Version -or ($ManifestCheck -and $r.Version -eq $_.Version -and -not $r.MatchesImportedManifest($_))) {
+			return [pscustomobject]@{
+				PackageName = $_.PackageName
+				CurrentVersion = $_.Version
+				LatestVersion = $r.Version
+				Target = $_
+			}
+		}
+	}
+
+	$SelectedPackages = if ($Force) {
+		$OutdatedPackages | % Target
+	} else {
+		$OutdatedPackages | Out-GridView -PassThru -Title "Outdated packages" | % Target
+	}
+
+	if ($ListOnly) {
+		return $SelectedPackages
+	} else {
+		# -Force because user already confirmed the update
+		$SelectedPackages | pog -Force
+	}
+}
+
+
 function UpdateSinglePackage([string]$PackageName, [string[]]$Version, [switch]$Force, [switch]$ListOnly, $GitHubToken) {
 	Write-Verbose "Checking updates for '$PackageName'..."
 
