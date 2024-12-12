@@ -1,15 +1,31 @@
-<# Creates a new Pog release from latest commit, storing it in _releases dir in the root of the repository. #>
-param([string]$Version = "HEAD", [switch]$WorkingTree, [switch]$Run)
+### Creates a new Pog release from the latest commit.
+param(
+    [string]$Version = "HEAD",
+    ### Path at which the resulting .zip release archive is created.
+    ### Defaults to "_releases/Pog-v$Version.zip" in the repository root.
+    [string]$ReleasePath,
+    ### Use the working tree state instead of the latest HEAD.
+    [switch]$WorkingTree,
+    ### Run the resulting release in Windows Sandbox.
+    [switch]$Run
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $Root = Resolve-Path (git -C $PSScriptRoot rev-parse --show-toplevel)
+$TmpDir = "$($env:TEMP)/PogRelease-$(New-Guid)"
+
+$ReleasePath = if ($ReleasePath) {
+    [System.IO.Path]::Combine($PWD, $ReleasePath)
+} else {
+    "$Root/_releases/Pog-v$Version.zip"
+}
 
 $OrigWd = Get-Location
 try {
-    $null = mkdir -Force $Root/_releases/tmp
-    cd $Root/_releases/tmp
+    $null = mkdir -Force $TmpDir
+    cd $TmpDir
 
     @(
         "7zip/app"
@@ -18,13 +34,13 @@ try {
         cp -Recurse $Root/../$_ $_
     }
 
-    $Ref = if ($WorkingTree) {git stash create} else {"HEAD"}
-    git -C $Root archive --format zip --output _releases/tmp/Pog.zip $Ref
+    $Ref = if ($WorkingTree) {git -C $Root stash create} else {"HEAD"}
+    git -C $Root archive --format zip --output "$TmpDir/Pog.zip" $Ref
 
     Expand-Archive Pog.zip Pog
     rm Pog.zip
 
-    cd Pog
+    cd ./Pog
 
     rm -Recurse @(
         ".github"
@@ -60,16 +76,17 @@ try {
         }
     }
 
+    cd $TmpDir
 
-    cd $Root/_releases/tmp
-
-    Compress-Archive * ../Pog-v${Version}.zip -Force -PassThru
+    $ReleaseArchive = Compress-Archive * $ReleasePath -Force -PassThru
 } finally {
     cd $OrigWd
-    rm -Recurse $Root/_releases/tmp
+    rm -Recurse $TmpDir
 }
+
+echo $ReleaseArchive
 
 if ($Run) {
     Write-Information "Running Pog in Windows Sandbox..."
-    & $PSScriptRoot/run-release.ps1 $Version
+    & $PSScriptRoot/run-release.ps1 $ReleaseArchive
 }
