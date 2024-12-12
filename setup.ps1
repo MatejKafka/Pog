@@ -55,7 +55,8 @@ This typically happens when you attempt to install Pog on a USB flash drive. To 
         # try to continue and see if we fail with something else
     }
 }
-Remove-Item $JunctionPath -ErrorAction Ignore
+# -Recurse is needed on powershell.exe for deleting junctions, otherwise it incorrectly prompts for confirmation
+Remove-Item -Recurse $JunctionPath -ErrorAction Ignore
 
 
 # check if symlinks are enabled on the machine
