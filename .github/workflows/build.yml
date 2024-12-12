@@ -177,10 +177,12 @@ jobs:
     - name: Generate release archive
       shell: pwsh
       run: |
-        ./app/Pog/_scripts/release/build-release.ps1 -ReleasePath D:/Pog.zip
+        ./app/Pog/_scripts/release/build-release.ps1 -ReleasePath D:/PogRelease.zip
+        # unpack so that the generated artifact is not a doubly nested .zip
+        Expand-Archive D:\PogRelease.zip D:\PogRelease
 
     - name: Publish release archive as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Pog
-        path: D:/Pog.zip
+        name: Pog.zip
+        path: D:/PogRelease
