@@ -1,3 +1,4 @@
+# NOTE: this script is used in CI
 ### Creates a new Pog release from the latest commit.
 param(
     [string]$Version = "HEAD",

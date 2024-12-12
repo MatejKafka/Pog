@@ -91,14 +91,9 @@ jobs:
         gi ./PogShimTemplate.exe
 
     - name: Copy VC Redistributable
-      working-directory: app/Pog/lib_compiled
       shell: pwsh
       run: |
-        $SrcDir = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -find VC/Redist/MSVC/*/x64
-        if ($null -eq $SrcDir) {
-          throw "Could not find VC Redistributable."
-        }
-        ls -Recurse -File ($SrcDir | select -Last 1) | % {Write-Host $_; $_} | cp -Destination .\vc_redist\
+        & "./app/Pog/_scripts/update vc redist.ps1"
 
     - name: Setup Pog
       shell: pwsh
@@ -167,3 +162,14 @@ jobs:
         Write-Host ""
         Uninstall-Pog fzf, zstd, Jujutsu
         Clear-PogDownloadCache -Force
+
+    - name: Generate release archive
+      shell: pwsh
+      run: |
+        ./app/Pog/_scripts/release/build-release.ps1 -ReleasePath D:/Pog.zip
+
+    - name: Generate release artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Pog
+        path: D:/Pog.zip
