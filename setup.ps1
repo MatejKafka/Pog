@@ -54,9 +54,10 @@ This typically happens when you attempt to install Pog on a USB flash drive. To 
         # junction creation failed for another reason
         # try to continue and see if we fail with something else
     }
+} finally {
+    # -Recurse is needed on powershell.exe for deleting junctions, otherwise it incorrectly prompts for confirmation
+    Remove-Item -Recurse $JunctionPath -ErrorAction Ignore
 }
-# -Recurse is needed on powershell.exe for deleting junctions, otherwise it incorrectly prompts for confirmation
-Remove-Item -Recurse $JunctionPath -ErrorAction Ignore
 
 
 # check if symlinks are enabled on the machine
@@ -67,8 +68,9 @@ try {
     $SymlinksAllowed = $LASTEXITCODE -eq 0
 } catch {
     $SymlinksAllowed = $false
+} finally {
+    Remove-Item $SymlinkPath -ErrorAction Ignore
 }
-Remove-Item $SymlinkPath -ErrorAction Ignore
 
 if (-not $SymlinksAllowed) {
     abort @"
