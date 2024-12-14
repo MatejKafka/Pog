@@ -4,7 +4,8 @@ using module ..\Utils.psm1
 function __main {
 	param([Pog.PackageManifest]$Manifest)
 
-	$Manifest.Install | Install-FromUrl <# Install-FromUrl is implemented in Pog.dll #>
+	# Install-FromUrl is implemented in Pog.dll
+	Install-FromUrl $Manifest.Install
 }
 
 Export-ModuleMember -Function __main

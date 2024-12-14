@@ -311,6 +311,7 @@ function Update-PogRepository {
 				$i++
 			}
 
+			# FIXME: this does not respect $ErrorActionPreference
 			try {
 				UpdateSinglePackage $pn $Version -Force:$Force -ListOnly:$ListOnly -GitHubToken:$GitHubToken
 			} catch {& {
