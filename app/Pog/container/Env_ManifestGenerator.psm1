@@ -11,9 +11,11 @@ $PSDefaultParameterValues = @{
 	"Invoke-RestMethod:UseBasicParsing" = $true
 }
 
+$ContainerModule = New-ContainerModule
+
 function ListVersions($Generator, $ExistingVersionSet) {
 	try {
-		return & $Generator.Manifest.ListVersionsSb $ExistingVersionSet
+		return & $ContainerModule $Generator.Manifest.ListVersionsSb $ExistingVersionSet
 	} catch {
 		throw [Exception]::new("Manifest generator for package '$($Generator.PackageName)' failed while listing versions: $_", $_.Exception)
 	}
@@ -92,8 +94,9 @@ function __main {
 
 		try {
 			$TemplateData = if ($Generator.Manifest.GenerateSb) {
+				$Sb = $ContainerModule.NewBoundScriptBlock($Generator.Manifest.GenerateSb)
 				# pass the value both as $_ and as a parameter, the scriptblock can accept whichever one is more convenient
-				Invoke-DollarUnder $Generator.Manifest.GenerateSb $v.OriginalValue $v.OriginalValue
+				Invoke-DollarUnder $Sb $v.OriginalValue $v.OriginalValue
 			} else {
 				$v.OriginalValue # if no Generate block exists, forward the value emitted by ListVersions
 			}
@@ -228,4 +231,6 @@ function Get-HashFromChecksumFile {
 }
 
 
-Export-ModuleMember -Function __main, Get-GitHubRelease, Get-HashFromChecksumText, Get-HashFromChecksumFile
+Export-ModuleMember `
+	-Cmdlet Get-UrlHash `
+	-Function __main, Get-GitHubRelease, Get-HashFromChecksumText, Get-HashFromChecksumFile

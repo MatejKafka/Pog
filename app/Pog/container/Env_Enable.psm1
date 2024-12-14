@@ -1,18 +1,14 @@
 using module ..\Utils.psm1
 . $PSScriptRoot\..\header.ps1
 
-
-<# This function is called after the container setup is finished to run the Enable script. #>
+# this must NOT be an advanced funtion, otherwise we lose error message position from the manifest scriptblock
 function __main {
-	# __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
+	### This function is called after the container setup is finished to run the Enable script.
 	param([Pog.PackageManifest]$Manifest, $PackageArguments)
 
 	try {
-		# invoke the scriptblock
-		# without .GetNewClosure(), the script block would see our internal module functions, probably because
-		#  it would be automatically bound to our SessionState; not really sure why GetNewClosure() binds it to
-		#  a different scope
-		& $Manifest.Enable.GetNewClosure() @PackageArguments
+		# invoke the entry point
+		& (New-ContainerModule) $Manifest.Enable @PackageArguments
 	} catch {
 		try {
 			# remove shotcuts and commands that were not re-exported during this Enable run

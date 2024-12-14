@@ -292,7 +292,7 @@ public abstract record PackageInstallParameters {
         Debug.Assert(SourceUrl is ScriptBlock);
         var sb = (ScriptBlock) SourceUrl;
 
-        // TODO: shouldn't we use .GetNewClosure() here?
+        // TODO: use something like New-ContainerModule here
         var resolvedUrlObj = sb.InvokeReturnAsIs();
 
         if (resolvedUrlObj is PSObject pso) {

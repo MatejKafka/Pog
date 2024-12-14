@@ -1,8 +1,8 @@
+
 . $PSScriptRoot\..\header.ps1
 
-
-<# This function is called after the container setup is finished to run the passed manifest. #>
 function __main {
+    ### This function is called after the container setup is finished to run the passed manifest.
     param([Pog.PackageManifest]$Manifest)
 
     $Hashes = @()

@@ -268,6 +268,7 @@ public class InstallFromUrlCommand : PogCmdlet {
             SessionState.Path.PushCurrentLocation("pog");
             SessionState.Path.SetLocation(subdirectoryPath);
             try {
+                // TODO: use something like New-ContainerModule here
                 setupScript.InvokeReturnAsIs();
             } finally {
                 SessionState.Path.PopLocation("pog");

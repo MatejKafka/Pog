@@ -1,15 +1,12 @@
 . $PSScriptRoot\..\header.ps1
 
-<# This function is called after the container setup is finished to run the Disable script. #>
+# this must NOT be an advanced funtion, otherwise we lose error message position from the manifest scriptblock
 function __main {
-    # __main must NOT have [CmdletBinding()], otherwise we lose error message position from the manifest scriptblock
+	### This function is called after the container setup is finished to run the Disable script.
 	param([Pog.PackageManifest]$Manifest)
 
-    # invoke the scriptblock
-	# without .GetNewClosure(), the script block would see our internal module functions, probably because
-	#  it would be automatically bound to our SessionState; not really sure why GetNewClosure() binds it to
-	#  a different scope
-	& $Manifest.Disable.GetNewClosure()
+	# invoke the entry point
+	& (New-ContainerModule) $Manifest.Disable
 }
 
 Export-ModuleMember -Function __main -Cmdlet Remove-EnvVarEntry
