@@ -34,6 +34,7 @@
 		'Clear-PogDownloadCache'
 
 		'Get-PogRoot'
+		'Get-PogRepository'
 		'Set-PogRepository'
 	)
 

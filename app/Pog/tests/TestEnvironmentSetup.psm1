@@ -31,7 +31,7 @@ $ManifestStr = @'
 
 function CreateManifest {
     param($Name, $Version)
-    $DirPath = "$([Pog.InternalState]::Repository.Path)\$Name\$Version"
+    $DirPath = "$(Get-PogRepository)\$Name\$Version"
     $null = mkdir $DirPath
     RenderTemplate $ManifestStr "$DirPath\pog.psd1" @{NAME = $Name; VERSION = $Version}
 }
