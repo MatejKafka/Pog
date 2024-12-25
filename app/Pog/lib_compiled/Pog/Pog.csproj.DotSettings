@@ -1,6 +1,8 @@
 ﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                        xmlns:s="clr-namespace:System;assembly=mscorlib"
-                        xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+						xmlns:s="clr-namespace:System;assembly=mscorlib"
+						xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
 	<s:String x:Key="/Default/CodeInspection/Daemon/ConfigureAwaitAnalysisMode/@EntryValue">Library</s:String>
+	<s:Boolean
+		x:Key="/Default/CodeInspection/NamespaceProvider/NamespaceFoldersToSkip/=src_005Cimportedpackage/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/CodeInspection/NamespaceProvider/NamespaceFoldersToSkip/=src_005Cnative_005Cwin32/@EntryIndexedValue">True</s:Boolean>
 </wpf:ResourceDictionary>
