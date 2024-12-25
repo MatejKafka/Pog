@@ -49,9 +49,11 @@ public class ShimExecutable {
     public readonly string? WorkingDirectory;
     public readonly string[]? Arguments;
     public readonly (string, EnvVarTemplate)[]? EnvironmentVariables;
+    public readonly string? MetadataSource;
 
     public ShimExecutable(string targetPath, string? workingDirectory = null, string[]? arguments = null,
-            IEnumerable<KeyValuePair<string, string[]>>? environmentVariables = null, bool replaceArgv0 = false) {
+            IEnumerable<KeyValuePair<string, string[]>>? environmentVariables = null, string? metadataSource = null,
+            bool replaceArgv0 = false) {
         Debug.Assert(Path.IsPathRooted(targetPath));
 
         _targetExtension = Path.GetExtension(targetPath).ToLowerInvariant();
@@ -70,6 +72,8 @@ public class ShimExecutable {
         // batch file handler seems to use argv[0] as the target passed to `cmd.exe /c` instead of `lpApplicationName`,
         //  which results in an infinite process spawning loop when the original argv[0] is retained
         ReplaceArgv0 = replaceArgv0 || isBatchFile || Argv0AsTarget;
+        MetadataSource = metadataSource;
+
         TargetPath = targetPath;
         WorkingDirectory = workingDirectory;
         Arguments = arguments;
@@ -88,18 +92,14 @@ public class ShimExecutable {
 
     /// Ensures that the shim at shimPath is up-to-date.
     /// <param name="shimPath">Path an existing initialized shim executable to update.</param>
-    /// <param name="resourceSrcPath">
-    /// Optional path to an .exe to copy resources such as the icon from.
-    /// If not passed and the shim target is an .exe, it is used instead.
-    /// </param>
     /// <returns>true if anything changed, false if shim is up-to-date</returns>
     /// <exception cref="OutdatedShimException"></exception>
-    public bool UpdateShim(string shimPath, string? resourceSrcPath = null) {
-        return IsTargetPeBinary() ? UpdateShimExe(shimPath, resourceSrcPath) : UpdateShimOther(shimPath, resourceSrcPath);
+    public bool UpdateShim(string shimPath) {
+        return IsTargetPeBinary() ? UpdateShimExe(shimPath) : UpdateShimOther(shimPath);
     }
 
     /// <exception cref="OutdatedShimException"></exception>
-    private bool UpdateShimExe(string shimPath, string? resourceSrcPath) {
+    private bool UpdateShimExe(string shimPath) {
         // copy subsystem from the target binary
         var targetSubsystem = PeSubsystem.GetSubsystem(TargetPath);
         // first read the shim subsystem, maybe we don't need to update it at all
@@ -112,21 +112,21 @@ public class ShimExecutable {
         }
 
         // copy resources from either target, or a separate module
-        var updatedResources = UpdateShimResources(shimPath, resourceSrcPath ?? TargetPath);
+        var updatedResources = UpdateShimResources(shimPath, MetadataSource ?? TargetPath);
 
         return !subsystemMatches || updatedResources;
     }
 
     /// Updater method for targets that are not PE binaries, and don't have a subsystem and resources.
     /// <exception cref="OutdatedShimException"></exception>
-    private bool UpdateShimOther(string shimPath, string? resourceSrcPath) {
+    private bool UpdateShimOther(string shimPath) {
         // assume a console subsystem
         var originalSubsystem = PeSubsystem.SetSubsystem(shimPath, PeSubsystem.WindowsSubsystem.WindowsCui);
         var subsystemChanged = originalSubsystem != PeSubsystem.WindowsSubsystem.WindowsCui;
 
         // target does not have any resources, since it's not a PE binary; either copy resources
         //  from a separate module, or delete any existing resources, if any
-        var updatedResources = UpdateShimResources(shimPath, resourceSrcPath);
+        var updatedResources = UpdateShimResources(shimPath, MetadataSource);
 
         return subsystemChanged || updatedResources;
     }
@@ -208,17 +208,17 @@ public class ShimExecutable {
 
     /// Configures a new shim. The shim binary at `shimPath` should already exist.
     /// Assumes that the shim binary has no existing resources.
-    public void WriteNewShim(string shimPath, string? resourceSrcPath = null) {
+    public void WriteNewShim(string shimPath) {
         if (IsTargetPeBinary()) {
             // copy subsystem from target binary
             var targetSubsystem = PeSubsystem.GetSubsystem(TargetPath);
             PeSubsystem.SetSubsystem(shimPath, targetSubsystem);
 
             // write shim data and copy resources from either target, or a separate module
-            WriteNewShimResources(shimPath, resourceSrcPath ?? TargetPath);
+            WriteNewShimResources(shimPath, MetadataSource ?? TargetPath);
         } else {
             // write shim data, copy resources from the passed module, if any
-            WriteNewShimResources(shimPath, resourceSrcPath);
+            WriteNewShimResources(shimPath, MetadataSource);
         }
     }
 

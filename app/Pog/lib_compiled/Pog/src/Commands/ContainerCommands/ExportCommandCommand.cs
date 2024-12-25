@@ -163,7 +163,8 @@ public class ExportCommandCommand : PSCmdlet {
         }
 
         // TODO: argument and env resolution
-        var shim = new ShimExecutable(rTargetPath, WorkingDirectory, resolvedArgs, resolvedEnvVars, ReplaceArgv0);
+        var shim = new ShimExecutable(rTargetPath, WorkingDirectory, resolvedArgs, resolvedEnvVars, MetadataSource,
+                ReplaceArgv0);
 
         if (File.Exists(rLinkPath)) {
             if ((new FileInfo(rLinkPath).Attributes & FileAttributes.ReparsePoint) != 0) {
@@ -175,7 +176,7 @@ public class ExportCommandCommand : PSCmdlet {
                 File.Delete(rLinkPath);
             } else {
                 try {
-                    return shim.UpdateShim(rLinkPath, MetadataSource);
+                    return shim.UpdateShim(rLinkPath);
                 } catch (ShimExecutable.OutdatedShimException) {
                     WriteDebug("Old shim executable, replacing with an up-to-date one...");
                     File.Delete(rLinkPath);
@@ -186,7 +187,7 @@ public class ExportCommandCommand : PSCmdlet {
         // copy empty shim to rLinkPath
         File.Copy(InternalState.PathConfig.ShimPath, rLinkPath);
         try {
-            shim.WriteNewShim(rLinkPath, MetadataSource);
+            shim.WriteNewShim(rLinkPath);
         } catch {
             // clean up the empty shim
             FsUtils.EnsureDeleteFile(rLinkPath);
