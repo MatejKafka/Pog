@@ -32,6 +32,11 @@ Describe "PogDll" {
 
             $OutBlocks.Count | Should -Be $RefBlocks.Count
             for ($i = 0; $i -lt $RefBlocks.Count; $i++) {
+                # the single-line diff rendered by Pester is pretty hard to read, so we render our own diff
+                if ($OutBlocks[$i] -cne $RefBlocks[$i]) {
+                    Write-Host "Diff for block #${i}:"
+                    Write-Host ([Pog.Utils.DiffRenderer]::RenderDiff($RefBlocks[$i], $OutBlocks[$i]))
+                }
                 $OutBlocks[$i] | Should -Be $RefBlocks[$i] -Because "block $i" -ErrorAction Continue
             }
         }
