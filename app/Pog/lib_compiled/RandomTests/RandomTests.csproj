@@ -5,10 +5,6 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
-
-        <!-- Emit generated files from CsWin32 so that Rider sees them (https://github.com/microsoft/CsWin32/issues/298) -->
-        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-        <CompilerGeneratedFilesOutputPath>generated_sources</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
 
     <ItemGroup>
