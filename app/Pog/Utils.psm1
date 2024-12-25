@@ -2,12 +2,16 @@
 
 
 function Resolve-VirtualPath {
+	### .SYNOPSIS
+	### Resolve path to an absolute path without expanding wildcards or checking if $Path exists.
 	param([Parameter(Mandatory)]$Path)
 	return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 }
 
 # this must NOT be an advanced funtion, otherwise we lose error message position from the manifest scriptblock
 function Invoke-DollarUnder {
+	### .SYNOPSIS
+	### Invoke $Sb with $DollarUnder set as $_ and $PSItem (mirrors what e.g. `Foreach-Object` does).
 	param($Sb, $DollarUnder)
 
 	try {

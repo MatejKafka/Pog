@@ -1,3 +1,6 @@
+[Diagnostics.CodeAnalysis.SuppressMessage("PSAvoidUsingCmdletAliases", "")]
+param()
+
 Describe "PogDll" {
     BeforeAll {
         $PwshCmd = if ($PSVersionTable.PSEdition -eq "Core") {"pwsh"} else {"powershell"}

@@ -2,12 +2,15 @@
 # https://devblogs.microsoft.com/oldnewthing/20090212-00/?p=19173
 # https://superuser.com/questions/1100134/how-can-i-determine-which-process-or-service-is-using-com-surrogate
 
-$Rows = foreach ($l in ls "Registry::HKEY_CLASSES_ROOT\CLSID\{*}") {
+foreach ($l in ls "Registry::HKEY_CLASSES_ROOT\CLSID\{*}") {
     $ServiceName = $l.GetValue($null)
     $AppId = $l.GetValue("AppID")
+    $InProcServer = $l.OpenSubKey("InProcServer32")?.GetValue($null)
     if ($AppId -and $ServiceName) {
-        echo "`t`"$($AppId.ToUpper())`" = `"$ServiceName`""
+        [pscustomobject]@{
+            AppId = $AppId.ToUpperInvariant()
+            ServiceName = $ServiceName
+            InProcServer = $InProcServer
+        }
     }
 }
-
-"@{`n" + ($Rows -join "`n") + "`n}"

@@ -2,6 +2,7 @@
 . $PSScriptRoot\..\header.ps1
 
 function __main {
+    ### .SYNOPSIS
     ### This function is called after the container setup is finished to run the passed manifest.
     param([Pog.PackageManifest]$Manifest)
 

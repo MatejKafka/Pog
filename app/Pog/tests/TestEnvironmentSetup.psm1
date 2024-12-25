@@ -1,3 +1,6 @@
+[Diagnostics.CodeAnalysis.SuppressMessage("PSProvideCommentHelp", "")]
+param()
+
 . $PSScriptRoot\..\header.ps1
 
 

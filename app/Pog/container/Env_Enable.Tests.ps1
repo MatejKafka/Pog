@@ -1,3 +1,7 @@
+[Diagnostics.CodeAnalysis.SuppressMessage("PSAvoidUsingCmdletAliases", "")]
+[Diagnostics.CodeAnalysis.SuppressMessage("PSUseDeclaredVarsMoreThanAssignments", "")]
+param()
+
 BeforeAll {
 	$Module = Import-Module -Force $PSScriptRoot\Env_Enable.psm1 -PassThru
 	# reset possible globally set values

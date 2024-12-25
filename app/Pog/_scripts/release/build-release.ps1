@@ -64,7 +64,7 @@ try {
         # validate manifest versions
         $PogPackageVersion = (Import-PowerShellDataFile ./app/Pog/Pog.psd1).ModuleVersion
         $PogPSModuleVersion = (Import-PowerShellDataFile ./pog.psd1).Version
-        $PogDllVersion = (gi ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
+        $PogDllVersion = (Get-Item ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
 
         if ($PogPSModuleVersion -ne $Version) {
             throw "Pog.psd1 PS module version does not match"

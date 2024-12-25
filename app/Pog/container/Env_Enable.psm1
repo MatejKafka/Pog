@@ -3,6 +3,7 @@ using module ..\Utils.psm1
 
 # this must NOT be an advanced funtion, otherwise we lose error message position from the manifest scriptblock
 function __main {
+	### .SYNOPSIS
 	### This function is called after the container setup is finished to run the Enable script.
 	param([Pog.PackageManifest]$Manifest, $PackageArguments)
 

@@ -51,6 +51,10 @@ function RetrievePackageVersions([Pog.PackageGenerator]$Generator, $ExistingVers
 
 # FIXME: if -Force is passed, track if there are any leftover manifests (for removed versions) and delete them after prompting
 function __main {
+	### .SYNOPSIS
+	### This function is invoked when the ManifestGenerator container is started from `Update-PogRepository`.
+	### Internally, it invokes `ListVersions` for the generator and then invokes `Generate` for each version
+	### that should be regenerated.
 	param(
 		[Pog.PackageGenerator]$Generator,
 		[Pog.LocalRepositoryVersionedPackage]$Package,
@@ -134,6 +138,8 @@ function __main {
 
 
 function Get-GitHubRelease {
+	### .SYNOPSIS
+	### Lists all GitHub releases for the passed repository.
 	[CmdletBinding()]
 	param(
 			[Parameter(Mandatory, ValueFromPipeline)]
@@ -180,6 +186,8 @@ function Get-GitHubRelease {
 }
 
 function Get-HashFromChecksumText {
+	### .SYNOPSIS
+	### Parses `$Text` as a shasum-like checksum file and returns the hash for `$FileName`/`$Pattern`.
 	[CmdletBinding(DefaultParameterSetName="FileName", PositionalBinding=$false)]
 	param(
 			[Parameter(Mandatory, Position=0)]
@@ -208,6 +216,8 @@ function Get-HashFromChecksumText {
 }
 
 function Get-HashFromChecksumFile {
+	### .SYNOPSIS
+	### Retrieves `$Uri`, parses the text as a shasum-like checksum file and retrieves the hash for `$FileName` or `$Pattern`.
 	[CmdletBinding(DefaultParameterSetName="FileName", PositionalBinding=$false)]
 	param(
 			[Parameter(Mandatory, Position=0)]
