@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Management.Automation;
-using DiffPlex.DiffBuilder;
-using DiffPlex.DiffBuilder.Model;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.PSAttributes;
+using Pog.Utils;
 
 namespace Pog.Commands;
 
@@ -323,21 +322,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
             // FIXME: in typical scenarios, the `.Manifest` access is the only reason why the manifest is parsed;
             //  figure out how to either get a raw string, or copy over the repository manifest to the imported package
             //  (since the target manifest is typically immediately used, loading it here won't cause much overhead)
-            var diff = InlineDiffBuilder.Diff(targetManifest.RawString, package.Manifest.RawString);
-            if (diff.HasDifferences) {
-                foreach (var d in diff.Lines) {
-                    ConsoleColor? color = d.Type switch {
-                        ChangeType.Inserted => ConsoleColor.DarkGreen,
-                        ChangeType.Deleted => ConsoleColor.DarkRed,
-                        ChangeType.Modified => ConsoleColor.Gray,
-                        _ => null,
-                    };
-
-                    if (color != null) {
-                        WriteHost(d.Text, foregroundColor: color);
-                    }
-                }
-            }
+            WriteHost(DiffRenderer.RenderDiff(targetManifest.RawString, package.Manifest.RawString, ignoreMatching: true));
         }
 
         if (Force) {
