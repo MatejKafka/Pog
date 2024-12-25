@@ -26,6 +26,10 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     public string ManifestPath => $"{Path}\\{PathConfig.PackagePaths.ManifestFileName}";
     public string ManifestResourceDirPath => $"{Path}\\{PathConfig.PackagePaths.ManifestResourceDirName}";
 
+    internal string ExportedCommandDirPath => $"{Path}{PathConfig.PackagePaths.CommandDirRelSuffix}";
+    internal string ExportedShortcutDirPath => $"{Path}{PathConfig.PackagePaths.ShortcutDirRelSuffix}";
+    internal string ExportedShortcutShimDirPath => $"{Path}{PathConfig.PackagePaths.ShortcutShimDirRelSuffix}";
+
     public override bool Exists => Directory.Exists(Path);
 
     public FileInfo[] ExportedCommands => EnumerateExportedCommands().ToArray();
@@ -66,35 +70,14 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         return deleted;
     }
 
-    internal bool RemoveExportedCommands() {
-        return DeleteDirectoryRel(PathConfig.PackagePaths.CommandDirRelPath);
-    }
+    internal bool RemoveExportedCommands() => FsUtils.EnsureDeleteDirectory(ExportedCommandDirPath);
+    internal bool RemoveShortcutShims() => FsUtils.EnsureDeleteDirectory(ExportedShortcutShimDirPath);
 
-    internal bool RemoveShortcutShims() {
-        return DeleteDirectoryRel(PathConfig.PackagePaths.ShortcutShimDirRelPath);
-    }
+    public IEnumerable<FileInfo> EnumerateExportedCommands() => EnumerateExportDir(ExportedCommandDirPath);
+    public IEnumerable<FileInfo> EnumerateExportedShortcuts() => EnumerateExportDir(ExportedShortcutDirPath, "*.lnk");
+    internal IEnumerable<FileInfo> EnumerateShortcutShims() => EnumerateExportDir(ExportedShortcutShimDirPath);
 
-    private bool DeleteDirectoryRel(string relDirPath) {
-        return FsUtils.EnsureDeleteDirectory(IOPath.Combine(Path, relDirPath));
-    }
-
-    /// Enumerates full paths of all exported shortcuts.
-    public IEnumerable<FileInfo> EnumerateExportedShortcuts() {
-        return EnumerateFilesRel(PathConfig.PackagePaths.ShortcutDirRelPath, "*.lnk");
-    }
-
-    /// Enumerates full paths of all exported commands.
-    public IEnumerable<FileInfo> EnumerateExportedCommands() {
-        return EnumerateFilesRel(PathConfig.PackagePaths.CommandDirRelPath);
-    }
-
-    /// Enumerates full paths of all internal shortcut shims.
-    internal IEnumerable<FileInfo> EnumerateShortcutShims() {
-        return EnumerateFilesRel(PathConfig.PackagePaths.ShortcutShimDirRelPath);
-    }
-
-    private IEnumerable<FileInfo> EnumerateFilesRel(string relDirPath, string searchPattern = "*") {
-        var dirPath = IOPath.Combine(Path, relDirPath);
+    private static IEnumerable<FileInfo> EnumerateExportDir(string dirPath, string searchPattern = "*") {
         try {
             return new DirectoryInfo(dirPath).EnumerateFiles(searchPattern)
                     .Where(d => !d.Attributes.HasFlag(FileAttributes.Hidden));

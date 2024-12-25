@@ -49,7 +49,7 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         // remove the internal exports, prompting the user to stop the program if some of them are in use
         // FIXME: since these are binaries, OpenedFilesView does not see the handles, so we get just a generic error message,
         //  not sure why; RestartManager correctly detects them, maybe use it instead of OFV for exports specifically?
-        var exportPath = $"{package.Path}\\{PathConfig.PackagePaths.CommandDirRelPath}";
+        var exportPath = package.ExportedCommandDirPath;
         while (true) {
             try {
                 package.RemoveExportedCommands();

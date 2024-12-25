@@ -39,9 +39,10 @@ public class PathConfig {
         internal const string ManifestResourceDirName = ".pog";
         internal const string RepositoryTemplateDirName = ".template";
 
-        [PublicAPI] public const string ShortcutDirRelPath = ".";
-        internal const string CommandDirRelPath = "./.commands";
-        internal const string ShortcutShimDirRelPath = "./.commands/shortcuts";
+        // suffixes, not relative paths (do not add a slash when joining these)
+        internal const string ShortcutDirRelSuffix = "";
+        internal const string CommandDirRelSuffix = @"\.commands";
+        internal const string ShortcutShimDirRelSuffix = @"\.commands\shortcuts";
 
         internal const string AppDirName = "app";
         internal const string CacheDirName = "cache";
