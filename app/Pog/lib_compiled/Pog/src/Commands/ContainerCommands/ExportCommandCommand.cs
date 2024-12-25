@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
+using Pog.PSAttributes;
 using Pog.Shim;
 using Pog.Utils;
 
@@ -24,12 +25,12 @@ public class ExportCommandCommand : PSCmdlet {
 
     /// Path to the invoked target. Note that it must either be an executable (.exe) or a batch file (.cmd/.bat).
     [Parameter(Mandatory = true, Position = 1)]
-    [Verify.ExistingPath("Command target")]
+    [ResolvePath("Command target")]
     public string TargetPath = null!;
 
     /// Working directory to set while invoking the target.
     [Parameter(ParameterSetName = ShimPS)]
-    [Verify.ExistingPath("Command working directory")]
+    [ResolvePath("Command working directory")]
     public string? WorkingDirectory;
 
     /// An argv-like array of arguments which are prepended to the command line that the target is invoked with.
@@ -50,7 +51,7 @@ public class ExportCommandCommand : PSCmdlet {
 
     /// Path to an .exe to copy icons and similar PE resources from. If not passed, <see cref="TargetPath"/> is used instead.
     [Parameter(ParameterSetName = ShimPS)]
-    [Verify.ExistingPath("Command metadata source")]
+    [ResolvePath("Command metadata source")]
     public string? MetadataSource;
 
     // useful when the manifest wants to invoke the binary during Enable (e.g. initial config generation in Syncthing)
@@ -79,37 +80,29 @@ public class ExportCommandCommand : PSCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        var internalState = EnableContainerContext.GetCurrent(this);
-        var rTargetPath = GetUnresolvedProviderPathFromPSPath(TargetPath)!;
-        var commandDirRelPath = _InternalDoNotUse_Shortcut
-                ? PathConfig.PackagePaths.ShortcutShimDirRelPath
-                : PathConfig.PackagePaths.CommandDirRelPath;
-        var commandDirPath = GetUnresolvedProviderPathFromPSPath(commandDirRelPath);
+        var ctx = EnableContainerContext.GetCurrent(this);
+        var commandDirPath = _InternalDoNotUse_Shortcut
+                ? ctx.Package.ExportedShortcutShimDirPath
+                : ctx.Package.ExportedCommandDirPath;
 
-        WriteDebug("Resolved command target: " + rTargetPath);
-
-        if (!File.Exists(rTargetPath)) {
-            ThrowTerminatingError(new ErrorRecord(
-                    new FileNotFoundException($"Command target '{TargetPath}' does not exist, or it is not a file."),
-                    "TargetNotFound", ErrorCategory.InvalidArgument, TargetPath));
-        }
+        WriteDebug("Resolved command target: " + TargetPath);
 
         // ensure command dir exists
         Directory.CreateDirectory(commandDirPath);
 
         var useSymlink = ParameterSetName == SymlinkPS;
-        var linkExtension = useSymlink ? Path.GetExtension(rTargetPath) : ".exe";
+        var linkExtension = useSymlink ? Path.GetExtension(TargetPath) : ".exe";
 
         foreach (var cmdName in CommandName) {
             var rLinkPath = Path.Combine(commandDirPath, cmdName + linkExtension);
             if (useSymlink) {
-                if (ExportCommandSymlink(cmdName, rLinkPath, rTargetPath)) {
+                if (ExportCommandSymlink(cmdName, rLinkPath, TargetPath)) {
                     WriteInformation($"Exported command '{cmdName}' using a symlink.", null);
                 } else {
                     WriteVerbose($"Command {cmdName} is already exported as a symlink.");
                 }
             } else {
-                if (ExportCommandShimExecutable(cmdName, rLinkPath, rTargetPath)) {
+                if (ExportCommandShimExecutable(cmdName, rLinkPath, TargetPath)) {
                     WriteInformation($"Exported command '{cmdName}' using a shim executable.", null);
                 } else {
                     WriteVerbose($"Command {cmdName} is already exported as a shim executable.");
@@ -119,9 +112,9 @@ public class ExportCommandCommand : PSCmdlet {
             // mark this command as not stale
             //  (stale = e.g. leftover command from previous version that was removed for this version)
             if (_InternalDoNotUse_Shortcut) {
-                internalState.StaleShortcutShims.Remove(rLinkPath);
+                ctx.StaleShortcutShims.Remove(rLinkPath);
             } else {
-                internalState.StaleCommands.Remove(rLinkPath);
+                ctx.StaleCommands.Remove(rLinkPath);
             }
 
             if (PassThru) {
@@ -155,15 +148,6 @@ public class ExportCommandCommand : PSCmdlet {
     }
 
     private bool ExportCommandShimExecutable(string cmdName, string rLinkPath, string rTargetPath) {
-        var rWorkingDirectory = WorkingDirectory == null ? null : GetUnresolvedProviderPathFromPSPath(WorkingDirectory)!;
-        var rMetadataSource = MetadataSource == null ? null : GetUnresolvedProviderPathFromPSPath(MetadataSource);
-
-        if (rMetadataSource != null && !File.Exists(rMetadataSource)) {
-            ThrowTerminatingError(new ErrorRecord(
-                    new FileNotFoundException($"Metadata source '{MetadataSource}' does not exist, or it is not a file."),
-                    "MetadataSourceNotFound", ErrorCategory.InvalidArgument, MetadataSource));
-        }
-
         var resolvedArgs = ArgumentList == null ? null : ResolveArguments(ArgumentList);
         var resolvedEnvVars = EnvironmentVariables == null ? null : ResolveEnvironmentVariables(EnvironmentVariables);
         if (VcRedist) {
@@ -179,7 +163,7 @@ public class ExportCommandCommand : PSCmdlet {
         }
 
         // TODO: argument and env resolution
-        var shim = new ShimExecutable(rTargetPath, rWorkingDirectory, resolvedArgs, resolvedEnvVars, ReplaceArgv0);
+        var shim = new ShimExecutable(rTargetPath, WorkingDirectory, resolvedArgs, resolvedEnvVars, ReplaceArgv0);
 
         if (File.Exists(rLinkPath)) {
             if ((new FileInfo(rLinkPath).Attributes & FileAttributes.ReparsePoint) != 0) {
@@ -191,7 +175,7 @@ public class ExportCommandCommand : PSCmdlet {
                 File.Delete(rLinkPath);
             } else {
                 try {
-                    return shim.UpdateShim(rLinkPath, rMetadataSource);
+                    return shim.UpdateShim(rLinkPath, MetadataSource);
                 } catch (ShimExecutable.OutdatedShimException) {
                     WriteDebug("Old shim executable, replacing with an up-to-date one...");
                     File.Delete(rLinkPath);
@@ -202,7 +186,7 @@ public class ExportCommandCommand : PSCmdlet {
         // copy empty shim to rLinkPath
         File.Copy(InternalState.PathConfig.ShimPath, rLinkPath);
         try {
-            shim.WriteNewShim(rLinkPath, rMetadataSource);
+            shim.WriteNewShim(rLinkPath, MetadataSource);
         } catch {
             // clean up the empty shim
             FsUtils.EnsureDeleteFile(rLinkPath);

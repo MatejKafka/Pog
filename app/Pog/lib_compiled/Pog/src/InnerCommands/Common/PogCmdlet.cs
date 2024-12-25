@@ -64,7 +64,7 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         }, ["PSHOST"]);
     }
 
-    protected void WriteInformation(string message) {
+    public void WriteInformation(string message) {
         WriteInformation(message, null);
     }
 
@@ -84,7 +84,7 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         ThrowTerminatingError(new ErrorRecord(exception, errorId, errorCategory, targetObject));
     }
 
-    protected void ThrowTerminatingArgumentError(object? argumentValue, string errorId, string message) {
+    protected void ThrowArgumentError(object? argumentValue, string errorId, string message) {
         ThrowTerminatingError(new ArgumentException(message), errorId, ErrorCategory.InvalidArgument, argumentValue);
     }
 

@@ -61,13 +61,13 @@ public sealed class FindPogCommand : PogCmdlet {
 
         if (Version != null) {
             if (MyInvocation.ExpectingInput) {
-                ThrowTerminatingArgumentError(Version, "VersionWithPipelineInput",
+                ThrowArgumentError(Version, "VersionWithPipelineInput",
                         "-Version must not be passed together with pipeline input.");
             } else if (PackageName == null) {
-                ThrowTerminatingArgumentError(Version, "VersionWithoutPackage",
+                ThrowArgumentError(Version, "VersionWithoutPackage",
                         "-Version must not be passed without also passing -PackageName.");
             } else if (PackageName.Length > 1) {
-                ThrowTerminatingArgumentError(Version, "VersionWithMultiplePackages",
+                ThrowArgumentError(Version, "VersionWithMultiplePackages",
                         "-Version must not be passed when -PackageName contains multiple package names.");
             }
 

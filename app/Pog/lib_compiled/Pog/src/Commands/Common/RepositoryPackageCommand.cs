@@ -1,5 +1,6 @@
 ﻿using System.Management.Automation;
 using JetBrains.Annotations;
+using Pog.PSAttributes;
 
 namespace Pog.Commands.Common;
 
@@ -14,12 +15,12 @@ public abstract class RepositoryPackageCommand : PackageCommandBase {
 
     /// Name of the repository package.
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = PackageNamePS, ValueFromPipeline = true)]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageNameCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageNameCompleter))]
     public string[] PackageName = null!;
 
     /// Version of the repository package to retrieve. By default, the latest version is used.
     [Parameter(Position = 1, ParameterSetName = PackageNamePS)]
-    [ArgumentCompleter(typeof(PSAttributes.RepositoryPackageVersionCompleter))]
+    [ArgumentCompleter(typeof(RepositoryPackageVersionCompleter))]
     public PackageVersion? Version;
 
 #if DEBUG
@@ -31,10 +32,10 @@ public abstract class RepositoryPackageCommand : PackageCommandBase {
 
         if (Version != null) {
             if (MyInvocation.ExpectingInput) {
-                ThrowTerminatingArgumentError(Version, "VersionWithPipelineInput",
+                ThrowArgumentError(Version, "VersionWithPipelineInput",
                         "-Version must not be passed together with pipeline input.");
             } else if (PackageName.Length > 1) {
-                ThrowTerminatingArgumentError(Version, "VersionWithMultiplePackages",
+                ThrowArgumentError(Version, "VersionWithMultiplePackages",
                         "-Version must not be passed when -PackageName contains multiple package names.");
             }
 

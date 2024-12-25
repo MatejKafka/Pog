@@ -155,17 +155,17 @@ public sealed class ImportPogCommand : PackageCommandBase {
         }
 
         if (TargetName != null && MyInvocation.ExpectingInput) {
-            ThrowTerminatingArgumentError(TargetName, "TargetWithPipelineInput",
+            ThrowArgumentError(TargetName, "TargetWithPipelineInput",
                     "-TargetName must not be passed together with pipeline input.");
         }
 
         if (Version != null && MyInvocation.ExpectingInput) {
-            ThrowTerminatingArgumentError(Version, "VersionWithPipelineInput",
+            ThrowArgumentError(Version, "VersionWithPipelineInput",
                     "-Version must not be passed together with pipeline input.");
         }
 
         if (Version != null && PackageName.Length > 1) {
-            ThrowTerminatingArgumentError(Version, "VersionWithMultiplePackages",
+            ThrowArgumentError(Version, "VersionWithMultiplePackages",
                     "-Version must not be passed when -PackageName contains multiple package names.");
         }
     }
@@ -201,12 +201,12 @@ public sealed class ImportPogCommand : PackageCommandBase {
 
         // if TargetName or Target are an array, throw an error (not allowed when source is set)
         if (rawTargetCount > 1) {
-            ThrowTerminatingArgumentError(null, "MultipleTargets",
+            ThrowArgumentError(null, "MultipleTargets",
                     "At most one target must be specified when a source package is provided to avoid ambiguity.");
         }
         // prevent overwriting a single target with multiple source packages
         if (rawSrcCount > 1 && rawTargetCount != null) {
-            ThrowTerminatingArgumentError(null, "MultipleSourcesForSingleTarget",
+            ThrowArgumentError(null, "MultipleSourcesForSingleTarget",
                     "At most one source package must be specified when an explicit target is specified.");
         }
 

@@ -100,7 +100,7 @@ public class InstallFromUrlCommand : PogCmdlet {
 
         if (targetPath == null) {
             // the target path escapes from the app directory
-            ThrowTerminatingArgumentError(target, "TargetEscapesRoot",
+            ThrowArgumentError(target, "TargetEscapesRoot",
                     $"Argument passed to the -Target parameter must be a relative path that does not escape " +
                     $"the app directory, got '{target}'.");
             throw new UnreachableException();
@@ -108,7 +108,7 @@ public class InstallFromUrlCommand : PogCmdlet {
 
         if (param is PackageInstallParametersNoArchive) {
             if (targetPath == _newAppDirPath) {
-                ThrowTerminatingArgumentError(target, "TargetResolvesToRoot",
+                ThrowArgumentError(target, "TargetResolvesToRoot",
                         $"Argument passed to the -Target parameter must contain the target file name, got '{target}'");
             }
         }
@@ -212,7 +212,7 @@ public class InstallFromUrlCommand : PogCmdlet {
                     // multiple matches
                     var resolvedPathStr = string.Join(", ",
                             resolvedPaths.Select(p => p.Substring(extractedRootPath.Length + 1)));
-                    ThrowTerminatingArgumentError(subdirectory, "ArchiveSubdirectoryMultipleMatches",
+                    ThrowArgumentError(subdirectory, "ArchiveSubdirectoryMultipleMatches",
                             $"Subdirectory '{subdirectory}' requested in the package manifest resolved to multiple " +
                             $"matching paths inside the archive: {resolvedPathStr}");
                     break;
@@ -227,7 +227,7 @@ public class InstallFromUrlCommand : PogCmdlet {
             var subPath = resolvedPaths[0]!;
 
             if (FsUtils.EscapesDirectory(extractedRootPath, subPath)) {
-                ThrowTerminatingArgumentError(subdirectory, "SubdirectoryEscapesRoot",
+                ThrowArgumentError(subdirectory, "SubdirectoryEscapesRoot",
                         $"Argument passed to the -Subdirectory parameter must be a relative path that does not escape " +
                         $"the archive directory, got '{subdirectory}'.");
             }
