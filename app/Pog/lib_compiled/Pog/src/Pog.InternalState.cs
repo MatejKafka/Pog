@@ -48,20 +48,18 @@ public static class InternalState {
         return false;
     }
 
-    /// Sets the package repository used to retrieve package manifests. Do not use this method concurrently with other Pog
-    /// operations, since some cmdlets internally repeatedly access the repository and assume it won't change between accesses.
-    [PublicAPI]
-    public static IRepository? SetRepository(IRepository repository) {
-        return Interlocked.Exchange(ref _repository, repository);
-    }
-
     private static PathConfig? _pathConfig;
     public static PathConfig PathConfig => LazyInitializer.EnsureInitialized(ref _pathConfig,
             () => new PathConfig(GetRootDirPath()))!;
 
     private static IRepository? _repository;
-    public static IRepository Repository => LazyInitializer.EnsureInitialized(ref _repository,
-            () => new RemoteRepository(PathConfig.DefaultRemoteRepositoryUrl))!;
+    /// The package repository used to retrieve package manifests. Do not set this property concurrently with other Pog
+    /// operations, since some cmdlets internally repeatedly access the repository and assume it won't change between accesses.
+    public static IRepository Repository {
+        get => LazyInitializer.EnsureInitialized(ref _repository,
+                () => new RemoteRepository(PathConfig.DefaultRemoteRepositoryUrl))!;
+        set => Interlocked.Exchange(ref _repository, value);
+    }
 
     private static GeneratorRepository? _generatorRepository;
     public static GeneratorRepository GeneratorRepository => LazyInitializer.EnsureInitialized(ref _generatorRepository,

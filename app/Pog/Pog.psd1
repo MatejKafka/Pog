@@ -34,6 +34,7 @@
 		'Clear-PogDownloadCache'
 
 		'Get-PogRoot'
+		'Set-PogRepository'
 	)
 
 	FunctionsToExport = @(
@@ -44,7 +45,6 @@
 		'New-PogRepositoryPackage'
 		'New-PogPackage'
 
-		'Set-PogRepository'
 		'Edit-PogRoot'
 	)
 

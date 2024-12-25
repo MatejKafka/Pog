@@ -8,41 +8,6 @@ foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots)
 }
 
 
-function Set-PogRepository {
-	### .SYNOPSIS
-	### Selects the package repository used by other commands. Not thread-safe.
-	[CmdletBinding()]
-	param(
-			### Ref (local path or remote URL) to repositories to use. The type of repository to use
-			### is distinguished based on a `http://` or `https://` prefix for remote repositories,
-			### anything else is treated as filesystem path to a local repository.
-			[Parameter(Mandatory)]
-		$Ref
-	)
-
-	begin {
-		$Repos = foreach ($r in $Ref) {
-			if ($r -like "http://*" -or $r -like "https://*") {
-				$Repo = [Pog.RemoteRepository]::new([uri]$r)
-				Write-Information "Using a remote repository: $($Repo.Url)"
-			} else {
-				$Repo = [Pog.LocalRepository]::new((Resolve-Path $r))
-				Write-Information "Using a local repository: $($Repo.Path)"
-			}
-			$Repo
-		}
-
-		# if only a single repo is set, do not wrap it in RepositoryList to improve performance a bit for lookups
-		$Repo = if (@($Repos).Count -eq 1) {
-			$Repos
-		} else {
-			[Pog.RepositoryList]::new($Repos)
-		}
-
-		$null = [Pog.InternalState]::SetRepository($Repo)
-	}
-}
-
 # functions to programmatically add/remove package roots are intentionally not provided, because it is a bit non-trivial
 #  to get the file updates right from a concurrency perspective
 # TODO: ^ figure out how to provide the functions safely

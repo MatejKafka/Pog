@@ -74,7 +74,7 @@ function SetupNewPogTestDir {
     }
 
     # use local repository
-    $null = [Pog.InternalState]::SetRepository([Pog.LocalRepository]::new("$TestDir\data\manifests"))
+    Set-PogRepository "$TestDir\data\manifests" -InformationAction Ignore
 
     return $TestDir
 }
