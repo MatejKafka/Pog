@@ -13,25 +13,29 @@ $ManifestTemplate = @'
     Private = $true
     Enable = {
         # export any binary, not important
-        Export-Shortcut '{{EXPORT}}' (gcm cmd.exe).Path -Environment $(if ('{{SHIM}}') {
-            @{X = '{{SHIM}}'}
-        } else {
-            $null
-        })
+        Export-Shortcut '{{EXPORT}}' (gcm cmd.exe).Path `
+            -Arguments /c, "echo TARGET INVOKED: %X%" `
+            -Environment $(if ('{{ENV_X}}') {
+                @{X = '{{ENV_X}}'}
+            } else {
+                $null
+            })
     }
 }
 '@
 
-function Set-Manifest($Path, $ExportName, $Shim = "") {
+function Set-Manifest($Path, $ExportName, $EnvX = "") {
     RenderTemplate $ManifestTemplate $Path @{
         EXPORT = $ExportName
-        SHIM = $Shim
+        ENV_X = $EnvX
     }
 }
 
 function test($PackageName) {
     Enable-Pog $PackageName
-    Get-Pog $PackageName | % ExportedShortcuts | % Name
+    # invoke each exported shortcut to check that it works
+    # we use `cmd` because it correctly routes the .lnk invocation output and waits for completion (unlike `Start-Process`)
+    Get-Pog $PackageName | % ExportedShortcuts | % {$_.Name + ": " + (cmd /c $_.FullName).Trim()}
 }
 
 
@@ -41,34 +45,34 @@ $TEST_DIR = SetupNewPogTestDir $TestDirPath
 $Root = "$TEST_DIR\root"
 CreatePackageRoots $Root
 
-$null = mkdir $Root\test-direct, $Root\test-shim
+$null = mkdir $Root\test-noenv, $Root\test-env
 
 
-Set-Manifest $Root\test-direct\pog.psd1 test
-Set-Manifest $Root\test-shim\pog.psd1 test -Shim X
+Set-Manifest $Root\test-noenv\pog.psd1 test
+Set-Manifest $Root\test-env\pog.psd1 test -EnvX "env val"
 
-title "Export direct"
-test test-direct
+title "Export noenv"
+test test-noenv
 
-title "Export with hidden stub"
-test test-shim
+title "Export env"
+test test-env
 
-title "Export direct (re-run)"
-test test-direct
+title "Export noenv (re-run)"
+test test-noenv
 
-title "Export with hidden stub (re-run)"
-test test-shim
+title "Export env (re-run)"
+test test-env
 
-Set-Manifest $Root\test-direct\pog.psd1 TEST
-Set-Manifest $Root\test-shim\pog.psd1 TEST -Shim X
+Set-Manifest $Root\test-noenv\pog.psd1 TEST
+Set-Manifest $Root\test-env\pog.psd1 TEST -EnvX "env val"
 
-title "Export direct with changed casing"
-test test-direct
+title "Export noenv with changed casing"
+test test-noenv
 
-title "Export shim with changed casing"
-test test-shim
+title "Export env with changed casing"
+test test-env
 
-Set-Manifest $Root\test-shim\pog.psd1 TEST -Shim Y
+Set-Manifest $Root\test-env\pog.psd1 TEST -EnvX "env val 2"
 
-title "Export shim with internal shim changes"
-test test-shim
+title "Export env with internal shim changes"
+test test-env

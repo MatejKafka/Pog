@@ -1,28 +1,28 @@
---- Export direct ---
-Enabling private package 'test-direct'...
+--- Export noenv ---
+Enabling private package 'test-noenv'...
 Exported shortcut 'test'.
-test.lnk
---- Export with hidden stub ---
-Enabling private package 'test-shim'...
+test.lnk: TARGET INVOKED: %X%
+--- Export env ---
+Enabling private package 'test-env'...
 Exported shortcut 'test'.
-test.lnk
---- Export direct (re-run) ---
-Enabling private package 'test-direct'...
-test.lnk
---- Export with hidden stub (re-run) ---
-Enabling private package 'test-shim'...
-test.lnk
---- Export direct with changed casing ---
-Enabling private package 'test-direct'...
+test.lnk: TARGET INVOKED: env val
+--- Export noenv (re-run) ---
+Enabling private package 'test-noenv'...
+test.lnk: TARGET INVOKED: %X%
+--- Export env (re-run) ---
+Enabling private package 'test-env'...
+test.lnk: TARGET INVOKED: env val
+--- Export noenv with changed casing ---
+Enabling private package 'test-noenv'...
 Exported shortcut 'TEST'.
 Removed stale shortcut 'test'.
-TEST.lnk
---- Export shim with changed casing ---
-Enabling private package 'test-shim'...
+TEST.lnk: TARGET INVOKED: %X%
+--- Export env with changed casing ---
+Enabling private package 'test-env'...
 Exported shortcut 'TEST'.
 Removed stale shortcut 'test'.
-TEST.lnk
---- Export shim with internal shim changes ---
-Enabling private package 'test-shim'...
+TEST.lnk: TARGET INVOKED: env val
+--- Export env with internal shim changes ---
+Enabling private package 'test-env'...
 Exported shortcut 'TEST'.
-TEST.lnk
+TEST.lnk: TARGET INVOKED: env val 2
