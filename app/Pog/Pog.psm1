@@ -1,3 +1,8 @@
+### This is the main script module of Pog. Most of the actual functionality is implemented in C# in `Pog.dll`,
+### which is loaded in `header.ps1`. Cmdlets defined in this module are somewhat half-baked - I typically first
+### implement a cmdlet here, see how it works in practice and later rewrite it in C# when I have a clearer idea
+### about the design.
+
 using module .\Utils.psm1
 . $PSScriptRoot\header.ps1
 
@@ -25,13 +30,13 @@ function Edit-PogRoot {
 	Start-Process $Path
 }
 
-<# Ad-hoc template format used to create default manifests in the following 2 functions. #>
+### Ad-hoc template format used to create default manifests in the following 2 functions.
 function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {
 	$Template = Get-Content -Raw $SrcPath
 	foreach ($Entry in $TemplateData.GetEnumerator()) {
 		$Template = $Template.Replace("'{{$($Entry.Key)}}'", "'" + $Entry.Value.Replace("'", "''") + "'")
 	}
-	$null = New-Item -Path $DestinationPath -Value $Template
+	Set-Content $DestinationPath -Value $Template -NoNewline
 }
 
 # TODO: support creating new versions of existing packages (either create a blank package, or copy latest version and modify the Version field);
