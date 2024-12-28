@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Management.Automation;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -52,9 +53,9 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         var exportPath = package.ExportedCommandDirPath;
         while (true) {
             try {
-                package.RemoveExportedCommands();
-                package.RemoveExportedShortcuts();
-                package.RemoveShortcutShims();
+                RemoveExportedCommands(package);
+                RemoveExportedShortcuts(package);
+                RemoveShortcutShims(package);
                 break;
             } catch (UnauthorizedAccessException) {
                 InvokePogCommand(new ShowLockedFileList(Cmdlet) {
@@ -66,9 +67,24 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         }
     }
 
+    private static void RemoveExportedShortcuts(ImportedPackage p) {
+        // shortcut dir is the root of the package, delete the shortcuts one-by-one instead of deleting the whole directory
+        foreach (var shortcut in p.EnumerateExportedShortcuts()) {
+            shortcut.Delete();
+        }
+    }
+
+    private static void RemoveExportedCommands(ImportedPackage p) {
+        FsUtils.EnsureDeleteDirectory(p.ExportedCommandDirPath);
+    }
+
+    private static void RemoveShortcutShims(ImportedPackage p) {
+        FsUtils.EnsureDeleteDirectory(p.ExportedShortcutShimDirPath);
+    }
+
     private void RemoveGloballyExportedShortcuts(ImportedPackage p) {
         foreach (var shortcut in p.EnumerateExportedShortcuts()) {
-            if (p.RemoveGloballyExportedShortcut(shortcut)) {
+            if (RemoveGloballyExportedShortcut(shortcut)) {
                 WriteInformation($"Removed an exported shortcut '{shortcut.GetBaseName()}'.");
             } else {
                 WriteVerbose($"Shortcut '{shortcut.GetBaseName()}' is not exported to the Start menu.");
@@ -76,13 +92,35 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         }
     }
 
+    private static bool RemoveGloballyExportedShortcut(FileInfo shortcut) {
+        var target = new FileInfo(GlobalExportUtils.GetShortcutExportPath(shortcut));
+        if (!target.Exists || !FsUtils.FileContentEqual(shortcut, target)) {
+            return false;
+        } else {
+            // found a matching shortcut, delete it
+            target.Delete();
+            return true;
+        }
+    }
+
     private void RemoveGloballyExportedCommands(ImportedPackage p) {
         foreach (var command in p.EnumerateExportedCommands()) {
-            if (p.RemoveGloballyExportedCommand(command)) {
+            if (RemoveGloballyExportedCommand(command)) {
                 WriteInformation($"Removed an exported command '{command.GetBaseName()}'.");
             } else {
                 WriteVerbose($"Command '{command.GetBaseName()}' is not exported.");
             }
+        }
+    }
+
+    private static bool RemoveGloballyExportedCommand(FileInfo command) {
+        var targetPath = GlobalExportUtils.GetCommandExportPath(command);
+        if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
+            // found a matching command, delete it
+            File.Delete(targetPath);
+            return true;
+        } else {
+            return false;
         }
     }
 }

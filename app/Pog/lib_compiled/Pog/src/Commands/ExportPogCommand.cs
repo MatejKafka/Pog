@@ -27,7 +27,7 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
             Directory.CreateDirectory(PathConfig.StartMenuExportDir);
 
             var shortcutName = shortcut.GetBaseName();
-            var targetPath = $"{PathConfig.StartMenuExportDir}\\{shortcut.Name}";
+            var targetPath = GlobalExportUtils.GetShortcutExportPath(shortcut);
             var target = new FileInfo(targetPath);
 
             if (target.Exists) {
@@ -58,7 +58,7 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
 
         foreach (var command in p.EnumerateExportedCommands()) {
             var cmdName = command.GetBaseName();
-            var targetPath = Path.Combine(InternalState.PathConfig.ExportedCommandDir, command.Name);
+            var targetPath = GlobalExportUtils.GetCommandExportPath(command);
 
             if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
                 WriteVerbose($"Command '{cmdName}' is already exported from this package.");

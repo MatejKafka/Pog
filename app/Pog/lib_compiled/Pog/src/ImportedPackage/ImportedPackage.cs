@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using JetBrains.Annotations;
-using IOPath = System.IO.Path;
 
 namespace Pog;
 
@@ -60,19 +59,6 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         InvalidateManifest();
     }
 
-    internal bool RemoveExportedShortcuts() {
-        // shortcut dir is the root of the package, delete the shortcuts one-by-one instead of deleting the whole directory
-        var deleted = false;
-        foreach (var shortcut in EnumerateExportedShortcuts()) {
-            shortcut.Delete();
-            deleted = true;
-        }
-        return deleted;
-    }
-
-    internal bool RemoveExportedCommands() => FsUtils.EnsureDeleteDirectory(ExportedCommandDirPath);
-    internal bool RemoveShortcutShims() => FsUtils.EnsureDeleteDirectory(ExportedShortcutShimDirPath);
-
     public IEnumerable<FileInfo> EnumerateExportedCommands() => EnumerateExportDir(ExportedCommandDirPath);
     public IEnumerable<FileInfo> EnumerateExportedShortcuts() => EnumerateExportDir(ExportedShortcutDirPath, "*.lnk");
     internal IEnumerable<FileInfo> EnumerateShortcutShims() => EnumerateExportDir(ExportedShortcutShimDirPath);
@@ -84,29 +70,6 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         } catch (DirectoryNotFoundException) {
             // if nothing was exported, the directory might not exist
             return [];
-        }
-    }
-
-    internal bool RemoveGloballyExportedShortcut(FileInfo shortcut) {
-        var targetPath = $"{PathConfig.StartMenuExportDir}\\{shortcut.Name}";
-        var target = new FileInfo(targetPath);
-        if (!target.Exists || !FsUtils.FileContentEqual(shortcut, target)) {
-            return false;
-        } else {
-            // found a matching shortcut, delete it
-            target.Delete();
-            return true;
-        }
-    }
-
-    internal bool RemoveGloballyExportedCommand(FileInfo command) {
-        var targetPath = IOPath.Combine(InternalState.PathConfig.ExportedCommandDir, command.Name);
-        if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
-            // found a matching command, delete it
-            File.Delete(targetPath);
-            return true;
-        } else {
-            return false;
         }
     }
 
