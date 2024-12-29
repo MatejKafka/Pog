@@ -73,6 +73,10 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         }
     }
 
+    internal string GetExportedCommandPath(string cmdName, string cmdExt) => @$"{ExportedCommandDirPath}\{cmdName}{cmdExt}";
+    internal string GetExportedShortcutPath(string shortcutName) => @$"{ExportedShortcutDirPath}\{shortcutName}.lnk";
+    internal string GetExportedShortcutShimPath(string shortcutName) => @$"{ExportedShortcutShimDirPath}\{shortcutName}.exe";
+
     public override string GetDescriptionString() {
         var versionStr = Manifest.Version != null ? $", version '{Manifest.Version}'" : "";
         if (Manifest.Private) {

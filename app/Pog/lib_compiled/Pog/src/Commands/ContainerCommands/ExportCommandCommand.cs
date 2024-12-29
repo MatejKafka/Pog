@@ -23,16 +23,15 @@ public class ExportCommandCommand : ExportEntryPointCommandBase {
         base.BeginProcessing();
 
         var ctx = EnableContainerContext.GetCurrent(this);
-        var exportDir = ctx.Package.ExportedCommandDirPath;
 
         // ensure export dir exists
-        Directory.CreateDirectory(exportDir);
+        Directory.CreateDirectory(ctx.Package.ExportedCommandDirPath);
 
         var useSymlink = ParameterSetName == SymlinkPS;
         var linkExtension = useSymlink ? Path.GetExtension(TargetPath) : ".exe";
 
         foreach (var name in Name) {
-            var exportPath = Path.Combine(exportDir, name + linkExtension);
+            var exportPath = ctx.Package.GetExportedCommandPath(name, linkExtension);
             if (useSymlink) {
                 if (CreateExportSymlink(exportPath)) {
                     WriteInformation($"Exported command '{name}' using a symlink.");
@@ -46,6 +45,9 @@ public class ExportCommandCommand : ExportEntryPointCommandBase {
                     WriteVerbose($"Command {name} is already exported as a shim executable.");
                 }
             }
+
+            // note that unlike in Export-Shortcut, we do not need to explicitly update the globally exported command
+            //  to match, since it's exported as a symlink
 
             // mark this command as not stale
             //  (stale = e.g. leftover command from previous version that was removed for this version)

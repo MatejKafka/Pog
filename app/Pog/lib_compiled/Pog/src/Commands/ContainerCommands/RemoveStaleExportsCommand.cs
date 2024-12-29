@@ -14,24 +14,32 @@ public class RemoveStaleExportsCommand : PogCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        var internalState = EnableContainerContext.GetCurrent(this);
+        var ctx = EnableContainerContext.GetCurrent(this);
 
-        if (internalState.StaleShortcuts.Count > 0 || internalState.StaleShortcutShims.Count > 0) {
+        if (ctx.StaleShortcuts.Count > 0 || ctx.StaleShortcutShims.Count > 0) {
             WriteDebug("Removing stale shortcuts...");
-            foreach (var path in internalState.StaleShortcuts) {
+            foreach (var path in ctx.StaleShortcuts) {
                 if (FsUtils.FileExistsCaseSensitive(path)) {
-                    // do not delete if the casing changed, but still print the message;
-                    // this is pretty ugly and fragile, but we want to keep exactly the same output as if the name
-                    //  of the command changed, not just the casing
                     File.Delete(path);
+                } else {
+                    // do not delete if the casing changed, but still print the message; this is pretty ugly and fragile,
+                    // but we want to keep exactly the same output as if the name of the command changed, not just the casing
                 }
+
+                // delete the globally exported shortcut, if there's any
+                var globalShortcut = GloballyExportedShortcut.FromLocal(path);
+                if (globalShortcut.IsFromPackage(ctx.Package)) {
+                    globalShortcut.Delete();
+                    WriteDebug("Removed globally exported shortcut.");
+                }
+
                 WriteInformation($"Removed stale shortcut '{Path.GetFileNameWithoutExtension(path)}'.");
             }
         }
 
-        if (internalState.StaleShortcutShims.Count > 0) {
+        if (ctx.StaleShortcutShims.Count > 0) {
             WriteDebug("Removing stale shortcut shims...");
-            foreach (var path in internalState.StaleShortcutShims) {
+            foreach (var path in ctx.StaleShortcutShims) {
                 if (FsUtils.FileExistsCaseSensitive(path)) {
                     // same as above
                     File.Delete(path);
@@ -40,13 +48,22 @@ public class RemoveStaleExportsCommand : PogCmdlet {
             }
         }
 
-        if (internalState.StaleCommands.Count > 0) {
+        // TODO: also remove global exports here
+        if (ctx.StaleCommands.Count > 0) {
             WriteDebug("Removing stale commands...");
-            foreach (var path in internalState.StaleCommands) {
+            foreach (var path in ctx.StaleCommands) {
                 if (FsUtils.FileExistsCaseSensitive(path)) {
                     // same as above
                     File.Delete(path);
                 }
+
+                // delete the globally exported command, if there's any
+                var globalCmd = GlobalExportUtils.GetCommandExportPath(path);
+                if (FsUtils.GetSymbolicLinkTarget(globalCmd) == path) {
+                    File.Delete(globalCmd);
+                    WriteDebug("Removed globally exported command.");
+                }
+
                 WriteInformation($"Removed stale command '{Path.GetFileNameWithoutExtension(path)}'.");
             }
         }

@@ -23,25 +23,23 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
 
     private void ExportShortcuts(ImportedPackage p) {
         foreach (var shortcut in p.EnumerateExportedShortcuts()) {
-            // ensure the start menu dir exists
-            Directory.CreateDirectory(PathConfig.StartMenuExportDir);
-
             var shortcutName = shortcut.GetBaseName();
-            var targetPath = GlobalExportUtils.GetShortcutExportPath(shortcut);
-            var target = new FileInfo(targetPath);
+            var target = GloballyExportedShortcut.FromLocal(shortcut.FullName);
 
-            if (target.Exists) {
-                if (FsUtils.FileContentEqual(shortcut, target)) {
+            if (target.IsFromPackage(p)) {
+                if (!target.UpdateFrom(shortcut)) {
                     WriteVerbose($"Shortcut '{shortcutName}' is already exported from this package.");
                     continue;
+                }
+            } else {
+                if (target.OverwriteWith(shortcut)) {
+                    WriteWarning($"Overwritten an existing shortcut '{shortcutName}'.");
                 } else {
-                    // TODO: detect if the shortcut is from this package and do not print this (to match exported commands)
-                    WriteWarning($"Overwriting existing shortcut '{shortcutName}'...");
+                    // created new shortcut
                 }
             }
 
-            shortcut.CopyTo(targetPath, true);
-            WriteInformation($"Exported shortcut '{shortcutName}' from '{p.PackageName}'.", null);
+            WriteInformation($"Exported shortcut '{shortcutName}' from '{p.PackageName}'.");
         }
     }
 
@@ -67,14 +65,16 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
 
             var matchingCommands = EnumerateMatchingCommands(InternalState.PathConfig.ExportedCommandDir, cmdName).ToArray();
             if (matchingCommands.Length != 0) {
+                WriteDebug($"Found {matchingCommands.Length} conflicting commands: {matchingCommands}");
+
                 if (matchingCommands.Length > 1) {
                     WriteWarning("Pog developers fucked something up, and there are multiple colliding commands. " +
                                  "Plz send bug report.");
                 }
-                WriteWarning($"Overwriting existing command '{cmdName}'...");
                 foreach (var collidingCmdPath in matchingCommands) {
                     File.Delete(collidingCmdPath);
                 }
+                WriteWarning($"Overwritten an existing command '{cmdName}'.");
             }
 
             try {

@@ -171,6 +171,10 @@ public static class FsUtils {
             // the child does not exist
             resolvedName = null!;
             return false;
+        } catch (DirectoryNotFoundException) {
+            // parent dir does not exist
+            resolvedName = null!;
+            return false;
         }
     }
 

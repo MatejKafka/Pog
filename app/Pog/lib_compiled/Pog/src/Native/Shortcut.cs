@@ -15,22 +15,29 @@ internal class Shortcut {
     private readonly IShellLinkW _shellLink;
     private readonly IPersistFile _persistFile;
 
+    /// Indicates if this Shortcut instance was loaded from an existing shortcut file.
+    public bool Loaded {get; private set;} = false;
+
     public unsafe string Target {
         get => ReadString((str, size) => _shellLink.GetPath(str, size, null, 0));
         set => WriteString(value, _shellLink.SetPath);
     }
+
     public string WorkingDirectory {
         get => ReadString((str, size) => _shellLink.GetWorkingDirectory(str, size));
         set => WriteString(value, _shellLink.SetWorkingDirectory);
     }
+
     public string Arguments {
         get => ReadString((str, size) => _shellLink.GetArguments(str, size));
         set => WriteString(value, _shellLink.SetArguments);
     }
+
     public string Description {
         get => ReadString((str, size) => _shellLink.GetDescription(str, size));
         set => WriteString(value, _shellLink.SetDescription);
     }
+
     public (string, int) IconLocation {
         get {
             var iconIndex = 0;
@@ -70,6 +77,7 @@ internal class Shortcut {
 
     public void LoadFrom(string path) {
         _persistFile.Load(path, (int) STGM.STGM_READ);
+        Loaded = true;
     }
 
     public void SaveTo(string path) {

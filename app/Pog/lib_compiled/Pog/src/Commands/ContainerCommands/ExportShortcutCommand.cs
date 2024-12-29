@@ -26,8 +26,6 @@ public class ExportShortcutCommand : ExportEntryPointCommandBase {
         base.BeginProcessing();
 
         var ctx = EnableContainerContext.GetCurrent(this);
-        var shortcutDirPath = ctx.Package.ExportedShortcutDirPath;
-        var hiddenShimDirPath = ctx.Package.ExportedShortcutShimDirPath;
 
         // use target as the default icon path
         var iconPath = IconPath ?? TargetPath;
@@ -42,12 +40,12 @@ public class ExportShortcutCommand : ExportEntryPointCommandBase {
         description += $" ({ctx.Package.PackageName})";
 
         // ensure shortcut and shim dirs exists
-        Directory.CreateDirectory(shortcutDirPath);
-        Directory.CreateDirectory(hiddenShimDirPath);
+        Directory.CreateDirectory(ctx.Package.ExportedShortcutDirPath);
+        Directory.CreateDirectory(ctx.Package.ExportedShortcutShimDirPath);
 
         foreach (var name in Name) {
-            var exportPath = Path.Combine(shortcutDirPath, name + ".lnk");
-            var shimExportPath = Path.Combine(hiddenShimDirPath, name + ".exe");
+            var exportPath = ctx.Package.GetExportedShortcutPath(name);
+            var shimExportPath = ctx.Package.GetExportedShortcutShimPath(name);
 
             if (ExportShortcut(exportPath, shimExportPath, icon, description)) {
                 WriteInformation($"Exported shortcut '{name}'.");
@@ -83,7 +81,6 @@ public class ExportShortcutCommand : ExportEntryPointCommandBase {
         var shimChanged = CreateExportShim(shimExportPath, true);
 
         var s = new Shortcut();
-        var existingShortcut = false;
         if (File.Exists(exportPath)) {
             if (!FsUtils.FileExistsCaseSensitive(exportPath)) {
                 WriteDebug("Updating casing of an exported shortcut...");
@@ -92,15 +89,35 @@ public class ExportShortcutCommand : ExportEntryPointCommandBase {
             } else {
                 WriteDebug($"Shortcut at '{exportPath}' already exists, reusing it...");
                 s.LoadFrom(exportPath);
-                existingShortcut = true;
             }
         }
 
-        if (existingShortcut
-            && s.Target == shimExportPath && s.IconLocation == icon && s.Description == description
+        // ensure that the shortcut is correct
+        var shortcutChanged = UpdateShortcutContent(s, exportPath, shimExportPath, icon, description);
+
+        // ensure any globally exported copy of the shortcut is also correct
+        // run this unconditionally – this way, if something caused the two shortcuts to desync previously, just re-running
+        //  `Enable-Pog` should be enough to fix the exported copy
+        var globalShortcutChanged = UpdateGloballyExportedShortcut(exportPath, shimExportPath);
+
+        if (globalShortcutChanged) {
+            if (shortcutChanged) {
+                WriteDebug("Updated globally exported shortcut.");
+            } else {
+                // this should not happen unless a previous invocation failed halfway through
+                WriteWarning("Fixed an outdated exported shortcut.");
+            }
+        }
+
+        return shortcutChanged || shimChanged || globalShortcutChanged;
+    }
+
+    private bool UpdateShortcutContent(Shortcut s, string exportPath, string shimExportPath, (string, int) icon,
+            string description) {
+        if (s.Loaded && s.Target == shimExportPath && s.IconLocation == icon && s.Description == description
             && s.WorkingDirectory == "" && s.Arguments == "") {
             // shortcut is up to date
-            return shimChanged;
+            return false;
         }
 
         // shortcut does not match, update it
@@ -110,9 +127,17 @@ public class ExportShortcutCommand : ExportEntryPointCommandBase {
         s.Arguments = "";
         s.WorkingDirectory = "";
 
-        // TODO: correct handling for TargetID
-
         s.SaveTo(exportPath);
         return true;
+    }
+
+    private bool UpdateGloballyExportedShortcut(string localExportPath, string targetShimPath) {
+        var globalShortcut = GloballyExportedShortcut.FromLocal(localExportPath);
+        if (globalShortcut.IsFromPackage(targetShimPath)) {
+            return globalShortcut.UpdateFrom(new(localExportPath));
+        } else {
+            // not our shortcut
+            return false;
+        }
     }
 }

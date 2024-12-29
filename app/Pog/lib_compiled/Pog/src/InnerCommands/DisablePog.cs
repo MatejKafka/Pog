@@ -43,7 +43,6 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
     }
 
     private void RemoveExportedItems(ImportedPackage package) {
-        // TODO: figure out how to sensibly execute this on orphaned shortcuts/commands during Enable-Pog
         RemoveGloballyExportedCommands(package);
         RemoveGloballyExportedShortcuts(package);
 
@@ -84,7 +83,9 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
 
     private void RemoveGloballyExportedShortcuts(ImportedPackage p) {
         foreach (var shortcut in p.EnumerateExportedShortcuts()) {
-            if (RemoveGloballyExportedShortcut(shortcut)) {
+            var globalShortcut = GloballyExportedShortcut.FromLocal(shortcut.FullName);
+            if (globalShortcut.IsFromPackage(p)) {
+                globalShortcut.Delete();
                 WriteInformation($"Removed an exported shortcut '{shortcut.GetBaseName()}'.");
             } else {
                 WriteVerbose($"Shortcut '{shortcut.GetBaseName()}' is not exported to the Start menu.");
@@ -92,35 +93,16 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         }
     }
 
-    private static bool RemoveGloballyExportedShortcut(FileInfo shortcut) {
-        var target = new FileInfo(GlobalExportUtils.GetShortcutExportPath(shortcut));
-        if (!target.Exists || !FsUtils.FileContentEqual(shortcut, target)) {
-            return false;
-        } else {
-            // found a matching shortcut, delete it
-            target.Delete();
-            return true;
-        }
-    }
-
     private void RemoveGloballyExportedCommands(ImportedPackage p) {
         foreach (var command in p.EnumerateExportedCommands()) {
-            if (RemoveGloballyExportedCommand(command)) {
+            var targetPath = GlobalExportUtils.GetCommandExportPath(command);
+            if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
+                // found a matching command, delete it
+                File.Delete(targetPath);
                 WriteInformation($"Removed an exported command '{command.GetBaseName()}'.");
             } else {
                 WriteVerbose($"Command '{command.GetBaseName()}' is not exported.");
             }
-        }
-    }
-
-    private static bool RemoveGloballyExportedCommand(FileInfo command) {
-        var targetPath = GlobalExportUtils.GetCommandExportPath(command);
-        if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
-            // found a matching command, delete it
-            File.Delete(targetPath);
-            return true;
-        } else {
-            return false;
         }
     }
 }
