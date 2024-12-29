@@ -29,7 +29,15 @@ Install a specific version of a package:
 
     pog <PackageName> <Version>
 
-Install two separate versions of a package:
+Force re-installation of a package:
+
+    By default, if you invoke `pog <PackageName>` and the package already contains the manifest for the latest
+    version, the command will not do anything. To recover in case some installation step fails, you might need
+    to force Pog to reinstall the package:
+
+    pog <PackageName> -Force
+
+Install two separate copies of a package:
 
     # latest version of 7zip under the default name `7zip`
     pog 7zip
@@ -56,7 +64,16 @@ Create a new local package:
 Use a custom package repository:
 
     Set-PogRepository <Path> # to use a local repository
-    Set-PogRepository -Uri <Uri> # to use a remote repository
+    Set-PogRepository <Uri> # to use a remote repository
+
+Use multiple package repositories:
+
+    # pass a list of repositories, either local paths or URIs
+    Set-PogRepository "D:\...", "https://..."
+
+Setup and export a local package (local-only or already installed):
+
+    Enable-Pog <PackageName> -PassThru | Export-Pog
 
 Get help for any Pog command using the PowerShell help system:
 

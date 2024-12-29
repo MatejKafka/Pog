@@ -5,6 +5,11 @@ Most Pog package manifests have an `Enable` block, which configures the packaged
 to run in portable mode, sets up configuration files and exports entry points to the package.
 
 The `Enable` block is a PowerShell scriptblock, which may run arbitrary PowerShell code.
+All actions performed in the `Enable` block should be idempotent: re-running the scriptblock
+multiple times should get you the exact same result as running it once. This is especially
+important for error handing; if something fails during setup, it should be safe for the user
+to fix the issue and invoke the scriptblock again to reach a valid package state.
+
 To ease package configuration, Pog provides a library of idempotent functions for common
 actions – most packages only need to invoke some of these functions in a sequence, without
 the need for any custom scripting.
