@@ -32,7 +32,7 @@ public static class FsUtils {
     #region pwsh methods
 
     // this block of forwarding methods is here to allow simple usage from PowerShell
-    //  without having to load Polyfills.dll manually before usage
+    //  without having to load Polyfills.dll manually before usage; none of the other methods in FsUtils are used from pwsh
 
     [PublicAPI]
     public static string GetRelativePath(string from, string to) {
@@ -437,8 +437,6 @@ public static class FsUtils {
         return TryGetResolvedChildName(parent, childName, out var resolved) && resolved == childName;
     }
 
-    // this overload may be too high-level
-    [PublicAPI]
     public static bool FileExistsCaseSensitive(string path) {
         return FileExistsCaseSensitive(Path.GetDirectoryName(path)!, Path.GetFileName(path));
     }
