@@ -1,6 +1,8 @@
 [Diagnostics.CodeAnalysis.SuppressMessage("PSAvoidUsingCmdletAliases", "")]
 param()
 
+. $PSScriptRoot\..\header.ps1
+
 Describe "PogDll" {
     BeforeAll {
         $PwshCmd = if ($PSVersionTable.PSEdition -eq "Core") {"pwsh"} else {"powershell"}
@@ -23,7 +25,7 @@ Describe "PogDll" {
             return $SanitizedOutput
         }
 
-        function EvaluateWhatIfTest($Output, $Reference) {
+        function EvaluateWhatIfTest([string]$Output, [string]$Reference) {
             $Output = $Output.Replace("`r`n", "`n")
             $Reference = $Reference.Replace("`r`n", "`n")
 
