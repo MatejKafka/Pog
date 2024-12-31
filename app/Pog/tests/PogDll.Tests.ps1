@@ -29,8 +29,8 @@ Describe "PogDll" {
             $Output = $Output.Replace("`r`n", "`n")
             $Reference = $Reference.Replace("`r`n", "`n")
 
-            $OutBlocks = $Output -split "\n(?=--- .* ---\n)"
-            $RefBlocks = $Reference -split "\n(?=--- .* ---\n)"
+            $OutBlocks = $Output -split "\n(?=--- .* ---(\n|$))"
+            $RefBlocks = $Reference -split "\n(?=--- .* ---(\n|$))"
 
             $OutBlocks.Count | Should -Be $RefBlocks.Count
             for ($i = 0; $i -lt $RefBlocks.Count; $i++) {

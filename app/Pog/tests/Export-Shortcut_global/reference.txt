@@ -1,0 +1,12 @@
+--- Export 1 ---
+TEST_DIR\package_shortcuts\test.lnk -> TEST_DIR\root\package1\.commands\shortcuts\test.exe: description-package1 (package1)
+--- Export 2 ---
+WARNING: Overwritten an existing shortcut 'test'.
+TEST_DIR\package_shortcuts\test.lnk -> TEST_DIR\root\package2\.commands\shortcuts\test.exe: description-package2 (package2)
+--- Update 1 ---
+TEST_DIR\package_shortcuts\test.lnk -> TEST_DIR\root\package2\.commands\shortcuts\test.exe: description-package2 (package2)
+--- Update 2 ---
+TEST_DIR\package_shortcuts\test.lnk -> TEST_DIR\root\package2\.commands\shortcuts\test.exe: description-package2-updated (package2)
+--- Remove 1 ---
+TEST_DIR\package_shortcuts\test.lnk -> TEST_DIR\root\package2\.commands\shortcuts\test.exe: description-package2-updated (package2)
+--- Remove 2 ---

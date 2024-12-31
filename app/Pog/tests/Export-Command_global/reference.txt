@@ -1,0 +1,12 @@
+--- Export 1 ---
+TEST_DIR\data\package_bin\test.exe -> TEST_DIR\root\package1\.commands\test.exe
+--- Export 2 ---
+WARNING: Overwritten an existing command 'test'.
+TEST_DIR\data\package_bin\test.exe -> TEST_DIR\root\package2\.commands\test.exe
+--- Update 1 ---
+TEST_DIR\data\package_bin\test.exe -> TEST_DIR\root\package2\.commands\test.exe
+--- Update 2 ---
+TEST_DIR\data\package_bin\test.exe -> TEST_DIR\root\package2\.commands\test.exe
+--- Remove 1 ---
+TEST_DIR\data\package_bin\test.exe -> TEST_DIR\root\package2\.commands\test.exe
+--- Remove 2 ---
