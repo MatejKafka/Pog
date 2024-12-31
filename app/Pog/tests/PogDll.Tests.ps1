@@ -52,18 +52,8 @@ Describe "PogDll" {
         rm -Recurse -Force $TestDir
     }
 
-	It "Import-Pog" {
-        $Output = InvokeWhatIfTest $PSScriptRoot\Import-Pog\test.ps1
-        EvaluateWhatIfTest $Output (cat -Raw $PSScriptRoot\Import-Pog\reference.txt)
-	}
-
-    It "Export-Command" {
-        $Output = InvokeWhatIfTest $PSScriptRoot\Export-Command\test.ps1
-        EvaluateWhatIfTest $Output (cat -Raw $PSScriptRoot\Export-Command\reference.txt)
-    }
-
-    It "Export-Shortcut" {
-        $Output = InvokeWhatIfTest $PSScriptRoot\Export-Shortcut\test.ps1
-        EvaluateWhatIfTest $Output (cat -Raw $PSScriptRoot\Export-Shortcut\reference.txt)
+    It "<_>" -ForEach (ls -Directory $PSScriptRoot | % Name) {
+        $Output = InvokeWhatIfTest $PSScriptRoot\$_\test.ps1
+        EvaluateWhatIfTest $Output (cat -Raw $PSScriptRoot\$_\reference.txt)
     }
 }
