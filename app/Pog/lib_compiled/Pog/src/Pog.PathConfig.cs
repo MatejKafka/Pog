@@ -1,9 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using JetBrains.Annotations;
-using static System.Environment;
 
 namespace Pog;
 
@@ -64,14 +64,12 @@ public class PathConfig {
 
     public const string DefaultRemoteRepositoryUrl = "https://matejkafka.github.io/PogPackages/";
 
-    /// Directory where exported shortcuts from packages are copied (per-user).
-    public static readonly string StartMenuExportDir = $"{GetFolderPath(SpecialFolder.StartMenu)}\\Pog";
-
     public readonly string ContainerDir;
-    public readonly string CompiledLibDir;
     public readonly string ShimPath;
     public readonly string VcRedistDir;
 
+    /// Directory where exported shortcuts from packages are copied (per-user).
+    public readonly string ExportedShortcutDir;
     public readonly string ExportedCommandDir;
     public readonly string ManifestGeneratorDir;
 
@@ -90,27 +88,27 @@ public class PathConfig {
 
     public readonly PackageRootConfig PackageRoots;
 
-    public PathConfig(string rootDirPath) : this(rootDirPath, rootDirPath) {}
-
-    public PathConfig(string appRootDirPath, string dataRootDirPath) :
-            this($"{appRootDirPath}\\app\\Pog", $"{dataRootDirPath}\\data", $"{dataRootDirPath}\\cache") {}
-
     // if any new paths are added here, also add them to `setup.ps1` in the root directory
-    public PathConfig(string appRootDirPath, string dataRootDirPath, string cacheRootDirPath) {
-        PackageRoots = new PackageRootConfig($"{dataRootDirPath}\\package_roots.txt");
+    public PathConfig(string pogRootPath, string? dataRootPath = null, string? shortcutExportPath = null) {
+        dataRootPath ??= pogRootPath;
+        shortcutExportPath ??= $"{Environment.GetFolderPath(Environment.SpecialFolder.StartMenu)}\\Pog";
 
-        ContainerDir = $"{appRootDirPath}\\container";
-        CompiledLibDir = $"{appRootDirPath}\\lib_compiled";
-        ShimPath = $"{CompiledLibDir}\\PogShimTemplate.exe";
-        VcRedistDir = $"{CompiledLibDir}\\vc_redist";
+        ExportedShortcutDir = shortcutExportPath;
 
-        ExportedCommandDir = $"{dataRootDirPath}\\package_bin";
-        ManifestGeneratorDir = $"{dataRootDirPath}\\manifest_generators";
+        var appPath = $"{pogRootPath}\\app\\Pog";
+        ContainerDir = $"{appPath}\\container";
+        ShimPath = $"{appPath}\\lib_compiled\\PogShimTemplate.exe";
+        VcRedistDir = $"{appPath}\\lib_compiled\\vc_redist";
 
-        DownloadCacheDir = $"{cacheRootDirPath}\\download_cache";
-        DownloadTmpDir = $"{cacheRootDirPath}\\download_tmp";
-
+        var dataPath = $"{dataRootPath}\\data";
+        ExportedCommandDir = $"{dataPath}\\package_bin";
+        ManifestGeneratorDir = $"{dataPath}\\manifest_generators";
+        PackageRoots = new PackageRootConfig($"{dataPath}\\package_roots.txt");
         Path7Zip = $"{ExportedCommandDir}\\7z.exe";
         PathOpenedFilesView = $"{ExportedCommandDir}\\OpenedFilesView.exe";
+
+        var cachePath = $"{dataRootPath}\\cache";
+        DownloadCacheDir = $"{cachePath}\\download_cache";
+        DownloadTmpDir = $"{cachePath}\\download_tmp";
     }
 }

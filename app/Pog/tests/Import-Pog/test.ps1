@@ -1,12 +1,5 @@
-using module ..\TestEnvironmentSetup.psm1
 param([Parameter(Mandatory)][string]$TestDirPath)
-
-. $PSScriptRoot\..\..\header.ps1
-
-
-function title($Title) {
-    Write-Host "--- $Title ---" -ForegroundColor White
-}
+. $PSScriptRoot\..\TestEnvironmentSetup.ps1
 
 function test($Sb) {
     $ErrorActionPreference = "Continue"

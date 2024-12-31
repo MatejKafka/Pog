@@ -38,11 +38,12 @@ public static class InternalState {
         return Path.GetFullPath(Path.Combine(pogModuleDir, @"..\..")); // app/Pog/lib_compiled
     }
 
+    /// Configures Pog to use paths under <paramref name="testDataDirPath"/> for all data and caches.
     /// Debug method, used for testing. Not thread-safe.
     [PublicAPI]
-    public static bool InitDataRoot(string dataRootDirPath) {
+    public static bool SetTestPathConfig(string testDataDirPath) {
         if (_pathConfig == null) {
-            _pathConfig = new PathConfig(GetRootDirPath(), dataRootDirPath);
+            _pathConfig = new PathConfig(GetRootDirPath(), testDataDirPath, $"{testDataDirPath}\\package_shortcuts");
             return true;
         }
         return false;
