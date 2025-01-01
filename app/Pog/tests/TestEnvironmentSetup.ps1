@@ -4,7 +4,7 @@ param()
 . $PSScriptRoot\..\header.ps1
 
 $InformationPreference = "Continue"
-if (Get-Variable PSStyle) {
+if (Get-Variable PSStyle -ErrorAction Ignore) {
     # do not output ANSI escape sequences on pwsh.exe
     $PSStyle.OutputRendering = 'PlainText'
 }
