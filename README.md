@@ -73,7 +73,7 @@ Pog is composed of 4 parts:
 
 1. `app/Pog`: The main PowerShell module (`Pog.psm1` and imported modules). You don't need to build it.
 2. `app/Pog/lib_compiled/Pog`: The `Pog.dll` C# library, where a lot of the core functionality lives. The library targets `.netstandard2.0`.
-3. `app/Pog/lib_compiled/PogNative`: The `PogShimTemplate.exe` executable shim, built in C++20 and compiled using CMake.
+3. `app/Pog/lib_compiled/Pog.Shim`: The `PogShimTemplate.exe` executable shim, built in C++20 and compiled using CMake.
 4. `app/Pog/lib_compiled/vc_redist`: Directory of VC Redistributable DLLs, used by some packages with the `-VcRedist` switch parameter on `Export-Command`/`Export-Shortcut`.
 
 After all parts are compiled according to the instructions below, import the main module (`Import-Module app/Pog` from the root directory). Note that Pog assumes that the top-level directory is inside a package root, and it will place its data and cache directories in the top-level directory.
@@ -87,14 +87,14 @@ cd app/Pog/lib_compiled/Pog
 dotnet publish
 ```
 
-### `lib_compiled/PogNative`
+### `lib_compiled/Pog.Shim`
 
 This project contains the executable shim used to set arguments and environment variables when exporting entry points to a package using `Export-Command` and `Export-Shortcut`. The output binary should be automatically placed at `lib_compiled/PogShimTemplate.exe`.
 
 Build it using CMake and a recent-enough version of MSVC:
 
 ```powershell
-cd app/Pog/lib_compiled/PogNative
+cd app/Pog/lib_compiled/Pog.Shim
 cmake -B ./cmake-build-release -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build ./cmake-build-release --config Release
 ```

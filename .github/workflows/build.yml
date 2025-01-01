@@ -94,11 +94,11 @@ jobs:
         dotnet restore
         dotnet publish --no-restore Pog
 
-    - name: Build PogNative
+    - name: Build Pog.Shim
       working-directory: app/Pog/lib_compiled
       run: |
-        cmake -B ./PogNative/cmake-build-release -S ./PogNative -DCMAKE_BUILD_TYPE=Release
-        cmake --build ./PogNative/cmake-build-release --config Release
+        cmake -B ./Pog.Shim/cmake-build-release -S ./Pog.Shim -DCMAKE_BUILD_TYPE=Release
+        cmake --build ./Pog.Shim/cmake-build-release --config Release
         gi ./PogShimTemplate.exe
 
     - name: Copy VC Redistributable

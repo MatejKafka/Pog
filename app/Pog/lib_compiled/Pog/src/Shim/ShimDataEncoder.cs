@@ -14,7 +14,7 @@ namespace Pog.Shim;
  * first copy it, then modify the copy, and then move it into the final destination.
  *
  * ## How the shim works
- * Source of the shim is in the `lib_compiled/PogNative` directory.
+ * Source of the shim is in the `lib_compiled/Pog.Shim` directory.
  * When invoked, the shim loads the RCDATA resource with ID 1, which should contain the shim data, parses it, and then
  * creates a job object, invokes CreateProcessW to spawn the target process, waits until the target process exits and
  * forwards the exit code.
