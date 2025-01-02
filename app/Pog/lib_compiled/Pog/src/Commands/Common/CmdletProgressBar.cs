@@ -19,7 +19,10 @@ public sealed class CmdletProgressBar : IDisposable {
 
     public CmdletProgressBar(Cmdlet cmdlet, ProgressActivity metadata) : this(cmdlet.WriteProgress, metadata) {}
 
-    public void Update(double ratioComplete) {
+    public void Update(double ratioComplete, string? description = null) {
+        if (description != null) {
+            _progressRecord.StatusDescription = description;
+        }
         UpdatePercent((int) (ratioComplete * 100));
     }
 
