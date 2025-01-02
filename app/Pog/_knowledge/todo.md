@@ -77,7 +77,6 @@ https://github.com/miurahr/aqtinstall
 - Signal Portable - https://community.signalusers.org/t/portable-app-version-of-signal-desktop-windows/2000/11
 - Make internal pog dirs (.commands, .pog, pog.psd1) inside the package directory hidden?
 - allow manifest to provide multiple download URLs (as long as the hash is the same for all of them)
-- validate that package name does not start or end with whitespace
 - check that anything added to PATH or PSModulePath does not contain semicolons (;)
 - implement support for the Channel property in a manifest
 - provide list of already existing package manifests to version generator; that way, it can stop listing releases when it reaches an already existing release

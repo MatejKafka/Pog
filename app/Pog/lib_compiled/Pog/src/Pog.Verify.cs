@@ -74,8 +74,13 @@ public static class Verify {
 
     internal static class Is {
         public static bool PackageName(string packageName) {
-            // forbid Unix-style dot-files as package names
-            return FileName(packageName) && packageName[0] != '.';
+            // forbid Unix-style dot-files as package names, forbid leading/trailing whitespace
+            return FileName(packageName) && packageName[0] != '.' && IsTrimmed(packageName);
+        }
+
+        private static bool IsTrimmed(string str) {
+            if (str.Length == 0) return true;
+            return !char.IsWhiteSpace(str[0]) && !char.IsWhiteSpace(str[str.Length - 1]);
         }
 
         public static bool Sha256Hash(string str) {
