@@ -33,6 +33,8 @@ Advantages over normal package managers and installers:
 
 
 Requirements:
+	NOTE: this is very outdated, but I'm leaving it as a possibly interesting look into the history of the project
+
 	user has access to a set of commands like `Install-Pog`, `Remove-Pog`, `Start-Pog`,...
 	`configure.ps1` scripts in each package are not called directly, instead they are called by library scripts, which setup an environment first
 	each command can either take a path to local package directory, or automatically uses the one where Pog is installed
