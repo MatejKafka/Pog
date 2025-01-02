@@ -177,31 +177,5 @@
                 </TableRowEntries>
             </TableControl>
         </View>
-        <View>
-            <Name>Pog.PackageGenerator</Name>
-            <ViewSelectedBy>
-                <TypeName>Pog.PackageGenerator</TypeName>
-            </ViewSelectedBy>
-            <TableControl>
-                <TableHeaders>
-                    <TableColumnHeader>
-                        <Width>20</Width>
-                    </TableColumnHeader>
-                    <TableColumnHeader/>
-                </TableHeaders>
-                <TableRowEntries>
-                    <TableRowEntry>
-                        <TableColumnItems>
-                            <TableColumnItem>
-                                <PropertyName>PackageName</PropertyName>
-                            </TableColumnItem>
-                            <TableColumnItem>
-                                <PropertyName>Path</PropertyName>
-                            </TableColumnItem>
-                        </TableColumnItems>
-                    </TableRowEntry>
-                </TableRowEntries>
-            </TableControl>
-        </View>
     </ViewDefinitions>
 </Configuration>

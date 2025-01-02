@@ -38,6 +38,7 @@ public class PathConfig {
         internal const string ManifestFileName = "pog.psd1";
         internal const string ManifestResourceDirName = ".pog";
         internal const string RepositoryTemplateDirName = ".template";
+        internal const string GeneratorFileName = "generator.psd1";
 
         // suffixes, not relative paths (do not add a slash when joining these)
         internal const string ShortcutDirRelSuffix = "";
@@ -71,7 +72,6 @@ public class PathConfig {
     /// Directory where exported shortcuts from packages are copied (per-user).
     public readonly string ExportedShortcutDir;
     public readonly string ExportedCommandDir;
-    public readonly string ManifestGeneratorDir;
 
     /// Directory where package files with known hash are cached.
     public readonly string DownloadCacheDir;
@@ -102,7 +102,6 @@ public class PathConfig {
 
         var dataPath = $"{dataRootPath}\\data";
         ExportedCommandDir = $"{dataPath}\\package_bin";
-        ManifestGeneratorDir = $"{dataPath}\\manifest_generators";
         PackageRoots = new PackageRootConfig($"{dataPath}\\package_roots.txt");
         Path7Zip = $"{ExportedCommandDir}\\7z.exe";
         PathOpenedFilesView = $"{ExportedCommandDir}\\OpenedFilesView.exe";

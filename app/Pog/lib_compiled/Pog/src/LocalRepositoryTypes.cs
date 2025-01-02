@@ -27,6 +27,14 @@ public sealed class LocalRepository(string manifestRepositoryDirPath) : IReposit
         return EnumeratePackageNames(searchPattern).Select(p => new LocalRepositoryVersionedPackage(repo, p));
     }
 
+    public IEnumerable<string> EnumerateGeneratedPackageNames(string searchPattern = "*") {
+        return EnumerateGeneratedPackages(searchPattern).Select(p => p.PackageName);
+    }
+
+    public IEnumerable<LocalRepositoryVersionedPackage> EnumerateGeneratedPackages(string searchPattern = "*") {
+        return Enumerate(searchPattern).Cast<LocalRepositoryVersionedPackage>().Where(p => p.HasGenerator);
+    }
+
     public RepositoryVersionedPackage GetPackage(string packageName, bool resolveName, bool mustExist) {
         Verify.PackageName(packageName);
         if (resolveName) {
@@ -51,9 +59,15 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
     public readonly string Path;
     public override bool Exists => Directory.Exists(Path);
     public bool IsTemplated => Directory.Exists(TemplateDirPath);
+    public bool HasGenerator => File.Exists(GeneratorPath);
 
     public string TemplateDirPath => $"{Path}\\{PPaths.RepositoryTemplateDirName}";
     public string TemplatePath => $"{TemplateDirPath}\\{PPaths.ManifestFileName}";
+    public string GeneratorPath => $"{TemplateDirPath}\\{PPaths.GeneratorFileName}";
+
+    private PackageGeneratorManifest? _generator;
+    public PackageGeneratorManifest Generator => _generator ?? ReloadGenerator();
+
     internal override string ExpectedPathStr => $"expected path: {Path}";
 
     internal LocalRepositoryVersionedPackage(LocalRepository repository, string packageName) : base(packageName) {
@@ -87,6 +101,12 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
         return this.IsTemplated
                 ? new TemplatedLocalRepositoryPackage(this, version)
                 : new DirectLocalRepositoryPackage(this, version);
+    }
+
+    /// <exception cref="PackageManifestNotFoundException">Thrown if the package generator does not exist.</exception>
+    /// <exception cref="PackageManifestParseException">Thrown if the package generator file is not a valid PowerShell data file (.psd1).</exception>
+    public PackageGeneratorManifest ReloadGenerator() {
+        return _generator = new PackageGeneratorManifest(GeneratorPath);
     }
 }
 

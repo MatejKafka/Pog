@@ -117,7 +117,9 @@ public sealed class RepositoryPackageNameCompleter : DirectoryListingArgumentCom
 [PublicAPI]
 public sealed class RepositoryPackageGeneratorNameCompleter : DirectoryListingArgumentCompleter {
     protected override IEnumerable<string> GetMatchingItems(string searchPattern, IDictionary _) {
-        return InternalState.GeneratorRepository.EnumerateGeneratorNames(searchPattern);
+        return InternalState.Repository is LocalRepository localRepo
+                ? localRepo.EnumerateGeneratedPackageNames(searchPattern)
+                : [];
     }
 }
 

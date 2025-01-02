@@ -181,7 +181,7 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
         }
 
         // validate .template dir
-        ValidateManifestDirectory($"package '{vp.PackageName}'", templateDirPath);
+        ValidateManifestDirectory($"package '{vp.PackageName}'", templateDirPath, true);
 
         // validate that manifest template exists
         if (!File.Exists(templatePath)) {
@@ -220,7 +220,7 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
     private void ValidatePackageVersion(LocalRepositoryPackage p, bool validateManifestDir = true) {
         if (validateManifestDir) {
             var path = p is TemplatedLocalRepositoryPackage tp ? tp.TemplateDirPath : p.Path;
-            ValidateManifestDirectory(p.GetDescriptionString(), path);
+            ValidateManifestDirectory(p.GetDescriptionString(), path, false);
         }
 
         // validate the manifest
@@ -254,18 +254,25 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
         }
     }
 
-    private void ValidateManifestDirectory(string packageInfoStr, string templateDirPath) {
-        var extraEntries = GetFileList(Directory.EnumerateFileSystemEntries(templateDirPath)
-                .Where(p => !p.EndsWith(@"\pog.psd1") && !p.EndsWith(@"\.pog")));
-        if (extraEntries != "") {
-            AddIssue($"Manifest directory for {packageInfoStr} at '{templateDirPath}' contains extra " +
-                     $"entries: {extraEntries}. Only a 'pog.psd1' manifest file and an optional '.pog' directory for extra " +
-                     $"files is allowed.");
+    private void ValidateManifestDirectory(string packageInfoStr, string manifestDirPath, bool isTemplate) {
+        var extraEntries = Directory.EnumerateFileSystemEntries(manifestDirPath)
+                .Where(p => !p.EndsWith(@"\pog.psd1") && !p.EndsWith(@"\.pog"));
+
+        if (isTemplate) {
+            // allow the generator manifest for template dir
+            extraEntries = extraEntries.Where(p => !p.EndsWith(@"\generator.psd1"));
         }
 
-        if (File.Exists($"{templateDirPath}\\.pog")) {
+        var extraEntriesStr = GetFileList(extraEntries);
+        if (extraEntriesStr != "") {
+            AddIssue($"Manifest directory for {packageInfoStr} at '{manifestDirPath}' contains extra entries: " +
+                     $"{extraEntriesStr}. Only a 'pog.psd1' manifest file{(isTemplate ? ", a 'generator.psd1' generator file" : "")} " +
+                     $"and an optional '.pog' directory for extra files is allowed.");
+        }
+
+        if (File.Exists($"{manifestDirPath}\\.pog")) {
             AddIssue($"Extra resource directory for {packageInfoStr} must be a directory, " +
-                     $"found a file at '{templateDirPath}\\.pog'.");
+                     $"found a file at '{manifestDirPath}\\.pog'.");
         }
 
         // pog.psd1 manifest is validated separately

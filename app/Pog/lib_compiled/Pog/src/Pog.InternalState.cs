@@ -62,10 +62,6 @@ public static class InternalState {
         set => Interlocked.Exchange(ref _repository, value);
     }
 
-    private static GeneratorRepository? _generatorRepository;
-    public static GeneratorRepository GeneratorRepository => LazyInitializer.EnsureInitialized(ref _generatorRepository,
-            () => new GeneratorRepository(PathConfig.ManifestGeneratorDir))!;
-
     private static ImportedPackageManager? _importedPackageManager;
     public static ImportedPackageManager ImportedPackageManager => LazyInitializer.EnsureInitialized(
             ref _importedPackageManager,

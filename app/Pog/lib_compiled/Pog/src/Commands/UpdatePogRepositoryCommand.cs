@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Management.Automation;
 using System.Security;
 using JetBrains.Annotations;
@@ -79,18 +78,21 @@ public class UpdatePogRepositoryCommand : PogCmdlet {
         if (PackageName == null) return;
 
         foreach (var pn in PackageName) {
-            var generator = InternalState.GeneratorRepository.GetPackage(pn, true, true);
-            // ensure manifest is loaded
-            generator.ReloadManifest();
+            var p = (LocalRepositoryVersionedPackage) _repo.GetPackage(pn, true, true);
+            if (!p.HasGenerator) {
+                WriteError(new PackageGeneratorNotFoundException($"Package '{p.PackageName}' does not have a generator."),
+                        "MissingGenerator", ErrorCategory.ObjectNotFound, pn);
+                continue;
+            }
 
             // if -Version was passed, overwrite even existing manifests
-            ProcessPackage(generator, Force || Version != null);
+            ProcessPackage(p, Force || Version != null);
         }
     }
 
     private void UpdateAll() {
-        var generators = InternalState.GeneratorRepository.Enumerate().ToArray();
-        if (generators.Length == 0) {
+        var packages = _repo.EnumerateGeneratedPackages().ToArray();
+        if (packages.Length == 0) {
             return;
         }
 
@@ -98,30 +100,24 @@ public class UpdatePogRepositoryCommand : PogCmdlet {
             Activity = "Updating repository",
             // this duplicates the code below in the loop, but we have to do that due to
             //  https://github.com/PowerShell/PowerShell/issues/24728
-            Description = $"Updating '{generators[0].PackageName}'...",
+            Description = $"Updating '{packages[0].PackageName}'...",
         });
 
         var i = 0;
-        foreach (var generator in generators) {
-            progressBar.Update((double) i++ / generators.Length, $"Updating '{generator.PackageName}'...");
-            ProcessPackage(generator, Force);
+        foreach (var p in packages) {
+            progressBar.Update((double) i++ / packages.Length, $"Updating '{p.PackageName}'...");
+            ProcessPackage(p, Force);
         }
     }
 
-    private void ProcessPackage(PackageGenerator generator, bool force) {
-        var package = (LocalRepositoryVersionedPackage) _repo.GetPackage(generator.PackageName, true, true);
-        if (!package.IsTemplated) {
-            var e = new ArgumentException(
-                    $"Package '{package.PackageName}' {(package.Exists ? "is not templated" : "does not exist yet")}, " +
-                    "generators are only supported for existing templated packages.");
-            WriteError(e, "NonTemplatedPackage", ErrorCategory.InvalidArgument, generator.PackageName);
-            return;
-        }
+    private void ProcessPackage(LocalRepositoryVersionedPackage package, bool force) {
+        // ensure generator manifest is loaded
+        package.ReloadGenerator();
 
         var it = InvokePogCommand(new InvokeContainer(this) {
             Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_ManifestGenerator.psm1"],
             Run = ps => ps.AddCommand("__main").AddParameters(
-                    new object?[] {generator, package, Version, force, ListOnly, GitHubToken}),
+                    new object?[] {package, Version, force, ListOnly, GitHubToken}),
         });
 
         foreach (var o in it) {

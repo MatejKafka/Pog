@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections;
+using System.IO;
 using System.Management.Automation;
 using JetBrains.Annotations;
 
 namespace Pog;
 
 public class InvalidGeneratorManifestException(string message) : Exception(message);
+
+public class PackageGeneratorNotFoundException(string message) : FileNotFoundException(message);
 
 [PublicAPI]
 public class PackageGeneratorManifest {

@@ -68,7 +68,7 @@ function SetupNewPogTestDir {
     # clean the test directory
     rm -Recurse -Force $TestDir\*
 
-    $null = mkdir $TestDir\data\manifest_generators, $TestDir\data\manifests, $TestDir\data\package_bin
+    $null = mkdir $TestDir\data\manifests, $TestDir\data\package_bin
     $null = mkdir $TestDir\cache\download_cache, $TestDir\cache\download_tmp
 
     # do not touch actual Pog data

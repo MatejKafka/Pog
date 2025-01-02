@@ -120,7 +120,6 @@ function newdir($Dir) {
 
 newdir "./data"
 newdir "./cache"
-newdir "./data/manifest_generators"
 # directory where commands are exported; is added to PATH
 newdir "./data/package_bin"
 # downloaded package cache
