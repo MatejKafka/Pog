@@ -44,6 +44,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 
+    we need AsyncInterfaces 8.0.0 (and also the two packages below, which depend on it), which is what PowerShell
+    currently ships - if we updated to 9.0.0, loading Pog without ILRepack would fail, as it would try to load
+    9.0.0 while PowerShell already has 8.0.0 loaded; for release mode, everything is OK, since we ship our own copy
+    -->
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0"/>
+    <PackageReference Include="System.Text.Json" Version="8.0.5"/>
+    <PackageReference Include="System.Net.Http.Json" Version="8.0.1"/>
+
     <PackageReference Include="DiffPlex" Version="1.7.2"/>
     <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.106">
       <PrivateAssets>all</PrivateAssets>
@@ -55,8 +64,6 @@
     <PackageReference Include="PowerShellStandard.Library" Version="7.0.0-preview.1"/>
     <PackageReference Include="System.Management" Version="9.0.0"/>
     <PackageReference Include="System.Memory" Version="4.6.0"/>
-    <PackageReference Include="System.Text.Json" Version="9.0.0"/>
-    <PackageReference Include="System.Net.Http.Json" Version="9.0.0"/>
     <PackageReference Include="MatejKafka.XmlDoc2CmdletDoc" Version="0.6.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

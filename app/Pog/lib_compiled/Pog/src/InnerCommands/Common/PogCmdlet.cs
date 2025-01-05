@@ -78,6 +78,17 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         ThrowTerminatingError(new ArgumentException(message), errorId, ErrorCategory.InvalidArgument, argumentValue);
     }
 
+    // necessary, since modern APIs such as HttpClient do not support SecureString, as it's deprecated
+    // PowerShell does it the same way
+    protected static string UnprotectSecureString(SecureString secureString) {
+        var valuePtr = Marshal.SecureStringToGlobalAllocUnicode(secureString);
+        try {
+            return Marshal.PtrToStringUni(valuePtr) ?? "";
+        } finally {
+            Marshal.ZeroFreeGlobalAllocUnicode(valuePtr);
+        }
+    }
+
     protected override void StopProcessing() {
         base.StopProcessing();
 
