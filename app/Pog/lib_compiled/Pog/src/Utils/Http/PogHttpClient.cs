@@ -8,7 +8,22 @@ using System.Threading.Tasks;
 
 namespace Pog.Utils.Http;
 
-internal class PogHttpClient() : HttpClient(new HttpClientHandler {UseCookies = false}) {
+internal class PogHttpClient : HttpClient {
+    public string UserAgent => DefaultRequestHeaders.UserAgent.ToString();
+
+    public PogHttpClient() : base(new HttpClientHandler {UseCookies = false}) {
+        // configure a User-Agent containing the following components:
+        // - project name and version
+        DefaultRequestHeaders.UserAgent.Add(new("Pog", AssemblyVersions.GetPogVersion()));
+        // - link to the project, in case anyone is curious what the user agent actually is
+        DefaultRequestHeaders.UserAgent.Add(new("(https://github.com/MatejKafka/Pog)"));
+        // - PowerShell edition and version
+        var (isCore, pwshVersion) = AssemblyVersions.GetPowerShellVersion();
+        DefaultRequestHeaders.UserAgent.Add(new(isCore ? "PowerShell" : "WindowsPowerShell", pwshVersion));
+        // - Windows version
+        DefaultRequestHeaders.UserAgent.Add(new("(" + Environment.OSVersion.VersionString + ")"));
+    }
+
     private async Task<HttpResponseMessage?> RetrieveAsync(string url, CancellationToken token = default) {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         var response = await SendAsync(request, token).ConfigureAwait(false);

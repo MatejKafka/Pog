@@ -78,7 +78,7 @@ internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<strin
         };
 
         var userAgentStr = DownloadParameters.UserAgent.GetHeaderString();
-        WriteDebug($"Using a spoofed user agent: {userAgentStr}");
+        WriteDebug($"Using a custom user agent: {userAgentStr}");
         bitsParams["CustomHeaders"] = "User-Agent: " + userAgentStr;
 
         // invoke BITS; it's possible to invoke it directly using the .NET API, but that seems overly complex for now
