@@ -115,7 +115,7 @@ public class UpdatePogRepositoryCommand : PogCmdlet {
         package.ReloadGenerator();
 
         var it = InvokePogCommand(new InvokeContainer(this) {
-            Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_ManifestGenerator.psm1"],
+            Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_UpdateRepository.psm1"],
             Run = ps => ps.AddCommand("__main").AddParameters(
                     new object?[] {package, Version, force, ListOnly, GitHubToken}),
         });
