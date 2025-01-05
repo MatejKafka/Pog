@@ -52,6 +52,12 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         WriteInformation(message, null);
     }
 
+    protected void WriteObjectEnumerable(IEnumerable enumerable) {
+        foreach (var o in enumerable) {
+            WriteObject(o);
+        }
+    }
+
     protected void WriteObjectEnumerable<T>(IEnumerable<T> enumerable) {
         foreach (var o in enumerable) {
             WriteObject(o);

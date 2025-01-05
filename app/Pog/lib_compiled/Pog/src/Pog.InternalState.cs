@@ -57,26 +57,25 @@ public static class InternalState {
     /// The package repository used to retrieve package manifests. Do not set this property concurrently with other Pog
     /// operations, since some cmdlets internally repeatedly access the repository and assume it won't change between accesses.
     public static IRepository Repository {
-        get => LazyInitializer.EnsureInitialized(ref _repository,
-                () => new RemoteRepository(PathConfig.DefaultRemoteRepositoryUrl))!;
+        get => LazyInitializer.EnsureInitialized(
+                ref _repository, () => new RemoteRepository(PathConfig.DefaultRemoteRepositoryUrl))!;
         set => Interlocked.Exchange(ref _repository, value);
     }
 
     private static ImportedPackageManager? _importedPackageManager;
     public static ImportedPackageManager ImportedPackageManager => LazyInitializer.EnsureInitialized(
-            ref _importedPackageManager,
-            () => new ImportedPackageManager(PathConfig.PackageRoots))!;
+            ref _importedPackageManager, () => new ImportedPackageManager(PathConfig.PackageRoots))!;
 
     private static TmpDirectory? _tmpDownloadDirectory;
-    public static TmpDirectory TmpDownloadDirectory => LazyInitializer.EnsureInitialized(ref _tmpDownloadDirectory,
-            () => new TmpDirectory(PathConfig.DownloadTmpDir))!;
+    public static TmpDirectory TmpDownloadDirectory => LazyInitializer.EnsureInitialized(
+            ref _tmpDownloadDirectory, () => new TmpDirectory(PathConfig.DownloadTmpDir))!;
 
     private static SharedFileCache? _downloadCache;
-    public static SharedFileCache DownloadCache => LazyInitializer.EnsureInitialized(ref _downloadCache,
-            () => new SharedFileCache(PathConfig.DownloadCacheDir, TmpDownloadDirectory))!;
+    public static SharedFileCache DownloadCache => LazyInitializer.EnsureInitialized(
+            ref _downloadCache, () => new SharedFileCache(PathConfig.DownloadCacheDir, TmpDownloadDirectory))!;
 
     private static PogHttpClient? _httpClient;
     /// Shared HttpClient singleton instance, used by all other classes.
-    internal static PogHttpClient HttpClient => LazyInitializer.EnsureInitialized(ref _httpClient,
-            () => new PogHttpClient())!;
+    internal static PogHttpClient HttpClient => LazyInitializer.EnsureInitialized(
+            ref _httpClient, () => new PogHttpClient())!;
 }
