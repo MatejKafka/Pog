@@ -1,6 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Management.Automation;
+using System.Runtime.InteropServices;
+using System.Security;
+using System.Threading;
 
 namespace Pog.InnerCommands.Common;
 
@@ -9,6 +14,10 @@ namespace Pog.InnerCommands.Common;
 /// </summary>
 public class PogCmdlet : PSCmdlet, IDisposable {
     private HashSet<BaseCommand>? _currentlyExecutingCommands;
+
+    // lazily-provided cancellation token
+    private CancellationTokenSource? _stopping;
+    protected internal CancellationToken CancellationToken => (_stopping ??= new CancellationTokenSource()).Token;
 
     internal void InvokePogCommand(VoidCommand cmd) {
         using (new CommandStopContext(this, cmd)) {
@@ -26,31 +35,6 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         using (new CommandStopContext(this, cmd)) {
             foreach (var obj in cmd.Invoke()) {
                 yield return obj;
-            }
-        }
-    }
-
-    protected override void StopProcessing() {
-        base.StopProcessing();
-
-        if (_currentlyExecutingCommands == null) {
-            return;
-        }
-
-        foreach (var cmd in _currentlyExecutingCommands) {
-            cmd.StopProcessing();
-        }
-
-        _currentlyExecutingCommands = null;
-    }
-
-    public virtual void Dispose() {
-        if (_currentlyExecutingCommands == null) {
-            return;
-        }
-        foreach (var cmd in _currentlyExecutingCommands) {
-            if (cmd is IDisposable disposable) {
-                disposable.Dispose();
             }
         }
     }
@@ -88,6 +72,27 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         ThrowTerminatingError(new ArgumentException(message), errorId, ErrorCategory.InvalidArgument, argumentValue);
     }
 
+    protected override void StopProcessing() {
+        base.StopProcessing();
+
+        // stop any async calls
+        _stopping?.Cancel();
+
+        // forward `.StopProcessing()` call to all invoked commands
+        if (_currentlyExecutingCommands != null) {
+            foreach (var cmd in _currentlyExecutingCommands) {
+                cmd.StopProcessing();
+            }
+        }
+    }
+
+    public virtual void Dispose() {
+        // unless something leaked, all invoked commands should be disposed by now
+        Debug.Assert(_currentlyExecutingCommands is not {Count: not 0});
+
+        _stopping?.Dispose();
+    }
+
     private readonly struct CommandStopContext : IDisposable {
         private readonly PogCmdlet _cmdlet;
         private readonly BaseCommand _command;
@@ -95,12 +100,17 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         public CommandStopContext(PogCmdlet cmdlet, BaseCommand cmd) {
             _cmdlet = cmdlet;
             _command = cmd;
+            // register the command so that we can route StopProcessing calls to it
             _cmdlet._currentlyExecutingCommands ??= [];
             _cmdlet._currentlyExecutingCommands.Add(_command);
         }
 
         public void Dispose() {
             _cmdlet._currentlyExecutingCommands?.Remove(_command);
+            // dispose the command, it finished
+            if (_command is IDisposable disposable) {
+                disposable.Dispose();
+            }
         }
     }
 }

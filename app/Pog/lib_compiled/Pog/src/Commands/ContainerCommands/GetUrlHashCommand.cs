@@ -24,19 +24,6 @@ public class GetUrlHashCommand : PogCmdlet {
     [Parameter(ValueFromPipeline = true)]
     public UserAgentType UserAgent = default;
 
-    private readonly CancellationTokenSource _stopping = new();
-
-    public override void Dispose() {
-        base.Dispose();
-        _stopping.Dispose();
-    }
-
-    protected override void StopProcessing() {
-        base.StopProcessing();
-        _stopping.Cancel();
-    }
-
-
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
@@ -44,7 +31,7 @@ public class GetUrlHashCommand : PogCmdlet {
             try {
                 // this cmdlet is expected to be used for small files, and Start-BitsTransfer has quite a significant
                 //  startup overhead, so this implementation instead uses a streaming implementation based on `HttpClient`
-                WriteObject(GetUrlSha256Hash(new(url), UserAgent, _stopping.Token));
+                WriteObject(GetUrlSha256Hash(new(url), UserAgent, CancellationToken));
             } catch (TaskCanceledException) {
                 throw new PipelineStoppedException();
             }

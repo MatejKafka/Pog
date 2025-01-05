@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Management.Automation;
-using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
@@ -44,17 +43,6 @@ public sealed class FindPogCommand : PogCmdlet {
 
     /// List of asynchronously loading manifests.
     private readonly List<(RepositoryPackage, Task)> _pendingManifestLoads = [];
-    private readonly CancellationTokenSource _stopping = new();
-
-    public override void Dispose() {
-        base.Dispose();
-        _stopping.Dispose();
-    }
-
-    protected override void StopProcessing() {
-        base.StopProcessing();
-        _stopping.Cancel();
-    }
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
@@ -161,6 +149,6 @@ public sealed class FindPogCommand : PogCmdlet {
         // for remote packages, it takes a long time to load the manifest, since we're downloading a zip archive for each
         //  package; even for local repositories, parallelizing the load of manifests should improve performance, since the
         //  parsing takes some time; parallelize the loading and return the packages from `EndProcessing`
-        _pendingManifestLoads.Add((p, p.ReloadManifestAsync(_stopping.Token)));
+        _pendingManifestLoads.Add((p, p.ReloadManifestAsync(CancellationToken)));
     }
 }

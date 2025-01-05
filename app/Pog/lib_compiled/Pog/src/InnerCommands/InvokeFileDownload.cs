@@ -3,7 +3,6 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
-using System.Threading;
 using System.Threading.Tasks;
 using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
@@ -11,22 +10,11 @@ using Pog.Utils.Http;
 
 namespace Pog.InnerCommands;
 
-internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet), IDisposable {
+internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet) {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string DestinationDirPath = null!;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
-
-    private readonly CancellationTokenSource _stopping = new();
-
-    public void Dispose() {
-        _stopping.Dispose();
-    }
-
-    public override void StopProcessing() {
-        base.StopProcessing();
-        _stopping.Cancel();
-    }
 
     /// <summary>Downloads the file from $SourceUrl to $DestinationDirPath.</summary>
     /// <returns>Full path of the downloaded file.</returns>
@@ -69,7 +57,7 @@ internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<strin
             //  to resolve the final filename
         } else {
             // run the resolver in parallel to the download
-            resolverTask = DownloadTargetResolver.ResolveAsync(_stopping.Token, parsedUrl, DownloadParameters.UserAgent);
+            resolverTask = DownloadTargetResolver.ResolveAsync(CancellationToken, parsedUrl, DownloadParameters.UserAgent);
         }
 
         ProgressActivity.Activity ??= "BITS Transfer";

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Management.Automation.Host;
+using System.Threading;
 
 namespace Pog.InnerCommands.Common;
 
@@ -16,6 +17,7 @@ namespace Pog.InnerCommands.Common;
 /// </remarks>
 public abstract class BaseCommand(PogCmdlet cmdlet) {
     protected readonly PogCmdlet Cmdlet = cmdlet;
+    protected CancellationToken CancellationToken => Cmdlet.CancellationToken;
 
     // forward calls to the cmdlet
     protected void InvokePogCommand(VoidCommand cmd) => Cmdlet.InvokePogCommand(cmd);
