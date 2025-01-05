@@ -10,7 +10,7 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogRepository")]
 [OutputType(typeof(string))]
-public class GetPogRepositoryCommand : PogCmdlet {
+public sealed class GetPogRepositoryCommand : PogCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 

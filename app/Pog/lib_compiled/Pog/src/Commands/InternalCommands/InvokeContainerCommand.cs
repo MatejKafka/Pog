@@ -8,7 +8,7 @@ namespace Pog.Commands.InternalCommands;
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "Container")]
 [OutputType(typeof(object))]
-public class InvokeContainerCommand : PogCmdlet {
+public sealed class InvokeContainerCommand : PogCmdlet {
     [Parameter] public string? WorkingDirectory = null;
     [Parameter] public object? Context = null;
 

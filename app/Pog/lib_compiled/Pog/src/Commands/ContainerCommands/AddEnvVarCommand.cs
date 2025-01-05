@@ -8,7 +8,7 @@ namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsCommon.Add, "EnvVar")]
-public class AddEnvVarCommand : PogCmdlet {
+public sealed class AddEnvVarCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string VariableName = null!;
     [Parameter(Mandatory = true, Position = 1)] public string Directory = null!;
     [Parameter] public SwitchParameter Prepend;

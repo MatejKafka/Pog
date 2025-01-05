@@ -9,7 +9,7 @@ namespace Pog.Commands.ContainerCommands;
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "CachedUrlHash")]
 [OutputType(typeof(string))]
-public class GetCachedUrlHashCommand : PogCmdlet {
+public sealed class GetCachedUrlHashCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true)]
     public string[] SourceUrl = null!;
 

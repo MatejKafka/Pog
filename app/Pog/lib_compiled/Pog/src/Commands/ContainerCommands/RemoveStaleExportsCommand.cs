@@ -10,7 +10,7 @@ namespace Pog.Commands.ContainerCommands;
 //  and then handle updates of the exported items in Enable-Pog?
 [PublicAPI]
 [Cmdlet(VerbsCommon.Remove, "StaleExports")]
-public class RemoveStaleExportsCommand : PogCmdlet {
+public sealed class RemoveStaleExportsCommand : PogCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 

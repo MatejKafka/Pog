@@ -12,7 +12,7 @@ namespace Pog.Commands;
 /// </remarks>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Set, "PogRepository")]
-public class SetPogRepositoryCommand : PogCmdlet {
+public sealed class SetPogRepositoryCommand : PogCmdlet {
     // TODO: would be more elegant to pass uri or string, but if we made these into separate arguments, the user could
     //  not specify the priority; maybe we could take IRepository and provide an ArgumentTransformationAttribute?
 

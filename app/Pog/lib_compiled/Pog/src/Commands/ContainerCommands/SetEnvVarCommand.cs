@@ -7,7 +7,7 @@ namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsCommon.Set, "EnvVar")]
-public class SetEnvVarCommand : PogCmdlet {
+public sealed class SetEnvVarCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string VariableName = null!;
     [Parameter(Mandatory = true, Position = 1)] public string Value = null!;
 

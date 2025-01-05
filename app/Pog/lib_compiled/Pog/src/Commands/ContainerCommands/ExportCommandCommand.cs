@@ -7,7 +7,7 @@ namespace Pog.Commands.ContainerCommands;
 /// <summary>Exports a command line entry point to the package, which the user can invoke to run the packaged application.</summary>
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Command", DefaultParameterSetName = ShimPS)]
-public class ExportCommandCommand : ExportEntryPointCommandBase {
+public sealed class ExportCommandCommand : ExportEntryPointCommandBase {
     private const string SymlinkPS = "Symlink";
 
     /// If set, the target is exported using a symbolic link instead of a shim executable.

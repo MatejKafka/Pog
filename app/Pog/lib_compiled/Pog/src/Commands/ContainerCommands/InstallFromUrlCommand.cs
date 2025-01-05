@@ -14,7 +14,7 @@ namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
-public class InstallFromUrlCommand : PogCmdlet {
+public sealed class InstallFromUrlCommand : PogCmdlet {
     // created while parsing the package manifest
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true)]
     public PackageInstallParameters[] Params = null!;

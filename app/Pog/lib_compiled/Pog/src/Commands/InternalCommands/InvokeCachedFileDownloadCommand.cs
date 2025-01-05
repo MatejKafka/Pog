@@ -16,7 +16,7 @@ namespace Pog.Commands.InternalCommands;
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "CachedFileDownload", DefaultParameterSetName = "Hash")]
 [OutputType(typeof(InvokeCachedFileDownload.TmpFileLock), typeof(SharedFileCache.CacheEntryLock))]
-public class InvokeCachedFileDownloadCommand : PogCmdlet {
+public sealed class InvokeCachedFileDownloadCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string SourceUrl = null!;
 
     [Parameter(ParameterSetName = "Hash")]

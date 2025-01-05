@@ -17,7 +17,7 @@ namespace Pog.Commands.ContainerCommands;
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "UrlHash")]
 [OutputType(typeof(string))]
-public class GetUrlHashCommand : PogCmdlet {
+public sealed class GetUrlHashCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true)]
     public string[] SourceUrl = null!;
 

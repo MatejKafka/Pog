@@ -11,7 +11,7 @@ namespace Pog.Commands.ContainerCommands;
 [PublicAPI]
 // parameter set necessary for compatibility with Export-Command
 [Cmdlet(VerbsData.Export, "Shortcut", DefaultParameterSetName = ShimPS)]
-public class ExportShortcutCommand : ExportEntryPointCommandBase {
+public sealed class ExportShortcutCommand : ExportEntryPointCommandBase {
     /// Path to the icon file used to set the shortcut icon. The path should refer to an .ico file,
     /// or an executable with an embedded icon.
     [Parameter]

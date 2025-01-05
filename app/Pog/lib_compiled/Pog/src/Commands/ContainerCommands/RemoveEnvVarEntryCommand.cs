@@ -9,7 +9,7 @@ namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsCommon.Remove, "EnvVarEntry")]
-public class RemoveEnvVarEntryCommand : PogCmdlet {
+public sealed class RemoveEnvVarEntryCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string VariableName = null!;
     [Parameter(Mandatory = true, Position = 1)] public string Directory = null!;
 

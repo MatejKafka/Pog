@@ -10,7 +10,7 @@ namespace Pog.Commands.InternalCommands;
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "FileDownload")]
 [OutputType(typeof(string))]
-public class InvokeFileDownloadCommand : PogCmdlet {
+public sealed class InvokeFileDownloadCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string SourceUrl = null!;
     [Parameter(Mandatory = true, Position = 1)] public string DestinationDirPath = null!;
     [Parameter] public DownloadParameters DownloadParameters = new();

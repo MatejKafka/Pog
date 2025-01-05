@@ -14,7 +14,7 @@ namespace Pog.Commands;
 [PublicAPI]
 [Cmdlet(VerbsData.Update, "PogRepository")]
 [OutputType(typeof(TemplatedLocalRepositoryPackage))]
-public class UpdatePogRepositoryCommand : PogCmdlet {
+public sealed class UpdatePogRepositoryCommand : PogCmdlet {
     /// Name of the manifest generator for which to generate new manifests.
     /// If not passed, all existing generators are invoked.
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]

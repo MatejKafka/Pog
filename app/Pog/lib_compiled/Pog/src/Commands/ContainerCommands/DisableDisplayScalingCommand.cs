@@ -8,7 +8,7 @@ namespace Pog.Commands.ContainerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Disable, "DisplayScaling")]
-public class DisableDisplayScalingCommand : PogCmdlet {
+public sealed class DisableDisplayScalingCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)]
     [ResolvePath("Cannot disable system display scaling, exe path")]
     public UserPath ExePath = new();

@@ -9,7 +9,7 @@ namespace Pog.Commands.InternalCommands;
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "FileHash7Zip")]
 [OutputType(typeof(string))]
-public class GetFileHash7ZipCommand : PogCmdlet {
+public sealed class GetFileHash7ZipCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string LiteralPath = null!;
     [Parameter(Position = 1)] public GetFileHash7Zip.HashAlgorithm Algorithm = default;
     [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
