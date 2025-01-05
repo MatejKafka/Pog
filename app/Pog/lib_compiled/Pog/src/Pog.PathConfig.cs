@@ -65,6 +65,9 @@ public class PathConfig {
 
     public const string DefaultRemoteRepositoryUrl = "https://matejkafka.github.io/PogPackages/";
 
+    /// Path to the main Pog module to import.
+    public readonly string MainModulePath;
+
     public readonly string ContainerDir;
     public readonly string ShimPath;
     public readonly string VcRedistDir;
@@ -96,6 +99,7 @@ public class PathConfig {
         ExportedShortcutDir = shortcutExportPath;
 
         var appPath = $"{pogRootPath}\\app\\Pog";
+        MainModulePath = appPath;
         ContainerDir = $"{appPath}\\container";
         ShimPath = $"{appPath}\\lib_compiled\\PogShimTemplate.exe";
         VcRedistDir = $"{appPath}\\lib_compiled\\vc_redist";
