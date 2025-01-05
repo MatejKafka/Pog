@@ -111,6 +111,7 @@ public static class ManifestTemplateFile {
 
         public void Serialize(object? value) {
             if (value == null) Write("$null");
+            else if (value is PackageVersion v) SerializeString(v.ToString());
             else if (value is string s) SerializeString(s);
             else if (value is bool b) Write(b ? "$true" : "$false");
             else if (IsNumeric(value)) Write(value.ToString());
