@@ -1,4 +1,5 @@
-﻿using System.IO.Compression;
+﻿using System;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -24,11 +25,7 @@ internal class PogHttpClient : HttpClient {
         DefaultRequestHeaders.UserAgent.Add(new("(" + Environment.OSVersion.VersionString + ")"));
     }
 
-    private async Task<HttpResponseMessage?> RetrieveAsync(string url, CancellationToken token = default) {
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        var response = await SendAsync(request, token).ConfigureAwait(false);
-
-        // don't like having to manually dispose, but don't see any better way
+    private static HttpResponseMessage? EnsureSuccessOr404(HttpResponseMessage response) {
         if (response.StatusCode == HttpStatusCode.NotFound) {
             response.Dispose();
             return null;
@@ -42,22 +39,22 @@ internal class PogHttpClient : HttpClient {
         return response;
     }
 
-    private async Task<JsonElement?> RetrieveJsonAsync(string url, CancellationToken token = default) {
-        using var response = await RetrieveAsync(url, token).ConfigureAwait(false);
+    private async Task<JsonElement?> RetrieveJsonAsync(Uri uri, CancellationToken token = default) {
+        using var response = EnsureSuccessOr404(await GetAsync(uri, token).ConfigureAwait(false));
         if (response == null) return null;
         return await response.Content.ReadFromJsonAsync<JsonElement>(token).ConfigureAwait(false);
     }
 
-    internal async Task<ZipArchive?> RetrieveZipArchiveAsync(string url, CancellationToken token = default) {
+    public async Task<ZipArchive?> RetrieveZipArchiveAsync(Uri uri, CancellationToken token = default) {
         // do not dispose, otherwise the returned stream would also get closed: https://github.com/dotnet/runtime/issues/28578
-        var response = await RetrieveAsync(url, token).ConfigureAwait(false);
+        var response = EnsureSuccessOr404(await GetAsync(uri, token).ConfigureAwait(false));
         if (response == null) return null;
         return new ZipArchive(await response.Content.ReadAsStreamAsync().ConfigureAwait(false), ZipArchiveMode.Read);
     }
 
     // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
-    internal JsonElement? RetrieveJson(string url) => RetrieveJsonAsync(url).GetAwaiter().GetResult();
+    public JsonElement? RetrieveJson(Uri uri) => RetrieveJsonAsync(uri).GetAwaiter().GetResult();
 
     // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
-    internal ZipArchive? RetrieveZipArchive(string url) => RetrieveZipArchiveAsync(url).GetAwaiter().GetResult();
+    public ZipArchive? RetrieveZipArchive(Uri uri) => RetrieveZipArchiveAsync(uri).GetAwaiter().GetResult();
 }

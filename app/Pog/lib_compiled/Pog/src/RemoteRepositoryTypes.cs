@@ -102,7 +102,7 @@ public sealed class RemoteRepository : IRepository {
         _packagesLazy = new(PackageCacheExpiration, () => {
             // FIXME: we're doing a network request while holding a mutex over the cache, other threads will be stuck waiting
             //  until this one finishes the request
-            return new(InternalState.HttpClient.RetrieveJson(Url) ??
+            return new(InternalState.HttpClient.RetrieveJson(new(Url)) ??
                        throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"), Url);
         });
     }
@@ -336,7 +336,7 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         // dispose any previous archive instance
         _manifestArchive?.Dispose();
 
-        _manifestArchive = await InternalState.HttpClient.RetrieveZipArchiveAsync(Url, token).ConfigureAwait(false);
+        _manifestArchive = await InternalState.HttpClient.RetrieveZipArchiveAsync(new(Url), token).ConfigureAwait(false);
         if (_manifestArchive == null) {
             throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Url}'.");
         }
