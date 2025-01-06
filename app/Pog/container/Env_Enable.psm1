@@ -7,23 +7,8 @@ function __main {
 	### This function is called after the container setup is finished to run the Enable script.
 	param([Pog.PackageManifest]$Manifest, $PackageArguments)
 
-	try {
-		# invoke the entry point
-		& (New-ContainerModule) $Manifest.Enable @PackageArguments
-	} catch {
-		try {
-			# remove shotcuts and commands that were not re-exported during this Enable run
-			Remove-StaleExports
-		} catch {
-			# don't throw, we'd lose the original exception
-			Write-Warning ('Cleanup of exported entry points failed: ' + $_)
-		}
-		throw
-	}
-
-	# remove shotcuts and commands that were not re-exported during this Enable run
-	# called separately to propagate any exceptions normally
-	Remove-StaleExports
+	# invoke the entry point
+	& (New-ContainerModule) $Manifest.Enable @PackageArguments
 }
 
 

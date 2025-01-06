@@ -54,7 +54,7 @@ public sealed class ExportShortcutCommand : ExportEntryPointCommandBase {
             }
 
             // mark this shortcut as not stale
-            //  (stale = e.g. leftover shortcut from previous version that was removed for this version)
+            //  (stale = leftover shortcut from previous Enable that was since removed from the manifest)
             ctx.StaleShortcutShims.Remove(shimExportPath);
             ctx.StaleShortcuts.Remove(exportPath);
 

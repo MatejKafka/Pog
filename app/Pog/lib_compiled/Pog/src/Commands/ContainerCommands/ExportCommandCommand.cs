@@ -47,10 +47,10 @@ public sealed class ExportCommandCommand : ExportEntryPointCommandBase {
             }
 
             // note that unlike in Export-Shortcut, we do not need to explicitly update the globally exported command
-            //  to match, since it's exported as a symlink
+            //  to match, since it's exported as a symlink, so there's nothing to update
 
             // mark this command as not stale
-            //  (stale = e.g. leftover command from previous version that was removed for this version)
+            //  (stale = leftover command from previous Enable that was since removed from the manifest)
             ctx.StaleCommands.Remove(exportPath);
 
             if (PassThru) {
