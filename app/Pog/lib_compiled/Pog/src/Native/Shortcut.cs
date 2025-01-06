@@ -9,6 +9,9 @@ using Windows.Win32.UI.Shell.Common;
 
 namespace Pog.Native;
 
+// NOTE: if the COM API shows to be problematic, there is an existing project that reads the raw shortcut file:
+// https://github.com/securifybv/ShellLink/blob/master/Shortcut.cs
+
 /// Wrapper class for working with .lnk shortcut files, with similar API to <c>WScript.Shell.CreateShortcut()</c>.
 internal class Shortcut {
     private readonly ShellLink _shellLinkInstance = new();

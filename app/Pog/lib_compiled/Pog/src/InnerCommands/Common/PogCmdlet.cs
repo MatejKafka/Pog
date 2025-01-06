@@ -33,6 +33,8 @@ public class PogCmdlet : PSCmdlet, IDisposable {
 
     internal IEnumerable<T> InvokePogCommand<T>(EnumerableCommand<T> cmd) {
         using (new CommandStopContext(this, cmd)) {
+            // by re-yielding the enumerable, we dispose the stop context only after the whole enumerable
+            //  is iterated over (= the command finished)
             foreach (var obj in cmd.Invoke()) {
                 yield return obj;
             }
