@@ -178,30 +178,56 @@ public static class FsUtils {
         }
     }
 
+    private static bool RemoveReadOnlyAttribute(FileSystemInfo fsi) {
+        if ((fsi.Attributes & FileAttributes.ReadOnly) != 0) {
+            fsi.Attributes &= ~FileAttributes.ReadOnly;
+            return true;
+        }
+        return false;
+    }
+
     private static bool RemoveReadOnlyAttributesInDirectory(string dirPath) {
         var removedAny = false;
-        foreach (var filePath in Directory.EnumerateFiles(dirPath, "*", SearchOption.AllDirectories)) {
-            var attr = File.GetAttributes(filePath);
-            if ((attr & FileAttributes.ReadOnly) != 0) {
-                File.SetAttributes(filePath, attr & ~FileAttributes.ReadOnly);
-                removedAny = true;
-            }
+        var dir = new DirectoryInfo(dirPath);
+        foreach (var fsi in dir.EnumerateFileSystemInfos("*", SearchOption.AllDirectories).Concat([dir])) {
+            removedAny |= RemoveReadOnlyAttribute(fsi);
         }
         return removedAny;
     }
 
     /// Recursively deletes a directory, even if it contains files with the read-only attribute.
     public static void ForceDeleteDirectory(string dirPath) {
+        // NOTE: if performance becomes an issue, we could optimize this by copying Directory.Delete and removing
+        //  the ReadOnly attribute directly while trying to delete the file
         while (true) {
             try {
                 Directory.Delete(dirPath, true);
-                return;
+                break;
             } catch (UnauthorizedAccessException) {
-                if (!RemoveReadOnlyAttributesInDirectory(dirPath)) {
-                    // did not find anything with a read-only attribute, there's probably another reason for the exception
-                    throw;
+                // this (among other reasons) happens when a file inside the directory has the read-only attribute set
+                if (RemoveReadOnlyAttributesInDirectory(dirPath)) {
+                    // something inside the directory was read-only, retry the deletion
+                    continue;
                 }
-                // retry
+                throw;
+            } catch (IOException e) when (e.HResult == -2146232800) {
+                // 0x80131620 = COR_E_IO, Some sort of I/O error. (yes, that's the actual description)
+                // this (among other reasons) happens when a directory is different (as opposed to a file,
+                //  which is handled above)
+
+                // for Pog, the most common case is that the top-level dir is ReadOnly, so try that first
+                if (RemoveReadOnlyAttribute(new DirectoryInfo(dirPath))) {
+                    // top-level dir was read-only, retry the deletion
+                    continue;
+                }
+
+                // not the top-level dir, try the contents
+                if (RemoveReadOnlyAttributesInDirectory(dirPath)) {
+                    // something inside the directory was read-only, retry the deletion
+                    continue;
+                }
+
+                throw;
             }
         }
     }
@@ -211,6 +237,8 @@ public static class FsUtils {
         try {
             ForceDeleteDirectory(dirPath);
             return true;
+        } catch (FileNotFoundException) {
+            return false;
         } catch (DirectoryNotFoundException) {
             return false;
         }
