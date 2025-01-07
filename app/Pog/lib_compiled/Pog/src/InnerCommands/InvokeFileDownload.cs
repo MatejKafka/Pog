@@ -6,6 +6,7 @@ using System.Management.Automation;
 using System.Threading.Tasks;
 using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
+using Pog.Utils;
 using Pog.Utils.Http;
 
 namespace Pog.InnerCommands;

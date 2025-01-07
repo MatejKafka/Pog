@@ -3,6 +3,7 @@ using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Native;
 using Pog.PSAttributes;
+using Pog.Utils;
 
 namespace Pog.Commands.ContainerCommands;
 

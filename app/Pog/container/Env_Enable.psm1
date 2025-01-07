@@ -69,11 +69,11 @@ function Set-Symlink {
 	} else {
 		# get relative path from $LinkPath to $TargetPath for symlink
 		# use parent of $LinkPath, as relative symlinks are resolved from parent dir
-		[Pog.FsUtils]::GetRelativePath((Split-Path $LinkAbsPath), $Target)
+		[Pog.Utils.FsUtils]::GetRelativePath((Split-Path $LinkAbsPath), $Target)
 	}
 
 	if (Test-Path $LinkAbsPath) {
-		if ($TargetStr -eq [Pog.FsUtils]::GetSymbolicLinkTarget($LinkAbsPath)) {
+		if ($TargetStr -eq [Pog.Utils.FsUtils]::GetSymbolicLinkTarget($LinkAbsPath)) {
 			return $null # we already have a correct symlink
 		}
 
@@ -86,7 +86,7 @@ function Set-Symlink {
 	Write-Debug "Creating symlink from '$LinkAbsPath' with target '$TargetStr'."
 	# New-Item -Type SymbolicLink has a dumb issue with relative paths, so we bypass it
 	#  https://github.com/PowerShell/PowerShell/issues/15235
-	return [Pog.FsUtils]::CreateSymbolicLink($LinkAbsPath, $TargetStr, $Target.PSIsContainer)
+	return [Pog.Utils.FsUtils]::CreateSymbolicLink($LinkAbsPath, $TargetStr, $Target.PSIsContainer)
 }
 
 enum ItemType {File; Directory}
@@ -301,7 +301,7 @@ function New-File {
 
 		# if $Path points to a file symlink, work with the target (otherwise the change detection below would not work)
 		$ResolvedPath = Resolve-VirtualPath $Path
-		$PathTarget = [Pog.FsUtils]::GetSymbolicLinkTarget($ResolvedPath)
+		$PathTarget = [Pog.Utils.FsUtils]::GetSymbolicLinkTarget($ResolvedPath)
 		if ($PathTarget) {
 			$ResolvedPath = $PathTarget
 		}

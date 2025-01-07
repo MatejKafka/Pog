@@ -13,8 +13,9 @@ using Pog.Native;
 using Polyfills;
 using PIO = Polyfills.System.IO;
 
-namespace Pog;
+namespace Pog.Utils;
 
+/// Class containing various filesystem-related utilities.
 public static class FsUtils {
     public static IEnumerable<string> EnumerateNonHiddenDirectoryNames(string dirPath, string searchPattern = "*") {
         return new DirectoryInfo(dirPath).EnumerateDirectories(searchPattern)

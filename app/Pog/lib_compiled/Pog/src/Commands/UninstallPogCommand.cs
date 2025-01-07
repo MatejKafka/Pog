@@ -5,6 +5,7 @@ using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
+using Pog.Utils;
 using PPaths = Pog.PathConfig.PackagePaths;
 
 namespace Pog.Commands;
