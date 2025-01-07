@@ -6,7 +6,7 @@ namespace Pog.Commands.Common;
 [PublicAPI]
 [OutputType(typeof(ImportedPackage))]
 public abstract class ImportedPackageCommand(bool loadManifest) : ImportedPackageNoPassThruCommand(loadManifest) {
-    /// Return a [Pog.ImportedPackage] object with information about the package.
+    /// Return a [Pog.ImportedPackage] object representing the package.
     [Parameter] public SwitchParameter PassThru;
 
     protected sealed override void ProcessPackageNoPassThru(ImportedPackage package) {

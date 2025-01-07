@@ -17,22 +17,38 @@ namespace Pog.Commands;
 /// </para>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Uninstall, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
-public sealed class UninstallPogCommand() : ImportedPackageCommand(true) {
+public sealed class UninstallPogCommand() : ImportedPackageNoPassThruCommand(false) {
     /// Keep the package directory, only disable the package and delete the app directory.
     [Parameter] public SwitchParameter KeepData;
 
-    protected override void ProcessPackage(ImportedPackage package) {
+    // does not make sense to support -PassThru for this cmdlet
+    protected override void ProcessPackageNoPassThru(ImportedPackage package) {
         if (package.PackageName == "Pog") {
             WriteWarning("Cannot uninstall Pog itself using Pog. To uninstall Pog, Run `Disable-Pog Pog`, close the" +
                          $" PowerShell session and then delete the Pog package directory ('{package.Path}') manually.");
             return;
         }
 
-        // disable the package
-        InvokePogCommand(new DisablePog(this) {
-            Package = package,
-        });
+        // only disable a package if the manifest is available; otherwise delete it (this is mainly useful for recovering
+        //  from failed uninstallations, where the manifest gets deleted but the directory still exists)
+        if (package.ManifestAvailable) {
+            if (EnsureManifestIsLoaded(package) == null) {
+                return;
+            }
 
+            // disable the package
+            InvokePogCommand(new DisablePog(this) {
+                Package = package,
+            });
+        } else {
+            WriteDebug($"Skipped Disable-Pog for '{package.PackageName}', package does not have a manifest.");
+        }
+
+        // uninstalling a package does not access .Manifest, no need to load it
+        UninstallPackage(package);
+    }
+
+    private void UninstallPackage(ImportedPackage package) {
         var tmpDeletePath = $@"{package.Path}\{PPaths.TmpDeleteDirName}";
         if (FsUtils.EnsureDeleteDirectory(tmpDeletePath)) {
             WriteWarning("Removed orphaned tmp installer directories, probably from an interrupted previous install...");
