@@ -31,6 +31,13 @@ public sealed class UninstallPogCommand() : ImportedPackageNoPassThruCommand(fal
             return;
         }
 
+        if (!package.Exists) {
+            // this might happen e.g. when the user tries to manually parallelize uninstallation of multiple packages
+            //  and accidentally tries to uninstall the same package from multiple Pog instances
+            WriteWarning($"Tried to uninstall a non-existent package: {package.Path}");
+            return;
+        }
+
         // only disable a package if the manifest is available; otherwise delete it (this is mainly useful for recovering
         //  from failed uninstallations, where the manifest gets deleted but the directory still exists)
         if (package.ManifestAvailable) {
