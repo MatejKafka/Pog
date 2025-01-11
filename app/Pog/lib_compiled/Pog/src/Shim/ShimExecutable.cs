@@ -227,7 +227,12 @@ public class ShimExecutable {
             PeResources.ResourceType type) {
         try {
             src.IterateResourceNames(type, name => {
-                updater.SetResource(new(type, name), src.GetResource(new(type, name)));
+                try {
+                    updater.SetResource(new(type, name), src.GetResource(new(type, name)));
+                } catch (PeResources.InvalidResourceContentException) {
+                    // ignore invalid resource - it's very rare (only seen it with a single project) and we can't really do
+                    //  anything reasonable about it (and other programs, including the Shell itself also ignore it)
+                }
                 return true;
             });
         } catch (PeResources.ResourceNotFoundException) {

@@ -39,7 +39,12 @@ internal static class PeResources {
 
             var loadedResource = Win32.LoadResource(_handle, resourceHandle);
             if (loadedResource.IsNull) {
-                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
+                // sometimes a slightly malformed binary (observed with HWiNFO64.exe v6.10.3880) has a resource that can be
+                //  found by FindResource, but when we try to load it with LoadResource, we get ERROR_RESOURCE_DATA_NOT_FOUND
+                var hr = Marshal.GetHRForLastWin32Error();
+                if (!InvalidResourceContentException.ThrowForHResult(hr, id.Type, id.Name)) {
+                    Marshal.ThrowExceptionForHR(hr);
+                }
             }
 
             var resourcePtr = Win32.LockResource(loadedResource);
@@ -259,6 +264,19 @@ internal static class PeResources {
             if (!Win32.UpdateResource(_handle, (ushort) id.Type, id.Name, id.Language, (void*) 0, 0)) {
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
             }
+        }
+    }
+
+    public class InvalidResourceContentException : Exception {
+        private InvalidResourceContentException(ResourceType resourceType, Win32.ResourceAtom resourceName)
+                : base($"Resource '{resourceType} {resourceName}' seems to exist, but cannot be loaded, " +
+                       $"the binary is likely malformed.") {}
+
+        internal static bool ThrowForHResult(int hr, ResourceType type, Win32.ResourceAtom name) {
+            // 0x80070714 = ERROR_RESOURCE_DATA_NOT_FOUND, when calling LoadResource, this seems to indicate that
+            //  the resource is broken in some way and cannot be loaded
+            if (hr == -2147023084) throw new InvalidResourceContentException(type, name);
+            else return false;
         }
     }
 
