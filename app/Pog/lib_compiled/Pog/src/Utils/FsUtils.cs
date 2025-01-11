@@ -198,6 +198,7 @@ public static class FsUtils {
 
     /// Recursively deletes a directory, even if it contains files with the read-only attribute.
     public static void ForceDeleteDirectory(string dirPath) {
+        Debug.Assert(Path.IsPathRooted(dirPath));
         // NOTE: if performance becomes an issue, we could optimize this by copying Directory.Delete and removing
         //  the ReadOnly attribute directly while trying to delete the file
         while (true) {
@@ -213,10 +214,10 @@ public static class FsUtils {
                 throw;
             } catch (IOException e) when (e.HResult == -2146232800) {
                 // 0x80131620 = COR_E_IO, Some sort of I/O error. (yes, that's the actual description)
-                // this (among other reasons) happens when a directory is different (as opposed to a file,
+                // this (among other reasons) happens when a directory is read-only (as opposed to a file,
                 //  which is handled above)
 
-                // for Pog, the most common case is that the top-level dir is ReadOnly, so try that first
+                // for Pog, the most common case is that the top-level dir is read-only, so try that first
                 if (RemoveReadOnlyAttribute(new DirectoryInfo(dirPath))) {
                     // top-level dir was read-only, retry the deletion
                     continue;

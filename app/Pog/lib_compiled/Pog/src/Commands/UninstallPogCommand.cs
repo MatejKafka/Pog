@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using JetBrains.Annotations;
@@ -97,6 +98,9 @@ public sealed class UninstallPogCommand() : ImportedPackageNoPassThruCommand(fal
     //  succeed in moving out the app dir, but then calling `FsUtils.ForceDeleteDirectory` will fail
     //  at `FileSystem.RemoveDirectory`; investigate why and how to correctly detect the situation
     private void DeleteDirectoryWithWait(string dirPath, string tmpMovePath) {
+        Debug.Assert(Path.IsPathRooted(dirPath));
+        Debug.Assert(Path.IsPathRooted(tmpMovePath));
+
         SafeFileHandle dirHandle;
         while (true) {
             try {

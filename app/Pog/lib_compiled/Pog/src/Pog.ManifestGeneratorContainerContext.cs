@@ -5,7 +5,7 @@ namespace Pog;
 internal class ManifestGeneratorContainerContext : Container.EnvironmentContext<ManifestGeneratorContainerContext> {
     public readonly SecureString? GitHubToken;
 
-    internal ManifestGeneratorContainerContext(SecureString? githubToken) {
+    public ManifestGeneratorContainerContext(SecureString? githubToken) {
         GitHubToken = githubToken;
     }
 }

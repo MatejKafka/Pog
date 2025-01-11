@@ -19,7 +19,7 @@ internal class EnableContainerContext : Container.EnvironmentContext<EnableConta
     /// <see cref="StaleShortcuts"/>
     public readonly HashSet<string> StaleShortcutShims;
 
-    internal EnableContainerContext(ImportedPackage enabledPackage) {
+    public EnableContainerContext(ImportedPackage enabledPackage) {
         Package = enabledPackage;
         StaleShortcuts = [..enabledPackage.EnumerateExportedShortcuts().Select(f => f.FullName)];
         StaleCommands = [..enabledPackage.EnumerateExportedCommands().Select(f => f.FullName)];
