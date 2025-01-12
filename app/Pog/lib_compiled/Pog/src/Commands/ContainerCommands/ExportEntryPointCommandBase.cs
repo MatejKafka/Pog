@@ -57,9 +57,6 @@ public class ExportEntryPointCommandBase : PogCmdlet {
     /// (vcruntime140.dll and similar) is added to PATH. The redistributable libraries are shipped with Pog.
     [Parameter(ParameterSetName = ShimPS)] public SwitchParameter VcRedist;
 
-    // useful when the manifest wants to invoke the binary during Enable (e.g. initial config generation in Syncthing)
-    [Parameter] public SwitchParameter PassThru;
-
     // TODO: argument and env resolution tags
     protected bool CreateExportShim(string exportPath, bool replaceArgv0) {
         var args = ResolveArguments(ArgumentList);

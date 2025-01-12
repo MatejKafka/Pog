@@ -53,10 +53,6 @@ public sealed class ExportCommandCommand : ExportEntryPointCommandBase {
             // mark this command as not stale
             //  (stale = leftover command from previous Enable that was since removed from the manifest)
             ctx.StaleCommands.Remove(exportPath);
-
-            if (PassThru) {
-                WriteObject(exportPath);
-            }
         }
     }
 

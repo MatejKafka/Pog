@@ -58,10 +58,6 @@ public sealed class ExportShortcutCommand : ExportEntryPointCommandBase {
             //  (stale = leftover shortcut from previous Enable that was since removed from the manifest)
             ctx.StaleShortcutShims.Remove(shimExportPath);
             ctx.StaleShortcuts.Remove(exportPath);
-
-            if (PassThru) {
-                WriteObject(exportPath);
-            }
         }
     }
 
