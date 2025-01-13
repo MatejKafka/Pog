@@ -241,11 +241,9 @@ public class ShimExecutable {
             PeResources.ResourceType type) {
         try {
             src.IterateResourceNames(type, name => {
-                try {
-                    updater.SetResource(new(type, name), src.GetResource(new(type, name)));
-                } catch (PeResources.InvalidResourceContentException) {
-                    // ignore invalid resource - it's very rare (only seen it with a single project) and we can't really do
-                    //  anything reasonable about it (and other programs, including the Shell itself also ignore it)
+                // silently skip invalid resources (Windows Shell also ignores them)
+                if (src.TryGetResource(new(type, name), out var resource)) {
+                    updater.SetResource(new(type, name), resource);
                 }
                 return true;
             });
@@ -269,27 +267,38 @@ public class ShimExecutable {
     /// Ensures that `dest` has the same resources of type `type` as `src`. Copies all missing resources, deletes any extra resources.
     /// Only instantiates `updater` if something needs to be copied.
     private static void UpdateResources(Lazy<PeResources.ResourceUpdater> updater, PeResources.Module dest,
-            PeResources.Module src,
-            PeResources.ResourceType type) {
-        // list resources of `type` in src
-        if (!src.TryGetResourceNames(type, out var srcNames)) {
-            srcNames = [];
-        }
+            PeResources.Module src, PeResources.ResourceType type) {
+        var updatedResources = new HashSet<PeResources.SafeResourceAtom>();
 
-        // copy all non-matching resources
-        foreach (var id in srcNames.Select(name => new PeResources.ResourceId(type, name))) {
-            var srcResource = src.GetResource(id);
-            if (dest.TryGetResource(id, out var destResource) && srcResource.SequenceEqual(destResource)) {
-                continue;
+        void ProcessResource(Win32.ResourceAtom name) {
+            var id = new PeResources.ResourceId(type, name);
+            if (!src.TryGetResource(id, out var srcResource)) {
+                // silently skip invalid resources (Windows Shell also ignores them)
+                return;
             }
+
+            // `name` is only valid inside this callback, we need to copy it out to use it below
+            updatedResources.Add(new(name));
+
+            if (dest.TryGetResource(id, out var destResource) && srcResource.SequenceEqual(destResource)) {
+                // already up to date
+                return;
+            }
+
             // missing resource, copy it
             updater.Value.SetResource(id, srcResource);
+        }
+
+        try {
+            src.IterateResourceNames(type, ProcessResource);
+        } catch (PeResources.ResourceNotFoundException) {
+            // no resources of the given type
         }
 
         // check if shim has extra resources
         try {
             dest.IterateResourceNames(type, name => {
-                if (!srcNames.Contains(name)) {
+                if (!updatedResources.Contains(new(name))) {
                     // extra resource, delete it
                     updater.Value.DeleteResource(new(type, name));
                 }

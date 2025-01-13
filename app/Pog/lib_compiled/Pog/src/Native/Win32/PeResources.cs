@@ -523,9 +523,9 @@ public static partial class Win32 {
         public override int GetHashCode() => this.Value.GetHashCode();
     }
 
-// https://devblogs.microsoft.com/oldnewthing/20110217-00/?p=11463
-// NOTE: string resource names stop being valid when the originating Module is disposed, do NOT try to access them
-    public readonly unsafe struct ResourceAtom {
+    // https://devblogs.microsoft.com/oldnewthing/20110217-00/?p=11463
+    // NOTE: string resource names stop being valid when the originating Module is disposed, do NOT try to access them
+    public readonly unsafe struct ResourceAtom : IEquatable<ResourceAtom> {
         private readonly char* _name;
 
         public ResourceAtom(ushort id) {
@@ -575,7 +575,9 @@ public static partial class Win32 {
         public static bool operator !=(ResourceAtom a, ResourceAtom b) => !(a == b);
         public bool Equals(ResourceAtom other) => this == other;
         public override bool Equals(object? obj) => obj is ResourceAtom other && this == other;
-        public override int GetHashCode() => (int) (nuint) _name;
+
+        // ReSharper disable once RedundantOverflowCheckingContext (not redundant, Rider is wrong)
+        public override int GetHashCode() => unchecked((int) (nuint) _name);
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]

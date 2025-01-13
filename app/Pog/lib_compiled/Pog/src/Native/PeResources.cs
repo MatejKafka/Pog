@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
@@ -27,6 +26,7 @@ internal static class PeResources {
         /// NOTE: You must NOT use the span after the Module instance is disposed, as it unmaps the resource from memory.
         /// </returns>
         /// <exception cref="ResourceNotFoundException">Resource does not exist.</exception>
+        /// <exception cref="InvalidResourceContentException">Resource is invalid (malformed executable).</exception>
         public unsafe ReadOnlySpan<byte> GetResource(ResourceId id) {
             var resourceHandle = Win32.FindResourceEx(_handle, (ushort) id.Type, id.Name, id.Language);
             if (resourceHandle == default) {
@@ -63,11 +63,14 @@ internal static class PeResources {
         public bool TryGetResource(ResourceId id, out ReadOnlySpan<byte> resource) {
             try {
                 resource = GetResource(id);
+                return true;
+            } catch (InvalidResourceContentException) {
+                resource = default;
+                return false;
             } catch (ResourceNotFoundException) {
                 resource = default;
                 return false;
             }
-            return true;
         }
 
         public bool IterateResourceLanguages(ResourceId id, Func<ushort, bool> callback) {
@@ -106,6 +109,17 @@ internal static class PeResources {
             throw new InvalidOperationException("unreachable");
         }
 
+        /// <inheritdoc cref="IterateResourceNames(Pog.Native.PeResources.ResourceType,System.Func{Pog.Native.Win32.ResourceAtom,bool})"/>
+        public void IterateResourceNames(ResourceType resourceType, Action<Win32.ResourceAtom> callback) {
+            IterateResourceNames(resourceType, name => {
+                callback(name);
+                return true;
+            });
+        }
+
+        /// <remarks>
+        /// The buffer used for string resource names is reused. DO NOT USE THE NAME PASSED TO THE CALLBACK OUTSIDE OF IT.
+        /// </remarks>
         /// <exception cref="ResourceTypeNotFoundException"></exception>
         public bool IterateResourceNames(ResourceType resourceType, Func<Win32.ResourceAtom, bool> callback) {
             ExceptionDispatchInfo? exceptionFromCb = null;
@@ -139,6 +153,10 @@ internal static class PeResources {
 
         /// Note that the callback receives a `ResourceAtom`. Use the extension method `.ToResourceType()` to get
         /// the corresponding enum value, or null if not convertible.
+        /// <remarks>
+        /// The buffer used for string resource names is reused. DO NOT USE THE NAME PASSED TO THE CALLBACK OUTSIDE OF IT.
+        /// (not that Win32 docs would bother to tell you that)
+        /// </remarks>
         /// <exception cref="ResourceSectionNotFoundException"></exception>
         public bool IterateResourceTypes(Func<Win32.ResourceAtom, bool> callback) {
             ExceptionDispatchInfo? exceptionFromCb = null;
@@ -168,64 +186,6 @@ internal static class PeResources {
                 Marshal.ThrowExceptionForHR(hr);
             }
             throw new InvalidOperationException("unreachable");
-        }
-
-        public List<ushort> GetResourceLanguages(ResourceType resourceType, Win32.ResourceAtom resourceName) {
-            var list = new List<ushort>();
-            IterateResourceLanguages(resourceType, resourceName, lang => {
-                list.Add(lang);
-                return true;
-            });
-            return list;
-        }
-
-        public List<Win32.ResourceAtom> GetResourceNames(ResourceType resourceType) {
-            var list = new List<Win32.ResourceAtom>();
-            IterateResourceNames(resourceType, name => {
-                list.Add(name);
-                return true;
-            });
-            return list;
-        }
-
-        public List<Win32.ResourceAtom> GetResourceTypes() {
-            var list = new List<Win32.ResourceAtom>();
-            IterateResourceTypes(type => {
-                list.Add(type);
-                return true;
-            });
-            return list;
-        }
-
-        public bool TryGetResourceLanguages(ResourceType resourceType, Win32.ResourceAtom resourceName,
-                out List<ushort> resourcesNames) {
-            try {
-                resourcesNames = GetResourceLanguages(resourceType, resourceName);
-                return true;
-            } catch (ResourceNotFoundException) {
-                resourcesNames = null!;
-                return false;
-            }
-        }
-
-        public bool TryGetResourceNames(ResourceType resourceType, out List<Win32.ResourceAtom> resourcesNames) {
-            try {
-                resourcesNames = GetResourceNames(resourceType);
-                return true;
-            } catch (ResourceNotFoundException) {
-                resourcesNames = null!;
-                return false;
-            }
-        }
-
-        public bool TryGetResourceTypes(out List<Win32.ResourceAtom>? resourceTypes) {
-            try {
-                resourceTypes = GetResourceTypes();
-                return true;
-            } catch (ResourceNotFoundException) {
-                resourceTypes = null;
-                return false;
-            }
         }
     }
 
@@ -350,6 +310,29 @@ internal static class PeResources {
             ResourceType Type,
             Win32.ResourceAtom Name,
             ushort Language = NeutralLanguageId);
+
+    public readonly record struct SafeResourceAtom(ushort IntResourceId, string? StringResourceId) {
+        public bool IsId() => StringResourceId == null;
+
+        public SafeResourceAtom(Win32.ResourceAtom atom) : this(0, null) {
+            if (atom.IsId()) {
+                IntResourceId = atom.GetAsId();
+            } else {
+                StringResourceId = atom.GetAsString();
+            }
+        }
+
+        public static bool operator !=(SafeResourceAtom a, Win32.ResourceAtom b) => !(a == b);
+
+        public static bool operator ==(SafeResourceAtom a, Win32.ResourceAtom b) {
+            return (a.IsId(), b.IsId()) switch {
+                (true, true) => a.IntResourceId == b.GetAsId(),
+                // we could avoid the copy, but probably whatever
+                (false, false) => a.StringResourceId == b.GetAsString(),
+                _ => false,
+            };
+        }
+    }
 }
 
 [UsedImplicitly]
