@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
@@ -21,11 +20,6 @@ public class ExportEntryPointCommandBase : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)]
     [Verify.FileName]
     public string[] Name = null!;
-
-    /// Path to the invoked target. Note that it must either be an executable (.exe) or a batch file (.cmd/.bat).
-    [Parameter(Mandatory = true, Position = 1)]
-    [ResolvePath("Target")]
-    public string TargetPath = null!;
 
     /// Working directory to set while invoking the target.
     [Parameter(ParameterSetName = ShimPS)]
@@ -48,7 +42,7 @@ public class ExportEntryPointCommandBase : PogCmdlet {
     [Alias("Environment")]
     public IDictionary? EnvironmentVariables;
 
-    /// Path to an .exe to copy icons and similar PE resources from. If not passed, <see cref="TargetPath"/> is used instead.
+    /// Path to an .exe to copy icons and similar PE resources from. If not passed, -TargetPath is used instead.
     [Parameter(ParameterSetName = ShimPS)]
     [ResolvePath("Metadata source")]
     public string? MetadataSource;
@@ -58,7 +52,7 @@ public class ExportEntryPointCommandBase : PogCmdlet {
     [Parameter(ParameterSetName = ShimPS)] public SwitchParameter VcRedist;
 
     // TODO: argument and env resolution tags
-    protected bool CreateExportShim(string exportPath, bool replaceArgv0) {
+    protected bool CreateExportShim(string exportPath, string targetPath, bool replaceArgv0) {
         var args = ResolveArguments(ArgumentList);
         var envVars = ResolveEnvironmentVariables(EnvironmentVariables);
 
@@ -75,36 +69,8 @@ public class ExportEntryPointCommandBase : PogCmdlet {
             }
         }
 
-        var shim = new ShimExecutable(TargetPath, WorkingDirectory, args, envVars, MetadataSource, replaceArgv0);
-
-        if (File.Exists(exportPath)) {
-            if ((new FileInfo(exportPath).Attributes & FileAttributes.ReparsePoint) != 0) {
-                WriteDebug("Overwriting symlink with a shim executable...");
-                // reparse point, not an ordinary file, remove
-                File.Delete(exportPath);
-            } else if (!FsUtils.FileExistsCaseSensitive(exportPath)) {
-                WriteDebug("Updating casing of an exported command...");
-                File.Delete(exportPath);
-            } else {
-                try {
-                    return shim.UpdateShim(exportPath);
-                } catch (ShimExecutable.OutdatedShimException) {
-                    WriteDebug("Old shim executable, replacing with an up-to-date one...");
-                    File.Delete(exportPath);
-                }
-            }
-        }
-
-        // copy empty shim to rLinkPath
-        File.Copy(InternalState.PathConfig.ShimPath, exportPath);
-        try {
-            shim.WriteNewShim(exportPath);
-        } catch {
-            // clean up the empty shim
-            FsUtils.EnsureDeleteFile(exportPath);
-            throw;
-        }
-        return true;
+        var shim = new ShimExecutable(targetPath, WorkingDirectory, args, envVars, MetadataSource, replaceArgv0);
+        return new ExportedShimCommand(shim).UpdateCommand(exportPath, WriteDebug);
     }
 
     private string ResolvePotentialPath(string value) {

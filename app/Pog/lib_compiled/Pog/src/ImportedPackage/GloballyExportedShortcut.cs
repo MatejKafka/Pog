@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using Pog.Native;
 using Pog.Utils;
 using IOPath = System.IO.Path;
 
@@ -15,13 +14,9 @@ internal class GloballyExportedShortcut(string path) {
     }
 
     public bool IsFromPackage(ImportedPackage p) {
-        return IsFromPackage(p.GetExportedShortcutShimPath(IOPath.GetFileNameWithoutExtension(Path)));
-    }
-
-    public bool IsFromPackage(string targetShimPath) {
-        // we consider the shortcut matching if it exists and its target (the hidden shim) matches the local shortcut;
+        // we consider the shortcut matching if it exists and its source package matches instead of matching exact content;
         //  this ensures that if something caused the two shortcuts to desync previously, we can recover
-        return FsUtils.FileExistsCaseSensitive(Path) && new Shortcut(Path).Target == targetShimPath;
+        return FsUtils.FileExistsCaseSensitive(Path) && ExportedShortcut.GetShortcutSource(new(Path)) == p.Path;
     }
 
     public bool UpdateFrom(FileInfo localShortcut) {

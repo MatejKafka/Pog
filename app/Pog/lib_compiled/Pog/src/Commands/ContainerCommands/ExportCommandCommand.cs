@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Management.Automation;
 using JetBrains.Annotations;
+using Pog.PSAttributes;
 using Pog.Utils;
 
 namespace Pog.Commands.ContainerCommands;
@@ -10,6 +11,11 @@ namespace Pog.Commands.ContainerCommands;
 [Cmdlet(VerbsData.Export, "Command", DefaultParameterSetName = ShimPS)]
 public sealed class ExportCommandCommand : ExportEntryPointCommandBase {
     private const string SymlinkPS = "Symlink";
+
+    /// Path to the invoked target. Note that it must either be an executable (.exe) or a batch file (.cmd/.bat).
+    [Parameter(Mandatory = true, Position = 1)]
+    [ResolvePath("Target")]
+    public string TargetPath = null!;
 
     /// If set, the target is exported using a symbolic link instead of a shim executable.
     /// Note that if the target depends on dynamic libraries (.dll) stored in the same directory,
@@ -40,7 +46,7 @@ public sealed class ExportCommandCommand : ExportEntryPointCommandBase {
                     WriteVerbose($"Command {name} is already exported as a symlink.");
                 }
             } else {
-                if (CreateExportShim(exportPath, ReplaceArgv0)) {
+                if (CreateExportShim(exportPath, TargetPath, ReplaceArgv0)) {
                     WriteInformation($"Exported command '{name}' using a shim executable.");
                 } else {
                     WriteVerbose($"Command {name} is already exported as a shim executable.");

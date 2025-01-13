@@ -44,6 +44,15 @@ public class ResolvePathAttribute(string targetName = "Path") : TransformArgumen
     }
 }
 
+public class ResolveShellLinkTargetAttribute() : ResolvePathAttribute("Shell link target") {
+    protected override object? ProcessSingle(object? item, EngineIntrinsics engineIntrinsics) {
+        if (item is string path && path.StartsWith("::{") && path.EndsWith("}")) {
+            return path;
+        }
+        return base.ProcessSingle(item, engineIntrinsics);
+    }
+}
+
 /// Type used for representing a path passed by user that was resolved using ResolvePathAttribute, but still provides
 /// the original string for logging/UI purposes.
 public readonly record struct UserPath(string Resolved, string Raw) {
