@@ -36,6 +36,8 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{env.VERSION_DOTNET}}
+        cache: true
+        cache-dependency-path: app/Pog/lib_compiled/*/packages.lock.json
 
     # used for PowerShell unit tests
     - name: Install Pester
