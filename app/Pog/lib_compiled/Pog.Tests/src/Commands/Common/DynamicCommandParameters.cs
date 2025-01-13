@@ -14,7 +14,7 @@ public sealed class DynamicCommandParametersTests : IDisposable {
         PowerShell.Create(_runspace)
                 .AddCommand("New-Module").AddArgument("TestModule").AddArgument(ScriptBlock.Create(ModuleText))
                 // ensure `DynamicCommandParameters` is available in the module
-                .AddStatement().AddCommand("Import-Module").AddParameter(typeof(DynamicCommandParameters).Assembly.Location)
+                .AddStatement().AddCommand("Import-Module").AddArgument(typeof(DynamicCommandParameters).Assembly.Location)
                 .AddStatement().AddScript(ValidateScriptProxyFnText)
                 .AddStatement().AddScript(ArgumentCompleterProxyFnText)
                 .Invoke();
