@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using System.Management.Automation;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -86,7 +85,7 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
             var globalShortcut = GloballyExportedShortcut.FromLocal(shortcut.FullName);
             if (globalShortcut.IsFromPackage(p)) {
                 globalShortcut.Delete();
-                WriteInformation($"Removed an exported shortcut '{shortcut.GetBaseName()}'.");
+                WriteInformation($"Removed an exported shortcut '{shortcut.GetBaseName()}' from the Start menu.");
             } else {
                 WriteVerbose($"Shortcut '{shortcut.GetBaseName()}' is not exported to the Start menu.");
             }
@@ -95,13 +94,12 @@ internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
 
     private void RemoveGloballyExportedCommands(ImportedPackage p) {
         foreach (var command in p.EnumerateExportedCommands()) {
-            var targetPath = GlobalExportUtils.GetCommandExportPath(command);
-            if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
-                // found a matching command, delete it
-                File.Delete(targetPath);
-                WriteInformation($"Removed an exported command '{command.GetBaseName()}'.");
+            var globalCommand = GloballyExportedCommand.FromLocal(command.FullName);
+            if (globalCommand.IsFromPackage(p)) {
+                globalCommand.Delete();
+                WriteInformation($"Removed an exported command '{command.GetBaseName()}' from PATH.");
             } else {
-                WriteVerbose($"Command '{command.GetBaseName()}' is not exported.");
+                WriteVerbose($"Command '{command.GetBaseName()}' is not exported to PATH.");
             }
         }
     }

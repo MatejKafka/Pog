@@ -13,11 +13,15 @@ internal class GloballyExportedShortcut(string path) {
         return new(path);
     }
 
-    public bool IsFromPackage(ImportedPackage p) {
-        // we consider the shortcut matching if it exists and its source package matches instead of matching exact content;
-        //  this ensures that if something caused the two shortcuts to desync previously, we can recover
-        return FsUtils.FileExistsCaseSensitive(Path) && ExportedShortcut.GetShortcutSource(new(Path)) == p.Path;
-    }
+    public bool Exists => FsUtils.FileExistsCaseSensitive(Path);
+    // somewhat expensive
+    public string? SourcePackagePath => !Exists ? null : ExportedShortcut.GetShortcutSource(new(Path));
+
+    // we consider the shortcut matching if it exists and its source package matches instead of matching exact content;
+    //  this ensures that if something caused the two shortcuts to desync previously, we can recover
+    public bool IsFromPackage(ImportedPackage p) => SourcePackagePath == p.Path;
+
+    public void Delete() => File.Delete(Path);
 
     public bool UpdateFrom(FileInfo localShortcut) {
         if (FsUtils.FileContentEqual(localShortcut, new(Path))) {
@@ -42,9 +46,5 @@ internal class GloballyExportedShortcut(string path) {
 
         localShortcut.CopyTo(Path);
         return exists;
-    }
-
-    public void Delete() {
-        File.Delete(Path);
     }
 }

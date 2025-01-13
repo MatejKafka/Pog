@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -32,8 +31,10 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
                     continue;
                 }
             } else {
+                var ownerPath = target.SourcePackagePath;
                 if (target.OverwriteWith(shortcut)) {
-                    WriteWarning($"Overwritten an existing shortcut '{shortcutName}'.");
+                    WriteWarning($"Overwritten an existing shortcut '{shortcutName}' from package " +
+                                 $"'{Path.GetFileName(ownerPath)}'.");
                 } else {
                     // created new shortcut
                 }
@@ -43,49 +44,45 @@ public sealed class ExportPogCommand() : ImportedPackageCommand(false) {
         }
     }
 
-    private static IEnumerable<string> EnumerateMatchingCommands(string dirPath, string cmdName) {
-        // filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
-        return Directory.EnumerateFiles(dirPath, $"{cmdName}.*").Where(cmdPath => {
-            return string.Equals(Path.GetFileNameWithoutExtension(cmdPath), cmdName, StringComparison.OrdinalIgnoreCase);
-        });
-    }
-
     private void ExportCommands(ImportedPackage p) {
         // ensure the export dir exists
         Directory.CreateDirectory(InternalState.PathConfig.ExportedCommandDir);
 
         foreach (var command in p.EnumerateExportedCommands()) {
             var cmdName = command.GetBaseName();
-            var targetPath = GlobalExportUtils.GetCommandExportPath(command);
+            var target = GloballyExportedCommand.FromLocal(command.FullName);
 
-            if (command.FullName == FsUtils.GetSymbolicLinkTarget(targetPath)) {
-                WriteVerbose($"Command '{cmdName}' is already exported from this package.");
+            if (command.FullName == target.Target) {
+                WriteVerbose($"Command '{cmdName}' is already globally exported from this package.");
                 continue;
             }
 
-            var matchingCommands = EnumerateMatchingCommands(InternalState.PathConfig.ExportedCommandDir, cmdName).ToArray();
+            var matchingCommands = target.EnumerateConflictingCommands().ToArray();
             if (matchingCommands.Length != 0) {
                 WriteDebug($"Found {matchingCommands.Length} conflicting commands: {matchingCommands}");
 
                 if (matchingCommands.Length > 1) {
-                    WriteWarning("Pog developers fucked something up, and there are multiple colliding commands. " +
-                                 "Plz send bug report.");
+                    WriteWarning($"Pog developers fucked something up, and there are multiple colliding commands for " +
+                                 $"'{cmdName}', please send a bug report.");
                 }
+
+                var ownerPath = matchingCommands[0].SourcePackagePath;
                 foreach (var collidingCmdPath in matchingCommands) {
-                    File.Delete(collidingCmdPath);
+                    collidingCmdPath.Delete();
                 }
-                WriteWarning($"Overwritten an existing command '{cmdName}'.");
+
+                WriteWarning($"Overwritten an existing command '{cmdName}' from package '{Path.GetFileName(ownerPath)}'.");
             }
 
             try {
-                FsUtils.CreateSymbolicLink(targetPath, command.FullName, false);
+                target.UpdateFrom(command);
             } catch (Exception e) {
                 var category = e is UnauthorizedAccessException
                         ? ErrorCategory.PermissionDenied
                         : ErrorCategory.NotSpecified;
                 ThrowTerminatingError(new CommandExportException(
-                                $"Could not export command '{cmdName}' from '{p.PackageName}', " +
-                                $"symbolic link creation failed: {e.Message}", e),
+                                $"Could not export command '{cmdName}' from '{p.PackageName}', symbolic link creation " +
+                                $"failed: {e.Message}", e),
                         "CommandExportFailed", category, cmdName);
             }
             WriteInformation($"Exported command '{cmdName}' from '{p.PackageName}'.", null);

@@ -170,6 +170,7 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
         RemoveStaleExports(package, ctx);
     }
 
+    // FIXME: in "NormalView" error view, the error looks slightly confusing, as it's designed for "ConciseView"
     private EnableScriptFailedException WrapContainerError(ImportedPackage package, RuntimeException e) {
         var ii = e.ErrorRecord.InvocationInfo;
         // replace the position info with a custom listing, since the script path is missing
@@ -187,7 +188,7 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
     private void RemoveStaleExports(ImportedPackage package, EnableContainerContext ctx) {
         if (ctx.StaleShortcuts.Count > 0) RemoveStaleShortcuts(ctx.StaleShortcuts, package);
         if (ctx.StaleShortcutShims.Count > 0) RemoveStaleShortcutShims(ctx.StaleShortcutShims);
-        if (ctx.StaleCommands.Count > 0) RemoveStaleCommands(ctx.StaleCommands);
+        if (ctx.StaleCommands.Count > 0) RemoveStaleCommands(ctx.StaleCommands, package);
     }
 
     private void RemoveStaleShortcuts(IEnumerable<string> staleShortcutPaths, ImportedPackage package) {
@@ -222,7 +223,7 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
         }
     }
 
-    private void RemoveStaleCommands(IEnumerable<string> staleCommandPaths) {
+    private void RemoveStaleCommands(IEnumerable<string> staleCommandPaths, ImportedPackage package) {
         WriteDebug("Removing stale commands...");
         foreach (var path in staleCommandPaths) {
             if (FsUtils.FileExistsCaseSensitive(path)) {
@@ -231,9 +232,9 @@ public sealed class EnablePogCommand() : ImportedPackageCommand(true), IDynamicP
             }
 
             // delete the globally exported command, if there's any
-            var globalCmd = GlobalExportUtils.GetCommandExportPath(path);
-            if (FsUtils.GetSymbolicLinkTarget(globalCmd) == path) {
-                File.Delete(globalCmd);
+            var globalCommand = GloballyExportedCommand.FromLocal(path);
+            if (globalCommand.IsFromPackage(package)) {
+                globalCommand.Delete();
                 WriteDebug("Removed globally exported command.");
             }
 
