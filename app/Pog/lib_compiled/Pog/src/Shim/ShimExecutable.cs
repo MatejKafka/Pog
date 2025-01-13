@@ -177,7 +177,13 @@ public class ShimExecutable {
 
         // write the changes
         if (shimUpdater.IsValueCreated) {
-            shimUpdater.Value.CommitChanges();
+            try {
+                shimUpdater.Value.CommitChanges();
+            } catch (UnauthorizedAccessException e) {
+                // TODO: catch this in Export-Command, print the locking processes and wait instead of aborting
+                throw new ShimInUseException(
+                        $"Cannot update shim at '{shimPath}', it is currently in use.", e);
+            }
         }
 
         return shimUpdater.IsValueCreated;
@@ -293,6 +299,9 @@ public class ShimExecutable {
             // no extra resources of type `type`, continue
         }
     }
+
+    public class ShimInUseException(string message, Exception innerException)
+            : UnauthorizedAccessException(message, innerException);
 
     public class UnsupportedShimTargetTypeException(string message) : ArgumentException(message);
 
