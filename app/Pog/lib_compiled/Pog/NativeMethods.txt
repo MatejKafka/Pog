@@ -1,6 +1,7 @@
 ﻿IShellLinkW
+IPropertyStore
 ShellLink
 
 STGM
-
+PropVariantClear
 SHGetNameFromIDList

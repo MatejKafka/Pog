@@ -6,6 +6,7 @@ using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
+using Windows.Win32.UI.Shell.PropertiesSystem;
 
 namespace Pog.Native;
 
@@ -17,6 +18,7 @@ internal class Shortcut {
     private readonly ShellLink _shellLinkInstance = new();
     private readonly IShellLinkW _shellLink;
     private readonly IPersistFile _persistFile;
+    private readonly IPropertyStore _propertyStore;
 
     /// Indicates if this Shortcut instance was loaded from an existing shortcut file.
     public bool Loaded {get; private set;} = false;
@@ -72,6 +74,8 @@ internal class Shortcut {
         _shellLink = (IShellLinkW) _shellLinkInstance;
         // ReSharper disable once SuspiciousTypeConversion.Global
         _persistFile = (IPersistFile) _shellLinkInstance;
+        // ReSharper disable once SuspiciousTypeConversion.Global
+        _propertyStore = (IPropertyStore) _shellLinkInstance;
     }
 
     public Shortcut(string srcPath) : this() {
@@ -79,12 +83,26 @@ internal class Shortcut {
     }
 
     public void LoadFrom(string path) {
-        _persistFile.Load(path, (int) STGM.STGM_READ);
+        // we need READWRITE, otherwise setting values in IPropertyStore fails (but no write is done anyway)
+        _persistFile.Load(path, (int) STGM.STGM_READWRITE);
         Loaded = true;
     }
 
     public void SaveTo(string path) {
         _persistFile.Save(path, false);
+    }
+
+    public bool TryGetStringProperty(Guid formatId, uint propertyId, out string str) {
+        using var variant = _propertyStore.GetValue(formatId, propertyId);
+        return variant.TryGetString(out str);
+    }
+
+    /// <param name="formatId">Format (top-level group, can be a project identifier) GUID.</param>
+    /// <param name="propertyId">Property ID inside the format group.</param>
+    /// <param name="value">The string to store in the property.</param>
+    public void SetStringProperty(Guid formatId, uint propertyId, string value) {
+        // the temporary PropVariant is not disposed, the store takes ownership
+        _propertyStore.SetValue(formatId, propertyId, new(value));
     }
 
     private static unsafe void WriteString(string str, Action<PCWSTR> fn) {
