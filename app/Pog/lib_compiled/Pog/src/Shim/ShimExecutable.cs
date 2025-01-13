@@ -34,8 +34,6 @@ public class ShimExecutable {
         PeResources.ResourceType.Icon, PeResources.ResourceType.IconGroup,
         PeResources.ResourceType.Version, /*ResourceType.Manifest,*/
     };
-    /// List of supported target extensions. All listed extensions can be invoked directly by `CreateProcess(...)`.
-    private static readonly string[] SupportedTargetExtensions = [".exe", ".com", ".cmd", ".bat"];
 
     /// If true, use argv[0] as the shim target instead of specifying target in a separate `CreateProcess` parameter.
     public readonly bool Argv0AsTarget;
@@ -45,7 +43,6 @@ public class ShimExecutable {
     //  subsystem to configure the shim; we could try to resolve the path, copy the subsystem and hope that it doesn't
     //  change, but that's kinda fragile
     public readonly string TargetPath;
-    private readonly string _targetExtension;
     public readonly string? WorkingDirectory;
     public readonly string[]? Arguments;
     public readonly (string, EnvVarTemplate)[]? EnvironmentVariables;
@@ -56,14 +53,12 @@ public class ShimExecutable {
             bool replaceArgv0 = false) {
         Debug.Assert(Path.IsPathRooted(targetPath));
 
-        _targetExtension = Path.GetExtension(targetPath).ToLowerInvariant();
-        if (!SupportedTargetExtensions.Contains(_targetExtension)) {
+        if (!IsTargetSupported(targetPath)) {
             throw new UnsupportedShimTargetTypeException(
-                    $"Shim target '{targetPath}' has an unsupported extension. Supported extensions are: " +
-                    string.Join(", ", SupportedTargetExtensions));
+                    $"Shim target '{targetPath}' is not supported. Supported extensions are: .exe, .com, .cmd, .bat");
         }
 
-        var isBatchFile = _targetExtension is ".cmd" or ".bat";
+        var isBatchFile = IsBatchFile(targetPath);
 
         // see documentation of ShimFlags.NullTarget, item 2); for an example of where this is necessary, try `Export-Command`
         //  on a batch file inside a package with a space in its name (e.g. `VS Code`) and invoke the shim with a quoted path
@@ -86,8 +81,21 @@ public class ShimExecutable {
         }).ToArray();
     }
 
-    private bool IsTargetPeBinary() {
-        return _targetExtension is ".exe" or ".com";
+    public static bool IsTargetSupported(string targetPath) {
+        // `CreateProcess()` (which we're using in the shim) only supports PE binaries and batch files
+        return File.Exists(targetPath) && (IsPeBinary(targetPath) || IsBatchFile(targetPath));
+    }
+
+    private static bool IsPeBinary(string targetPath) {
+        return HasExtension(targetPath, ".exe") || HasExtension(targetPath, ".com");
+    }
+
+    private static bool IsBatchFile(string targetPath) {
+        return HasExtension(targetPath, ".cmd") || HasExtension(targetPath, ".bat");
+    }
+
+    private static bool HasExtension(string path, string extension) {
+        return path.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
     }
 
     /// Ensures that the shim at shimPath is up-to-date.
@@ -95,7 +103,7 @@ public class ShimExecutable {
     /// <returns>true if anything changed, false if shim is up-to-date</returns>
     /// <exception cref="OutdatedShimException"></exception>
     public bool UpdateShim(string shimPath) {
-        return IsTargetPeBinary() ? UpdateShimExe(shimPath) : UpdateShimOther(shimPath);
+        return IsPeBinary(TargetPath) ? UpdateShimExe(shimPath) : UpdateShimOther(shimPath);
     }
 
     /// <exception cref="OutdatedShimException"></exception>
@@ -209,7 +217,7 @@ public class ShimExecutable {
     /// Configures a new shim. The shim binary at `shimPath` should already exist.
     /// Assumes that the shim binary has no existing resources.
     public void WriteNewShim(string shimPath) {
-        if (IsTargetPeBinary()) {
+        if (IsPeBinary(TargetPath)) {
             // copy subsystem from target binary
             var targetSubsystem = PeSubsystem.GetSubsystem(TargetPath);
             PeSubsystem.SetSubsystem(shimPath, targetSubsystem);
