@@ -2,7 +2,7 @@
 
 namespace Pog.Native;
 
-public static partial class Win32 {
+internal static partial class Win32 {
     // Lifted from .NET 7, https://github.com/dotnet/dotnet/blob/main/src/runtime/src/libraries/Common/src/Interop/Windows/Interop.Errors.cs
     // As defined in winerror.h and https://docs.microsoft.com/en-us/windows/win32/debug/system-error-codes
     [SuppressMessage("ReSharper", "InconsistentNaming")]

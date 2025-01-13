@@ -20,7 +20,7 @@ namespace Pog.Shim;
 // 3) check if the configuration of a shim matches an expected one
 //    - encode shim data and compare with stored shim data
 //    - read target PE resources, compare with already copied PE resources in the shim
-public class ShimExecutable {
+internal class ShimExecutable {
     // shim data are stored as an RCDATA resource at index 1
     private static readonly PeResources.ResourceId ShimDataResourceId = new(PeResources.ResourceType.RcData, 1);
     // TODO: bring back ResourceType.Manifest, but it will require some amount of parsing

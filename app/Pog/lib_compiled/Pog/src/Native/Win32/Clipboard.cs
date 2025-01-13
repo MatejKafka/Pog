@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Pog.Native;
 
-public static partial class Win32 {
+internal static partial class Win32 {
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool OpenClipboard(IntPtr hWndNewOwner);
 

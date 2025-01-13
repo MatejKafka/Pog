@@ -10,7 +10,7 @@ using Microsoft.Win32.SafeHandles;
 namespace Pog.Native;
 
 [SuppressMessage("ReSharper", "InconsistentNaming")]
-public static partial class Win32 {
+internal static partial class Win32 {
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern unsafe bool SetFileInformationByHandle(SafeFileHandle fileHandle,
             FILE_INFO_BY_HANDLE_CLASS fileInformationClass, void* fileInformation, int fileInformationSize);
