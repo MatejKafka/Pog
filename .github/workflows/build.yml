@@ -12,11 +12,15 @@ env:
 
   # versions of dependencies needed for building and bootstrapping Pog
   # these should be updated periodically with the following command:
+  # ```
   # "VERSION_DOTNET: `"$(dotnet --version)`""
   # "VERSION_PESTER: `"$((Find-Module Pester).Version)`""
+  # "VERSION_WIX_DARK: `"$((Find-Pog dark@ScoopInstaller).Version)`""
   # Find-Pog ILRepack, UPX, 7zip | % {"VERSION_$($_.PackageName.ToUpperInvariant()): `"$($_.Version)`""}
+  # ```
   VERSION_DOTNET: "9.0.101"
-  VERSION_PESTER: "5.6.1"
+  VERSION_PESTER: "5.7.1"
+  VERSION_WIX_DARK: "3.14"
   VERSION_ILREPACK: "2.0.29"
   VERSION_UPX: "4.2.3"
   VERSION_7ZIP: "24.08"
@@ -48,6 +52,14 @@ jobs:
         iwr "https://www.powershellgallery.com/api/v2/package/Pester/$($env:VERSION_PESTER)" -OutFile D:\pester.nupkg
         $ModuleDir = "$(Split-Path $PROFILE)\Modules"
         Expand-Archive D:\pester.nupkg "$ModuleDir\Pester"
+
+    # needed to unpack vcredist packages
+    - name: Install WiX dark.exe
+      shell: pwsh
+      run: |
+        iwr "https://raw.githubusercontent.com/ScoopInstaller/Binary/master/dark/dark-$($env:VERSION_WIX_DARK).zip" -OutFile D:\dark.zip
+        Expand-Archive D:\dark.zip D:\dark
+        Add-Content $env:GITHUB_PATH D:\dark
 
     # needed to build Pog.dll
     - name: Install ILRepack
@@ -84,6 +96,7 @@ jobs:
       run: |
         [pscustomobject]@{Name = "dotnet.exe"; Version = dotnet.exe --version; Source = (gcm dotnet.exe).Source}
         gmo Pester -ListAvailable | select -First 1
+        gcm dark.exe
         gcm ilrepack.exe
         gcm upx.exe
         gcm ..\7zip\app\7z.exe
@@ -103,10 +116,15 @@ jobs:
         cmake --build ./Pog.Shim/cmake-build-release --config Release
         gi ./PogShimTemplate.exe
 
-    - name: Copy VC Redistributable
+    - name: Download VC Redistributable
       shell: pwsh
       run: |
-        & "./app/Pog/_scripts/update vc redist.ps1"
+        ./app/Pog/_scripts/vcredist-download.ps1 -OutDir ./app/Pog/lib_compiled/vc_redist @(
+          # latest vcredist 140
+          "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          # fixed vcredist 120
+          "https://aka.ms/highdpimfc2013x64enu"
+        )
 
     - name: Setup Pog
       shell: pwsh
