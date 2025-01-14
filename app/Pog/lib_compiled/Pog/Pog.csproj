@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>0.11.0</Version>
+    <Version>0.12.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
     <!-- If publishing, use a release build by default. -->
@@ -44,7 +44,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- 
+    <!--
     we need AsyncInterfaces 8.0.0 (and also the two packages below, which depend on it), which is what PowerShell
     currently ships - if we updated to 9.0.0, loading Pog without ILRepack would fail, as it would try to load
     9.0.0 while PowerShell already has 8.0.0 loaded; for release mode, everything is OK, since we ship our own copy
