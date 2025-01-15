@@ -37,7 +37,7 @@ public sealed class SetPogRepositoryCommand : PogCmdlet {
             WriteInformation($"Using a remote repository: {repo.Url}");
             return repo;
         } else {
-            var repo = new LocalRepository(repoRef);
+            var repo = new LocalRepository(GetUnresolvedProviderPathFromPSPath(repoRef));
             WriteInformation($"Using a local repository: {repo.Path}");
             return repo;
         }
