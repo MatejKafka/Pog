@@ -23,10 +23,11 @@ internal record ExportedShortcut(string Target, (string, int)? IconLocation, str
 
     public bool UpdateShortcut(string shortcutPath, Action<string> debugLogFn) {
         var s = LoadShortcut(shortcutPath, debugLogFn);
+        var icon = IconLocation ?? ("", 0);
 
         // use .TargetID instead of .Target, because we also support shell folder targets
         // if this proves to be too slow, we can conditionally use s.Target as long as our .Target looks like a path
-        if (s.Loaded && s.TargetID == Target && s.IconLocation == IconLocation && s.Description == Description
+        if (s.Loaded && s.TargetID == Target && s.IconLocation == icon && s.Description == Description
             && s.WorkingDirectory == "" && s.Arguments == "" && GetShortcutSource(s) == SourcePackage) {
             // shortcut is up to date
             return false;
@@ -34,7 +35,7 @@ internal record ExportedShortcut(string Target, (string, int)? IconLocation, str
 
         // shortcut does not match, update it
         s.TargetID = Target;
-        s.IconLocation = IconLocation ?? ("", 0);
+        s.IconLocation = icon;
         s.Description = Description;
         s.Arguments = "";
         s.WorkingDirectory = "";

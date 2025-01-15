@@ -14,7 +14,7 @@ namespace Pog.Native;
 // https://github.com/securifybv/ShellLink/blob/master/Shortcut.cs
 
 /// Wrapper class for working with .lnk shortcut files, with similar API to <c>WScript.Shell.CreateShortcut()</c>.
-internal class Shortcut {
+internal record Shortcut {
     private readonly ShellLink _shellLinkInstance = new();
     private readonly IShellLinkW _shellLink;
     private readonly IPersistFile _persistFile;
