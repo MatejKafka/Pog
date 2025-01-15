@@ -142,10 +142,11 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
             return;
         }
 
-        var extraFiles = GetFileList(Directory.EnumerateFiles(_repo.Path));
+        var extraFiles = GetFileList(Directory.EnumerateFiles(_repo.Path).Where(p => !p.EndsWith("\\README.md")));
         if (extraFiles != "") {
+            // if the user wants multiple files in the root of the repo, they should place the manifests in a subdirectory
             AddIssue($"Repository directory contains unexpected files, " +
-                     $"only directories expected at '{_repo.Path}': {extraFiles}");
+                     $"only directories or a 'README.md' expected at '{_repo.Path}': {extraFiles}");
         }
 
         // validate all packages
