@@ -121,6 +121,10 @@ jobs:
     - name: Build Pog.Shim
       working-directory: app/Pog/lib_compiled
       run: |
+        $DevShellPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+          -products * -find Common7\Tools\Launch-VsDevShell.ps1 -latest -prerelease
+        & $DevShellPath -Arch amd64 -SkipAutomaticLocation
+
         cmake -B ./Pog.Shim/cmake-build-release -S ./Pog.Shim -DCMAKE_BUILD_TYPE=Release -G Ninja
         cmake --build ./Pog.Shim/cmake-build-release --config Release
         gi ./PogShimTemplate.exe
