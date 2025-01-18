@@ -16,13 +16,11 @@ env:
   # "VERSION_DOTNET: `"$(dotnet --version)`""
   # "VERSION_PESTER: `"$((Find-Module Pester).Version)`""
   # "VERSION_WIX_DARK: `"$((Find-Pog dark@ScoopInstaller).Version)`""
-  # "VERSION_NINJA: `"$((Find-Pog ninja-build).Version)`""
   # Find-Pog ILRepack, UPX, 7zip | % {"VERSION_$($_.PackageName.ToUpperInvariant()): `"$($_.Version)`""}
   # ```
   VERSION_DOTNET: "9.0.101"
   VERSION_PESTER: "5.7.1"
   VERSION_WIX_DARK: "3.14"
-  VERSION_NINJA: "1.10.2"
   VERSION_ILREPACK: "2.0.29"
   VERSION_UPX: "4.2.3"
   VERSION_7ZIP: "24.08"
@@ -63,20 +61,13 @@ jobs:
         Expand-Archive D:\dark.zip D:\dark
         Add-Content $env:GITHUB_PATH D:\dark
 
-    # useful to speed up Pog.Shim build
-    - name: Install Ninja
-      shell: pwsh
-      run: |
-        iwr "https://github.com/ninja-build/ninja/releases/download/v$($env:VERSION_NINJA)/ninja-win.zip" -OutFile D:\ninja.zip
-        Expand-Archive D:\ninja.zip D:\ninja
-        Add-Content $env:GITHUB_PATH D:\ninja
-
     # needed to build Pog.dll
     - name: Install ILRepack
       shell: pwsh
       run: |
         iwr "https://www.nuget.org/api/v2/package/ILRepack/${env:VERSION_ILREPACK}" -OutFile D:\ilrepack.nupkg
         Expand-Archive D:\ilrepack.nupkg D:\ilrepack
+        # add to PATH for following steps
         Add-Content $env:GITHUB_PATH D:\ilrepack\tools
 
     # needed to build PogShimTemplate.exe
@@ -121,11 +112,7 @@ jobs:
     - name: Build Pog.Shim
       working-directory: app/Pog/lib_compiled
       run: |
-        $DevShellPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-          -products * -find Common7\Tools\Launch-VsDevShell.ps1 -latest -prerelease
-        & $DevShellPath -Arch amd64 -SkipAutomaticLocation
-
-        cmake -B ./Pog.Shim/cmake-build-release -S ./Pog.Shim -DCMAKE_BUILD_TYPE=Release -G Ninja
+        cmake -B ./Pog.Shim/cmake-build-release -S ./Pog.Shim -DCMAKE_BUILD_TYPE=Release
         cmake --build ./Pog.Shim/cmake-build-release --config Release
         gi ./PogShimTemplate.exe
 
