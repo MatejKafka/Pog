@@ -166,9 +166,11 @@ function New-Symlink {
 		# TargetPath matches item type
 
 		if (-not (Test-Path $TargetPath)) {
+			Write-Debug "Target does not exist: $TargetPath"
 			New-ParentDirectory $TargetPath
 			# $OriginalPath exists and it's not a symlink
 			if ((Test-Path $OriginalPath) -and -not $OriginalPathIsSymlink) {
+				Write-Debug "Moving '$OriginalPath' to '$TargetPath'."
 				# TODO: check if $OriginalPath is being used by another process; block if it is
 				# move it to target and then create symlink
 				Move-Item $OriginalPath $TargetPath

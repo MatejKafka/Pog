@@ -1,6 +1,7 @@
 # NOTE: this script is used in CI
 
 ### Downloads the vcredist.x64.exe packages from $Url, extracts the contained DLLs and stores them in $OutDir.
+### Inspired by https://gist.github.com/donno/34aeb93dbaefa13a0d6a41953a17c024.
 ###
 ### Potentially relevant URLs:
 ### - latest vcredist 140: https://aka.ms/vs/17/release/vc_redist.x64.exe
