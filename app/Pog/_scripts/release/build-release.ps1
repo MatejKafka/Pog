@@ -62,18 +62,22 @@ try {
 
     if ($Version -ne "HEAD") {
         # validate manifest versions
-        $PogPackageVersion = (Import-PowerShellDataFile ./app/Pog/Pog.psd1).ModuleVersion
-        $PogPSModuleVersion = (Import-PowerShellDataFile ./pog.psd1).Version
+        $PogPSModuleVersion = (Import-PowerShellDataFile ./app/Pog/Pog.psd1).ModuleVersion
+        $PogUtilsPSModuleVersion = (Import-PowerShellDataFile ./app/Pog.Utils/Pog.psd1).ModuleVersion
+        $PogPackageVersion = (Import-PowerShellDataFile ./pog.psd1).Version
         $PogDllVersion = (Get-Item ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
 
         if ($PogPSModuleVersion -ne $Version) {
-            throw "Pog.psd1 PS module version does not match"
+            throw "Pog.psd1 PS module version does not match."
+        }
+        if ($PogUtilsPSModuleVersion -ne $Version) {
+            throw "Pog.Utils.psd1 PS module version does not match."
         }
         if ($PogPackageVersion -ne $Version) {
-            throw "pog.psd1 package manifest version does not match"
+            throw "pog.psd1 package manifest version does not match."
         }
         if ($PogDllVersion -ne $Version) {
-            throw "Pog.dll product version does not match"
+            throw "Pog.dll product version does not match."
         }
     }
 
