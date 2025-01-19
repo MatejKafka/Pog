@@ -20,8 +20,8 @@ public static class AssemblyVersions {
         var versionStr = pwshAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
         if (versionStr != null && versionStr.Contains(" SHA: ")) {
-            // pwsh.exe versions have the format `X.Y.Z-rc0 SHA: ...`
-            return (true, versionStr.Substring(0, versionStr.IndexOf(" SHA: ", StringComparison.Ordinal)));
+            // pwsh.exe versions have the format `X.Y.Z-rc0 SHA: ...` or `X.Y.Z-rc0 Commits: ... SHA: ...`
+            return (true, versionStr.Substring(0, versionStr.IndexOf(" ", StringComparison.Ordinal)));
         }
 
         // old powershell.exe, dig the version out of the then private (now public) PSVersionInfo
