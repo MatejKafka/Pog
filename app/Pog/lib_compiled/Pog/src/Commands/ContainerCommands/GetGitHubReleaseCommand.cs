@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Management.Automation;
+using System.Security;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -28,13 +29,20 @@ public sealed class GetGitHubReleaseCommand : PogCmdlet {
     /// Retrieve tags instead of releases.
     [Parameter] public SwitchParameter Tags;
 
+    /// GitHub API token to use. In the generator environment, this is set automatically through <c>$PSDefaultParameterValues</c>.
+    /// Generators should not need to set this explicitly, this is primarily for interactive usage outside the container.
+    [Parameter] public SecureString? GitHubToken;
+
     private readonly GitHubApiClient _client = new(InternalState.HttpClient);
     private string? _apiToken;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
-        var secureApiToken = ManifestGeneratorContainerContext.GetCurrent(this).GitHubToken;
-        _apiToken = secureApiToken == null ? null : UnprotectSecureString(secureApiToken);
+
+        _apiToken = GitHubToken == null ? null : UnprotectSecureString(GitHubToken);
+        if (_apiToken != null) {
+            WriteDebug("Using a GitHub API token.");
+        }
     }
 
     protected override void ProcessRecord() {

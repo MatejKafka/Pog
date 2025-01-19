@@ -115,8 +115,14 @@ public sealed class UpdatePogRepositoryCommand : PogCmdlet {
         package.ReloadGenerator();
 
         var it = InvokePogCommand(new InvokeContainer(this) {
-            Context = new ManifestGeneratorContainerContext(GitHubToken),
             Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_UpdateRepository.psm1"],
+            // pass the GitHub token as a default parameter instead of using container context, so that the command works
+            //  outside the container (useful for one-off manual invocation)
+            Variables = [
+                new("PSDefaultParameterValues", new DefaultParameterDictionary() {
+                    {"Get-GithubRelease:GitHubToken", GitHubToken},
+                }, "PSDefaultParameterValues")
+            ],
             Run = ps => ps.AddCommand("__main").AddParameters(
                     new object?[] {package, Version, force, ListOnly, GitHubToken}),
         });

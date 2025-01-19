@@ -2,12 +2,16 @@ using module ..\Utils.psm1
 . $PSScriptRoot\..\header.ps1
 
 # always use basic parsing inside the generators, to ease compatibility with PowerShell 5
-$PSDefaultParameterValues = @{
-	"Invoke-WebRequest:UseBasicParsing" = $true
-	"Invoke-RestMethod:UseBasicParsing" = $true
-}
+$global:PSDefaultParameterValues["Invoke-WebRequest:UseBasicParsing"] = $true
+$global:PSDefaultParameterValues["Invoke-RestMethod:UseBasicParsing"] = $true
 
 $ContainerModule = New-ContainerModule
+
+# by default, the container module does not see global $PSDefaultParameterValues, probably because pwsh automatically
+#  creates a module-scoped variable
+& $ContainerModule {
+	$script:PSDefaultParameterValues = $global:PSDefaultParameterValues
+}
 
 function ListVersions($Package, $ExistingVersionSet) {
 	try {
