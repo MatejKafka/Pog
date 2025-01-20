@@ -154,10 +154,13 @@ function Update-Pog {
 			[switch]
 		$ManifestCheck,
 			[switch]
-		$Force
+		$Force,
+			### If passed, only update frozen packages, which are otherwise ignored.
+			[switch]
+		$Frozen
 	)
 
-	$ImportedPackages = Get-Pog $PackageName | ? {$_.Version -and $_.ManifestName}
+	$ImportedPackages = Get-Pog $PackageName | ? {$_.Version -and $_.ManifestName -and $_.UserManifest.Frozen -eq $Frozen}
 
 	$RepositoryPackageMap = @{}
 	$ImportedPackages | % ManifestName `
