@@ -32,6 +32,10 @@ public sealed class ConfirmPogCommand : PogCmdlet {
     [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[]? PackageName;
 
+    /// If set, do not warn about missing checksums in packages.
+    [Parameter]
+    public SwitchParameter IgnoreMissingHash;
+
     private readonly ImportedPackageManager _packages = InternalState.ImportedPackageManager;
     private bool _noIssues = true;
 
@@ -117,6 +121,8 @@ public sealed class ConfirmPogCommand : PogCmdlet {
             AddIssue(e.Message);
             return;
         }
+
+        p.Manifest.Lint(AddIssue, p.GetDescriptionString(), IgnoreMissingHash);
 
         // skip directory structure checks for private packages
         if (p.Manifest.Private) {
