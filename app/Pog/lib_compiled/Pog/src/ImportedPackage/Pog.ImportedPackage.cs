@@ -25,6 +25,7 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     public string Path {get;}
     public string ManifestPath => $"{Path}\\{PathConfig.PackagePaths.ManifestFileName}";
     public string ManifestResourceDirPath => $"{Path}\\{PathConfig.PackagePaths.ManifestResourceDirName}";
+    public string UserManifestPath => $"{Path}\\{PathConfig.PackagePaths.UserManifestFileName}";
 
     internal string ExportedCommandDirPath => $"{Path}{PathConfig.PackagePaths.CommandDirRelSuffix}";
     internal string ExportedShortcutDirPath => $"{Path}{PathConfig.PackagePaths.ShortcutDirRelSuffix}";
@@ -33,6 +34,9 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     public override bool Exists => Directory.Exists(Path);
     /// Indicates whether a package manifest is available (either already loaded, or the manifest file exists).
     public bool ManifestAvailable => ManifestLoaded || File.Exists(ManifestPath);
+
+    private PackageUserManifest? _userManifest;
+    public PackageUserManifest UserManifest => EnsureUserManifestIsLoaded();
 
     public FileInfo[] ExportedCommands => EnumerateExportedCommands().ToArray();
     public FileInfo[] ExportedShortcuts => EnumerateExportedShortcuts().ToArray();
@@ -60,6 +64,17 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
         // invalidate the current loaded manifest
         InvalidateManifest();
+    }
+
+    public PackageUserManifest EnsureUserManifestIsLoaded() => _userManifest ?? ReloadUserManifest();
+    public PackageUserManifest ReloadUserManifest() => _userManifest = LoadUserManifest();
+
+    private PackageUserManifest LoadUserManifest() {
+        if (!Exists) {
+            throw new PackageNotFoundException(
+                    $"Tried to read the package user manifest of a non-existent package at '{Path}'.");
+        }
+        return new PackageUserManifest(UserManifestPath);
     }
 
     public IEnumerable<FileInfo> EnumerateExportedCommands() => EnumerateExportDir(ExportedCommandDirPath);

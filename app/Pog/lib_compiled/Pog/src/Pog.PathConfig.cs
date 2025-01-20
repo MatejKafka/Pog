@@ -39,6 +39,7 @@ public class PathConfig {
         internal const string ManifestResourceDirName = ".pog";
         internal const string RepositoryTemplateDirName = ".template";
         internal const string GeneratorFileName = "generator.psd1";
+        internal const string UserManifestFileName = "pog.user.psd1";
 
         // suffixes, not relative paths (do not add a slash when joining these)
         internal const string ShortcutDirRelSuffix = "";

@@ -131,10 +131,12 @@ public sealed class ConfirmPogCommand : PogCmdlet {
 
         // validate that root only contains pog.psd1 and shortcuts as files
         var extraFiles = GetFileList(Directory.EnumerateFiles(p.Path)
-                .Where(path => !path.EndsWith("\\pog.psd1") && !path.EndsWith("\\Desktop.ini") && !path.EndsWith(".lnk")));
+                .Where(path => !path.EndsWith("\\pog.psd1") && !path.EndsWith("\\pog.user.psd1") &&
+                               !path.EndsWith("\\Desktop.ini") && !path.EndsWith(".lnk")));
         if (extraFiles != "") {
-            AddIssue($"Package '{p.PackageName}' contains extra files, only the 'pog.psd1' manifest file, 'Desktop.ini' " +
-                     $"and exported shortcuts expected, at '{p.Path}': {extraFiles}");
+            AddIssue($"Package '{p.PackageName}' contains extra files, only the 'pog.psd1' manifest file, " +
+                     $"an optional 'pog.user.psd1' config file, 'Desktop.ini' and exported shortcuts expected, " +
+                     $"at '{p.Path}': {extraFiles}");
         }
 
         // validate that root only contains directories in an allow-list
