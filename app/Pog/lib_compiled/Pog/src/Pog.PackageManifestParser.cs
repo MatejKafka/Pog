@@ -13,7 +13,7 @@ namespace Pog;
 internal static class PackageManifestParser {
     /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
     /// unwrapping any script-blocks (see the other methods).
-    public static (string, Hashtable) LoadManifest(string manifestPath) {
+    public static (string RawStr, Hashtable Parsed) LoadManifest(string manifestPath) {
         if (!File.Exists(manifestPath)) {
             throw new PackageManifestNotFoundException($"Package manifest file is missing, expected path: {manifestPath}",
                     manifestPath);

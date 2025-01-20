@@ -108,12 +108,12 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
 
         if (ParameterSetName == PackagePS) {
             foreach (var p in Package) {
-                WriteVerbose($"Validating repository package '{p.PackageName}', version '{p.Version}'...");
+                WriteVerbose($"Validating {p.GetDescriptionString()}...");
                 ValidatePackageVersion(p);
             }
         } else if (PackageName != null) {
             foreach (var vp in PackageName.SelectOptional(ResolvePackage)) {
-                WriteVerbose($"Validating all versions of the repository package '{vp.PackageName}'...");
+                WriteVerbose($"Validating all versions of package '{vp.PackageName}'...");
                 ValidatePackage(vp);
             }
         } else {
@@ -228,31 +228,19 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
         try {
             p.ReloadManifest();
         } catch (Exception e) when (e is IPackageManifestException) {
-            AddIssue($"Invalid manifest for package '{p.PackageName}', version '{p.Version}': {e.Message}");
+            AddIssue($"Invalid manifest for {p.GetDescriptionString()}: {e.Message}");
             return;
         }
 
         if (p.PackageName != p.Manifest.Name) {
-            AddIssue($"Non-matching name '{p.Manifest.Name}' in the package manifest for " +
-                     $"package '{p.PackageName}', version '{p.Version}.");
+            AddIssue($"Non-matching name '{p.Manifest.Name}' in the package manifest for {p.GetDescriptionString()}.");
         }
 
         if (p.Version != p.Manifest.Version) {
-            AddIssue($"Non-matching version '{p.Manifest.Version}' in the package manifest for " +
-                     $"package '{p.PackageName}', version '{p.Version}.");
+            AddIssue($"Non-matching version '{p.Manifest.Version}' in the package manifest for {p.GetDescriptionString()}.");
         }
 
-        if (p.Manifest.Install is {} installParams) {
-            foreach (var ip in installParams) {
-                if (ip.ExpectedHash == null && !IgnoreMissingHash) {
-                    AddIssue($"Missing checksum in package '{p.PackageName}', version '{p.Version}'. " +
-                             "This means that during installation, Pog cannot verify if the downloaded file is the same" +
-                             "one that the package author intended. This may or may not be a problem on its own, but " +
-                             "it's a better style to include a checksum, and it improves security and reproducibility. " +
-                             "Additionally, Pog can cache downloaded files if the checksum is provided.");
-                }
-            }
-        }
+        p.Manifest.Lint(AddIssue, p.GetDescriptionString(), IgnoreMissingHash);
     }
 
     private void ValidateManifestDirectory(string packageInfoStr, string manifestDirPath, bool isTemplate) {

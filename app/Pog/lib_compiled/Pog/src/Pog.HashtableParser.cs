@@ -7,7 +7,7 @@ namespace Pog;
 
 internal struct HashtableParser {
     public bool IgnoreRequired = false;
-    public IEnumerable<object> ExtraKeys => _extraKeys;
+    public IEnumerable<object> ExtraNonPrivateKeys => _extraKeys.Where(k => k is not string s || !s.StartsWith("_"));
     public readonly List<string> Issues;
     public bool HasIssues => Issues.Count > 0;
     public readonly string ObjectPath;
@@ -16,10 +16,17 @@ internal struct HashtableParser {
     private readonly HashSet<object> _extraKeys;
 
     public HashtableParser(Hashtable raw, string objectPath = "", List<string>? issuesList = null) {
-        Issues = issuesList ?? new();
+        Issues = issuesList ?? [];
         _raw = raw;
-        _extraKeys = new(_raw.Keys.Cast<object>());
+        _extraKeys = new(_raw.Keys.Cast<object>(), new KeyComparer());
         ObjectPath = objectPath;
+    }
+
+    // pretty annoying that this is needed
+    private class KeyComparer : IEqualityComparer<object> {
+        // ReSharper disable once MemberHidesStaticFromOuterClass
+        public new bool Equals(object? x, object? y) => StringComparer.OrdinalIgnoreCase.Equals(x, y);
+        public int GetHashCode(object obj) => StringComparer.OrdinalIgnoreCase.GetHashCode(obj);
     }
 
     public void AddIssue(string issueMessage) {
@@ -30,7 +37,7 @@ internal struct HashtableParser {
         AddIssue($"Invalid '{ObjectPath}{propertyName}' value: '{value}' ({validDescription})");
     }
 
-    internal class DataFileParseException(string message) : Exception(message);
+    private class DataFileParseException(string message) : Exception(message);
 
     private string GetKeyName(string key, bool required) {
         return $"{(required ? "Required" : "Optional")} property '{ObjectPath}{key}'";
@@ -99,7 +106,7 @@ internal struct HashtableParser {
     }
 
     // ReSharper disable once UnusedTypeParameter, ClassNeverInstantiated.Global
-    public class ClassConstraint<T> where T : class {}
+    public class ClassConstraint<T> where T : class;
 
     // dummy parameter needed, see https://codeblog.jonskeet.uk/2010/11/02/evil-code-overload-resolution-workaround/
     public T? ParseScalar<T>(string key, bool required, ClassConstraint<T>? dummy = null) where T : class {

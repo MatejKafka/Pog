@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using JetBrains.Annotations;
@@ -77,6 +76,9 @@ public record PackageManifest {
     public readonly Hashtable Raw;
     public readonly string RawString;
 
+    /// List of unknown non-underscored properties on the manifest, should be almost always empty.
+    private readonly List<string>? _unknownPropertyNames = null;
+
     /// <inheritdoc cref="PackageManifest(string, RepositoryPackage?)"/>
     public PackageManifest(string manifestPath) : this(manifestPath, null) {}
 
@@ -132,14 +134,15 @@ public record PackageManifest {
         Website = parser.ParseScalar<string>("Website", false);
 
         var installRaw = parser.ParseList<Hashtable>("Install", true);
-        Install = installRaw == null ? null : ParseInstallBlock(parser, installRaw);
+        Install = installRaw == null ? null : ParseInstallBlock(parser, installRaw, ref _unknownPropertyNames);
         Enable = parser.ParseScalar<ScriptBlock>("Enable", true);
         Disable = parser.ParseScalar<ScriptBlock>("Disable", false);
 
         // check for extra unknown keys
-        foreach (var extraKey in parser.ExtraKeys.Where(k => k is not string s || !s.StartsWith("_"))) {
-            parser.AddIssue($"Found unknown property '{extraKey}' - private properties must be prefixed with underscore " +
-                            "(e.g. '_PrivateProperty').");
+        foreach (var extraKey in parser.ExtraNonPrivateKeys) {
+            // only lint this, do not throw a hard error, since that would prevent us from extending the manifest
+            //  in the future while still keeping compatibility with older Pog versions
+            (_unknownPropertyNames ??= []).Add(parser.ObjectPath + extraKey);
         }
 
         if (parser.HasIssues) {
@@ -147,7 +150,7 @@ public record PackageManifest {
         }
     }
 
-    private PackageVersion? ParseVersion(HashtableParser parser, string versionStr) {
+    private static PackageVersion? ParseVersion(HashtableParser parser, string versionStr) {
         try {
             return new PackageVersion(versionStr);
         } catch (InvalidPackageVersionException e) {
@@ -156,14 +159,16 @@ public record PackageManifest {
         }
     }
 
-    private PackageInstallParameters[]? ParseInstallBlock(HashtableParser parentParser, Hashtable[] raw) {
+    private static PackageInstallParameters[]? ParseInstallBlock(HashtableParser parentParser, Hashtable[] raw,
+            ref List<string>? extraPropNames) {
         if (raw.Length == 0) {
             parentParser.AddIssue("Value of 'Install' must not be an empty array.");
         }
 
         var parsed = new PackageInstallParameters[raw.Length];
         for (var i = 0; i < raw.Length; i++) {
-            var p = ParseInstallHashtable(new HashtableParser(raw[i], $"Install[{i}].", parentParser.Issues));
+            var p = ParseInstallHashtable(new HashtableParser(raw[i], $"Install[{i}].", parentParser.Issues),
+                    ref extraPropNames);
             if (p == null) return null;
             else parsed[i] = p;
         }
@@ -172,7 +177,7 @@ public record PackageManifest {
 
     public enum PackageArchitecture { Any, X64, X86, Arm64 }
 
-    private PackageArchitecture[]? ParseArchitecture(HashtableParser parser, string[] raw) {
+    private static PackageArchitecture[]? ParseArchitecture(HashtableParser parser, string[] raw) {
         var parsed = new PackageArchitecture[raw.Length];
         for (var i = 0; i < raw.Length; i++) {
             if (!_architectureMap.TryGetValue(raw[i], out parsed[i])) {
@@ -191,7 +196,8 @@ public record PackageManifest {
         {"arm64", PackageArchitecture.Arm64},
     };
 
-    private PackageInstallParameters? ParseInstallHashtable(HashtableParser parser) {
+    private static PackageInstallParameters? ParseInstallHashtable(HashtableParser parser,
+            ref List<string>? extraPropNames) {
         // If set, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted.
         var noArchive = parser.ParseScalar<bool>("NoArchive", false) ?? false;
 
@@ -253,11 +259,35 @@ public record PackageManifest {
         }
 
         // check for extra unknown keys
-        foreach (var extraKey in parser.ExtraKeys) {
-            parser.AddIssue($"Found unknown property '{parser.ObjectPath}{extraKey}'.");
+        foreach (var extraKey in parser.ExtraNonPrivateKeys) {
+            (extraPropNames ??= []).Add(parser.ObjectPath + extraKey);
         }
 
         return parser.HasIssues ? null : parsed;
+    }
+
+
+    /// Lints the manifest for non-critical errors, calling <paramref name="addIssueCb"/> for each one.
+    internal void Lint(Action<string> addIssueCb, string packageInfoStr, bool ignoreMissingHash) {
+        if (_unknownPropertyNames != null) {
+            foreach (var name in _unknownPropertyNames) {
+                addIssueCb($"Found an unknown property '{name}' in the manifest for {packageInfoStr}. Private properties " +
+                           $"must be prefixed with underscore (e.g. '_PrivateProperty'). It is possible that this property " +
+                           $"was added in a newer version of Pog than you are using.");
+            }
+        }
+
+        if (Install != null) {
+            foreach (var ip in Install) {
+                if (ip.ExpectedHash == null && !ignoreMissingHash) {
+                    addIssueCb($"Missing checksum in the manifest for {packageInfoStr}. " +
+                               "This means that during installation, Pog cannot verify if the downloaded file is the same" +
+                               "one that the package author intended. This may or may not be a problem on its own, but " +
+                               "it's a better style to include a checksum, and it improves security and reproducibility. " +
+                               "Additionally, Pog can cache downloaded files if the checksum is provided.");
+                }
+            }
+        }
     }
 }
 
@@ -268,7 +298,9 @@ public abstract record PackageInstallParameters {
     /// SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but a warning is printed.
     public string? ExpectedHash;
 
-    /// Some servers (e.g. Apache Lounge) dislike the default PowerShell user agent string.
+    /// Which User-Agent header to use. By default, Pog uses a custom user agent string containing the version of Pog,
+    /// PowerShell and Windows. Unless the server dislikes the default user agent, prefer to keep it.
+    /// Set this to `PowerShell` to use the default PowerShell user agent string.
     /// Set this to `Browser` to use a browser user agent string (currently Firefox).
     /// Set this to `Wget` to use wget user agent string.
     public UserAgentType UserAgent;
