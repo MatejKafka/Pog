@@ -6,6 +6,11 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 
+/// <summary>Adds a value to a semicolon-delimited list in an environment variable.</summary>
+/// <para>
+/// This cmdlet is commonly used for inserting a directory path into `$env:PATH` or `$env:PSModulePath`.
+/// By default, the value is appended. To prepend the value (this typically gives it the highest priority), use `-Prepend`.
+/// </para>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Add, "EnvVar")]
 public sealed class AddEnvVarCommand : PogCmdlet {

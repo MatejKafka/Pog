@@ -15,7 +15,7 @@ public sealed class InvokeFileDownloadCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string SourceUrl = null!;
     [Parameter(Mandatory = true, Position = 1)] public string DestinationDirPath = null!;
     [Parameter] public DownloadParameters DownloadParameters = new();
-    [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
+    [Parameter] public ProgressActivity ProgressActivity = new();
 
     protected override void BeginProcessing() {
         base.BeginProcessing();

@@ -6,6 +6,8 @@ namespace Pog;
 
 public class PackageNotFoundException(string message) : DirectoryNotFoundException(message);
 
+/// Base class for all kinds of packages, both installed (<see cref="ImportedPackage"/>) or available from
+/// a repository (<see cref="RepositoryPackage"/>).
 public abstract class Package {
     public readonly string PackageName;
     public abstract bool Exists {get;}

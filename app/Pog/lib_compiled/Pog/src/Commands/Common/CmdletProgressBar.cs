@@ -3,7 +3,7 @@ using System.Management.Automation;
 
 namespace Pog.Commands.Common;
 
-public sealed class CmdletProgressBar : IDisposable {
+internal sealed class CmdletProgressBar : IDisposable {
     // when progress print activity ID is not set explicitly, use an auto-incrementing ID
     //  to show multiple progress bars when multiple cmdlets are ran in parallel
     private static int _nextActivityId = 0;
@@ -36,6 +36,7 @@ public sealed class CmdletProgressBar : IDisposable {
         _progressRecord.RecordType = ProgressRecordType.Completed;
         _writeProgressFn(_progressRecord);
     }
-
-    public record struct ProgressActivity(string? Activity = null, string? Description = null, int? Id = null);
 }
+
+/// Metadata for rendering a PowerShell progress bar.
+public record struct ProgressActivity(string? Activity = null, string? Description = null, int? Id = null);

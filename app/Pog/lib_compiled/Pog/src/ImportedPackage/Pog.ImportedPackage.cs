@@ -11,12 +11,11 @@ public class ImportedPackageNotFoundException(string message) : PackageNotFoundE
 
 public class InvalidPackageRootException(string message) : ArgumentException(message);
 
-/// <summary>
-/// A class representing an imported package.
-///
+/// <summary>Class representing an installed package.</summary>
+/// <remarks>
 /// By default, the package manifest is loaded during initialization - the package must exist and have a valid manifest,
 /// otherwise an exception is thrown.
-/// </summary>
+/// </remarks>
 [PublicAPI]
 public sealed class ImportedPackage : Package, ILocalPackage {
     public PackageVersion? Version => Manifest.Version;

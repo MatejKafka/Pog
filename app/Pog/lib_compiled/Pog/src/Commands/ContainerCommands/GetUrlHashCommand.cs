@@ -39,7 +39,7 @@ public sealed class GetUrlHashCommand : PogCmdlet {
     }
 
     private string GetUrlSha256Hash(Uri requestUri, UserAgentType userAgent, CancellationToken token) {
-        using var progressBar = new CmdletProgressBar(this, new CmdletProgressBar.ProgressActivity {
+        using var progressBar = new CmdletProgressBar(this, new ProgressActivity {
             Activity = "Retrieving file hash",
             Description = $"Downloading '{requestUri}'...",
         });

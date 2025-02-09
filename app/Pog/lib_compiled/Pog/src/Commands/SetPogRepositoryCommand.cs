@@ -5,7 +5,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands;
 
-/// Selects the package repository used by other commands.
+/// <summary>Sets the package repository used by other commands.</summary>
 /// <remarks>
 /// Not thread-safe. Do not call this concurrently with other Pog cmdlets from different runspaces, since some cmdlets
 /// internally repeatedly access the repository and assume it won't change between accesses.

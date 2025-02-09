@@ -15,7 +15,7 @@ internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<strin
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string DestinationDirPath = null!;
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
-    [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
+    [Parameter] public ProgressActivity ProgressActivity = new();
 
     /// <summary>Downloads the file from $SourceUrl to $DestinationDirPath.</summary>
     /// <returns>Full path of the downloaded file.</returns>

@@ -6,6 +6,12 @@ using Pog.PSAttributes;
 
 namespace Pog.Commands.ContainerCommands;
 
+/// <summary>Disables system display scaling for the specified executable.</summary>
+/// <para>
+/// By default, Windows apply bitmap scaling to applications that do not explicitly declare that they perform scaling
+/// internally. For fractional scaling ratios, this results in blurry text in older apps. This cmdlet changes the application
+/// manifest to disable any system display scaling.
+/// </para>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Disable, "DisplayScaling")]
 public sealed class DisableDisplayScalingCommand : PogCmdlet {

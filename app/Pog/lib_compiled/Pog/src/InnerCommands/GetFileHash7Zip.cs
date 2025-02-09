@@ -14,7 +14,7 @@ public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cm
     [Parameter(Mandatory = true)] public string Path = null!;
     [Parameter] public HashAlgorithm Algorithm = default;
 
-    [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
+    [Parameter] public ProgressActivity ProgressActivity = new();
 
     private string _algorithmStr = null!;
     private Process? _process;

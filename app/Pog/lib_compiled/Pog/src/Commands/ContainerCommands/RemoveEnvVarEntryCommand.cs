@@ -7,6 +7,10 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 
+/// <summary>Removes a value from a semicolon-delimited list in an environment variable.</summary>
+/// <para>
+/// This cmdlet is commonly used for removing a directory path from `$env:PATH` or `$env:PSModulePath`.
+/// </para>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Remove, "EnvVarEntry")]
 public sealed class RemoveEnvVarEntryCommand : PogCmdlet {

@@ -5,6 +5,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 
+/// <summary>Sets the specified user-level environment variable to a new value.</summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Set, "EnvVar")]
 public sealed class SetEnvVarCommand : PogCmdlet {

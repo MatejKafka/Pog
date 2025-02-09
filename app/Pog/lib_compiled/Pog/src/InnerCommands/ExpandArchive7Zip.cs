@@ -19,7 +19,7 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
     [Parameter] public string? RawTargetPath;
     /// If passed, only paths inside the archive matching at least one of the filters are extracted.
     [Parameter] public string[]? Filter = null;
-    [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
+    [Parameter] public ProgressActivity ProgressActivity = new();
 
     private string[]? _filterPatterns;
     private Process? _process;

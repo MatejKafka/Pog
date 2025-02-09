@@ -6,7 +6,7 @@ using Pog.Utils;
 
 namespace Pog.Commands;
 
-/// Returns the refs (paths/URLs) of all used package repositories.
+/// <summary>Returns the refs (paths/URLs) of all configured package repositories for this PowerShell instance.</summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogRepository")]
 [OutputType(typeof(string))]

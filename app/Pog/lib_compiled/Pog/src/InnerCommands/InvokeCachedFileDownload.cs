@@ -34,7 +34,7 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
     [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
     [Parameter(Mandatory = true)] public Package Package = null!;
     [Parameter] public bool StoreInCache = false;
-    [Parameter] public CmdletProgressBar.ProgressActivity ProgressActivity = new();
+    [Parameter] public ProgressActivity ProgressActivity = new();
 
     // TODO: handle `InvalidCacheEntryException` everywhere
     public override SharedFileCache.IFileLock Invoke() {
