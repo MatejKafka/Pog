@@ -51,14 +51,14 @@
 		Import-Module Microsoft.PowerShell.Security
 
 		# clean up the Start menu directory
-		$StartMenuDir = [Pog.PathConfig]::StartMenuExportDir
+		$StartMenuDir = [Pog.InternalState]::PathConfig.ExportedShortcutDir
 		if (Test-Path $StartMenuDir) {
 			if (ls $StartMenuDir | select -First 1) {
 				Write-Warning ("The Pog start menu subdirectory at '$StartMenuDir' exists, but it's not empty. " +`
 					"Either uninstall all other packages before disabling Pog, or delete the directory manually.")
 			} else {
 				# Start menu exists and is empty
-				Remove-Item -Force -Recurse ([Pog.PathConfig]::StartMenuExportDir)
+				Remove-Item -Force -Recurse $StartMenuDir
 				Write-Host "Removed the Pog Start menu subdirectory at '$StartMenuDir'."
 			}
 		}

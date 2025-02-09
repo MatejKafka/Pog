@@ -1,3 +1,4 @@
+using module ..\Utils.psm1
 . $PSScriptRoot\..\header.ps1
 
 # this must NOT be an advanced funtion, otherwise we lose error message position from the manifest scriptblock
