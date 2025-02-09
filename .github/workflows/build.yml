@@ -156,7 +156,10 @@ jobs:
       run: |
         Write-Host "PowerShell v$($PSVersionTable.PSVersion)"
         $InformationPreference = "Continue"
-        Import-Module ./app/Pog -Verbose
+        Import-Module ./app/Pog
+
+        Write-Host "Exported cmdlets:"
+        (Get-Module Pog).ExportedCommands.Keys | % {Write-Host "- $_"}
 
         Write-Host "Available packages: $(@(Find-Pog -AllVersions).Count)"
         pog fzf, zstd, Jujutsu
@@ -178,7 +181,10 @@ jobs:
       run: |
         Write-Host "PowerShell v$($PSVersionTable.PSVersion)"
         $InformationPreference = "Continue"
-        Import-Module ./app/Pog -Verbose
+        Import-Module ./app/Pog
+
+        Write-Host "Exported cmdlets:"
+        (Get-Module Pog).ExportedCommands.Keys | % {Write-Host "- $_"}
 
         Write-Host "Available packages: $(@(Find-Pog -AllVersions).Count)"
         pog fzf, zstd, Jujutsu
