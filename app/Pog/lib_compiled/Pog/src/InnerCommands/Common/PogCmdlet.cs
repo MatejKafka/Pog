@@ -71,12 +71,12 @@ public class PogCmdlet : PSCmdlet, IDisposable {
         WriteError(new ErrorRecord(exception, errorId, errorCategory, targetObject));
     }
 
-    protected void ThrowTerminatingError(Exception exception, string errorId, ErrorCategory errorCategory,
+    protected internal void ThrowTerminatingError(Exception exception, string errorId, ErrorCategory errorCategory,
             object? targetObject) {
         ThrowTerminatingError(new ErrorRecord(exception, errorId, errorCategory, targetObject));
     }
 
-    protected void ThrowArgumentError(object? argumentValue, string errorId, string message) {
+    protected internal void ThrowArgumentError(object? argumentValue, string errorId, string message) {
         ThrowTerminatingError(new ArgumentException(message), errorId, ErrorCategory.InvalidArgument, argumentValue);
     }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Threading;
@@ -43,6 +44,20 @@ public abstract class BaseCommand(PogCmdlet cmdlet) {
         Cmdlet.WriteInformation(messageData, tags);
     }
 
+    protected void ThrowArgumentError(object? argumentValue, string errorId, string message) {
+        Cmdlet.ThrowArgumentError(argumentValue, errorId, message);
+    }
+
     protected void ThrowTerminatingError(ErrorRecord errorRecord) => Cmdlet.ThrowTerminatingError(errorRecord);
+
+    protected void ThrowTerminatingError(Exception exception, string errorId, ErrorCategory errorCategory,
+            object? targetObject) {
+        Cmdlet.ThrowTerminatingError(exception, errorId, errorCategory, targetObject);
+    }
+
     protected string GetUnresolvedProviderPathFromPSPath(string path) => Cmdlet.GetUnresolvedProviderPathFromPSPath(path);
+
+    protected Collection<string> GetResolvedProviderPathFromPSPath(string path, out ProviderInfo provider) {
+        return Cmdlet.GetResolvedProviderPathFromPSPath(path, out provider);
+    }
 }
