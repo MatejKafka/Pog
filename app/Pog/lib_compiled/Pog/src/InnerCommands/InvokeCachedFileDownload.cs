@@ -28,6 +28,8 @@ public static class UserAgentTypeExtensions {
     }
 }
 
+public class IncorrectFileHashException(string message) : Exception(message);
+
 internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<SharedFileCache.IFileLock>(cmdlet) {
     [Parameter(Mandatory = true)] public string SourceUrl = null!;
     [Parameter(Mandatory = true)] public string? ExpectedHash;
@@ -168,6 +170,4 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
             Unlock();
         }
     }
-
-    public class IncorrectFileHashException(string message) : Exception(message);
 }

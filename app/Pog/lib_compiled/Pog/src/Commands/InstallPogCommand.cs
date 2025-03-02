@@ -25,18 +25,9 @@ public sealed class InstallPogCommand() : ImportedPackageCommand(true) {
 
         WriteInformation($"Installing {package.GetDescriptionString()}...");
 
-        var it = InvokePogCommand(new InvokeContainer(this) {
-            WorkingDirectory = package.Path,
-            Context = new DownloadContainerContext(package, LowPriority),
-            Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_Install.psm1"],
-            // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
-            Variables = [new("this", package.Manifest.Raw, "Loaded manifest of the processed package")],
-            Run = ps => ps.AddCommand("__main").AddArgument(package.Manifest),
+        InvokePogCommand(new InstallFromUrl(this) {
+            Package = package,
+            LowPriorityDownload = LowPriority,
         });
-
-        // Install container should not output anything, show a warning
-        foreach (var o in it) {
-            WriteWarning($"INSTALL: {o}");
-        }
     }
 }

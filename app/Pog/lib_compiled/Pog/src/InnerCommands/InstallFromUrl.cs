@@ -1,51 +1,48 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
-using Pog.InnerCommands;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
 using PPaths = Pog.PathConfig.PackagePaths;
 
-namespace Pog.Commands.ContainerCommands;
+namespace Pog.InnerCommands;
 
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
-public sealed class InstallFromUrlCommand : PogCmdlet {
-    // created while parsing the package manifest
-    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true)]
-    public PackageInstallParameters[] Params = null!;
+public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposable {
+    [Parameter(Mandatory = true)] public ImportedPackage Package = null!;
+    [Parameter] public bool LowPriorityDownload = false;
 
-    private string _packageDirPath = null!;
     private string _appDirPath = null!;
     private string _newAppDirPath = null!;
     private string _oldAppDirPath = null!;
     private string _extractionDirPath = null!;
     private string _tmpDeletePath = null!;
-
-    private bool _lowPriorityDownload;
-    private Package _package = null!;
     private bool _lockFileListShown = false;
 
-    /// here, only parameter validation and setup is done
-    protected override void BeginProcessing() {
-        base.BeginProcessing();
-        _packageDirPath = SessionState.Path.CurrentLocation.ProviderPath;
-        _appDirPath = $@"{_packageDirPath}\{PPaths.AppDirName}";
-        _newAppDirPath = $@"{_packageDirPath}\{PPaths.NewAppDirName}";
-        _oldAppDirPath = $@"{_packageDirPath}\{PPaths.AppBackupDirName}";
-        _extractionDirPath = $@"{_packageDirPath}\{PPaths.TmpExtractionDirName}";
-        _tmpDeletePath = $@"{_packageDirPath}\{PPaths.TmpDeleteDirName}";
+    public override void Invoke() {
+        _appDirPath = $@"{Package.Path}\{PPaths.AppDirName}";
+        _newAppDirPath = $@"{Package.Path}\{PPaths.NewAppDirName}";
+        _oldAppDirPath = $@"{Package.Path}\{PPaths.AppBackupDirName}";
+        _extractionDirPath = $@"{Package.Path}\{PPaths.TmpExtractionDirName}";
+        _tmpDeletePath = $@"{Package.Path}\{PPaths.TmpDeleteDirName}";
 
-        // read download parameters from the global container context variable
-        var internalInfo = DownloadContainerContext.GetCurrent(this);
-        _lowPriorityDownload = internalInfo.LowPriorityDownload;
-        _package = internalInfo.Package;
+        CleanPreviousInstallation();
 
+        Debug.Assert(Package.Manifest.Install != null);
+        foreach (var source in Package.Manifest.Install!) {
+            InstallSingleSource(source);
+        }
 
+        ReplaceAppDirectory(_newAppDirPath, _appDirPath, _oldAppDirPath);
+    }
+
+    private void CleanPreviousInstallation() {
         if (new[] {_extractionDirPath, _newAppDirPath, _tmpDeletePath}.Any(FsUtils.EnsureDeleteDirectory)) {
             WriteWarning("Removed orphaned tmp installer directories, probably from an interrupted previous install...");
         }
@@ -77,23 +74,21 @@ public sealed class InstallFromUrlCommand : PogCmdlet {
         }
     }
 
-    /// Here, the actual download &amp; extraction is done.
-    /// Each retrieved archive is extracted into <see cref="_extractionDirPath"/> and the relevant subdirectory is then
-    /// moved into its target name at <see cref="_newAppDirPath"/>.
-    protected override void ProcessRecord() {
-        base.ProcessRecord();
-
-        foreach (var param in Params) {
-            ProcessSingle(param);
-        }
+    private string ResolveSourceUrl(PackageSource source, Package package) {
+        return InvokePogCommand(new EvaluateSourceUrl(Cmdlet) {
+            Package = package,
+            Source = source,
+        });
     }
 
-    private void ProcessSingle(PackageInstallParameters param) {
-        var url = param.ResolveUrl();
+    /// Retrieve and extract the source file into <see cref="_extractionDirPath"/> and move the selected subdirectory
+    /// to the target path under <see cref="_newAppDirPath"/>.
+    private void InstallSingleSource(PackageSource source) {
+        var url = ResolveSourceUrl(source, Package);
 
-        var target = param switch {
-            PackageInstallParametersNoArchive pna => pna.Target,
-            PackageInstallParametersArchive pa => pa.Target,
+        var target = source switch {
+            PackageSourceNoArchive pna => pna.Target,
+            PackageSourceArchive pa => pa.Target,
             _ => throw new UnreachableException(),
         };
         var targetPath = target == null ? _newAppDirPath : FsUtils.JoinValidateSubPath(_newAppDirPath, target);
@@ -106,27 +101,27 @@ public sealed class InstallFromUrlCommand : PogCmdlet {
             throw new UnreachableException();
         }
 
-        if (param is PackageInstallParametersNoArchive) {
+        if (source is PackageSourceNoArchive) {
             if (targetPath == _newAppDirPath) {
                 ThrowArgumentError(target, "TargetResolvesToRoot",
                         $"Argument passed to the -Target parameter must contain the target file name, got '{target}'");
             }
         }
 
-        var downloadParameters = new DownloadParameters(param.UserAgent, _lowPriorityDownload);
-        using var downloadedFile = InvokePogCommand(new InvokeCachedFileDownload(this) {
+        var downloadParameters = new DownloadParameters(source.UserAgent, LowPriorityDownload);
+        using var downloadedFile = InvokePogCommand(new InvokeCachedFileDownload(Cmdlet) {
             SourceUrl = url,
-            ExpectedHash = param.ExpectedHash,
+            ExpectedHash = source.ExpectedHash,
             DownloadParameters = downloadParameters,
-            Package = _package,
-            ProgressActivity = new() {Activity = $"Installing '{_package.PackageName}'"},
+            Package = Package,
+            ProgressActivity = new() {Activity = $"Installing '{Package.PackageName}'"},
         });
 
-        switch (param) {
-            case PackageInstallParametersNoArchive:
+        switch (source) {
+            case PackageSourceNoArchive:
                 InstallNoArchive(downloadedFile, targetPath);
                 break;
-            case PackageInstallParametersArchive a:
+            case PackageSourceArchive a:
                 InstallArchive(a, downloadedFile, targetPath);
                 break;
             default:
@@ -134,15 +129,7 @@ public sealed class InstallFromUrlCommand : PogCmdlet {
         }
     }
 
-    /// here, we install the new ./app directory created during extraction
-    protected override void EndProcessing() {
-        base.EndProcessing();
-        ReplaceAppDirectory(_newAppDirPath, _appDirPath, _oldAppDirPath);
-    }
-
-    public override void Dispose() {
-        base.Dispose();
-
+    public void Dispose() {
         FsUtils.EnsureDeleteDirectory(_tmpDeletePath);
         FsUtils.EnsureDeleteDirectory(_extractionDirPath);
         FsUtils.EnsureDeleteDirectory(_newAppDirPath);
@@ -158,11 +145,11 @@ public sealed class InstallFromUrlCommand : PogCmdlet {
         File.Copy(downloadedFile.Path, targetPath, true);
     }
 
-    private void InstallArchive(PackageInstallParametersArchive param,
+    private void InstallArchive(PackageSourceArchive param,
             SharedFileCache.IFileLock downloadedFile, string targetPath) {
         using (downloadedFile) {
             // extract the archive to a temporary directory
-            InvokePogCommand(new ExpandArchive7Zip(this) {
+            InvokePogCommand(new ExpandArchive7Zip(Cmdlet) {
                 ArchivePath = downloadedFile.Path,
                 TargetPath = _extractionDirPath,
                 Filter = param.Subdirectory == null ? null : [param.Subdirectory],
@@ -264,20 +251,21 @@ public sealed class InstallFromUrlCommand : PogCmdlet {
         }
 
         if (setupScript != null) {
-            // run the setup script with a changed directory
-            SessionState.Path.PushCurrentLocation("pog");
-            SessionState.Path.SetLocation(subdirectoryPath);
-            try {
-                // TODO: use something like New-ContainerModule here
-                setupScript.InvokeReturnAsIs();
-            } finally {
-                SessionState.Path.PopLocation("pog");
-            }
+            InvokePogCommand(new InvokeContainer(Cmdlet) {
+                WorkingDirectory = subdirectoryPath,
+                // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
+                Variables = [
+                    new("this", Package.Manifest.Raw, ""),
+                    new("ErrorActionPreference", ActionPreference.Stop, ""),
+                ],
+                Run = ps => ps.AddScript("Set-StrictMode -Version 3; & $Args[0]").AddArgument(setupScript),
+            }).Drain();
+            // ^ ignore output
         }
     }
 
-    /// <summary>Moves srcDir to the ./app directory. Ensures that there are no locked files in the previous
-    /// ./app directory (if it exists), and moves it to backupDir.</summary>
+    /// <summary>Moves <paramref name="srcDir"/> to the ./app directory. Ensures that there are no locked files
+    /// in the previous ./app directory (if it exists), and moves it to <paramref name="backupDir"/>.</summary>
     private void ReplaceAppDirectory(string srcDir, string targetAppDir, string backupDir) {
         using var newAppDirHandle = FsUtils.OpenForMove(srcDir);
         try {
@@ -339,7 +327,7 @@ public sealed class InstallFromUrlCommand : PogCmdlet {
 
     private void WaitForLockedFiles(string dirPath, int attemptNumber, bool checkDirItself) {
         WriteDebug("The previous app directory seems to be used.");
-        InvokePogCommand(new ShowLockedFileList(this) {
+        InvokePogCommand(new ShowLockedFileList(Cmdlet) {
             Path = _appDirPath,
             MessagePrefix = "Cannot overwrite an existing package installation,",
             NoList = _lockFileListShown,
@@ -350,7 +338,7 @@ public sealed class InstallFromUrlCommand : PogCmdlet {
     }
 
     private void ShowLockedFileInfo(string dirPath) {
-        InvokePogCommand(new ShowLockedFileList(this) {
+        InvokePogCommand(new ShowLockedFileList(Cmdlet) {
             Path = _appDirPath,
             MessagePrefix = "Cannot overwrite an existing package installation,",
         });

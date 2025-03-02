@@ -1,7 +1,10 @@
-﻿using System.Management.Automation;
+﻿using System;
+using System.Collections.Generic;
+using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
+using Pog.Native;
 
 namespace Pog.Commands;
 
@@ -38,6 +41,7 @@ public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
     protected override void ProcessPackage(RepositoryPackage package) => ProcessPackage(package);
 
     private bool _first = true;
+    private List<string> _hashes = [];
 
     private void ProcessPackage(Package package) {
         package.EnsureManifestIsLoaded();
@@ -46,20 +50,54 @@ public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
             return;
         }
 
-        if (_first) _first = false;
-        else WriteHost("");
+        foreach (var source in package.Manifest.Install) {
+            if (!_first) WriteHost("");
+            _first = false;
 
-        var it = InvokePogCommand(new InvokeContainer(this) {
-            Context = new DownloadContainerContext(package, LowPriority),
-            Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_GetInstallHash.psm1"],
-            // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
-            Variables = [new("this", package.Manifest.Raw, "Loaded manifest of the processed package")],
-            Run = ps => ps.AddCommand("__main").AddArgument(package.Manifest),
+            var url = ResolveSourceUrl(package, source);
+            var hash = RetrieveSourceHash(package, source, url);
+
+            _hashes.Add(hash);
+            // setting the clipboard here ensures that even if something fails during the download of a subsequent source,
+            //  we will still store the previous sources
+            Clipboard.SetText(string.Join("\n", _hashes));
+
+            WriteHost($"Hash for the file at '{url}' (copied to clipboard):");
+            WriteHost(hash, foregroundColor: ConsoleColor.White);
+
+            if (source.ExpectedHash != null) {
+                if (source.ExpectedHash == hash) {
+                    WriteHost("Matches the expected hash specified in the manifest.", foregroundColor: ConsoleColor.Green);
+                } else {
+                    var errorMsg = $"The retrieved hash does not match the expected hash specified in the manifest" +
+                                   $"(expected: '{source.ExpectedHash}').";
+                    WriteError(new IncorrectFileHashException(errorMsg), "IncorrectHash", ErrorCategory.InvalidResult, url);
+                }
+            }
+        }
+    }
+
+    private string ResolveSourceUrl(Package package, PackageSource source) {
+        return InvokePogCommand(new EvaluateSourceUrl(this) {
+            Package = package,
+            Source = source,
+        });
+    }
+
+    private string RetrieveSourceHash(Package package, PackageSource source, string url) {
+        using var fileLock = InvokePogCommand(new InvokeCachedFileDownload(this) {
+            SourceUrl = url,
+            StoreInCache = true,
+            Package = package,
+            DownloadParameters = new DownloadParameters(source.UserAgent, LowPriority),
+            ProgressActivity = new() {Activity = "Retrieving file"},
         });
 
-        // GetInstallHash container should not output anything, show a warning
-        foreach (var o in it) {
-            WriteWarning($"GET_INSTALL_HASH: {o}");
-        }
+        // we know it's a cache entry lock, since StoreInCache is true
+        var cacheLock = (SharedFileCache.CacheEntryLock) fileLock;
+        // we don't need the lock, we're only interested in the hash
+        cacheLock.Unlock();
+
+        return cacheLock.EntryKey;
     }
 }

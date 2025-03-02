@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using JetBrains.Annotations;
 using Pog.InnerCommands;
+using Pog.InnerCommands.Common;
 
 namespace Pog;
 
@@ -53,11 +53,6 @@ public class InvalidPackageManifestStructureException : Exception, IPackageManif
             $"Package manifest at '{ManifestSource}' has invalid structure:\n\t" + string.Join("\n\t", Issues);
 }
 
-/// <summary>Package manifest had a ScriptBlock as the 'Install.Url' property, but it did not return a valid URL.</summary>
-public class InvalidPackageManifestUrlScriptBlockException : Exception, IPackageManifestException {
-    internal InvalidPackageManifestUrlScriptBlockException(string message) : base(message) {}
-}
-
 [PublicAPI]
 public record PackageManifest {
     public readonly bool Private;
@@ -69,7 +64,7 @@ public record PackageManifest {
     public readonly string? Description;
     public readonly string? Website;
 
-    public readonly PackageInstallParameters[]? Install;
+    public readonly PackageSource[]? Install;
     public readonly ScriptBlock? Enable;
     public readonly ScriptBlock? Disable;
 
@@ -159,13 +154,13 @@ public record PackageManifest {
         }
     }
 
-    private static PackageInstallParameters[]? ParseInstallBlock(HashtableParser parentParser, Hashtable[] raw,
+    private static PackageSource[]? ParseInstallBlock(HashtableParser parentParser, Hashtable[] raw,
             ref List<string>? extraPropNames) {
         if (raw.Length == 0) {
             parentParser.AddIssue("Value of 'Install' must not be an empty array.");
         }
 
-        var parsed = new PackageInstallParameters[raw.Length];
+        var parsed = new PackageSource[raw.Length];
         for (var i = 0; i < raw.Length; i++) {
             var p = ParseInstallHashtable(new HashtableParser(raw[i], $"Install[{i}].", parentParser.Issues),
                     ref extraPropNames);
@@ -196,7 +191,7 @@ public record PackageManifest {
         {"arm64", PackageArchitecture.Arm64},
     };
 
-    private static PackageInstallParameters? ParseInstallHashtable(HashtableParser parser,
+    private static PackageSource? ParseInstallHashtable(HashtableParser parser,
             ref List<string>? extraPropNames) {
         // If set, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted.
         var noArchive = parser.ParseScalar<bool>("NoArchive", false) ?? false;
@@ -237,18 +232,18 @@ public record PackageManifest {
             parser.AddValidityIssue("Subdirectory", subdirectory, "expected a valid file path");
         }
 
-        PackageInstallParameters parsed;
+        PackageSource parsed;
         if (noArchive) {
-            parsed = new PackageInstallParametersNoArchive {
-                SourceUrl = sourceUrl!,
+            parsed = new PackageSourceNoArchive {
+                Url = sourceUrl!,
                 ExpectedHash = expectedHash,
                 UserAgent = userAgent,
                 // if null, we will throw an exception anyway
                 Target = target!,
             };
         } else {
-            parsed = new PackageInstallParametersArchive {
-                SourceUrl = sourceUrl!,
+            parsed = new PackageSourceArchive {
+                Url = sourceUrl!,
                 ExpectedHash = expectedHash,
                 UserAgent = userAgent,
                 Target = target,
@@ -291,9 +286,11 @@ public record PackageManifest {
     }
 }
 
-public abstract record PackageInstallParameters {
-    /// Source URL, from which the archive is downloaded. Redirects are supported.
-    public object SourceUrl = null!;
+[PublicAPI]
+public abstract record PackageSource {
+    /// Source URL, from which the archive is downloaded. Redirects are supported. This is either a plain string,
+    /// or a ScriptBlock that returns the URL on invocation (<seealso cref="EvaluateSourceUrl"/>).
+    public object Url = null!;
 
     /// SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but a warning is printed.
     public string? ExpectedHash;
@@ -305,48 +302,25 @@ public abstract record PackageInstallParameters {
     /// Set this to `Wget` to use wget user agent string.
     public UserAgentType UserAgent;
 
-    /// <summary>
-    /// If <see cref="SourceUrl"/> is a ScriptBlock, this method invokes it and returns the resulting URL,
-    /// otherwise returns the static URL.
-    /// </summary>
-    ///
-    /// <remarks>
-    /// NOTE: This method executes potentially untrusted code from the manifest.
-    /// NOTE: This method must be executed inside a container environment.
-    /// </remarks>
-    ///
-    /// <exception cref="InvalidPackageManifestUrlScriptBlockException"></exception>
-    public string ResolveUrl() {
-        if (SourceUrl is string s) {
-            return s; // static string, just return
-        }
-
-        Debug.Assert(SourceUrl is ScriptBlock);
-        var sb = (ScriptBlock) SourceUrl;
-
-        // TODO: use something like New-ContainerModule here
-        var resolvedUrlObj = sb.InvokeReturnAsIs();
-
-        if (resolvedUrlObj is PSObject pso) {
-            resolvedUrlObj = pso.BaseObject;
-        }
-        if (resolvedUrlObj is not string resolvedUrl) {
-            throw new InvalidPackageManifestUrlScriptBlockException(
-                    "ScriptBlock for the source URL ('Install.Url' property in the package manifest) must " +
-                    $"return a string, got '{resolvedUrlObj?.GetType().ToString() ?? "null"}'");
-        }
-        return resolvedUrl;
+    // FIXME: very hacky, both the implementation and accepting a Package argument, the most proper way would be to implement
+    //  this as a public cmdlet that returns URLs for all sources as an array
+    public string EvaluateUrl(Package package) {
+        using var cmdlet = new PogCmdlet();
+        return cmdlet.InvokePogCommand(new EvaluateSourceUrl(cmdlet) {
+            Package = package,
+            Source = this,
+        });
     }
 }
 
-public record PackageInstallParametersNoArchive : PackageInstallParameters {
+public record PackageSourceNoArchive : PackageSource {
     // mandatory when NoArchive is set, otherwise the name of the binary would be controlled by the server
     //  we're downloading from, making the resulting package no longer reproducible based on just the hash
     /// The downloaded file is moved to `./app/$Target`. The path must include the file name.
     public string Target = null!;
 }
 
-public record PackageInstallParametersArchive : PackageInstallParameters {
+public record PackageSourceArchive : PackageSource {
     /// If passed, only the subdirectory with passed name/path is extracted to ./app and the rest is ignored.
     public string? Subdirectory;
 
