@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
@@ -19,40 +20,50 @@ public sealed class Container : IDisposable {
 
     private readonly string[] _modules;
     private readonly SessionStateVariableEntry[] _variables;
-    private readonly Action<PowerShell> _run;
     private readonly string? _workingDirectory;
     private readonly object? _environmentContext;
     private readonly PowerShell _ps = PowerShell.Create();
 
     /// <param name="host">
     /// The <see cref="PSHost"/> instance used for the runspace. If null, DefaultHost instance is created.
-    /// To read the output streams, use the <see cref="Streams"/> property after <see cref="BeginInvoke"/> was called.
+    /// To read the output streams, use the <see cref="Streams"/> property after <see cref="Invoke"/> was called.
     /// </param>
     /// <param name="streamConfig">Configuration for output stream preference variables.</param>
     /// <param name="modules"></param>
     /// <param name="variables"></param>
-    /// <param name="run"></param>
     /// <param name="workingDirectory"></param>
     /// <param name="context"></param>
-    public Container(PSHost? host, OutputStreamConfig streamConfig, Action<PowerShell> run, string[]? modules = null,
+    public Container(PSHost? host, OutputStreamConfig streamConfig, string[]? modules = null,
             SessionStateVariableEntry[]? variables = null, string? workingDirectory = null, object? context = null) {
         _modules = modules ?? [];
         _variables = variables ?? [];
-        _run = run;
         _workingDirectory = workingDirectory;
         _environmentContext = context;
         _ps.Runspace = GetInitializedRunspace(host, streamConfig);
     }
 
-    public IAsyncResult BeginInvoke(PSDataCollection<PSObject> outputCollection) {
-        // _run should set up the script which is then executed by BeginInvoke
-        _run.Invoke(_ps);
-        // don't accept any input, write output to `outputCollection`
-        return _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);
-    }
+    /// Invokes <paramref name="setupCommandFn"/> to initialize the invoked command and then invokes it while yielding live
+    /// output from the output stream and handling cancellation through <see cref="Stop()"/>.
+    /// <remarks>Note that this method can be called multiple times on a single <see cref="Container"/>.</remarks>
+    public IEnumerable<PSObject> Invoke(Action<PowerShell> setupCommandFn) {
+        // setupCommandFn should set up the script which is then executed by BeginInvoke
+        setupCommandFn(_ps);
 
-    public void EndInvoke(IAsyncResult asyncResult) {
-        _ps.EndInvoke(asyncResult);
+        try {
+            // don't accept any input, write output to `outputCollection`
+            using var outputCollection = new PSDataCollection<PSObject>();
+            var asyncResult = _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);
+            try {
+                foreach (var o in outputCollection) {
+                    yield return o;
+                }
+            } finally {
+                _ps.EndInvoke(asyncResult);
+            }
+        } finally {
+            // ensure that the command buffer is clear for repeated invocation
+            _ps.Commands.Clear();
+        }
     }
 
     public void Stop() {
@@ -165,15 +176,6 @@ public sealed class Container : IDisposable {
         Set("ConfirmPreference", streamConfig.Confirm);
     }
 
-    [PublicAPI]
-    public record struct OutputStreamConfig(
-            ActionPreference? Progress,
-            ActionPreference? Warning,
-            ActionPreference? Information,
-            ActionPreference? Verbose,
-            ActionPreference? Debug,
-            ConfirmImpact? Confirm);
-
     private const string EnvContextVarName = "_PogInternalContext";
 
     public class EnvironmentContext<TDerived> where TDerived : EnvironmentContext<TDerived> {
@@ -189,6 +191,71 @@ public sealed class Container : IDisposable {
                 throw new InvalidOperationException($"${EnvContextVarName} is not of type {nameof(TDerived)}");
             }
             return containerContext;
+        }
+    }
+
+    [PublicAPI]
+    public record struct OutputStreamConfig(
+            ActionPreference? Progress,
+            ActionPreference? Warning,
+            ActionPreference? Information,
+            ActionPreference? Verbose,
+            ActionPreference? Debug,
+            ConfirmImpact? Confirm) {
+        // PowerShell does not give us any simple way to just ask for the effective value of a preference variable
+        // instead, we have to effectively reimplement the algorithm PowerShell uses internally; fun
+        private static T? GetPreferenceVariableValue<T>(PSCmdlet cmdlet, string varName, string? paramName,
+                Func<object, T>? mapParam) where T : struct {
+            if (paramName != null && mapParam != null &&
+                cmdlet.MyInvocation.BoundParameters.TryGetValue(paramName, out var obj)) {
+                return mapParam(obj);
+            } else {
+                var parentVar = cmdlet.SessionState.PSVariable.Get(varName); // get var from parent scope
+                return parentVar?.Value switch {
+                    null => null,
+                    T v => v,
+                    // https://github.com/PowerShell/PowerShell/issues/3483
+                    var v => Enum.TryParse(v.ToString(), out T pref) ? pref : null,
+                };
+            }
+        }
+
+        public static OutputStreamConfig FromCmdletPreferenceVariables(PSCmdlet cmdlet) {
+            var config = new OutputStreamConfig(
+                    GetPreferenceVariableValue<ActionPreference>(cmdlet, "ProgressPreference", null, null),
+                    GetPreferenceVariableValue(cmdlet, "WarningPreference", "WarningAction",
+                            param => (ActionPreference) param),
+                    GetPreferenceVariableValue(cmdlet, "InformationPreference", "InformationAction",
+                            param => (ActionPreference) param),
+                    GetPreferenceVariableValue(cmdlet, "VerbosePreference", "Verbose",
+                            param => (SwitchParameter) param
+                                    ? ActionPreference.Continue
+                                    : ActionPreference.SilentlyContinue),
+                    GetPreferenceVariableValue(cmdlet, "DebugPreference", "Debug",
+                            param => (SwitchParameter) param
+                                    ? ActionPreference.Continue
+                                    : ActionPreference.SilentlyContinue),
+                    GetPreferenceVariableValue(cmdlet, "ConfirmPreference", "Confirm",
+                            param => (SwitchParameter) param ? ConfirmImpact.Low : ConfirmImpact.None)
+            );
+
+            // other preference variables:
+            //   ErrorAction is skipped, as we always set it to "Stop"
+            //     ("ErrorActionPreference", "ErrorAction", param => param),
+            //   -Confirm is currently not used in the container
+            //     ("ConfirmPreference", "Confirm", param => ((SwitchParameter) param) ? ConfirmImpact.Low : ConfirmImpact.High),
+
+            // if debug prints are active, also activate verbose prints
+            // TODO: this is quite convenient, but it kinda goes against the original intended use of these variables, is it really a good idea?
+            if (config.Debug == ActionPreference.Continue) {
+                config.Verbose = ActionPreference.Continue;
+            }
+            // if verbose prints are active, also activate information prints
+            if (config.Verbose == ActionPreference.Continue) {
+                config.Information = ActionPreference.Continue;
+            }
+
+            return config;
         }
     }
 }
