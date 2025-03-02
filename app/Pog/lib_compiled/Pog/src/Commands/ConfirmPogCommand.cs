@@ -89,7 +89,7 @@ public sealed class ConfirmPogCommand : PogCmdlet {
         foreach (var packageRoot in _packages.PackageRoots.AllPackageRoots) {
             if (!Directory.Exists(packageRoot)) {
                 AddIssue($"Package root '{packageRoot}' is registered, but the directory does not exist. " +
-                         $"Remove the package root using 'Edit-PogRootList'.");
+                         $"Remove the package root using 'Edit-PogRoot'.");
                 continue;
             }
 
