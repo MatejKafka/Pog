@@ -14,9 +14,6 @@
 	Enable = {
 		param([switch]$NoEnv, [switch]$NoExecutionPolicy)
 
-		Set-StrictMode -Version 3
-		$ErrorActionPreference = "Stop"
-
 		# needed for Get-/Set-ExecutionPolicy
 		Import-Module Microsoft.PowerShell.Security
 

@@ -69,7 +69,7 @@ public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
                 if (source.ExpectedHash == hash) {
                     WriteHost("Matches the expected hash specified in the manifest.", foregroundColor: ConsoleColor.Green);
                 } else {
-                    var errorMsg = $"The retrieved hash does not match the expected hash specified in the manifest" +
+                    var errorMsg = $"The retrieved hash does not match the expected hash specified in the manifest " +
                                    $"(expected: '{source.ExpectedHash}').";
                     WriteError(new IncorrectFileHashException(errorMsg), "IncorrectHash", ErrorCategory.InvalidResult, url);
                 }
