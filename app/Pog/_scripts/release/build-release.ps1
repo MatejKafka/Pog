@@ -43,6 +43,9 @@ try {
 
     cd ./Pog
 
+    # need to store this one before we delete it
+    $GhActionYaml = Get-Content -Raw ./.github/actions/install-pog/action.yml
+
     rm -Recurse @(
         ".github"
         ".gitignore"
@@ -66,6 +69,14 @@ try {
         $PogUtilsPSModuleVersion = (Import-PowerShellDataFile ./app/Pog.Utils/Pog.psd1).ModuleVersion
         $PogPackageVersion = (Import-PowerShellDataFile ./pog.psd1).Version
         $PogDllVersion = (Get-Item ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
+
+        if ($GhActionYaml -notmatch "\s+default: (\d+\.\d+\.\d+)`n") {
+            throw "Could not parse 'install-pog' GitHub Action Pog version."
+        }
+
+        if ([version]$Matches[1] -ne $Version) {
+            throw "GitHub Action Pog download version does not match."
+        }
 
         if ($PogPSModuleVersion -ne $Version) {
             throw "Pog.psd1 PS module version does not match."

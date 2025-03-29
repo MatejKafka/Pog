@@ -1,0 +1,20 @@
+name: 'Install Pog'
+description: 'Install the Pog package manager (https://github.com/MatejKafka/Pog).'
+inputs:
+  path:
+    description: 'Path to the directory where Pog is installed.'
+    required: false
+    default: D:\Pog
+  version:
+    description: 'Pog version to install. By default, downloads the version matching this GitHub Action ref.'
+    required: false
+    default: 0.12.0
+runs:
+  using: "composite"
+  steps:
+    - shell: pwsh
+      run: |
+        & $env:GITHUB_ACTION_PATH\install-pog.ps1 $env:POG_PATH $env:POG_VERSION
+      env:
+        POG_PATH: ${{ inputs.path }}
+        POG_VERSION: ${{ inputs.version }}
