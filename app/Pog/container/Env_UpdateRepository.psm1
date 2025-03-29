@@ -130,6 +130,35 @@ function __main {
 	}
 }
 
+function Get-GithubAssetHash {
+	### .SYNOPSIS
+	### If `$ChecksumAsset` is not null, lookup the hash in the checksum file, otherwise download
+	### the asset and compute the hash locally. This cmdlet is primarily intended for repositories
+	### that provide a checksum file for some releases but not others.
+	[CmdletBinding()]
+	param(
+			# accept an array, because `.Asset` is strongly typed as array and PowerShell
+			#  does not bind a singleton array to a scalar parameter for some reason
+			[Parameter(Mandatory)]
+			[ValidateCount(1, 1)]
+			[Pog.Utils.GitHub.GitHubAsset[]]
+		$Asset,
+			[ValidateCount(0, 1)]
+			[Pog.Utils.GitHub.GitHubAsset[]]
+		$ChecksumAsset
+	)
+
+	begin {
+		if ($ChecksumAsset) {
+			return Get-HashFromChecksumFile $ChecksumAsset.Url $Asset.Name
+		} else {
+			# TODO: also print package name and version here
+			Write-Information "Computing hash locally due to a missing checksum file..."
+			Get-UrlHash $Asset.Url
+		}
+	}
+}
+
 function Get-HashFromChecksumText {
 	### .SYNOPSIS
 	### Parses `$Text` as a shasum-like checksum file and returns the hash for `$FileName`/`$Pattern`.
@@ -188,4 +217,4 @@ function Get-HashFromChecksumFile {
 
 Export-ModuleMember `
 	-Cmdlet Get-UrlHash, Get-GithubRelease, Get-GithubAsset `
-	-Function __main, Get-HashFromChecksumText, Get-HashFromChecksumFile
+	-Function __main, Get-GithubAssetHash, Get-HashFromChecksumText, Get-HashFromChecksumFile

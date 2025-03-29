@@ -29,7 +29,7 @@ public abstract record GitHubObject {
     // version parsing is done in GitHubCommandBase, because it depends on cmdlet parameters
     internal void SetVersion(string? version) {
         VersionStr = version;
-        Version = VersionStr is {} v ? new(v) : null;
+        Version = version is null ? null : new(version);
     }
 }
 

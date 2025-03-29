@@ -56,6 +56,9 @@ public sealed class GetGitHubAssetCommand : PogCmdlet {
         }
     }
 
+    // TODO: add syntax for finding one of multiple patterns, when projects change archive naming schemes between versions,
+    //  e.g. `carapace-bin_*windows_amd64.zip|carapace-bin_*windows_amd64.tar.gz|carapace-bin_*_Windows_x86_64.tar.gz`;
+    //  maybe a switch to enable regex instead of just wildcards?
     private GitHubAsset? FindAsset(GitHubRelease release, string assetNamePattern, bool ignoreMissing) {
         var pattern = new WildcardPattern(assetNamePattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
         GitHubAsset? asset;
