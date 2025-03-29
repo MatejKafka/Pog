@@ -1,0 +1,27 @@
+name: 'Build Pog remote repository'
+description: 'Use a local package repository to generate a remote Pog package repository.'
+
+inputs:
+  source:
+    description: 'Path to the source local repository.'
+    required: true
+
+  output:
+    description: 'Output path where the generated remote repository files are placed.'
+    required: true
+
+  validate:
+    description: "Whether to validate the local repository before processing it."
+    required: false
+    default: true
+
+runs:
+  using: "composite"
+  steps:
+    - shell: pwsh
+      run: |
+        & $env:GITHUB_ACTION_PATH\build-remote-repo.ps1 $env:OUTPUT $env:SOURCE -Validate:($env:VALIDATE -eq "true")
+      env:
+        OUTPUT: ${{ inputs.output }}
+        SOURCE: ${{ inputs.source }}
+        VALIDATE: ${{ inputs.validate }}
