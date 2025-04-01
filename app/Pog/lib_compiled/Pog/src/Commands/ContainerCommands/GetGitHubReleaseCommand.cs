@@ -13,6 +13,9 @@ namespace Pog.Commands.ContainerCommands;
 [Cmdlet(VerbsCommon.Get, "GitHubRelease")]
 [OutputType(typeof(GitHubRelease), typeof(GitHubTag))]
 public sealed class GetGitHubReleaseCommand : PogCmdlet {
+    private const string VersionPS = "Version";
+    private const string TagPrefixPS = "Version";
+
     [Parameter(Mandatory = true, Position = 0)]
     [ValidatePattern(@"^[^/\s]+/[^/\s]+$")]
     public string Repository = null!;
@@ -21,9 +24,11 @@ public sealed class GetGitHubReleaseCommand : PogCmdlet {
     [Parameter] public ScriptBlock? Filter;
 
     /// ScriptBlock that parses the raw tag name into a version string. Typically, this is not necessary.
-    [Parameter] public ScriptBlock? Version;
+    [Parameter(ParameterSetName = VersionPS)]
+    public ScriptBlock? Version;
 
     /// Tag name prefix to remove to get the raw version. By default, "v" prefix or no prefix is accepted.
+    [Parameter(ParameterSetName = TagPrefixPS)]
     [Parameter] public string? TagPrefix;
 
     /// Retrieve tags instead of releases.
@@ -71,6 +76,10 @@ public sealed class GetGitHubReleaseCommand : PogCmdlet {
             // ignore releases with unparseable versions
             if (obj.VersionStr != null) {
                 yield return obj;
+            } else {
+                WriteVerbose($"Skipping release '{obj.GetTagName()}' in repository '{Repository}', " +
+                             $"could not parse tag as a version. To change how the tag is parsed, " +
+                             $"pass either `-Version` or `-TagPrefix`.");
             }
         }
     }

@@ -2,6 +2,7 @@
 
     <PropertyGroup>
         <ImplicitUsings>enable</ImplicitUsings>
+        <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <Nullable>enable</Nullable>
 
         <IsPackable>false</IsPackable>
