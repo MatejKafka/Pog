@@ -18,12 +18,12 @@ env:
   # "VERSION_WIX_DARK: `"$((Find-Pog dark@ScoopInstaller).Version)`""
   # Find-Pog ILRepack, UPX, 7zip | % {"VERSION_$($_.PackageName.ToUpperInvariant()): `"$($_.Version)`""}
   # ```
-  VERSION_DOTNET: "9.0.101"
+  VERSION_DOTNET: "9.0.104"
   VERSION_PESTER: "5.7.1"
   VERSION_WIX_DARK: "3.14"
-  VERSION_ILREPACK: "2.0.29"
+  VERSION_ILREPACK: "2.0.41"
   VERSION_UPX: "4.2.3"
-  VERSION_7ZIP: "24.08"
+  VERSION_7ZIP: "24.09"
 
 jobs:
   build:
