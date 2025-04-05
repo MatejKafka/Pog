@@ -223,14 +223,10 @@ function Get-PogDownloadCache {
 
 	begin {
 		$Entries = [array][Pog.InternalState]::DownloadCache.EnumerateEntries()
-	}
 
-	process {
-		foreach ($pn in $PackageName) {
-			$Found = $false
+		function ListEntries($FilterSb) {
 			foreach ($Entry in $Entries) {
-				foreach ($Source in $Entry.SourcePackages | ? PackageName -eq $pn) {
-					$Found = $true
+				foreach ($Source in $Entry.SourcePackages | ? $FilterSb) {
 					[DownloadCacheEntry]@{
 						PackageName = $Source.PackageName
 						Version = $Source.ManifestVersion
@@ -242,8 +238,19 @@ function Get-PogDownloadCache {
 					}
 				}
 			}
+		}
 
-			if (-not $Found) {
+		if (-not $MyInvocation.ExpectingInput -and -not $PackageName) {
+			ListEntries {$true}
+		}
+	}
+
+	process {
+		foreach ($pn in $PackageName) {
+			$Result = ListEntries {$_.PackageName -eq $pn}
+			echo $Result
+
+			if (-not $Result) {
 				# hacky way to create an ErrorRecord
 				$e = try {throw "No download cache entries found for package '$pn'."} catch {$_}
 				$PSCmdlet.WriteError($e)

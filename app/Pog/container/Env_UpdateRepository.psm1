@@ -232,12 +232,15 @@ function Get-NugetRelease {
 	)
 
 	begin {
+		# good explanation: https://emgarten.com/posts/understanding-nuget-v3-feeds
 		$FeedIndex = Invoke-RestMethod $Feed
 		$PackageMetaUri = $FeedIndex.resources | ? "@type" -eq "RegistrationsBaseUrl" | % "@id"
 		$pn = $PackageName.ToLowerInvariant()
 
 		# e.g. https://api.nuget.org/v3/registration5-semver1/nuget.protocol/index.json
 		$PackageMeta = Invoke-RestMethod "$PackageMetaUri$pn/index.json"
+
+		# FIXME: it is likely that the feed uses pagination for packages with many releases, figure out how it works
 
 		# skip unlisted releases (this is why need metadata, otherwise we could just directly list all package versions)
 		$PackageMeta.items.items | ? {$IncludeUnlisted -or $_.catalogEntry.listed} | % {
