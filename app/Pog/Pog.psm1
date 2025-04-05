@@ -205,7 +205,8 @@ class DownloadCacheEntry {
 	[string]$Hash
 	[string]$FileName
 
-	hidden [ulong]$Size
+	# [ulong] is not supported by PowerShell 5
+	hidden [UInt64]$Size
 	# with a `Path` field, this type can be piped to `rm -Recurse`
 	hidden [string]$Path
 }
