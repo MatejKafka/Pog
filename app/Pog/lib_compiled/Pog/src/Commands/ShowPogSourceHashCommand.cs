@@ -50,11 +50,11 @@ public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
             return;
         }
 
-        foreach (var source in package.Manifest.Install) {
+        foreach (var source in package.Manifest.EvaluateInstallUrls(package)) {
             if (!_first) WriteHost("");
             _first = false;
 
-            var url = ResolveSourceUrl(package, source);
+            var url = (string) source.Url;
             var hash = RetrieveSourceHash(package, source, url);
 
             _hashes.Add(hash);
@@ -75,13 +75,6 @@ public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
                 }
             }
         }
-    }
-
-    private string ResolveSourceUrl(Package package, PackageSource source) {
-        return InvokePogCommand(new EvaluateSourceUrl(this) {
-            Package = package,
-            Source = source,
-        });
     }
 
     private string RetrieveSourceHash(Package package, PackageSource source, string url) {

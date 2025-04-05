@@ -1,6 +1,5 @@
 ﻿using System.Management.Automation;
 using System.Management.Automation.Runspaces;
-using Pog.InnerCommands;
 using Xunit;
 
 namespace Pog.Tests;
@@ -13,27 +12,22 @@ public class PackageManifestTests {
         Target = "",
     };
 
+    private static readonly PackageManifest TestManifest = new("@{Private = $true; Version = \"1.2.3\"}", "test");
+
+    private static string EvaluateUrl(PackageSource source) {
+        return source.EvaluateUrl(TestManifest.Raw, "<test manifest>");
+    }
+
     private void TestShouldThrow(string urlSb) {
         var source = _installParams with {Url = ScriptBlock.Create(urlSb)};
-        Assert.Throws<InvalidPackageManifestUrlScriptBlockException>(() => ResolveUrl(source));
+        Assert.Throws<InvalidPackageManifestUrlScriptBlockException>(() => EvaluateUrl(source));
     }
 
     private void TestResult(string expected, string urlSb) {
         var source = _installParams with {Url = ScriptBlock.Create(urlSb)};
-        var exception = Record.Exception(() => ResolveUrl(source));
+        var exception = Record.Exception(() => EvaluateUrl(source));
         Assert.Null(exception);
-        Assert.Equal(expected, ResolveUrl(source));
-    }
-
-    private sealed class TestPackage(string packageName, PackageManifest manifest) : Package(packageName, manifest) {
-        public override bool Exists => true;
-        protected override PackageManifest LoadManifest() => throw new NotImplementedException();
-        public override string GetDescriptionString() => throw new NotImplementedException();
-    }
-
-    private static string ResolveUrl(PackageSource source) {
-        const string manifestStr = "@{Private = $true; Version = \"1.2.3\"}";
-        return source.EvaluateUrl(new TestPackage("test", new PackageManifest(manifestStr, "test")));
+        Assert.Equal(expected, EvaluateUrl(source));
     }
 
     private static void InvokeWithNewRunspace(Action cb) {
@@ -104,7 +98,7 @@ public class PackageManifestTests {
         InvokeWithNewRunspace(() => {
             Assert.Throws<InvalidPackageManifestUrlScriptBlockException>(() => {
                 // should throw due to strict mode
-                ResolveUrl(_installParams with {Url = ScriptBlock.Create("\"t\".NonExistent")});
+                EvaluateUrl(_installParams with {Url = ScriptBlock.Create("\"t\".NonExistent")});
             });
         });
     }

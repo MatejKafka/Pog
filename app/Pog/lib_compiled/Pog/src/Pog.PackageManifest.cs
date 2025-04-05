@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using JetBrains.Annotations;
 using Pog.InnerCommands;
-using Pog.InnerCommands.Common;
+using Pog.Utils;
 
 namespace Pog;
 
@@ -284,32 +286,26 @@ public record PackageManifest {
             }
         }
     }
-}
 
-[PublicAPI]
-public abstract record PackageSource {
-    /// Source URL, from which the archive is downloaded. Redirects are supported. This is either a plain string,
-    /// or a ScriptBlock that returns the URL on invocation (<seealso cref="EvaluateSourceUrl"/>).
-    public object Url = null!;
+    /// <summary>
+    /// Resolves URLs of all installation sources (if the URL is defined using a scriptblock, it is invoked to get the actual
+    /// URL) and returns a copy of <see cref="PackageSource"/> with the resolved URL.
+    /// </summary>
+    ///
+    /// <remarks>
+    /// NOTE: This method executes potentially untrusted code from the manifest.<br/>
+    /// NOTE: This method assumes that there's a usable PowerShell runspace set up for the calling thread.<br/>
+    /// NOTE: This command can be safely invoked outside a container.
+    /// </remarks>
+    ///
+    /// <exception cref="InvalidPackageManifestUrlScriptBlockException"></exception>
+    public IEnumerable<PackageSource> EvaluateInstallUrls(Package owningPackage) {
+        return EvaluateInstallUrls(owningPackage is ILocalPackage p ? p.ManifestPath : owningPackage.PackageName);
+    }
 
-    /// SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but a warning is printed.
-    public string? ExpectedHash;
-
-    /// Which User-Agent header to use. By default, Pog uses a custom user agent string containing the version of Pog,
-    /// PowerShell and Windows. Unless the server dislikes the default user agent, prefer to keep it.
-    /// Set this to `PowerShell` to use the default PowerShell user agent string.
-    /// Set this to `Browser` to use a browser user agent string (currently Firefox).
-    /// Set this to `Wget` to use wget user agent string.
-    public UserAgentType UserAgent;
-
-    // FIXME: very hacky, both the implementation and accepting a Package argument, the most proper way would be to implement
-    //  this as a public cmdlet that returns URLs for all sources as an array
-    public string EvaluateUrl(Package package) {
-        using var cmdlet = new PogCmdlet();
-        return cmdlet.InvokePogCommand(new EvaluateSourceUrl(cmdlet) {
-            Package = package,
-            Source = this,
-        });
+    /// <inheritdoc cref="EvaluateInstallUrls(Pog.Package)"/>
+    public IEnumerable<PackageSource> EvaluateInstallUrls(string manifestSourceStr = "<unknown>") {
+        return Install == null ? [] : Install.Select(s => s with {Url = s.EvaluateUrl(Raw, manifestSourceStr)});
     }
 }
 
@@ -338,4 +334,113 @@ public record PackageSourceArchive : PackageSource {
     /// Currently, only thing this does is remove the `$PLUGINSDIR` output directory.
     /// NOTE: NSIS installers may do some initial config, which is not ran when extracted directly.
     public bool NsisInstaller;
+}
+
+[PublicAPI]
+public abstract record PackageSource {
+    /// Source URL, from which the archive is downloaded. Redirects are supported. This is either a plain string,
+    /// or a ScriptBlock that returns the URL on invocation (<seealso cref="EvaluateUrl"/>).
+    public object Url = null!;
+
+    /// SHA-256 hash that the downloaded archive should match. Validation is skipped if null, but a warning is printed.
+    public string? ExpectedHash;
+
+    /// Which User-Agent header to use. By default, Pog uses a custom user agent string containing the version of Pog,
+    /// PowerShell and Windows. Unless the server dislikes the default user agent, prefer to keep it.
+    /// Set this to `PowerShell` to use the default PowerShell user agent string.
+    /// Set this to `Browser` to use a browser user agent string (currently Firefox).
+    /// Set this to `Wget` to use wget user agent string.
+    public UserAgentType UserAgent;
+
+    /// Prefer not to use directly, use <see cref="PackageManifest.EvaluateInstallUrls(string)"/> instead.
+    internal string EvaluateUrl(Hashtable rawManifest, string manifestSourceStr) {
+        if (Url is string s) {
+            return s; // static string, just return
+        }
+
+        var sb = (ScriptBlock) Url;
+        ValidateUrlScriptBlock(sb);
+
+        var resolvedUrlObj = InvokeUrlSb(sb, rawManifest, manifestSourceStr);
+        if (resolvedUrlObj.Count != 1) {
+            throw new InvalidPackageManifestUrlScriptBlockException(
+                    $"must return a single string, got {resolvedUrlObj.Count} values: {string.Join(", ", resolvedUrlObj)}");
+        }
+
+        var obj = resolvedUrlObj[0]?.BaseObject;
+        if (obj is not string resolvedUrl) {
+            throw new InvalidPackageManifestUrlScriptBlockException(
+                    $"must return a string, got '{obj?.GetType().ToString() ?? "null"}'");
+        }
+        return resolvedUrl;
+    }
+
+    private Collection<PSObject> InvokeUrlSb(ScriptBlock sb, Hashtable rawManifest, string manifestSourceStr) {
+        // there doesn't seem to be any easier way to set strict mode for a scope
+        // this does not leave any leftovers in the caller's scope
+        var wrapperSb = ScriptBlock.Create("Set-StrictMode -Version 3; & $Args[0]");
+        var variables = new List<PSVariable>
+                {new("this", rawManifest), new("ErrorActionPreference", ActionPreference.Stop)};
+
+        try {
+            return wrapperSb.InvokeWithContext(null, variables, sb);
+        } catch (RuntimeException e) {
+            // something failed inside the scriptblock
+            var ii = e.ErrorRecord.InvocationInfo;
+            // replace the position info with a custom listing, since the script path is missing
+            var graphic = ii.PositionMessage.Substring(ii.PositionMessage.IndexOf('\n') + 1);
+            var positionMsg = $"At {manifestSourceStr}, Install.Url:{ii.ScriptLineNumber}\n" + graphic;
+            // FIXME: in "NormalView" error view, the error looks slightly confusing, as it's designed for "ConciseView"
+            throw new InvalidPackageManifestUrlScriptBlockException(
+                    $"failed. Please fix the package manifest or report the issue to the package maintainer:\n" +
+                    $"    {e.Message.Replace("\n", "\n    ")}\n\n" +
+                    $"    {positionMsg.Replace("\n", "\n    ")}\n", e);
+        }
+    }
+
+    /// Validates that the passed source URL generator scriptblock does not invoke any cmdlets, does not use any variables
+    /// that it does not itself define and does not assign to any non-local variables.
+    ///
+    /// <remarks>The goal is not to be 100% robust, but serve mostly as a lint. We're just attempting to prevent a manifest
+    /// author from using cmdlets or variables that could be locally overriden. The alternative that was originally used was
+    /// to run the scriptblock in a container, but that has non-trivial setup overhead.</remarks>
+    private static void ValidateUrlScriptBlock(ScriptBlock sb) {
+        var cmdletCalls = sb.Ast.FindAll(node => node is CommandAst, true).ToArray();
+        if (cmdletCalls.Length != 0) {
+            throw new InvalidPackageManifestUrlScriptBlockException(
+                    "must not invoke any commands, since the user may have aliased them in their PowerShell profile. " +
+                    $"Found the following command invocations: {string.Join(", ", cmdletCalls.Select(c => $"`{c}`"))}");
+        }
+
+        var assignments = sb.Ast.FindAllByType<VariableExpressionAst>(true)
+                .Split(v => v.Parent is AssignmentStatementAst, out var usages)
+                .ToDictionary(v => v.VariablePath.UserPath, StringComparer.OrdinalIgnoreCase);
+
+        var nonLocalAssignments = assignments.Values.Where(a => !a.VariablePath.IsUnqualified).ToArray();
+        if (nonLocalAssignments.Length > 0) {
+            throw new InvalidPackageManifestUrlScriptBlockException(
+                    "must not assign to any non-local variables. Found the following non-local variable assignments: " +
+                    $"{string.Join(", ", nonLocalAssignments.Select(c => $"`{c}`"))}");
+        }
+
+        var invalidUsages = usages
+                .Where(u => !assignments.ContainsKey(u.VariablePath.UserPath))
+                // $this is the only allowed external variable
+                .Where(u => u.VariablePath.UserPath != "this")
+                .ToArray();
+
+        if (invalidUsages.Length > 0) {
+            throw new InvalidPackageManifestUrlScriptBlockException(
+                    "must not use any variables that were not previously defined in the scriptblock, except for `$this`. " +
+                    $"Found the following variable usages: {string.Join(", ", invalidUsages.Select(c => $"`{c}`"))}");
+        }
+    }
+}
+
+/// <summary>Package manifest had a ScriptBlock as the 'Install.Url' property, but it did not return a valid URL.</summary>
+public class InvalidPackageManifestUrlScriptBlockException : Exception, IPackageManifestException {
+    private const string Prefix = "ScriptBlock for the source URL ('Install.Url' property in the package manifest) ";
+
+    internal InvalidPackageManifestUrlScriptBlockException(string message) : base(Prefix + message) {}
+    internal InvalidPackageManifestUrlScriptBlockException(string message, Exception e) : base(Prefix + message, e) {}
 }

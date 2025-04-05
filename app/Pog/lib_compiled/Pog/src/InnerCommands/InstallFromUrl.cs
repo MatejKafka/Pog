@@ -35,7 +35,7 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
         CleanPreviousInstallation();
 
         Debug.Assert(Package.Manifest.Install != null);
-        foreach (var source in Package.Manifest.Install!) {
+        foreach (var source in Package.Manifest.EvaluateInstallUrls(Package)) {
             InstallSingleSource(source);
         }
 
@@ -74,18 +74,11 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
         }
     }
 
-    private string ResolveSourceUrl(PackageSource source, Package package) {
-        return InvokePogCommand(new EvaluateSourceUrl(Cmdlet) {
-            Package = package,
-            Source = source,
-        });
-    }
-
     /// Retrieve and extract the source file into <see cref="_extractionDirPath"/> and move the selected subdirectory
     /// to the target path under <see cref="_newAppDirPath"/>.
     private void InstallSingleSource(PackageSource source) {
-        var url = ResolveSourceUrl(source, Package);
-
+        // should be resolved by the caller
+        var url = (string) source.Url;
         var target = source switch {
             PackageSourceNoArchive pna => pna.Target,
             PackageSourceArchive pa => pa.Target,
