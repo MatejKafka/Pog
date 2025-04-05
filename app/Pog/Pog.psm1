@@ -197,3 +197,56 @@ function Update-Pog {
 		$SelectedPackages | pog -Force
 	}
 }
+
+class DownloadCacheEntry {
+	[string]$PackageName
+	# FIXME: this should be a Pog.PackageVersion (but Pog.dll is not loaded when this is parsed)
+	[string]$Version
+	[string]$Hash
+	[string]$FileName
+
+	hidden [ulong]$Size
+	# with a `Path` field, this type can be piped to `rm -Recurse`
+	hidden [string]$Path
+}
+
+function Get-PogDownloadCache {
+	[CmdletBinding(PositionalBinding=$false)]
+	[OutputType([DownloadCacheEntry])]
+	param(
+			[Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+			[ArgumentCompleter([Pog.PSAttributes.DownloadCachePackageNameCompleter])]
+			[string[]]
+		$PackageName
+	)
+
+	begin {
+		$Entries = [array][Pog.InternalState]::DownloadCache.EnumerateEntries()
+	}
+
+	process {
+		foreach ($pn in $PackageName) {
+			$Found = $false
+			foreach ($Entry in $Entries) {
+				foreach ($Source in $Entry.SourcePackages | ? PackageName -eq $pn) {
+					$Found = $true
+					[DownloadCacheEntry]@{
+						PackageName = $Source.PackageName
+						Version = $Source.ManifestVersion
+						Hash = $Entry.EntryKey
+						FileName = [System.IO.Path]::GetFileName($Entry.Path)
+
+						Size = $Entry.Size
+						Path = [System.IO.Path]::GetDirectoryName($Entry.Path)
+					}
+				}
+			}
+
+			if (-not $Found) {
+				# hacky way to create an ErrorRecord
+				$e = try {throw "No download cache entries found for package '$pn'."} catch {$_}
+				$PSCmdlet.WriteError($e)
+			}
+		}
+	}
+}

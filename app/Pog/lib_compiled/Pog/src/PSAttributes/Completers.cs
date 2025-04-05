@@ -94,7 +94,7 @@ public abstract class DirectoryListingArgumentCompleter : QuotingArgumentComplet
 
     protected override IEnumerable<string> GetCompletions(string wordToComplete, IDictionary fakeBoundParameters) {
         if (0 <= wordToComplete.IndexOfAny(InvalidCharacters)) {
-            return Enumerable.Empty<string>();
+            return [];
         }
         return GetMatchingItems($"{wordToComplete}*", fakeBoundParameters);
     }
@@ -167,5 +167,15 @@ public sealed class RepositoryPackageVersionCompleter : DirectoryListingArgument
             return []; // no such package
         }
         return package.EnumerateVersions(searchPattern).Select(v => v.ToString());
+    }
+}
+
+/// Completer for package names that have an entry in the download cache.
+[PublicAPI]
+public sealed class DownloadCachePackageNameCompleter : QuotingArgumentCompleter {
+    protected override IEnumerable<string> GetCompletions(string wordToComplete, IDictionary fakeBoundParameters) {
+        return InternalState.DownloadCache.EnumerateEntries()
+                .SelectMany(e => e.SourcePackages.Select(s => s.PackageName))
+                .Where(s => s.StartsWith(wordToComplete, StringComparison.InvariantCultureIgnoreCase));
     }
 }

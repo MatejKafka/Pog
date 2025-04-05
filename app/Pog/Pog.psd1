@@ -47,6 +47,8 @@
 		'New-PogRepositoryPackage'
 		'New-PogPackage'
 
+		'Get-PogDownloadCache'
+
 		'Edit-PogRoot'
 	)
 
