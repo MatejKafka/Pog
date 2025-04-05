@@ -206,15 +206,52 @@ function Get-HashFromChecksumFile {
 	)
 
 	begin {
-		$Args = @{}
-		if ($FileName) {$Args.FileName = $FileName}
-		else {$Args.Pattern = $Pattern}
+		$Arg = @{}
+		if ($FileName) {$Arg.FileName = $FileName}
+		else {$Arg.Pattern = $Pattern}
 
-		return Get-HashFromChecksumText (Invoke-WebRequest $Uri) @Args
+		return Get-HashFromChecksumText (Invoke-WebRequest $Uri) @Arg
+	}
+}
+
+function Get-NugetRelease {
+	### .SYNOPSIS
+	### Lists all versions of a Nuget package.
+	[CmdletBinding(PositionalBinding=$false)]
+	param(
+			### Name of the Nuget package to retrieve releases for.
+			[Parameter(Mandatory, Position=0)]
+			[string]
+		$PackageName,
+			### Nuget feed URL to use. Defaults to the nuget.org feed.
+			### Must be a v3 Nuget feed, v2 is not supported.
+			[uri]
+		$Feed = "https://api.nuget.org/v3/index.json",
+			[switch]
+		$IncludeUnlisted
+	)
+
+	begin {
+		$FeedIndex = Invoke-RestMethod $Feed
+		$PackageMetaUri = $FeedIndex.resources | ? "@type" -eq "RegistrationsBaseUrl" | % "@id"
+		$pn = $PackageName.ToLowerInvariant()
+
+		# e.g. https://api.nuget.org/v3/registration5-semver1/nuget.protocol/index.json
+		$PackageMeta = Invoke-RestMethod "$PackageMetaUri$pn/index.json"
+
+		# skip unlisted releases (this is why need metadata, otherwise we could just directly list all package versions)
+		$PackageMeta.items.items | ? {$IncludeUnlisted -or $_.catalogEntry.listed} | % {
+			# would be nice to also get the hash, but Nuget only provides sha-512, while we want sha-256
+			[pscustomobject]@{
+				VersionStr = $_.catalogEntry.version
+				Version = [Pog.PackageVersion]$_.catalogEntry.version
+				Url = $_.packageContent
+			}
+		}
 	}
 }
 
 
 Export-ModuleMember `
 	-Cmdlet Get-UrlHash, Get-GithubRelease, Get-GithubAsset `
-	-Function __main, Get-GithubAssetHash, Get-HashFromChecksumText, Get-HashFromChecksumFile
+	-Function __main, Get-GithubAssetHash, Get-HashFromChecksumText, Get-HashFromChecksumFile, Get-NugetRelease

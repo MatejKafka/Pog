@@ -33,6 +33,7 @@ This module is not exactly polished and might break sometimes.
 
 	FunctionsToExport = @(
 		# Env_UpdateRepository
+		'Get-NugetRelease'
 		'Get-HashFromChecksumText'
 		'Get-HashFromChecksumFile'
 	)
