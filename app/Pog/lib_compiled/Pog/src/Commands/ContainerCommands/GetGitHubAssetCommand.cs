@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Management.Automation;
+using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -30,6 +31,22 @@ public sealed class GetGitHubAssetCommand : PogCmdlet {
     /// Prefer to exclude invalid releases manually before invoking this cmdlet.
     [Parameter] public SwitchParameter IgnoreMissing;
 
+    /// Treat patterns in `-Asset` and `-OptionalAsset` as regular expressions instead of wildcard patterns. This might be
+    /// useful when asset file name changes between releases, and you need to match multiple different name formats.
+    [Parameter] public SwitchParameter Regex;
+
+    private IPattern[] _requiredPatterns = null!;
+    private IPattern[]? _optionalPatterns;
+
+    protected override void BeginProcessing() {
+        base.BeginProcessing();
+
+        _requiredPatterns = Asset.Select(ToPattern).ToArray();
+        _optionalPatterns = OptionalAsset?.Select(ToPattern).ToArray();
+    }
+
+    private IPattern ToPattern(string pattern) => Regex ? new RegexPattern(pattern) : new GlobPattern(pattern);
+
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
@@ -40,7 +57,7 @@ public sealed class GetGitHubAssetCommand : PogCmdlet {
                 continue;
             }
 
-            var assets = Asset.Select(n => FindAsset(r, n, IgnoreMissing)).ToArray();
+            var assets = _requiredPatterns.Select(n => FindAsset(r, n, IgnoreMissing)).ToArray();
             if (assets.Any(a => a == null)) {
                 // some asset is missing (FindAsset writes an error)
                 WriteVerbose($"Skipping release '{r.TagName}' with missing assets.");
@@ -51,32 +68,44 @@ public sealed class GetGitHubAssetCommand : PogCmdlet {
                 Release = r,
                 Version = r.Version,
                 Asset = assets,
-                OptionalAsset = OptionalAsset?.Select(n => FindAsset(r, n, true)).ToArray(),
+                OptionalAsset = _optionalPatterns?.Select(n => FindAsset(r, n, true)).ToArray(),
             });
         }
     }
 
-    // TODO: add syntax for finding one of multiple patterns, when projects change archive naming schemes between versions,
-    //  e.g. `carapace-bin_*windows_amd64.zip|carapace-bin_*windows_amd64.tar.gz|carapace-bin_*_Windows_x86_64.tar.gz`;
-    //  maybe a switch to enable regex instead of just wildcards?
-    private GitHubAsset? FindAsset(GitHubRelease release, string assetNamePattern, bool ignoreMissing) {
-        var pattern = new WildcardPattern(assetNamePattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
+    private GitHubAsset? FindAsset(GitHubRelease release, IPattern pattern, bool ignoreMissing) {
         GitHubAsset? asset;
         try {
             asset = release.Assets.SingleOrDefault(a => pattern.IsMatch(a.Name));
         } catch (InvalidOperationException) {
             // ambiguous pattern, multiple assets matched
-            var e = new Exception($"Ambiguous asset name, multiple assets matched '{assetNamePattern}' for release at " +
+            var e = new Exception($"Ambiguous asset name, multiple assets matched '{pattern}' for release at " +
                                   $"'{release.HtmlUrl}'.");
             ThrowTerminatingError(e, "AmbiguousAssetPattern", ErrorCategory.InvalidData, release);
             throw new UnreachableException();
         }
 
         if (!ignoreMissing && asset == null) {
-            var e = new Exception($"No asset matching '{assetNamePattern}' found for release at '{release.HtmlUrl}', " +
-                                  $"ignoring the release.");
+            var e = new Exception($"No asset matching '{pattern}' found for release at '{release.HtmlUrl}'.");
             WriteError(e, "AssetNotFound", ErrorCategory.ObjectNotFound, release);
         }
         return asset;
+    }
+
+    private interface IPattern {
+        public bool IsMatch(string input);
+    }
+
+    private class RegexPattern(string pattern) : IPattern {
+        private readonly Regex _pattern = new(pattern, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        public bool IsMatch(string input) => _pattern.IsMatch(input);
+        public override string ToString() => _pattern.ToString();
+    }
+
+    private class GlobPattern(string pattern) : IPattern {
+        private readonly WildcardPattern _pattern = new(pattern,
+                WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
+        public bool IsMatch(string input) => _pattern.IsMatch(input);
+        public override string ToString() => pattern;
     }
 }

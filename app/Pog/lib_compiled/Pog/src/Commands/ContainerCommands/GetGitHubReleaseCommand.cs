@@ -20,9 +20,6 @@ public sealed class GetGitHubReleaseCommand : PogCmdlet {
     [ValidatePattern(@"^[^/\s]+/[^/\s]+$")]
     public string Repository = null!;
 
-    /// ScriptBlock to filter valid releases.
-    [Parameter] public ScriptBlock? Filter;
-
     /// ScriptBlock that parses the raw tag name into a version string. Typically, this is not necessary.
     [Parameter(ParameterSetName = VersionPS)]
     public ScriptBlock? Version;
