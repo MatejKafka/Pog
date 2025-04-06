@@ -211,6 +211,20 @@ class DownloadCacheEntry {
 	hidden [string]$Path
 }
 
+filter ListEntries($FilterSb) {
+	foreach ($Source in $_.SourcePackages | ? $FilterSb) {
+		[DownloadCacheEntry]@{
+			PackageName = $Source.PackageName
+			Version = $Source.ManifestVersion
+			Hash = $_.EntryKey
+			FileName = [System.IO.Path]::GetFileName($_.Path)
+
+			Size = $_.Size
+			Path = [System.IO.Path]::GetDirectoryName($_.Path)
+		}
+	}
+}
+
 function Get-PogDownloadCache {
 	[CmdletBinding(PositionalBinding=$false)]
 	[OutputType([DownloadCacheEntry])]
@@ -224,33 +238,17 @@ function Get-PogDownloadCache {
 	begin {
 		$Entries = [array][Pog.InternalState]::DownloadCache.EnumerateEntries()
 
-		function ListEntries($FilterSb) {
-			foreach ($Entry in $Entries) {
-				foreach ($Source in $Entry.SourcePackages | ? $FilterSb) {
-					[DownloadCacheEntry]@{
-						PackageName = $Source.PackageName
-						Version = $Source.ManifestVersion
-						Hash = $Entry.EntryKey
-						FileName = [System.IO.Path]::GetFileName($Entry.Path)
-
-						Size = $Entry.Size
-						Path = [System.IO.Path]::GetDirectoryName($Entry.Path)
-					}
-				}
-			}
-		}
-
 		if (-not $MyInvocation.ExpectingInput -and -not $PackageName) {
-			ListEntries {$true}
+			$Entries | ListEntries {$true}
 		}
 	}
 
 	process {
 		foreach ($pn in $PackageName) {
-			$Result = ListEntries {$_.PackageName -eq $pn}
-			echo $Result
-
-			if (-not $Result) {
+			$Result = $Entries | ListEntries {$_.PackageName -eq $pn}
+			if ($Result) {
+				echo $Result
+			} else {
 				# hacky way to create an ErrorRecord
 				$e = try {throw "No download cache entries found for package '$pn'."} catch {$_}
 				$PSCmdlet.WriteError($e)
