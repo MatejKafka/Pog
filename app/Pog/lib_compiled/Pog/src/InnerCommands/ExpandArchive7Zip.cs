@@ -31,14 +31,22 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
 
     public override void Invoke() {
         RawTargetPath ??= TargetPath;
-        _filterPatterns = Filter?.Select(p => {
+        _filterPatterns = Filter switch {
+            null => null,
+            // if "." filter is present, result is equivalent to not passing any filter
+            // this happens when `Subdirectory = "."` is specified for a package source
+            _ when Filter.Any(p => p == ".") => null,
             // normalize slashes
-            var norm = p.Replace('/', '\\');
-            if (norm.Split('\\').Any(s => s is "." or "..")) {
+            _ => Filter?.Select(p => p.Replace('/', '\\')).ToArray(),
+        };
+
+        // validate filter patterns
+        foreach (var p in _filterPatterns ?? []) {
+            if (p.Split('\\').Any(s => s is "." or "..")) {
+                // 7zip does not like patterns with `.` or `..`
                 throw new ArgumentException($"Archive filter pattern must not contain '.' or '..', got '{p}'.");
             }
-            return norm;
-        }).ToArray();
+        }
 
         if (Directory.Exists(TargetPath)) {
             throw new IOException($"Target directory already exists: '{RawTargetPath}'", -2146232800);
