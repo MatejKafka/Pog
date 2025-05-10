@@ -281,7 +281,7 @@ public sealed class ImportPogCommand : PackageCommandBase {
             return;
         }
 
-        if (!ConfirmManifestOverwrite(package, target)) {
+        if (!ConfirmManifestOverwrite(package, target, out var targetVersion)) {
             WriteInformation($"Skipping import of package '{package.PackageName}'.");
             return;
         }
@@ -289,16 +289,21 @@ public sealed class ImportPogCommand : PackageCommandBase {
         // import the package, replacing the previous manifest (and creating the directory if the package is new)
         package.ImportTo(target);
 
-        WriteInformation($"Initialized '{target.Path}' with package manifest '{package.PackageName}', " +
-                         $"version '{package.Version}'.");
+
+        var nameStr = target.PackageName == package.PackageName ? "" : $" (package '{package.PackageName}')";
+        WriteInformation(targetVersion != null && targetVersion != package.Version
+                ? $"Updated '{target.Path}'{nameStr} from version '{targetVersion}' to '{package.Version}'."
+                : $"Imported {package.GetDescriptionString()} to '{target.Path}'.");
 
         if (PassThru) {
             WriteObject(target);
         }
     }
 
-    private bool ConfirmManifestOverwrite(RepositoryPackage package, ImportedPackage target) {
+    private bool ConfirmManifestOverwrite(RepositoryPackage package, ImportedPackage target,
+            out PackageVersion? targetVersion) {
         PackageManifest? targetManifest = null;
+        targetVersion = null;
         try {
             // try to load the (possibly) existing manifest
             // TODO: maybe add a method to only load the name and version from the manifest and skip full validation?
@@ -317,28 +322,31 @@ public sealed class ImportPogCommand : PackageCommandBase {
             WriteWarning($"Found an existing package manifest at '{target.Path}', but it is not valid.");
         }
 
+        targetVersion = targetManifest?.Version;
+
         if (Diff && targetManifest != null) {
             // TODO: also probably check if any supporting files in .pog changed
-            // FIXME: in typical scenarios, the `.Manifest` access is the only reason why the manifest is parsed;
+            // FIXME: in typical scenarios, the `package.Manifest` access is the only reason why the manifest is parsed;
             //  figure out how to either get a raw string, or copy over the repository manifest to the imported package
             //  (since the target manifest is typically immediately used, loading it here won't cause much overhead)
-            WriteHost(DiffRenderer.RenderDiff(targetManifest.RawString, package.Manifest.RawString, ignoreMatching: true));
+            var diff = DiffRenderer.RenderDiff(targetManifest.RawString, package.Manifest.RawString, ignoreMatching: true);
+            if (diff != "") WriteHost(diff);
         }
 
         if (Force) {
             return true;
         }
 
-        if (targetManifest?.Version != null && targetManifest.Version < package.Version) {
+        if (targetVersion != null && targetVersion < package.Version) {
             // target is older than the imported package, continue silently
             return true;
         }
 
         // prompt for confirmation
-        var downgrading = targetManifest?.Version != null && targetManifest.Version > package.Version;
+        var downgrading = targetVersion != null && targetVersion > package.Version;
         var title = $"{(downgrading ? "Downgrade" : "Overwrite")} an existing package manifest for '{target.PackageName}'?";
         var manifestDescription =
-                targetManifest == null ? "" : $" (manifest '{targetManifest.Name}', version '{targetManifest.Version}')";
+                targetManifest == null ? "" : $" (manifest '{targetManifest.Name}', version '{targetVersion}')";
         var message = $"There is already an imported package '{target.PackageName}' at '{target.Path}'" +
                       $"{manifestDescription}. Overwrite its manifest with version '{package.Version}'?";
         return ShouldContinue(message, title);
