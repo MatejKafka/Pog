@@ -89,7 +89,7 @@ jobs:
         iwr "https://www.7-zip.org/a/7z$($env:VERSION_7ZIP.Replace('.', ''))-x64.exe" -OutFile D:\7zip.exe
         Start-Process -Wait D:\7zip.exe -ArgumentList /S, /D=$PWD\7zip\app
         # just a stub manifest, will be replaced later
-        Set-Content $PWD\7zip\pog.psd1 '@{Private = $true; Enable = {Export-Command "7z" "./app/7z.exe" -VcRedist}}'
+        Set-Content .\7zip\pog.psd1 '@{Private = $true; Enable = {Export-Command "7z" "./app/7z.exe" -VcRedist}}'
 
     - name: Verify build dependencies
       shell: pwsh
@@ -133,6 +133,7 @@ jobs:
         # add to PATH for following steps
         Add-Content $env:GITHUB_PATH (Resolve-Path .\data\package_bin)
 
+        # reinstall 7zip with correct manifest
         pog 7zip -Force
 
 
