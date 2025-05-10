@@ -245,7 +245,7 @@ function Get-PogDownloadCache {
 
 	process {
 		foreach ($pn in $PackageName) {
-			$Result = $Entries | ListEntries {$_.PackageName -eq $pn}
+			$Result = $Entries | ListEntries {$_.PackageName -eq $pn} | sort Version -Descending
 			if ($Result) {
 				echo $Result
 			} else {

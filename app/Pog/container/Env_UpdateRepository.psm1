@@ -189,6 +189,7 @@ function Get-HashFromChecksumText {
 	}
 }
 
+# FIXME: shouldn't this be called something like Get-HashFromChecksumUrl?
 function Get-HashFromChecksumFile {
 	### .SYNOPSIS
 	### Retrieves `$Uri`, parses the text as a shasum-like checksum file and retrieves the hash for `$FileName` or `$Pattern`.
