@@ -6,6 +6,7 @@ using System.Management.Automation;
 using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
+using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
 using PPaths = Pog.PathConfig.PackagePaths;
@@ -23,7 +24,9 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
     private string _oldAppDirPath = null!;
     private string _extractionDirPath = null!;
     private string _tmpDeletePath = null!;
+
     private bool _lockFileListShown = false;
+    private ProgressActivity _progressActivity = new();
 
     public override void Invoke() {
         _appDirPath = $@"{Package.Path}\{PPaths.AppDirName}";
@@ -31,6 +34,8 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
         _oldAppDirPath = $@"{Package.Path}\{PPaths.AppBackupDirName}";
         _extractionDirPath = $@"{Package.Path}\{PPaths.TmpExtractionDirName}";
         _tmpDeletePath = $@"{Package.Path}\{PPaths.TmpDeleteDirName}";
+
+        _progressActivity = new() {Activity = $"Installing '{Package.PackageName}'"};
 
         CleanPreviousInstallation();
 
@@ -107,7 +112,7 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
             ExpectedHash = source.ExpectedHash,
             DownloadParameters = downloadParameters,
             Package = Package,
-            ProgressActivity = new() {Activity = $"Installing '{Package.PackageName}'"},
+            ProgressActivity = _progressActivity,
         });
 
         switch (source) {
@@ -146,6 +151,7 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
                 ArchivePath = downloadedFile.Path,
                 TargetPath = _extractionDirPath,
                 Filter = param.Subdirectory == null ? null : [param.Subdirectory],
+                ProgressActivity = _progressActivity,
             });
         }
 

@@ -27,7 +27,7 @@ internal class ShowLockedFileList(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
         try {
             // TODO: automatically continue when the listed processes are closed or close the files (might be hard to detect)
             Host.UI.Write(ConsoleColor.Red, ConsoleColor.Black,
-                    "\nPlease close the applications listed above, then press Enter to continue...: ");
+                    "Please close the applications listed above, then press Enter to continue...: ");
             Host.UI.ReadLine();
         } catch (PSInvalidOperationException e) {
             // host is not interactive, just throw an exception
@@ -77,6 +77,7 @@ internal class ShowLockedFileList(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
                 Write($"   ... ({p.LockedFiles.Length - 5} more)");
             }
         }
+        Write("");
     }
 
     private void Write(string msg) => WriteHost(msg, foregroundColor: ConsoleColor.Red);

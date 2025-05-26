@@ -85,6 +85,7 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
 
             var hash = InvokePogCommand(new GetFileHash7Zip(Cmdlet) {
                 Path = downloadedFilePath,
+                ProgressActivity = ProgressActivity,
             });
 
             if (ExpectedHash != null && hash != ExpectedHash) {
