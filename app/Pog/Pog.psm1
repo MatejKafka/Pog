@@ -150,8 +150,10 @@ function Update-Pog {
 			[string[]]
 		$PackageName,
 			[switch]
+			### Only list outdated packages, do not update them.
 		$ListOnly,
 			[switch]
+			### If passed, also download the package manifest and verify that the installed package manifest is up-to-date.
 		$ManifestCheck,
 			[switch]
 		$Force,
@@ -193,8 +195,13 @@ function Update-Pog {
 	if ($ListOnly) {
 		return $SelectedPackages
 	} else {
+		# support parameter defaults for `Import-Pog` set by the user
+		#  (quite hacky, but the result behaves consistently with `Invoke-Pog`, which implicitly
+		#  invokes `Import-Pog` in the caller's scope, so it picks up the caller's defaults)
+		$PSDefaultParameterValues = $global:PSDefaultParameterValues
+
 		# -Force because user already confirmed the update
-		$SelectedPackages | pog -Force
+		$SelectedPackages | Invoke-Pog -Force
 	}
 }
 
@@ -244,6 +251,7 @@ function Get-PogDownloadCache {
 	}
 
 	process {
+		# TODO: should we sort output by size?
 		foreach ($pn in $PackageName) {
 			$Result = $Entries | ListEntries {$_.PackageName -eq $pn} | sort Version -Descending
 			if ($Result) {
