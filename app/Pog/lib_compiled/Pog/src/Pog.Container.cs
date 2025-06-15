@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
+using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.PowerShell;
 
@@ -43,30 +44,36 @@ public sealed class Container : IDisposable {
     }
 
     /// Invokes <paramref name="setupCommandFn"/> to initialize the invoked command and then invokes it while yielding live
-    /// output from the output stream and handling cancellation through <see cref="Stop()"/>.
-    /// <remarks>Note that this method can be called multiple times on a single <see cref="Container"/>.</remarks>
-    public IEnumerable<PSObject> Invoke(Action<PowerShell> setupCommandFn) {
+    /// output from the output stream and handling cancellation of <paramref name="token"/>.
+    /// <remarks>
+    /// Note that this method can be called multiple times on a single <see cref="Container"/>, but it must not be called
+    /// concurrently.
+    /// </remarks>
+    public IEnumerable<PSObject> Invoke(Action<PowerShell> setupCommandFn, CancellationToken token) {
         // setupCommandFn should set up the script which is then executed by BeginInvoke
         setupCommandFn(_ps);
+        // ensure that the command buffer is cleared for repeated invocation
+        using var clear = new CommandClear(_ps);
 
+        using var cancellation = token.Register(Stop);
+        using var outputCollection = new PSDataCollection<PSObject>();
+
+        // don't provide any input, write output to `outputCollection`
+        var asyncResult = _ps.BeginInvoke<PSObject, PSObject>(null, outputCollection);
         try {
-            // don't accept any input, write output to `outputCollection`
-            using var outputCollection = new PSDataCollection<PSObject>();
-            var asyncResult = _ps.BeginInvoke(new PSDataCollection<PSObject>(), outputCollection);
-            try {
-                foreach (var o in outputCollection) {
-                    yield return o;
-                }
-            } finally {
-                _ps.EndInvoke(asyncResult);
+            foreach (var o in outputCollection) {
+                yield return o;
             }
         } finally {
-            // ensure that the command buffer is clear for repeated invocation
-            _ps.Commands.Clear();
+            _ps.EndInvoke(asyncResult);
         }
     }
 
-    public void Stop() {
+    private readonly struct CommandClear(PowerShell ps) : IDisposable {
+        public void Dispose() => ps.Commands.Clear();
+    }
+
+    private void Stop() {
         // stop the runspace on Ctrl-C; this works gracefully with `finally` blocks
         // we use .BeginStop instead of .Stop, because .Stop causes a deadlock when the container
         //  is currently reading user input (https://github.com/PowerShell/PowerShell/issues/17633)

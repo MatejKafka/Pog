@@ -6,7 +6,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 
-internal class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(cmdlet) {
+internal class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(cmdlet), IDisposable {
     [Parameter] public string? WorkingDirectory = null;
     [Parameter] public object? Context = null;
 
@@ -19,12 +19,10 @@ internal class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(c
     public override IEnumerable<PSObject> Invoke() {
         var streamConfig = Container.OutputStreamConfig.FromCmdletPreferenceVariables(Cmdlet);
         _container = new Container(Host, streamConfig, Modules, Variables, WorkingDirectory, Context);
-        return _container.Invoke(Run);
+        return _container.Invoke(Run, CancellationToken);
     }
 
-    public override void StopProcessing() {
-        base.StopProcessing();
-        // stop the container on Ctrl-C
-        _container?.Stop();
+    public void Dispose() {
+        _container?.Dispose();
     }
 }
