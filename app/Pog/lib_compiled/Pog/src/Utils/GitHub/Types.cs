@@ -11,7 +11,20 @@ public record GitHubAsset(
         string ContentType,
         ulong Size,
         ulong DownloadCount
-);
+) {
+    private string? _hash;
+
+    [JsonPropertyName("digest")]
+    public string? Hash {
+        get => _hash;
+        // serialized as a string containing `sha256:...hash...`, only available for releases after 2025-06-03
+        set => _hash = value switch {
+            null => _hash = null,
+            _ when value.StartsWith("sha256:") => value.Substring("sha256:".Length).ToUpperInvariant(),
+            _ => null,
+        };
+    }
+}
 
 /// Internal object to unify Git tag parsing.
 public abstract record GitHubObject {
