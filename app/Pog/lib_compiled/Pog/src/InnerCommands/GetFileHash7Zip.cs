@@ -10,15 +10,10 @@ namespace Pog.InnerCommands;
 
 public class Failed7ZipHashCalculationException(string message) : Exception(message);
 
-public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet), IDisposable {
+public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet) {
     [Parameter(Mandatory = true)] public string Path = null!;
     [Parameter] public HashAlgorithm Algorithm = default;
-
     [Parameter] public ProgressActivity ProgressActivity = new();
-
-    private string _algorithmStr = null!;
-    private Process? _process;
-    private bool _stopping = false;
 
     // -bsp1  = enable progress reports
     // -spd   = disable wildcard matching for file names
@@ -37,81 +32,71 @@ public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cm
     }
 
     public override string Invoke() {
-        _algorithmStr = Algorithm.ToString().ToUpper();
-
-        _process = new Process {
-            StartInfo = new ProcessStartInfo {
-                FileName = InternalState.PathConfig.Path7Zip,
-                Arguments = $"h {QuoteArgument("-scrc" + _algorithmStr)} {QuoteArgument(Path)} {Args7Zip}",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true, // we must capture stderr, otherwise it would fight with pwsh output
-            },
-        };
-
         ProgressActivity.Activity ??= "Calculating file hash";
-        ProgressActivity.Description ??= $"Calculating {_algorithmStr} hash for '{System.IO.Path.GetFileName(Path)}'...";
+        ProgressActivity.Description ??= $"Calculating {Algorithm} hash for '{System.IO.Path.GetFileName(Path)}'...";
         using var progressBar = new CmdletProgressBar(Cmdlet, ProgressActivity);
 
+        using var process = new Process();
+        process.StartInfo = SetupProcessStartInfo();
+        process.Start();
+
+        // ideally, we should cancel the ReadLine() call below, but the StreamReader API doesn't support
+        //  cancellation until .NET 7 and killing 7z interrupts the loop as well
+        // ReSharper disable once AccessToDisposedClosure
+        using var cancellation = CancellationToken.Register(() => process.Kill());
+
         string? hash = null;
-        try {
-            _process.Start();
-            // forward progress prints and capture the checksum value
-            while (_process.StandardOutput.ReadLine() is {} line) {
-                var match = ProgressPrintRegex.Match(line);
-                if (match.Success) {
-                    progressBar.UpdatePercent(int.Parse(match.Groups[1].Value));
-                } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan") || line == "  0%") {
-                    // ignore these prints, they are expected
-                } else if ((match = HashPrintRegex.Match(line)).Success) {
-                    // this line contains the hash
-                    hash = match.Groups[1].Value.ToUpper();
-                } else {
-                    // during normal operation, no additional output should be printed;
-                    //  however, for some reason, some error messages seem to be duplicated
-                    //  at both stdout and stderr, so we ignore these messages and hope that
-                    //  all the error information will be also printed on stderr
-                }
+        // forward progress prints and capture the checksum value
+        while (process.StandardOutput.ReadLine() is {} line) {
+            var match = ProgressPrintRegex.Match(line);
+            if (match.Success) {
+                progressBar.UpdatePercent(int.Parse(match.Groups[1].Value));
+            } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan") || line == "  0%") {
+                // ignore these prints, they are expected
+            } else if ((match = HashPrintRegex.Match(line)).Success) {
+                // this line contains the hash
+                hash = match.Groups[1].Value.ToUpper();
+            } else {
+                // during normal operation, no additional output should be printed;
+                //  however, for some reason, some error messages seem to be duplicated
+                //  at both stdout and stderr, so we ignore these messages and hope that
+                //  all the error information will be also printed on stderr
             }
-            _process.WaitForExit();
-        } catch (PipelineClosedException) {
-            // ignore
-            // this is often (but not always) triggered on Ctrl-c, when the loop above tries to write to a closed pipeline
         }
 
-        if (_stopping) {
+        process.WaitForExit();
+
+        if (process.ExitCode != 0) {
+            // FIXME: is this ok? aren't we risking a deadlock when the pipe buffer fills up?
+            var stderr = process.StandardError.ReadToEnd().Trim();
+            throw new Failed7ZipHashCalculationException(
+                    $"Could not calculate file hash, '7zip' returned exit code {process.ExitCode}:\n{stderr}");
+        }
+
+        if (hash == null) {
+            throw new InternalError($"7zip did not return the calculated hash for '{Path}'.");
+        }
+
+        if (CancellationToken.IsCancellationRequested) {
             // signal that we were stopped by the user
             throw new PipelineStoppedException();
         }
 
-        if (_process.ExitCode != 0) {
-            // FIXME: is this ok? aren't we risking a deadlock when the pipe buffer fills up?
-            var stderr = _process.StandardError.ReadToEnd().Trim();
-            throw new Failed7ZipHashCalculationException(
-                    $"Could not calculate file hash, '7zip' returned exit code {_process.ExitCode}:\n{stderr}");
-        }
-
-        if (hash != null) {
-            Debug.Assert(hash.Length == GetExpectedHashLength(Algorithm));
-            return hash;
-        } else {
-            throw new InternalError($"7zip did not return the calculated hash for '{Path}'.");
-        }
+        Debug.Assert(hash.Length == GetExpectedHashLength(Algorithm));
+        return hash;
     }
 
-    public override void StopProcessing() {
-        base.StopProcessing();
-        _stopping = true;
-        // the 7z process also receives Ctrl-c, so we don't need to kill it manually, just wait for exit
-        // ideally, we would cancel the ReadLine() call above, but the StreamReader API doesn't support
-        //  cancellation until .NET 7; however, 7z seems to exit reliably on receiving Ctrl-c, so this works
-        _process!.WaitForExit();
+    private ProcessStartInfo SetupProcessStartInfo() {
+        return new ProcessStartInfo {
+            FileName = InternalState.PathConfig.Path7Zip,
+            Arguments = $"h {QuoteArgument("-scrc" + Algorithm)} {QuoteArgument(Path)} {Args7Zip}",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true, // we must capture stderr, otherwise it would fight with pwsh output
+        };
     }
 
-    public void Dispose() {
-        _process?.Dispose();
-    }
-
+    // TODO: 7zip 24.09 added support for sha-512, expose it (if 7z.exe version is high enough)
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     public enum HashAlgorithm {
         // SHA256 is `default(T)`

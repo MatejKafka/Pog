@@ -13,7 +13,7 @@ using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposable {
+public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
     [Parameter(Mandatory = true)] public string ArchivePath = null!;
     [Parameter(Mandatory = true)] public string TargetPath = null!;
     [Parameter] public string? RawTargetPath;
@@ -21,17 +21,13 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
     [Parameter] public string[]? Filter = null;
     [Parameter] public ProgressActivity ProgressActivity = new();
 
-    private string[]? _filterPatterns;
-    private Process? _process;
-    private bool _stopping = false;
-
     // 7z.exe progress print pattern
     // e.g. ' 34% 10 - glib-2.dll'
     private static readonly Regex ProgressPrintRegex = new(@"^\s*(\d{1,3})%\s+\S+.*$", RegexOptions.Compiled);
 
     public override void Invoke() {
         RawTargetPath ??= TargetPath;
-        _filterPatterns = Filter switch {
+        var filterPatterns = Filter switch {
             null => null,
             // if "." filter is present, result is equivalent to not passing any filter
             // this happens when `Subdirectory = "."` is specified for a package source
@@ -41,7 +37,7 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
         };
 
         // validate filter patterns
-        foreach (var p in _filterPatterns ?? []) {
+        foreach (var p in filterPatterns ?? []) {
             if (p.Split('\\').Any(s => s is "." or "..")) {
                 // 7zip does not like patterns with `.` or `..`
                 throw new ArgumentException($"Archive filter pattern must not contain '.' or '..', got '{p}'.");
@@ -53,70 +49,74 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
         }
 
         WriteDebug($"Extracting archive using 7zip... (source: '{ArchivePath}', target: '{TargetPath}')");
-        _process = new Process {StartInfo = SetupProcessStartInfo(ArchivePath, TargetPath, _filterPatterns)};
-
-
         ProgressActivity.Activity ??= "Extracting archive with 7zip";
         ProgressActivity.Description ??= $"Extracting archive '{Path.GetFileName(ArchivePath)}'...";
-        using var progressBar = new CmdletProgressBar(Cmdlet, ProgressActivity);
 
-        var completed = false;
-        var errorStrSb = new StringBuilder();
         try {
-            _process.Start();
-            // FIXME: we should probably be draining stdout somewhere, just in case 7zip decides to write something to it
-            // forward progress prints and store errors
-            while (_process.StandardError.ReadLine() is {} line) {
-                var match = ProgressPrintRegex.Match(line);
-                if (match.Success) {
-                    // sometimes, 7zip reports percentages higher than 100, not sure why
-                    progressBar.UpdatePercent(Math.Min(int.Parse(match.Groups[1].Value), 100));
-                } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan")
-                                                           || line == "  0%" || line == "100%") {
-                    // ignore these prints, they are expected
-                } else {
-                    // during normal operation, no additional output should be printed;
-                    //  if there is any, the user should see it
-                    errorStrSb.Append("\n" + line);
-                }
-            }
-            _process.WaitForExit();
-            completed = true;
-        } catch (PipelineClosedException) {
-            // ignore
-            // this is often (but not always) triggered on Ctrl-c, when the loop above tries to write to a closed pipeline
-        } finally {
-            if (!completed) {
-                CleanupTargetDir();
+            Invoke7Zip(filterPatterns);
+
+            // ensure the target directory exists (if the archive was empty or the filter pattern excluded everything,
+            //  7zip won't create the target directory)
+            Directory.CreateDirectory(TargetPath);
+        } catch {
+            // ensure the output dir is cleaned up on any error
+            // this may cause a slight delay on Ctrl-C, but hopefully not large enough to be annoying
+            CleanupTargetDir();
+            throw;
+        }
+    }
+
+    private void Invoke7Zip(string[]? filterPatterns) {
+        using var progressBar = new CmdletProgressBar(Cmdlet, ProgressActivity);
+        using var process = new Process();
+        process.StartInfo = SetupProcessStartInfo(ArchivePath, TargetPath, filterPatterns);
+        process.Start();
+
+        // ideally, we should cancel the ReadLine() call below, but the StreamReader API doesn't support
+        //  cancellation until .NET 7 and killing 7z interrupts the loop as well
+        // ReSharper disable once AccessToDisposedClosure
+        using var cancellation = CancellationToken.Register(() => process.Kill());
+
+        var errorStrSb = new StringBuilder();
+        // forward progress prints and store errors
+        // FIXME: we should probably be draining stdout somewhere, just in case 7zip decides to write something to it
+        while (process.StandardError.ReadLine() is {} line) {
+            var match = ProgressPrintRegex.Match(line);
+            if (match.Success) {
+                // sometimes, 7zip reports percentages higher than 100, not sure why
+                progressBar.UpdatePercent(Math.Min(int.Parse(match.Groups[1].Value), 100));
+            } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan")
+                                                       || line == "  0%" || line == "100%") {
+                // ignore these prints, they are expected
+            } else {
+                // during normal operation, no additional output should be printed;
+                //  if there is any, the user should see it
+                errorStrSb.Append("\n" + line);
             }
         }
 
-        var stdout = _process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+
+        var stdout = process.StandardOutput.ReadToEnd();
         if (stdout != "") {
             // there shouldn't be anything written on stdout
             WriteWarning(stdout);
         }
 
-        if (_stopping) {
-            // signal that we were stopped by the user
-            throw new PipelineStoppedException();
-        }
-
-        if (_process.ExitCode != 0) {
-            CleanupTargetDir();
+        if (process.ExitCode != 0) {
             throw new Failed7ZipArchiveExtractionException(
-                    $"Could not extract archive, '7zip' returned exit code {_process.ExitCode}:{errorStrSb}");
+                    $"Could not extract archive, '7zip' returned exit code {process.ExitCode}:{errorStrSb}");
         } else if (errorStrSb.Length != 0) {
-            CleanupTargetDir();
             // TODO: really, just rewrite this shit using P/Invoke, it will be less painful
             // there's some error output; since `cmd.exe` hides the error code of the first 7z invocation for .tar.gz,
             //  we'll throw an error anyway
             throw new Failed7ZipArchiveExtractionException($"Could not extract archive:{errorStrSb}");
         }
 
-        // ensure the target directory exists (if the archive was empty or the filter pattern excluded everything,
-        //  7zip won't create the target directory)
-        Directory.CreateDirectory(TargetPath);
+        if (CancellationToken.IsCancellationRequested) {
+            // signal that we were stopped by the user
+            throw new PipelineStoppedException();
+        }
     }
 
     private void CleanupTargetDir() {
@@ -125,20 +125,6 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet), I
         } catch {
             WriteWarning($"Failed to clean up output directory due to an error: {TargetPath}");
         }
-    }
-
-    /// Should be called when Ctrl-c is pressed by the user.
-    public override void StopProcessing() {
-        base.StopProcessing();
-        _stopping = true;
-        // the 7z process also receives Ctrl-c, so we don't need to kill it manually, just wait for exit
-        // ideally, we would cancel the ReadLine() call above, but the StreamReader API doesn't support
-        //  cancellation until .NET 7; however, 7z seems to exit reliably on receiving Ctrl-c, so this works
-        _process!.WaitForExit();
-    }
-
-    public void Dispose() {
-        _process?.Dispose();
     }
 
     /// Quote argument for passing it to `cmd.exe`.
