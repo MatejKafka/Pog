@@ -25,8 +25,6 @@ public abstract class BaseCommand(PogCmdlet cmdlet) {
     protected T InvokePogCommand<T>(ScalarCommand<T> cmd) => Cmdlet.InvokePogCommand(cmd);
     protected IEnumerable<T> InvokePogCommand<T>(EnumerableCommand<T> cmd) => Cmdlet.InvokePogCommand(cmd);
 
-    public virtual void StopProcessing() {}
-
     protected PSHost Host => Cmdlet.Host;
 
     protected void WriteDebug(string text) => Cmdlet.WriteDebug(text);

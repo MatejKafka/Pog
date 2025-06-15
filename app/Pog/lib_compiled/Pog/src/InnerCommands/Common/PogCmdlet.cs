@@ -93,16 +93,8 @@ public class PogCmdlet : PSCmdlet, IDisposable {
 
     protected override void StopProcessing() {
         base.StopProcessing();
-
-        // stop any async calls
+        // internal cmdlets use CancellationToken instead of StopProcessing
         _stopping?.Cancel();
-
-        // forward `.StopProcessing()` call to all invoked commands
-        if (_currentlyExecutingCommands != null) {
-            foreach (var cmd in _currentlyExecutingCommands) {
-                cmd.StopProcessing();
-            }
-        }
     }
 
     public virtual void Dispose() {
