@@ -15,35 +15,11 @@ namespace Pog.Commands;
 /// </para>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Show, "PogSourceHash", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
-public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
-    private const string ImportedPS = "ImportedPackage";
-
-    [Parameter(Mandatory = true, Position = 0, ParameterSetName = ImportedPS, ValueFromPipeline = true)]
-    public ImportedPackage[] ImportedPackage = null!; // accept even imported packages
-
-    /// Download files with low priority, which results in better network responsiveness
-    /// for other programs, but possibly slower download speed.
-    [Parameter]
-    public SwitchParameter LowPriority;
-
-    protected override void ProcessRecord() {
-        if (ParameterSetName != ImportedPS) {
-            base.ProcessRecord();
-            return;
-        }
-
-        // TODO: do this in parallel (even for packages passed as array)
-        foreach (var package in ImportedPackage) {
-            ProcessPackage(package);
-        }
-    }
-
-    protected override void ProcessPackage(RepositoryPackage package) => ProcessPackage(package);
-
+public sealed class ShowPogSourceHashCommand : PogSourceHashCommandBase {
     private bool _first = true;
     private List<string> _hashes = [];
 
-    private void ProcessPackage(Package package) {
+    protected override void ProcessPackage(Package package) {
         package.EnsureManifestIsLoaded();
         if (package.Manifest.Install == null) {
             WriteInformation($"Package '{package.PackageName}' does not have an Install block.");
@@ -75,22 +51,5 @@ public sealed class ShowPogSourceHashCommand : RepositoryPackageCommand {
                 }
             }
         }
-    }
-
-    private string RetrieveSourceHash(Package package, PackageSource source, string url) {
-        using var fileLock = InvokePogCommand(new InvokeCachedFileDownload(this) {
-            SourceUrl = url,
-            StoreInCache = true,
-            Package = package,
-            DownloadParameters = new DownloadParameters(source.UserAgent, LowPriority),
-            ProgressActivity = new() {Activity = "Retrieving file"},
-        });
-
-        // we know it's a cache entry lock, since StoreInCache is true
-        var cacheLock = (SharedFileCache.CacheEntryLock) fileLock;
-        // we don't need the lock, we're only interested in the hash
-        cacheLock.Unlock();
-
-        return cacheLock.EntryKey;
     }
 }

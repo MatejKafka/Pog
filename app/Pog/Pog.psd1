@@ -32,6 +32,7 @@
 		'Confirm-Pog'
 		'Confirm-PogRepository'
 
+		'Get-PogSourceHash'
 		'Show-PogSourceHash'
 		'Clear-PogDownloadCache'
 

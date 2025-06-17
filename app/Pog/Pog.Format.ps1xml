@@ -163,14 +163,37 @@
                                 <PropertyName>PackageName</PropertyName>
                             </TableColumnItem>
                             <TableColumnItem>
-                                <!-- Typically, roughly 3-4 versions are displayed in the space available and PowerShell
-                                     automatically adds an ellipsis; if we return 5 items, it should be enough to look
-                                     the same as if we returned all versions -->
+                                <!-- $FormatEnumerationLimit sets the maximum number of enumerable items displayed in a table cell. For more values,
+                                     PowerShell formatting automatically adds an ellipsis; if we return one more item, it should be enough to look
+                                     the same as if we returned all versions. -->
                                 <ScriptBlock>
-                                    $Out = $_.EnumerateVersionStrings() | select -First 5
-                                    if (@($Out).Count -eq 5) {$Out += "…"}
+                                    $Out = $_.EnumerateVersionStrings() | select -First ($FormatEnumerationLimit + 1)
+                                    if (@($Out).Count -eq $FormatEnumerationLimit + 1) {$Out += "…"}
                                     return $Out
                                 </ScriptBlock>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+        <View>
+            <Name>Pog.Commands.PackageSourceHash</Name>
+            <ViewSelectedBy>
+                <TypeName>Pog.Commands.PackageSourceHash</TypeName>
+            </ViewSelectedBy>
+            <TableControl>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>Matches</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Hash</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Url</PropertyName>
                             </TableColumnItem>
                         </TableColumnItems>
                     </TableRowEntry>
