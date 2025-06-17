@@ -12,16 +12,6 @@ namespace Pog;
 /// </summary>
 public static class InternalState {
 #if DEBUG
-    static InternalState() {
-        // ensure POG_DEBUG is set when importing the debug build of Pog.dll to avoid mode inconsistency
-        //  between the container and the main runspace
-        if (Environment.GetEnvironmentVariable("POG_DEBUG") == null) {
-            Environment.SetEnvironmentVariable("POG_DEBUG", "1");
-        }
-    }
-#endif
-
-#if DEBUG
     public const bool DebugBuild = true;
 #else
     public const bool DebugBuild = false;
