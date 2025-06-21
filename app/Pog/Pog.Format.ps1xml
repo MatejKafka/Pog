@@ -89,8 +89,8 @@
                                 <Label>Source URL</Label>
                                 <ScriptBlock>
                                     $(foreach ($i in $_.Install) {
-                                        if ($i.SourceUrl -is [scriptblock]) {"{$($i.SourceUrl)}"}
-                                        else {$i.SourceUrl}
+                                    if ($i.SourceUrl -is [scriptblock]) {"{$($i.SourceUrl)}"}
+                                    else {$i.SourceUrl}
                                     }) -join "`n"
                                 </ScriptBlock>
                             </ListItem>
@@ -199,6 +199,26 @@
                     </TableRowEntry>
                 </TableRowEntries>
             </TableControl>
+        </View>
+        <View>
+            <!-- render Pog.PackageVersion as an ordinary string, not a struct with .Main/.Dev -->
+            <Name>Pog.PackageVersion</Name>
+            <!-- OutOfBand prevents PowerShell from adding blank lines around the formatted output -->
+            <OutOfBand>true</OutOfBand>
+            <ViewSelectedBy>
+                <TypeName>Pog.PackageVersion</TypeName>
+            </ViewSelectedBy>
+            <CustomControl>
+                <CustomEntries>
+                    <CustomEntry>
+                        <CustomItem>
+                            <ExpressionBinding>
+                                <ScriptBlock>$_.ToString()</ScriptBlock>
+                            </ExpressionBinding>
+                        </CustomItem>
+                    </CustomEntry>
+                </CustomEntries>
+            </CustomControl>
         </View>
     </ViewDefinitions>
 </Configuration>
