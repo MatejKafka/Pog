@@ -1,5 +1,4 @@
-param([Parameter(Mandatory)][string]$TestDirPath)
-. $PSScriptRoot\..\TestEnvironmentSetup.ps1
+. $PSScriptRoot\..\SetupTestEnvironment.ps1 @Args
 
 function test($Sb) {
     $ErrorActionPreference = "Continue"
@@ -21,10 +20,8 @@ function TestCompletion($Text) {
 }
 
 
-$TEST_DIR = SetupNewPogTestDir $TestDirPath
-
 # setup package roots
-$Roots = "$TEST_DIR\root0", "$TEST_DIR\root1"
+$Roots = ".\root0", ".\root1"
 CreatePackageRoots $Roots
 
 # setup repository
@@ -47,7 +44,7 @@ test {Find-Pog test1, test2 | Import-Pog}
 test {Find-Pog test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]}
 
 title "Package, should fail"
-test {Import-Pog (Find-Pog test1) -TargetPackageRoot "$TEST_DIR\nonexistent"}
+test {Import-Pog (Find-Pog test1) -TargetPackageRoot ".\nonexistent"}
 test {Import-Pog (Find-Pog test1) -TargetName target, target2}
 test {Import-Pog (Find-Pog test1, test2) -TargetName target}
 test {Import-Pog (Find-Pog test1) (Get-Pog test1-imported, test1-imported)}

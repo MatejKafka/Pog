@@ -32,8 +32,9 @@ public static class InternalState {
     /// Debug method, used for testing. Not thread-safe.
     [PublicAPI]
     public static bool SetTestPathConfig(string testDataDirPath) {
-        if (_pathConfig == null) {
+        if (_pathConfig == null && _repository == null) {
             _pathConfig = new PathConfig(GetRootDirPath(), testDataDirPath, $"{testDataDirPath}\\package_shortcuts");
+            _repository = new LocalRepository($"{testDataDirPath}\\data\\repository");
             return true;
         }
         return false;

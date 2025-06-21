@@ -1,5 +1,4 @@
-param([Parameter(Mandatory)][string]$TestDirPath)
-. $PSScriptRoot\..\TestEnvironmentSetup.ps1
+. $PSScriptRoot\..\SetupTestEnvironment.ps1 @Args
 
 $ManifestTemplate = @'
 @{
@@ -38,10 +37,8 @@ function test($PackageName, $Description, [switch]$Export) {
 }
 
 
-$TEST_DIR = SetupNewPogTestDir $TestDirPath
-
 # setup package root
-$Root = "$TEST_DIR\root"
+$Root = ".\root"
 CreatePackageRoots $Root
 
 $null = mkdir $Root\package1, $Root\package2

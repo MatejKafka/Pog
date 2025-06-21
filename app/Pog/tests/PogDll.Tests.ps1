@@ -1,6 +1,15 @@
-[Diagnostics.CodeAnalysis.SuppressMessage("PSAvoidUsingCmdletAliases", "")]
-param()
-
+### .SYNOPSIS
+### This directory contains a set of integration tests for some of the public Pog commands.
+###
+### .DESCRIPTION
+### Since Pog is using a process-wide internal state and we need to override most of the data
+### directories to not touch actual user data, the tests work by invoking a new pwsh instance,
+### running a series of tests and comparing the stdout with a reference output. Another reason
+### for using this approach is that some tests are evaluated using -WhatIf output, which cannot
+### be easily captured from inside the same pwsh instance.
+###
+### This file itself should not load Pog.dll, so it should be safe to rebuild it and re-run
+### the tests without having to exit the PowerShell session.
 . $PSScriptRoot\..\header.ps1
 
 Describe "PogDll" {
@@ -16,7 +25,7 @@ Describe "PogDll" {
             $PSNativeCommandUseErrorActionPreference = $false
             $RawOutput = & $PwshCmd @PwshArgs
             if ($LastExitCode -ne 0) {
-                throw "Test PowerShell invocation failed:`n$RawOutput"
+                throw "Test PowerShell invocation failed:`n$($RawOutput -join "`n")"
             }
 
             # replace temporary test directory path with TEST_DIR to get consistent output
@@ -34,11 +43,6 @@ Describe "PogDll" {
 
             $OutBlocks.Count | Should -Be $RefBlocks.Count
             for ($i = 0; $i -lt $RefBlocks.Count; $i++) {
-                # the single-line diff rendered by Pester is pretty hard to read, so we render our own diff
-                if ($OutBlocks[$i] -cne $RefBlocks[$i]) {
-                    Write-Host "Diff for block #${i}:"
-                    Write-Host ([Pog.Utils.DiffRenderer]::RenderDiff($RefBlocks[$i], $OutBlocks[$i]))
-                }
                 $OutBlocks[$i] | Should -Be $RefBlocks[$i] -Because "block $i" -ErrorAction Continue
             }
         }
@@ -54,6 +58,8 @@ Describe "PogDll" {
 
     It "<_>" -ForEach (ls -Directory $PSScriptRoot | % Name) {
         $Output = InvokeWhatIfTest $PSScriptRoot\$_\test.ps1
-        EvaluateWhatIfTest $Output (cat -Raw $PSScriptRoot\$_\reference.txt)
+        # also dump the output to a file for easier manual comparison
+        Set-Content $PSScriptRoot\$_\output.txt $Output -NoNewline
+        EvaluateWhatIfTest $Output (Get-Content -Raw $PSScriptRoot\$_\reference.txt)
     }
 }
