@@ -211,8 +211,15 @@ public static class ManifestTemplateFile {
         }
 
         private void SerializeScriptBlock(ScriptBlock sb) {
+            var sbStr = sb.ToString();
+            var lastNewlineI = sbStr.LastIndexOf('\n');
+            var lastLine = sbStr.Substring(lastNewlineI + 1);
+            // if the whole scriptblock is indented, guess the indent based on the last line and remove it; this way,
+            //  you can write a hashtable literal with scriptblock field, and this will keep a reasonable-looking indent
+            var replacedIndent = lastNewlineI >= 0 && string.IsNullOrWhiteSpace(lastLine) ? "\n" + lastLine : "\n";
+
             Write("{");
-            Write(sb.ToString().Replace("\n", "\n" + GetIndent()));
+            Write(sb.ToString().Replace(replacedIndent, "\n" + GetIndent()));
             Write("}");
         }
 
