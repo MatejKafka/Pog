@@ -1,0 +1,43 @@
+--- initial update ---
+package v1.2.3: https://fake.url/1.2.3
+package v1.2.4: https://fake.url/1.2.4
+--- list versions ---
+1.2.4
+1.2.3
+
+--- re-run update (should not change anything) ---
+--- list versions ---
+1.2.4
+1.2.3
+
+--- add version 1.2.5 -ListOnly ---
+package v1.2.5: <no manifest>
+--- list versions ---
+1.2.4
+1.2.3
+
+--- add version 1.2.5 ---
+package v1.2.5: https://fake.url/1.2.5
+--- list versions ---
+1.2.5
+1.2.4
+1.2.3
+
+--- add version 1.2.6 with new URL ---
+package v1.2.6: https://new.url/1.2.6
+--- list versions ---
+1.2.6
+1.2.5
+1.2.4
+1.2.3
+
+--- regenerate all manifests ---
+package v1.2.3: https://new.url/1.2.3
+package v1.2.4: https://new.url/1.2.4
+package v1.2.5: https://new.url/1.2.5
+package v1.2.6: https://new.url/1.2.6
+--- list versions ---
+1.2.6
+1.2.5
+1.2.4
+1.2.3

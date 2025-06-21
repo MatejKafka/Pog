@@ -43,7 +43,8 @@ Describe "PogDll" {
 
             $OutBlocks.Count | Should -Be $RefBlocks.Count
             for ($i = 0; $i -lt $RefBlocks.Count; $i++) {
-                $OutBlocks[$i] | Should -Be $RefBlocks[$i] -Because "block $i" -ErrorAction Continue
+                $Header = ($RefBlocks[$i] -split "`n", 2)[0]
+                $OutBlocks[$i] | Should -Be $RefBlocks[$i] -Because $Header -ErrorAction Continue
             }
         }
     }
