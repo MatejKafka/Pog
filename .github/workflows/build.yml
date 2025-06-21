@@ -144,12 +144,12 @@ jobs:
     - name: Pester tests (PowerShell Core)
       working-directory: app/Pog
       shell: pwsh
-      run: Invoke-Pester
+      run: Invoke-Pester -Output Detailed
 
     - name: Pester tests (PowerShell 5)
       working-directory: app/Pog
       shell: powershell
-      run: Invoke-Pester
+      run: Invoke-Pester -Output Detailed
 
     # install a few Pog packages to check that Pog works
     - name: Test Pog packages (PowerShell Core)
