@@ -1,6 +1,10 @@
 using module ..\Utils.psm1
 . $PSScriptRoot\..\header.ps1
 
+# Pog.dll should be already loaded as an assembly, re-import it to access the cmdlets
+# it is imported inside this module so that we can control what we expose to the package
+Import-Module ([Pog.InternalState].Assembly.Location)
+
 # always use basic parsing inside the generators, to ease compatibility with PowerShell 5
 $global:PSDefaultParameterValues["Invoke-WebRequest:UseBasicParsing"] = $true
 $global:PSDefaultParameterValues["Invoke-RestMethod:UseBasicParsing"] = $true

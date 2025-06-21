@@ -1,6 +1,5 @@
 . $PSScriptRoot\header.ps1
 
-
 function Resolve-VirtualPath {
 	### .SYNOPSIS
 	### Resolve path to an absolute path without expanding wildcards or checking if $Path exists.

@@ -12,7 +12,7 @@ This module is not exactly polished and might break sometimes.
 '@
 
 	NestedModules = @(
-		"..\Pog\header.ps1"
+		"..\Pog\LoadPogDll.ps1"
 		"..\Pog\container\Env_UpdateRepository.psm1"
 	)
 

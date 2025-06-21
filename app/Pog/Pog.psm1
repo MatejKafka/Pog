@@ -1,10 +1,11 @@
+### .DESCRIPTION
 ### This is the main script module of Pog. Most of the actual functionality is implemented in C# in `Pog.dll`,
-### which is loaded in `header.ps1`. Cmdlets defined in this module are somewhat half-baked - I typically first
-### implement a cmdlet here, see how it works in practice and later rewrite it in C# when I have a clearer idea
-### about the design.
+### which is loaded below. Cmdlets defined in this module are somewhat half-baked - I typically first implement
+### a cmdlet here, see how it works in practice and later rewrite it in C# when I have a clearer idea about the design.
 
 using module .\Utils.psm1
 . $PSScriptRoot\header.ps1
+. $PSScriptRoot\LoadPogDll.ps1
 
 # if there are any missing package roots, show a warning
 foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots) {

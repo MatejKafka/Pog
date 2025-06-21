@@ -2,6 +2,11 @@
 [Diagnostics.CodeAnalysis.SuppressMessage("PSUseDeclaredVarsMoreThanAssignments", "")]
 param()
 
+. $PSScriptRoot\..\header.ps1
+
+# load Pog to ensure Pog.dll is available (Pog_Enable.psm1 expects to be invoked in the container)
+Import-Module $PSScriptRoot\..
+
 BeforeAll {
 	$Module = Import-Module -Force $PSScriptRoot\Env_Enable.psm1 -PassThru
 	# reset possible globally set values
@@ -16,8 +21,6 @@ AfterAll {
 	Remove-Module $Module
 	Remove-Variable Module
 }
-
-# FIXME: this doesn't trigger init and cleanup, which might be an issue
 
 Describe "New-Symlink" {
 	BeforeAll {
