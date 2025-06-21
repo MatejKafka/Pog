@@ -31,6 +31,8 @@ public sealed class GetPogCommand : PogCmdlet {
         base.ProcessRecord();
 
         if (PackageRoot != null) {
+            // allow passing relative paths to package roots
+            PackageRoot = GetUnresolvedProviderPathFromPSPath(PackageRoot);
             try {
                 PackageRoot = _packages.ResolveValidPackageRoot(PackageRoot);
             } catch (InvalidPackageRootException e) {

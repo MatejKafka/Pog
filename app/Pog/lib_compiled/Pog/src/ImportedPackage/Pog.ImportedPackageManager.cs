@@ -15,11 +15,10 @@ public class ImportedPackageManager(PackageRootConfig packageRootConfig) {
 
     // FIXME: we should resolve the package root path to the correct casing
     public string ResolveValidPackageRoot(string path) {
-        var normalized = Path.GetFullPath(path);
-        if (PackageRoots.ValidPackageRoots.Contains(normalized)) {
-            return normalized;
+        if (PackageRoots.ValidPackageRoots.Contains(path)) {
+            return path;
         }
-        if (PackageRoots.MissingPackageRoots.Contains(normalized)) {
+        if (PackageRoots.MissingPackageRoots.Contains(path)) {
             throw new InvalidPackageRootException(
                     $"The passed package root is registered, but the directory is missing: {path}");
         } else {

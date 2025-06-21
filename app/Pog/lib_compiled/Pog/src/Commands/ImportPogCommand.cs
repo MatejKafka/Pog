@@ -22,7 +22,7 @@ namespace Pog.Commands;
 public sealed class ImportPogCommand : PackageCommandBase {
     #region Parameter Sets
 
-    // the package sets on this command are a bit wild, but essentially, the command needs 2 pieces of information:
+    // the parameter sets on this command are a bit wild, but essentially, the command needs 2 pieces of information:
     // 1) which repository (source) package to import (if not passed, it is inferred from 2))
     // 2) where (destination) to import it (if not passed, it is inferred from 1))
     //
@@ -146,6 +146,8 @@ public sealed class ImportPogCommand : PackageCommandBase {
         base.BeginProcessing();
 
         if (TargetPackageRoot != null) {
+            // allow passing relative paths to package roots
+            TargetPackageRoot = GetUnresolvedProviderPathFromPSPath(TargetPackageRoot);
             try {
                 TargetPackageRoot = InternalState.ImportedPackageManager.ResolveValidPackageRoot(TargetPackageRoot);
             } catch (InvalidPackageRootException e) {
