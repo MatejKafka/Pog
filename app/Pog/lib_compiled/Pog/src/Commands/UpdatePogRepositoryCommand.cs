@@ -119,9 +119,11 @@ public sealed class UpdatePogRepositoryCommand : PogCmdlet {
             // pass the GitHub token as a default parameter instead of using container context, so that the command works
             //  outside the container (useful for one-off manual invocation)
             Variables = [
+                // $this is used inside the generator to refer to fields of the manifest itself to emulate class-like behavior
+                new("this", package.Generator.Raw, ""),
                 new("PSDefaultParameterValues", new DefaultParameterDictionary() {
                     {"Get-GithubRelease:GitHubToken", GitHubToken},
-                }, "PSDefaultParameterValues")
+                }, "PSDefaultParameterValues"),
             ],
             Run = ps => ps.AddCommand("__main").AddParameters(
                     new object?[] {package, Version, force, ListOnly, GitHubToken}),
