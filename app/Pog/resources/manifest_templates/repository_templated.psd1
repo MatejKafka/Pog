@@ -1,14 +1,14 @@
 @{
-	Name = '{{NAME}}'
-	Architecture = 'x64'
-	Version = '{{TEMPLATE:Version}}'
+    Name = '{{NAME}}'
+    Architecture = 'x64'
+    Version = '{{TEMPLATE:Version}}'
 
-	Install = @{
-		Url = {$V = $this.Version; ""}
-		Hash = '{{TEMPLATE:Hash}}'
-	}
+    Install = @{
+        Url = {$V = $this.Version; ""}
+        Hash = '{{TEMPLATE:Hash}}'
+    }
 
-	Enable = {
+    Enable = {
 
-	}
+    }
 }

@@ -1,4 +1,4 @@
 @{
-	Version = '{{VERSION}}'
-	Hash = ''
+    Version = '{{VERSION}}'
+    Hash = ''
 }
