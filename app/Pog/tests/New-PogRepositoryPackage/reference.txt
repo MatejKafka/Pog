@@ -1,0 +1,170 @@
+--- Generated package with version ---
+TEMPLATE:
+@{
+    Name = 'generated'
+    Architecture = 'x64'
+    Version = '{{TEMPLATE:Version}}'
+
+    Install = @{
+        Url = '{{TEMPLATE:Url}}'
+        Hash = '{{TEMPLATE:Hash}}'
+    }
+
+    Enable = {
+
+    }
+}
+GENERATOR:
+@{
+    ListVersions = {
+
+    }
+
+    Generate = {
+        return [ordered]@{
+            Version = $_.Version
+            Url = ''
+            Hash = ''
+        }
+    }
+}
+MANIFESTS:
+@{
+    Name = 'generated'
+    Architecture = 'x64'
+    Version = '1.2.3'
+
+    Install = @{
+        Url = ''
+        Hash = ''
+    }
+
+    Enable = {
+
+    }
+}
+--- Templated package with version ---
+TEMPLATE:
+@{
+    Name = 'templated'
+    Architecture = 'x64'
+    Version = '{{TEMPLATE:Version}}'
+
+    Install = @{
+        Url = {$V = $this.Version; ""}
+        Hash = '{{TEMPLATE:Hash}}'
+    }
+
+    Enable = {
+
+    }
+}
+MANIFESTS:
+@{
+    Name = 'templated'
+    Architecture = 'x64'
+    Version = '1.2.3'
+
+    Install = @{
+        Url = {$V = $this.Version; ""}
+        Hash = ''
+    }
+
+    Enable = {
+
+    }
+}
+--- Direct package with version ---
+MANIFESTS:
+@{
+    Name = 'direct'
+    Architecture = 'x64'
+    Version = '1.2.3'
+
+    Install = @{
+        Url = {$V = $this.Version; ""}
+        Hash = ''
+    }
+
+    Enable = {
+
+    }
+}
+--- Direct package with multiple versions ---
+MANIFESTS:
+@{
+    Name = 'direct2'
+    Architecture = 'x64'
+    Version = '1.2.3'
+
+    Install = @{
+        Url = {$V = $this.Version; ""}
+        Hash = ''
+    }
+
+    Enable = {
+
+    }
+}
+@{
+    Name = 'direct2'
+    Architecture = 'x64'
+    Version = '1.2.4'
+
+    Install = @{
+        Url = {$V = $this.Version; ""}
+        Hash = ''
+    }
+
+    Enable = {
+
+    }
+}
+--- Generated package with no version ---
+TEMPLATE:
+@{
+    Name = 'generated2'
+    Architecture = 'x64'
+    Version = '{{TEMPLATE:Version}}'
+
+    Install = @{
+        Url = '{{TEMPLATE:Url}}'
+        Hash = '{{TEMPLATE:Hash}}'
+    }
+
+    Enable = {
+
+    }
+}
+GENERATOR:
+@{
+    ListVersions = {
+
+    }
+
+    Generate = {
+        return [ordered]@{
+            Version = $_.Version
+            Url = ''
+            Hash = ''
+        }
+    }
+}
+MANIFESTS:
+--- Templated package with no version ---
+TEMPLATE:
+@{
+    Name = 'templated2'
+    Architecture = 'x64'
+    Version = '{{TEMPLATE:Version}}'
+
+    Install = @{
+        Url = {$V = $this.Version; ""}
+        Hash = '{{TEMPLATE:Hash}}'
+    }
+
+    Enable = {
+
+    }
+}
+MANIFESTS:

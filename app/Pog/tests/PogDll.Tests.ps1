@@ -25,7 +25,8 @@ $SharedSetup = {
         $RawOutput = & $PwshCmd @PwshArgs
         rm -Recurse -Force $TestDir -ErrorAction Ignore
         if ($LastExitCode -ne 0) {
-            throw "Test PowerShell invocation failed:`n$($RawOutput -join "`n")"
+            Write-Warning "Test PowerShell invocation failed:`n$($RawOutput -join "`n")"
+            return $RawOutput
         }
 
         # replace temporary test directory path with TEST_DIR to get consistent output

@@ -85,7 +85,7 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
                 return FsUtils.EnumerateNonHiddenDirectoryNames(Path, searchPattern);
             }
         } catch (DirectoryNotFoundException) {
-            return Enumerable.Empty<string>();
+            return [];
         }
     }
 

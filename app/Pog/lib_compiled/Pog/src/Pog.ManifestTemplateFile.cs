@@ -89,20 +89,25 @@ public static class ManifestTemplateFile {
     }
 
     /// Serializes the passed dictionary into a valid PowerShell data file (.psd1).
-    public static void SerializeSubstitutionFile(string outputPath, IDictionary content) {
-        File.WriteAllText(outputPath, SerializeSubstitutionFile(content), Encoding.UTF8);
+    public static void SerializeSubstitutionFile(string outputPath, IDictionary content, string? indent = null) {
+        File.WriteAllText(outputPath, SerializeSubstitutionFile(content, indent), Encoding.UTF8);
     }
 
     /// Serializes the passed dictionary into a valid PowerShell Hashtable literal and returns the string.
-    public static string SerializeSubstitutionFile(IDictionary content) {
-        var serializer = new SubstitutionFileSerializer();
+    public static string SerializeSubstitutionFile(IDictionary content, string? indent = null) {
+        var serializer = new SubstitutionFileSerializer(indent);
         serializer.Serialize(content);
 
         return serializer.ToString();
     }
 
-    private class SubstitutionFileSerializer {
+    // see usages for explanation
+    [PublicAPI]
+    public struct SerializerEmptyLine;
+
+    private class SubstitutionFileSerializer(string? indent) {
         private readonly StringBuilder _sb = new();
+        private readonly string _indentStr = indent ?? "    ";
         private int _indent = 0;
 
         public override string ToString() {
@@ -135,11 +140,11 @@ public static class ManifestTemplateFile {
 
         private void WriteNewline() {
             Write("\n");
-            Write(GetIndent());
+            for (var i = 0; i < _indent; i++) Write(_indentStr);
         }
 
         private string GetIndent() {
-            return new string(' ', 4 * _indent);
+            return string.Concat(Enumerable.Repeat(_indentStr, _indent));
         }
 
         private static bool IsNumeric(object o) {
@@ -185,6 +190,13 @@ public static class ManifestTemplateFile {
                 empty = false;
                 var key = entry.Key;
                 var value = entry.Value;
+
+                // this is a hack to allow inserting blank links into hashtable literals in `New-PogRepositoryPackage`
+                //  and `New-RepositoryPackage`; manifests are not expected to use this
+                if (value is SerializerEmptyLine) {
+                    Write("\n");
+                    continue;
+                }
 
                 WriteNewline();
                 if (key is string || IsNumeric(key)) {

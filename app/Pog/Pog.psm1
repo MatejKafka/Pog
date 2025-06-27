@@ -31,13 +31,45 @@ function Edit-PogRoot {
     Start-Process $Path
 }
 
-### Ad-hoc template format used to create default manifests in the following 2 functions.
-function RenderTemplate($SrcPath, $DestinationPath, [Hashtable]$TemplateData) {
-    $Template = Get-Content -Raw $SrcPath
-    foreach ($Entry in $TemplateData.GetEnumerator()) {
-        $Template = $Template.Replace("'{{$($Entry.Key)}}'", "'" + $Entry.Value.Replace("'", "''") + "'")
-    }
-    Set-Content $DestinationPath -Value $Template -NoNewline
+filter RenderPsd1($Path) {
+    # slight misuse of the template serializer, but it works quite well for our purposes
+    return [Pog.ManifestTemplateFile]::SerializeSubstitutionFile($Path, $_)
+}
+
+function RenderPackageManifest($Path, $PackageName, $Version, [switch]$Templated, [switch]$TemplatedUrl) {
+    [ordered]@{
+        Name = $PackageName
+        Architecture = 'x64'
+        Version = if ($Templated) {'{{TEMPLATE:Version}}'} else {$Version}
+
+        _1 = [Pog.ManifestTemplateFile+SerializerEmptyLine]::new()
+        Install = [ordered]@{
+            Url = if ($TemplatedUrl) {'{{TEMPLATE:Url}}'} else {{$V = $this.Version; ""}}
+            Hash = if ($Templated) {'{{TEMPLATE:Hash}}'} else {''}
+        }
+
+        _2 = [Pog.ManifestTemplateFile+SerializerEmptyLine]::new()
+        Enable = {
+
+        }
+    } | RenderPsd1 $Path
+}
+
+function RenderPackageGenerator($Path) {
+    [ordered]@{
+        ListVersions = {
+
+        }
+
+        _1 = [Pog.ManifestTemplateFile+SerializerEmptyLine]::new()
+        Generate = {
+            return [ordered]@{
+                Version = $_.Version
+                Url = ''
+                Hash = ''
+            }
+        }
+    } | RenderPsd1 $Path
 }
 
 # TODO: support creating new versions of existing packages (either create a blank package, or copy latest version and modify the Version field);
@@ -47,55 +79,70 @@ function New-PogRepositoryPackage {
     ### .SYNOPSIS
     ### Create a new manifest in the configured package repository.
     ### Only supported for local repositories.
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding=$false)]
     [OutputType([Pog.LocalRepositoryPackage])]
     param(
             ### Name of the new manifest. No manifest under that package name should exist.
-            [Parameter(Mandatory)]
+            [Parameter(Mandatory, Position=0)]
             [Pog.Verify+PackageName()]
             [string]
         $PackageName,
-            ### Version of the new manifest.
-            [Parameter(Mandatory)]
-            [Pog.PackageVersion]
+            ### Versions of the new manifest to create.
+            [Parameter(Position=1)]
+            [Pog.PackageVersion[]]
         $Version,
-            ### Create a templated package.
-            [switch]
-        $Templated
+            ### Specifies what type of package to generate.
+            ### - Direct = package with a full manifest for each version
+            ### - Templated = package with a manifest template that is rendered at import time with version-specific values
+            ### - Generated = templated package that also includes a generator for automatically updating the package
+            [ValidateSet('Direct', 'Templated', 'Generated')]
+            [string]
+        $Type = 'Templated'
     )
 
     begin {
+        if ($Type -eq "Direct" -and -not $Version) {
+            throw "When creating a '-Type Direct' package, you must specify the version of the package to create."
+        }
+
         if ([Pog.InternalState]::Repository -isnot [Pog.LocalRepository]) {
             throw ("Creating new packages is only supported for local repositories, not remote. To add a package to a remote repository, " +`
                 "create it in a local repository and then add it to the remote repository (typically with a Git push / PR).")
         }
 
         $c = [Pog.InternalState]::Repository.GetPackage($PackageName, $true, $false)
-
         if ($c.Exists) {
             throw "Package '$($c.PackageName)' already exists in the repository at '$($c.Path)'.'"
         }
 
         $null = New-Item -Type Directory $c.Path
-        if ($Templated) {
+
+        if ($Type -in "Templated", "Generated") {
             $null = New-Item -Type Directory $c.TemplateDirPath
+            RenderPackageManifest $c.TemplatePath $c.PackageName -Templated -TemplatedUrl:($Type -in "Generated")
         }
 
-        # only get the package after the parent is created, otherwise it would always default to a non-templated package
-        $p = $c.GetVersionPackage($Version, $false)
-
-        $TemplateData = @{NAME = $p.PackageName; VERSION = $p.Version.ToString()}
-        if ($Templated) {
-            # template dir is already created above
-            RenderTemplate "$PSScriptRoot\resources\manifest_templates\repository_templated.psd1" $p.TemplatePath $TemplateData
-            RenderTemplate "$PSScriptRoot\resources\manifest_templates\repository_templated_data.psd1" $p.ManifestPath $TemplateData
-        } else {
-            # create manifest dir for version
-            $null = New-Item -Type Directory $p.Path
-            RenderTemplate "$PSScriptRoot\resources\manifest_templates\repository_direct.psd1" $p.ManifestPath $TemplateData
+        if ($Type -in "Generated") {
+            RenderPackageGenerator $c.GeneratorPath
         }
 
-        return $p
+        foreach ($v in $Version) {
+            $p = $c.GetVersionPackage($v, $false)
+            switch ($Type) {
+                "Direct" {
+                    # create manifest dir for version
+                    $null = New-Item -Type Directory $p.Path
+                    RenderPackageManifest $p.ManifestPath $p.PackageName $p.Version
+                }
+                "Templated" {
+                    [ordered]@{Version = $p.Version; Hash = ''} | RenderPsd1 $p.ManifestPath
+                }
+                "Generated" {
+                    [ordered]@{Version = $p.Version; Url = ''; Hash = ''} | RenderPsd1 $p.ManifestPath
+                }
+            }
+            echo $p
+        }
     }
 }
 
@@ -133,7 +180,12 @@ function New-PogPackage {
 
         # create the package dir
         $null = New-Item -Type Directory $p.Path
-        RenderTemplate "$PSScriptRoot\resources\manifest_templates\imported.psd1" $p.ManifestPath @{NAME = $p.PackageName}
+        [ordered]@{
+            Private = $true
+            Enable = {
+
+            }
+        } | RenderPsd1 $p.ManifestPath
 
         return $p
     }

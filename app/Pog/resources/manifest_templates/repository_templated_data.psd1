@@ -1,4 +1,0 @@
-@{
-    Version = '{{VERSION}}'
-    Hash = ''
-}
