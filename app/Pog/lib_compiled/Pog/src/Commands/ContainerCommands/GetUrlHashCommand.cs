@@ -76,6 +76,7 @@ public sealed class GetUrlHashCommand : PogCmdlet {
         return HashToString(algorithm.Hash);
     }
 
+    // custom re-implementation of `Convert.ToHexString`, which is not available in .netstandard2.0
     private static unsafe string HashToString(byte[] hash) {
         var output = stackalloc char[hash.Length * 2];
         for (int i = 0, t = 0; i < hash.Length; i++, t += 2) {

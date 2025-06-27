@@ -29,6 +29,7 @@ This module is not exactly polished and might break sometimes.
 		# Env_UpdateRepository
 		'Get-GithubRelease'
 		'Get-GithubAsset'
+		'Get-UrlHash'
 	)
 
 	FunctionsToExport = @(
