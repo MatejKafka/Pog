@@ -121,12 +121,11 @@ public sealed class UpdatePogRepositoryCommand : PogCmdlet {
             Variables = [
                 // $this is used inside the generator to refer to fields of the manifest itself to emulate class-like behavior
                 new("this", package.Generator.Raw, ""),
-                new("PSDefaultParameterValues", new DefaultParameterDictionary() {
-                    {"Get-GithubRelease:GitHubToken", GitHubToken},
+                new("PSDefaultParameterValues", new DefaultParameterDictionary {
+                    {"Get-GithubRelease:AccessToken", GitHubToken},
                 }, "PSDefaultParameterValues"),
             ],
-            Run = ps => ps.AddCommand("__main").AddParameters(
-                    new object?[] {package, Version, force, ListOnly, GitHubToken}),
+            Run = ps => ps.AddCommand("__main").AddParameters(new object?[] {package, Version, force, ListOnly}),
         });
 
         foreach (var o in it) {

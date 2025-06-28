@@ -33,7 +33,7 @@ public sealed class GetGitHubReleaseCommand : PogCmdlet {
 
     /// GitHub API token to use. In the generator environment, this is set automatically through <c>$PSDefaultParameterValues</c>.
     /// Generators should not need to set this explicitly, this is primarily for interactive usage outside the container.
-    [Parameter] public SecureString? GitHubToken;
+    [Parameter] public SecureString? AccessToken;
 
     private readonly GitHubApiClient _client = new(InternalState.HttpClient);
     private string? _apiToken;
@@ -41,7 +41,7 @@ public sealed class GetGitHubReleaseCommand : PogCmdlet {
     protected override void BeginProcessing() {
         base.BeginProcessing();
 
-        _apiToken = GitHubToken == null ? null : UnprotectSecureString(GitHubToken);
+        _apiToken = AccessToken == null ? null : UnprotectSecureString(AccessToken);
         if (_apiToken != null) {
             WriteDebug("Using a GitHub API token.");
         }
