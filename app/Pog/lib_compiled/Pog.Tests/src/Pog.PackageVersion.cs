@@ -5,15 +5,23 @@ namespace Pog.Tests;
 
 public static class PackageVersionTests {
     public class Parsing {
-        private static void Test(string versionStr, int[] main, params IComparable[] dev) {
+        private static void Test(string versionStr, int[] main, IComparable[] dev, string? buildMeta = null) {
             var v = new PackageVersion(versionStr);
             Assert.Equal(main, v.Main);
             Assert.Equal(dev, v.Dev);
+            Assert.Equal(buildMeta, v.BuildMetadata);
         }
 
-        [Fact] public void PowerShellRc() => Test("7.1.0-rc5", new[] {7, 1, 0}, VT.Rc, 5);
-        [Fact] public void PyPy() => Test("3.6-v3.7.1", new[] {3, 6}, "v", 3, 7, 1);
-        [Fact] public void FirefoxDev() => Test("89.0a1-2021-04-05", new[] {89, 0}, VT.Alpha, 1, 2021, 4, 5);
+        [Fact] public void PowerShellRc() => Test("7.1.0-rc5", [7, 1, 0], [VT.Rc, 5]);
+        [Fact] public void PyPy() => Test("3.6-v3.7.1", [3, 6], ["v", 3, 7, 1]);
+        [Fact] public void FirefoxDev() => Test("89.0a1-2021-04-05", [89, 0], [VT.Alpha, 1, 2021, 4, 5]);
+
+        [Fact] public void SemVerBuildMetadata() {
+            Test("3.7.0+a0b1c2d3", [3, 7, 0], [], "a0b1c2d3");
+            Test("3.7.0-beta.1+a0b1c2d3", [3, 7, 0], [VT.Beta, 1], "a0b1c2d3");
+            // ensure we don't try to parse the meta as an int
+            Test("3.7.0+99999999999999999999", [3, 7, 0], [], "99999999999999999999");
+        }
     }
 
     public class Comparison {
@@ -70,6 +78,11 @@ public static class PackageVersionTests {
         [Fact] public void Wireshark() {
             Assert.True(Compare("3.7.0rc0-1634", "3.7.0rc0-1641") < 0);
             Assert.True(Compare("3.7.0rc0-1640", "3.7.0rc0-1636") > 0);
+        }
+
+        [Fact] public void SemVerBuildMetadata() {
+            // check that build metadata is ignored (versions compare as equivalent, although not as equal)
+            Assert.True(Compare("1.2.3+a", "1.2.3+b") == 0);
         }
     }
 }

@@ -18,6 +18,8 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
     /// Development version suffix – "beta.1", "preview-1.2.3",...
     /// type: array of one of (string, int, DevVersionType)
     public readonly IComparable[] Dev; // FIXME: this is a bad type
+    /// SemVer-like build metadata after a + sign (https://semver.org/#spec-item-10).
+    public readonly string? BuildMetadata;
     /// The original unchanged version string.
     private readonly string _versionString;
 
@@ -25,7 +27,10 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
         Nightly = 0, Preview = 1, Alpha = 2, Beta = 3, Rc = 4,
     }
 
-    private static readonly Regex VersionRegex = new(@"^(?<Main>\d+(\.\d+)*)(?<Dev>.*)$", RegexOptions.Compiled);
+    private static readonly Regex VersionRegex = new(
+            @"^(?<Main>\d+(\.\d+)*)(?<Dev>[^+]*)(?:\+(?<BuildMeta>.*))?$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static readonly Dictionary<string, DevVersionType> DevVersionTypeMap = new() {
         {"nightly", DevVersionType.Nightly},
         {"preview", DevVersionType.Preview},
@@ -96,6 +101,9 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
 
         Flush();
         this.Dev = devVersion.ToArray();
+
+        // SemVer 2.0 allows versions to store arbitrary build metadata (e.g., Git commit hash) after a `+` sign in the version
+        this.BuildMetadata = match.Groups["BuildMeta"] is {Success: true, Value: var v} ? v : null;
     }
 
     public override string ToString() {
