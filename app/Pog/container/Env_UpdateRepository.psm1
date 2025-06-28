@@ -219,41 +219,80 @@ function Get-HashFromChecksumFile {
     }
 }
 
-function Get-NugetRelease {
+function Get-NuGetServiceUrl($Feed, $ServiceVersions) {
+    # good explanation of NuGet v3 feeds: https://emgarten.com/posts/understanding-nuget-v3-feeds
+    $FeedIndex = Invoke-RestMethod $Feed @Args
+    foreach ($Type in $ServiceVersions) {
+        $Service = $FeedIndex.resources | ? "@type" -eq $Type
+        if ($Service) {
+            return $Service."@id"
+        }
+    }
+}
+
+function Get-NuGetRelease {
     ### .SYNOPSIS
-    ### Lists all versions of a Nuget package.
+    ### Lists all versions of a NuGet package.
     [CmdletBinding(PositionalBinding=$false)]
     param(
-            ### Name of the Nuget package to retrieve releases for.
+            ### Name of the NuGet package to retrieve releases for.
             [Parameter(Mandatory, Position=0)]
             [string]
         $PackageName,
-            ### Nuget feed URL to use. Defaults to the nuget.org feed.
-            ### Must be a v3 Nuget feed, v2 is not supported.
+            ### NuGet feed URL to use. Defaults to the nuget.org feed.
+            ### Must be a v3 NuGet feed, v2 is not supported.
             [uri]
         $Feed = "https://api.nuget.org/v3/index.json",
+            ### HTTP Authentication Bearer token to pass to the feed.
+            [securestring]
+        $AccessToken,
+            ### If set, include unlisted versions in the output.
             [switch]
         $IncludeUnlisted
     )
 
     begin {
-        # good explanation: https://emgarten.com/posts/understanding-nuget-v3-feeds
-        $FeedIndex = Invoke-RestMethod $Feed
-        $PackageMetaUri = $FeedIndex.resources | ? "@type" -eq "RegistrationsBaseUrl" | % "@id"
-        $pn = $PackageName.ToLowerInvariant()
+        $AuthArgs = if ($AccessToken) {
+            @{
+                Authentication = "Bearer"
+                Token = $AccessToken
+            }
+        } else {
+            @{}
+        }
 
-        # e.g. https://api.nuget.org/v3/registration5-semver1/nuget.protocol/index.json
-        $PackageMeta = Invoke-RestMethod "$PackageMetaUri$pn/index.json"
+        $PackageMetaUri = Get-NuGetServiceUrl $Feed @AuthArgs -ServiceVersions @(
+            # supported versions of the NuGet `RegistrationsBaseUrl` service, in order of preference
+            "RegistrationsBaseUrl/3.6.0"
+            "RegistrationsBaseUrl/3.4.0"
+            "RegistrationsBaseUrl/3.0.0-rc"
+            "RegistrationsBaseUrl/3.0.0-beta"
+            "RegistrationsBaseUrl"
+        )
 
-        # FIXME: it is likely that the feed uses pagination for packages with many releases, figure out how it works
+        if (-not $PackageMetaUri) {
+            throw "Could not find a supported version of the 'RegistrationsBaseUrl' service in the passed NuGet feed: $Feed"
+        }
 
-        # skip unlisted releases (this is why need metadata, otherwise we could just directly list all package versions)
-        $PackageMeta.items.items | ? {$IncludeUnlisted -or $_.catalogEntry.listed} | % {
-            # would be nice to also get the hash, but Nuget only provides sha-512, while we want sha-256
-            [pscustomobject]@{
-                VersionStr = $_.catalogEntry.version
-                Version = [Pog.PackageVersion]$_.catalogEntry.version
-                Url = $_.packageContent
+        # e.g. https://api.nuget.org/v3/registration5-semver1/nuget.client/index.json
+        $PackageMeta = Invoke-RestMethod "$PackageMetaUri$($PackageName.ToLowerInvariant())/index.json" @AuthArgs
+
+        foreach ($Page in $PackageMeta.items) {
+            # NuGet splits version metadata into multiple pages; for packages with a small number of versions,
+            #  the `items` property directly provides metadata about each versions; for paginated packages,
+            #  `items` is missing and we should use `@id` as an URL to retrieve the paginated data for each page
+            if (-not $Page.psobject.Properties["items"]) {
+                $Page = Invoke-RestMethod $Page."@id" @AuthArgs
+            }
+
+            # skip unlisted releases (this is why need metadata, otherwise we could just directly list all package versions)
+            $Page.items | ? {$IncludeUnlisted -or $_.catalogEntry.listed} | % {
+                # would be nice to also get the hash, but NuGet only provides sha-512, while we want sha-256
+                [pscustomobject]@{
+                    VersionStr = $_.catalogEntry.version
+                    Version = [Pog.PackageVersion]$_.catalogEntry.version
+                    Url = $_.packageContent
+                }
             }
         }
     }
@@ -262,4 +301,4 @@ function Get-NugetRelease {
 
 Export-ModuleMember `
     -Cmdlet Get-UrlHash, Get-GithubRelease, Get-GithubAsset `
-    -Function __main, Get-GithubAssetHash, Get-HashFromChecksumText, Get-HashFromChecksumFile, Get-NugetRelease
+    -Function __main, Get-GithubAssetHash, Get-HashFromChecksumText, Get-HashFromChecksumFile, Get-NuGetRelease
