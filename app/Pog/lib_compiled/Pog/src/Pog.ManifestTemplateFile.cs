@@ -178,7 +178,7 @@ public static class ManifestTemplateFile {
             SerializeDictionary(d.Cast<DictionaryEntry>());
         }
 
-        private static readonly Regex UnquotedHashtableKeyRegex = new(@"^\p{L}[\p{L}0-9]*$",
+        private static readonly Regex UnquotedHashtableKeyRegex = new(@"^\p{L}[\p{L}0-9_]*$",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         private void SerializeDictionary(IEnumerable<DictionaryEntry> e) {
