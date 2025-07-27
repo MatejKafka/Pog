@@ -11,11 +11,6 @@ public abstract class PogSourceHashCommandBase : RepositoryPackageCommand {
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = ImportedPS, ValueFromPipeline = true)]
     public ImportedPackage[] ImportedPackage = null!; // accept even imported packages
 
-    /// Download files with low priority, which results in better network responsiveness
-    /// for other programs, but possibly slower download speed.
-    [Parameter]
-    public SwitchParameter LowPriority;
-
     protected override void ProcessRecord() {
         if (ParameterSetName != ImportedPS) {
             base.ProcessRecord();
@@ -35,7 +30,7 @@ public abstract class PogSourceHashCommandBase : RepositoryPackageCommand {
         using var fileLock = InvokePogCommand(new InvokeCachedFileDownload(this) {
             SourceUrl = url,
             Package = package,
-            DownloadParameters = new DownloadParameters(source.UserAgent, LowPriority),
+            DownloadParameters = new DownloadParameters(source.UserAgent),
             ProgressActivity = new() {Activity = "Retrieving file"},
             StoreInCache = true,
         });

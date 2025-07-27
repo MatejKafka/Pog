@@ -1,11 +1,4 @@
-﻿using System;
-using System.Buffers;
-using System.IO;
-using System.Management.Automation;
-using System.Net.Http;
-using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
@@ -27,79 +20,14 @@ public sealed class GetUrlHashCommand : PogCmdlet {
     protected override void ProcessRecord() {
         base.ProcessRecord();
 
+        var downloadParams = new DownloadParameters(UserAgent);
         foreach (var url in SourceUrl) {
-            try {
-                // this cmdlet is expected to be used for small files, and Start-BitsTransfer has quite a significant
-                //  startup overhead, so this implementation instead uses a streaming implementation based on `HttpClient`
-                WriteObject(GetUrlSha256Hash(new(url), UserAgent, CancellationToken));
-            } catch (TaskCanceledException) {
-                throw new PipelineStoppedException();
-            }
-        }
-    }
-
-    private string GetUrlSha256Hash(Uri requestUri, UserAgentType userAgent, CancellationToken token) {
-        using var progressBar = new CmdletProgressBar(this, new ProgressActivity {
-            Activity = "Retrieving file hash",
-            Description = $"Downloading '{requestUri}'...",
-        });
-
-        var (response, stream) = GetUrlStreamAsync(requestUri, userAgent, token).GetAwaiter().GetResult();
-        using (response)
-        using (stream) {
-            var streamSize = response.Content.Headers.ContentLength;
-            Action<long> progress = streamSize == null
-                    ? _ => {}
-                    : bytesProcessed => {
-                        // ReSharper disable once AccessToDisposedClosure
-                        progressBar.Update(bytesProcessed / (double) streamSize);
-                    };
-
-            using var hashAlgorithm = SHA256.Create();
-            // we need to run the hash calculation on the PowerShell thread, since we write progress
-            return ComputeStreamHashWithProgress(stream, hashAlgorithm, progress);
-        }
-    }
-
-    private string ComputeStreamHashWithProgress(Stream stream, HashAlgorithm algorithm, Action<long> progressCb) {
-        var buffer = ArrayPool<byte>.Shared.Rent(1024 * 64);
-        long totalBytesRead = 0;
-        int bytesRead;
-        while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0) {
-            algorithm.TransformBlock(buffer, 0, bytesRead, null, 0);
-            totalBytesRead += bytesRead;
-            progressCb(totalBytesRead);
-        }
-
-        algorithm.TransformFinalBlock(buffer, 0, 0);
-        ArrayPool<byte>.Shared.Return(buffer, clearArray: false);
-        return HashToString(algorithm.Hash);
-    }
-
-    // custom re-implementation of `Convert.ToHexString`, which is not available in .netstandard2.0
-    private static unsafe string HashToString(byte[] hash) {
-        var output = stackalloc char[hash.Length * 2];
-        for (int i = 0, t = 0; i < hash.Length; i++, t += 2) {
-            var b = hash[i];
-            output[t] = "0123456789ABCDEF"[b >> 4];
-            output[t + 1] = "0123456789ABCDEF"[b & 0b1111];
-        }
-        return new string(output, 0, hash.Length * 2);
-    }
-
-    private static async Task<(HttpResponseMessage, Stream)> GetUrlStreamAsync(
-            Uri requestUri, UserAgentType userAgent, CancellationToken token) {
-        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
-        request.Headers.Add("User-Agent", userAgent.GetHeaderString());
-
-        var response = await InternalState.HttpClient.SendAsync(request,
-                HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
-        try {
-            response.EnsureSuccessStatusCode();
-            return (response, await response.Content.ReadAsStreamAsync().ConfigureAwait(false));
-        } catch {
-            response.Dispose();
-            throw;
+            WriteObject(InvokePogCommand(new InvokeFileDownload(this) {
+                SourceUrl = url,
+                DownloadParameters = downloadParams,
+                ProgressActivity = new ProgressActivity("Retrieving file hash"),
+                ComputeHash = true,
+            }).Hash);
         }
     }
 }

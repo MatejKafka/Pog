@@ -15,6 +15,9 @@ namespace Pog.InnerCommands.Common;
 public class PogCmdlet : PSCmdlet, IDisposable {
     private HashSet<BaseCommand>? _currentlyExecutingCommands;
 
+    // newer versions of PowerShell allow progress updates at most every 200 ms and debounce more frequent updates
+    internal static TimeSpan DefaultProgressInterval = TimeSpan.FromMilliseconds(200);
+
     // lazily-provided cancellation token
     private CancellationTokenSource? _stopping;
     protected internal CancellationToken CancellationToken => (_stopping ??= new CancellationTokenSource()).Token;

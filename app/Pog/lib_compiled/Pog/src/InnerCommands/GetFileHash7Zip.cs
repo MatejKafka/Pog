@@ -50,7 +50,7 @@ public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cm
         while (process.StandardOutput.ReadLine() is {} line) {
             var match = ProgressPrintRegex.Match(line);
             if (match.Success) {
-                progressBar.UpdatePercent(int.Parse(match.Groups[1].Value));
+                progressBar.ReportPercent(int.Parse(match.Groups[1].Value));
             } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan") || line == "  0%") {
                 // ignore these prints, they are expected
             } else if ((match = HashPrintRegex.Match(line)).Success) {

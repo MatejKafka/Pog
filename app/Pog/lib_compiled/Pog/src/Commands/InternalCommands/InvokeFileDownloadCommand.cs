@@ -7,7 +7,7 @@ using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.InternalCommands;
 
-/// <summary>Downloads a file using BITS with the server-provided file name.</summary>
+/// <summary>Downloads a file to the provided directory, using the server-provided file name.</summary>
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Invoke, "FileDownload")]
 [OutputType(typeof(string))]
@@ -30,6 +30,6 @@ public sealed class InvokeFileDownloadCommand : PogCmdlet {
             DestinationDirPath = destinationDir,
             DownloadParameters = DownloadParameters,
             ProgressActivity = ProgressActivity,
-        }));
+        }).Path);
     }
 }

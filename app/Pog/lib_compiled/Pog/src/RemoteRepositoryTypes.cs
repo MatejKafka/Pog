@@ -102,7 +102,8 @@ public sealed class RemoteRepository : IRepository {
         _packagesLazy = new(PackageCacheExpiration, () => {
             // FIXME: we're doing a network request while holding a mutex over the cache, other threads will be stuck waiting
             //  until this one finishes the request
-            return new(InternalState.HttpClient.RetrieveJson(new(Url)) ??
+            // FIXME: blocking without possible cancellation
+            return new(InternalState.HttpClient.RetrieveJsonAsync(new(Url)).GetAwaiter().GetResult() ??
                        throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"), Url);
         });
     }
@@ -328,7 +329,6 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
     }
 
     protected override PackageManifest LoadManifest() {
-        // this should be ok (no deadlocks), PowerShell cmdlets internally do it the same way
         return LoadManifestAsync().GetAwaiter().GetResult();
     }
 

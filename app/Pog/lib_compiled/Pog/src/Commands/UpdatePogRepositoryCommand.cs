@@ -105,7 +105,7 @@ public sealed class UpdatePogRepositoryCommand : PogCmdlet {
 
         var i = 0;
         foreach (var p in packages) {
-            progressBar.Update((double) i++ / packages.Length, $"Updating '{p.PackageName}'...");
+            progressBar.Report((double) i++ / packages.Length, $"Updating '{p.PackageName}'...");
             ProcessPackage(p, Force);
         }
     }

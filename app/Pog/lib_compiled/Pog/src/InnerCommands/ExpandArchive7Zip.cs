@@ -84,7 +84,7 @@ public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
             var match = ProgressPrintRegex.Match(line);
             if (match.Success) {
                 // sometimes, 7zip reports percentages higher than 100, not sure why
-                progressBar.UpdatePercent(Math.Min(int.Parse(match.Groups[1].Value), 100));
+                progressBar.ReportPercent(Math.Min(int.Parse(match.Groups[1].Value), 100));
             } else if (string.IsNullOrWhiteSpace(line) || line.StartsWith("  0M Scan")
                                                        || line == "  0%" || line == "100%") {
                 // ignore these prints, they are expected

@@ -9,7 +9,7 @@ using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public record DownloadParameters(UserAgentType UserAgent = default, bool LowPriorityDownload = false);
+public record struct DownloadParameters(UserAgentType UserAgent = default);
 
 public enum UserAgentType {
     // Pog is `default(T)`
@@ -72,33 +72,29 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
 
         Directory.CreateDirectory(downloadDirPath);
         try {
-            var downloadedFilePath = InvokePogCommand(new InvokeFileDownload(Cmdlet) {
+            var file = InvokePogCommand(new InvokeFileDownload(Cmdlet) {
                 SourceUrl = SourceUrl,
                 DownloadParameters = DownloadParameters,
                 DestinationDirPath = downloadDirPath,
                 ProgressActivity = ProgressActivity,
+                ComputeHash = ExpectedHash != null || StoreInCache,
             });
 
-            if (ExpectedHash == null && !StoreInCache) {
+            if (file.Hash == null) {
                 WriteVerbose("Returning the downloaded file directly.");
-                return new TmpFileLock(downloadedFilePath, downloadDirPath, File.OpenRead(downloadedFilePath));
+                return new TmpFileLock(file.Path!, downloadDirPath, File.OpenRead(file.Path!));
             }
 
-            var hash = InvokePogCommand(new GetFileHash7Zip(Cmdlet) {
-                Path = downloadedFilePath,
-                ProgressActivity = ProgressActivity,
-            });
-
-            if (ExpectedHash != null && hash != ExpectedHash) {
+            if (ExpectedHash != null && file.Hash != ExpectedHash) {
                 // incorrect hash
                 ThrowTerminatingError(new ErrorRecord(
                         new IncorrectFileHashException($"Incorrect hash for the file downloaded from '{SourceUrl}'"
-                                                       + $" (expected: '{ExpectedHash}', real: '{hash}')."),
+                                                       + $" (expected: '{ExpectedHash}', real: '{file.Hash}')."),
                         "IncorrectHash", ErrorCategory.InvalidResult, SourceUrl));
             }
 
-            WriteVerbose($"Adding the downloaded file to the local cache under the key '{hash}'.");
-            return AddEntryToCache(hash, InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, Package));
+            WriteVerbose($"Adding the downloaded file to the local cache under the key '{file.Hash}'.");
+            return AddEntryToCache(file.Hash, InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, Package));
         } catch {
             FsUtils.EnsureDeleteDirectory(downloadDirPath);
             throw;

@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
-using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
 using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
@@ -13,10 +12,7 @@ using PPaths = Pog.PathConfig.PackagePaths;
 
 namespace Pog.InnerCommands;
 
-[PublicAPI]
-[Cmdlet(VerbsLifecycle.Install, "FromUrl")]
-public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposable {
-    [Parameter] public bool LowPriorityDownload = false;
+public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposable {
     [Parameter] public required ImportedPackage Package;
 
     private string _appDirPath = null!;
@@ -29,6 +25,12 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
     private ProgressActivity _progressActivity = new();
 
     public override void Invoke() {
+        if (Package.Manifest.Install == null) {
+            WriteInformation($"Package '{Package.PackageName}' does not have an Install block.");
+            return;
+        }
+        WriteInformation($"Installing {Package.GetDescriptionString()}...");
+
         _appDirPath = $@"{Package.Path}\{PPaths.AppDirName}";
         _newAppDirPath = $@"{Package.Path}\{PPaths.NewAppDirName}";
         _oldAppDirPath = $@"{Package.Path}\{PPaths.AppBackupDirName}";
@@ -106,7 +108,7 @@ public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDis
             }
         }
 
-        var downloadParameters = new DownloadParameters(source.UserAgent, LowPriorityDownload);
+        var downloadParameters = new DownloadParameters(source.UserAgent);
         using var downloadedFile = InvokePogCommand(new InvokeCachedFileDownload(Cmdlet) {
             SourceUrl = url,
             ExpectedHash = source.ExpectedHash,

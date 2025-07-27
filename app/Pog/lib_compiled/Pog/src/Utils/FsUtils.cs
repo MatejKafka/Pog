@@ -434,39 +434,6 @@ public static class FsUtils {
         return combined;
     }
 
-    /// Checks if a path leads to a DOS drive created using <c>subst</c> (or <c>DefineDosDevice</c>) and resolves it to the
-    /// final path. Otherwise, the original path is returned.
-    public static unsafe string ResolveSubstPath(string absPath) {
-        if (absPath.Length < 2 || absPath[1] != ':') {
-            throw new ArgumentException($"{nameof(absPath)} must be an absolute path.");
-        }
-
-        var driveStr = stackalloc[] {(char) 0, ':', (char) 0};
-        var outBuffer = stackalloc char[Win32.MAX_PATH];
-
-        while (true) {
-            driveStr[0] = absPath[0];
-            if (!Win32.QueryDosDevice(driveStr, outBuffer, Win32.MAX_PATH)) {
-                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
-            }
-
-            if (StrPtrStartsWith(@"\Device\", outBuffer)) {
-                // the resolved name starts with `\Device\`, it's not a subst mount
-                // I'd guess there should be a cleaner way to check, but I could not figure it out
-                return absPath;
-            }
-
-            var targetStr = StrPtrStartsWith(@"\??\", outBuffer) ? new string(outBuffer + 4) : new string(outBuffer);
-            // resolve again, in case the previous subst mount points to another subst mount
-            absPath = targetStr + absPath.Substring(2);
-        }
-    }
-
-    /// <remarks><paramref name="strPtr"/> buffer must be at least as large as <paramref name="str"/>.</remarks>
-    private static unsafe bool StrPtrStartsWith(string str, char* strPtr) {
-        return str.AsSpan().SequenceEqual(new ReadOnlySpan<char>(strPtr, str.Length));
-    }
-
     public static bool FileExistsCaseSensitive(string parent, string childName) {
         return TryGetResolvedChildName(parent, childName, out var resolved) && resolved == childName;
     }
