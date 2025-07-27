@@ -63,33 +63,32 @@ try {
         | % {cp -Recurse $SrcLibCompiled/$_ app/Pog/lib_compiled/$_}
 
 
-    if ($Version -ne "HEAD") {
-        # validate manifest versions
-        $PogPSModuleVersion = (Import-PowerShellDataFile ./app/Pog/Pog.psd1).ModuleVersion
-        $PogUtilsPSModuleVersion = (Import-PowerShellDataFile ./app/Pog.Utils/Pog.psd1).ModuleVersion
-        $PogPackageVersion = (Import-PowerShellDataFile ./pog.psd1).Version
-        $PogDllVersion = (Get-Item ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
+    # validate manifest versions
+    $PogPSModuleVersion = (Import-PowerShellDataFile ./app/Pog/Pog.psd1).ModuleVersion
+    $PogUtilsPSModuleVersion = (Import-PowerShellDataFile ./app/Pog.Utils/Pog.Utils.psd1).ModuleVersion
+    $PogPackageVersion = (Import-PowerShellDataFile ./pog.psd1).Version
+    $PogDllVersion = (Get-Item ./app/Pog/lib_compiled/Pog.dll).VersionInfo.ProductVersion
+    $GhActionVersion = if ($GhActionYaml -match "\s+default: (\d+\.\d+\.\d+)`n") {
+        [version]$Matches[1]
+    } else {
+        throw "Could not parse 'install-pog' GitHub Action Pog version."
+    }
 
-        if ($GhActionYaml -notmatch "\s+default: (\d+\.\d+\.\d+)`n") {
-            throw "Could not parse 'install-pog' GitHub Action Pog version."
-        }
-
-        if ([version]$Matches[1] -ne $Version) {
-            throw "GitHub Action Pog download version does not match."
-        }
-
-        if ($PogPSModuleVersion -ne $Version) {
-            throw "Pog.psd1 PS module version does not match."
-        }
-        if ($PogUtilsPSModuleVersion -ne $Version) {
-            throw "Pog.Utils.psd1 PS module version does not match."
-        }
-        if ($PogPackageVersion -ne $Version) {
-            throw "pog.psd1 package manifest version does not match."
-        }
-        if ($PogDllVersion -ne $Version) {
-            throw "Pog.dll product version does not match."
-        }
+    $CheckVersion = if ($Version -ne "HEAD") {$Version} else {$PogPSModuleVersion}
+    if ($PogPSModuleVersion -ne $CheckVersion) {
+        throw "Pog.psd1 PowerShell module version does not match."
+    }
+    if ($PogUtilsPSModuleVersion -ne $CheckVersion) {
+        throw "Pog.Utils.psd1 PowerShell module version does not match."
+    }
+    if ($PogPackageVersion -ne $CheckVersion) {
+        throw "pog.psd1 Pog package manifest version does not match."
+    }
+    if ($PogDllVersion -ne $CheckVersion) {
+        throw "Pog.dll product version does not match."
+    }
+    if ($GhActionVersion -ne $CheckVersion) {
+        throw "GitHub Action Pog download version does not match."
     }
 
     cd $TmpDir

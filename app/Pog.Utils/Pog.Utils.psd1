@@ -1,5 +1,5 @@
 @{
-	ModuleVersion = '0.12.0'
+	ModuleVersion = '0.13.0'
 	GUID = 'f6961fe2-dea0-4780-82e8-1376d14ffd02'
 	Author = 'Matej Kafka'
 	CompatiblePSEditions = @('Desktop', 'Core')
