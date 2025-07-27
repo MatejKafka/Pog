@@ -1,3 +1,5 @@
+using module ..\Utils.psm1
+
 [Diagnostics.CodeAnalysis.SuppressMessage("PSProvideCommentHelp", "")]
 param(
     [Parameter(Mandatory)]
@@ -27,7 +29,7 @@ if ($IsNonIteractive -and (Get-Variable PSStyle -ErrorAction Ignore)) {
     $null = mkdir .\cache\download_cache, .\cache\download_tmp
 
     # import Pog.dll so that we can override the test path below
-    . $PSScriptRoot\..\LoadPogDll.ps1
+    Import-Module (Get-PogDll)
 
     # use the test directory for everything, do not touch actual Pog data
     if (-not [Pog.InternalState]::SetTestPathConfig($TestDir)) {

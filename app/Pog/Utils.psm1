@@ -48,4 +48,28 @@ function New-ContainerModule {
     }
 }
 
-Export-ModuleMember -Function Resolve-VirtualPath, Invoke-DollarUnder, New-ContainerModule
+### .SYNOPSIS
+### Returns the path to Pog.dll to use.
+function Get-PogDll {
+    # check if Pog.dll is already loaded in the current PowerShell process
+    $InternalState = "Pog.InternalState" -as [type]
+    $PogSource = if ($InternalState) {$InternalState.Assembly.Location}
+    if ($PogSource -and -not $PogSource.StartsWith($PSScriptRoot)) {
+        throw ("Conflicting Pog.dll from another location already loaded from '$PogSource', " + `
+                "loading multiple copies of Pog in a single PowerShell session is not supported.")
+    }
+
+    if ($PogSource) {
+        return $PogSource
+    }
+
+    # Pog.dll is not yet loaded
+    if (Test-Path Env:POG_DEBUG) {
+        # load debug build of the compiled library (only available in local builds)
+        return "$PSScriptRoot\lib_compiled\Pog\bin\Debug\netstandard2.0\Pog.dll"
+    } else {
+        return "$PSScriptRoot\lib_compiled\Pog.dll"
+    }
+}
+
+Export-ModuleMember -Function Resolve-VirtualPath, Invoke-DollarUnder, New-ContainerModule, Get-PogDll

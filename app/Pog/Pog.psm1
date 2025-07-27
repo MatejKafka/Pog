@@ -5,7 +5,7 @@
 
 using module .\Utils.psm1
 . $PSScriptRoot\header.ps1
-. $PSScriptRoot\LoadPogDll.ps1
+Import-Module (Get-PogDll)
 
 # if there are any missing package roots, show a warning
 foreach ($r in [Pog.InternalState]::PathConfig.PackageRoots.MissingPackageRoots) {
