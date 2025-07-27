@@ -7,12 +7,11 @@ using Pog.InnerCommands.Common;
 namespace Pog.InnerCommands;
 
 internal class InvokeContainer(PogCmdlet cmdlet) : EnumerableCommand<PSObject>(cmdlet), IDisposable {
-    [Parameter] public string? WorkingDirectory = null;
-    [Parameter] public object? Context = null;
-
+    [Parameter] public required Action<PowerShell> Run;
     [Parameter] public string[]? Modules = null;
     [Parameter] public SessionStateVariableEntry[]? Variables = null;
-    [Parameter(Mandatory = true)] public Action<PowerShell> Run = null!;
+    [Parameter] public string? WorkingDirectory = null;
+    [Parameter] public object? Context = null;
 
     private Container? _container;
 

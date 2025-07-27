@@ -17,7 +17,7 @@ namespace Pog.InnerCommands;
 
 /// Lists processes that have a lock (an open handle without allowed sharing) on a file under $Path.
 internal class GetLockedFile(PogCmdlet cmdlet) : ScalarCommand<IEnumerable<GetLockedFile.LockingProcessInfo>?>(cmdlet) {
-    [Parameter(Mandatory = true)] public string Path = null!;
+    [Parameter] public required string Path = null!;
 
     public record LockingProcessInfo(string ProcessInfoStr, string[] LockedFiles) {
         public LockingProcessInfo(string procInfoStr, IEnumerable<XElement> fileElems)

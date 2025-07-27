@@ -16,8 +16,8 @@ namespace Pog.InnerCommands;
 [PublicAPI]
 [Cmdlet(VerbsLifecycle.Install, "FromUrl")]
 public sealed class InstallFromUrl(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposable {
-    [Parameter(Mandatory = true)] public ImportedPackage Package = null!;
     [Parameter] public bool LowPriorityDownload = false;
+    [Parameter] public required ImportedPackage Package;
 
     private string _appDirPath = null!;
     private string _newAppDirPath = null!;

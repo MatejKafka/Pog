@@ -10,8 +10,8 @@ namespace Pog.InnerCommands;
 /// Prints all processes that hold a lock over a file in an existing .\app directory, then waits until user closes them,
 /// in a loop, until there are no locked files in the directory.
 internal class ShowLockedFileList(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
-    [Parameter(Mandatory = true)] public string Path = null!;
-    [Parameter(Mandatory = true)] public string MessagePrefix = null!;
+    [Parameter] public required string Path;
+    [Parameter] public required string MessagePrefix;
     [Parameter] public bool NoList = false;
     [Parameter] public bool Wait = false;
 

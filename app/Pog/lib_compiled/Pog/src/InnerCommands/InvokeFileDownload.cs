@@ -12,9 +12,9 @@ using Pog.Utils.Http;
 namespace Pog.InnerCommands;
 
 internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet) {
-    [Parameter(Mandatory = true)] public string SourceUrl = null!;
-    [Parameter(Mandatory = true)] public string DestinationDirPath = null!;
-    [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
+    [Parameter] public required string SourceUrl;
+    [Parameter] public required string DestinationDirPath;
+    [Parameter] public required DownloadParameters DownloadParameters;
     [Parameter] public ProgressActivity ProgressActivity = new();
 
     /// <summary>Downloads the file from $SourceUrl to $DestinationDirPath.</summary>

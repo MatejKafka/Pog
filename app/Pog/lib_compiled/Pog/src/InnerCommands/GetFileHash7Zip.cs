@@ -11,7 +11,7 @@ namespace Pog.InnerCommands;
 public class Failed7ZipHashCalculationException(string message) : Exception(message);
 
 public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet) {
-    [Parameter(Mandatory = true)] public string Path = null!;
+    [Parameter] public required string Path;
     [Parameter] public HashAlgorithm Algorithm = default;
     [Parameter] public ProgressActivity ProgressActivity = new();
 

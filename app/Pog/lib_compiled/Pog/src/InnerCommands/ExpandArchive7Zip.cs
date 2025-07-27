@@ -14,8 +14,8 @@ using Pog.Utils;
 namespace Pog.InnerCommands;
 
 public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
-    [Parameter(Mandatory = true)] public string ArchivePath = null!;
-    [Parameter(Mandatory = true)] public string TargetPath = null!;
+    [Parameter] public required string ArchivePath;
+    [Parameter] public required string TargetPath;
     [Parameter] public string? RawTargetPath;
     /// If passed, only paths inside the archive matching at least one of the filters are extracted.
     [Parameter] public string[]? Filter = null;

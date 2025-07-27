@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
+using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -31,10 +32,10 @@ public static class UserAgentTypeExtensions {
 public class IncorrectFileHashException(string message) : Exception(message);
 
 internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<SharedFileCache.IFileLock>(cmdlet) {
-    [Parameter(Mandatory = true)] public string SourceUrl = null!;
-    [Parameter(Mandatory = true)] public string? ExpectedHash;
-    [Parameter(Mandatory = true)] public DownloadParameters DownloadParameters = null!;
-    [Parameter(Mandatory = true)] public Package Package = null!;
+    [Parameter] public required string SourceUrl;
+    [Parameter] public required DownloadParameters DownloadParameters;
+    [Parameter] public required Package Package;
+    [Parameter] public string? ExpectedHash = null;
     [Parameter] public bool StoreInCache = false;
     [Parameter] public ProgressActivity ProgressActivity = new();
 
@@ -146,8 +147,9 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
         }
     }
 
-    /// Utility class to cleanup a downloaded file from the download directory when it's no longer needed.
+    /// Utility class to clean up a downloaded file from the download directory when it's no longer needed.
     /// Instances of this class are returned for files without a known hash.
+    [PublicAPI]
     public sealed class TmpFileLock : SharedFileCache.IFileLock {
         public string Path {get;}
         public FileStream ReadStream {get;}

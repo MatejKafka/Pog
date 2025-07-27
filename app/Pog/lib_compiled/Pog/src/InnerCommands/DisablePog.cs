@@ -7,7 +7,7 @@ using Pog.Utils;
 namespace Pog.InnerCommands;
 
 internal class DisablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
-    [Parameter(Mandatory = true)] public ImportedPackage Package = null!;
+    [Parameter] public required ImportedPackage Package;
 
     public override void Invoke() {
         Debug.Assert(Package.ManifestLoaded);
