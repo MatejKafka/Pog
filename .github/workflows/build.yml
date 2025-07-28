@@ -154,52 +154,12 @@ jobs:
     # install a few Pog packages to check that Pog works
     - name: Test Pog packages (PowerShell Core)
       shell: pwsh
-      run: |
-        Write-Host "PowerShell v$($PSVersionTable.PSVersion)"
-        $InformationPreference = "Continue"
-        Import-Module ./app/Pog
-
-        Write-Host "Exported cmdlets:"
-        (Get-Module Pog).ExportedCommands.Keys | % {Write-Host "- $_"}
-
-        Write-Host "Available packages: $(@(Find-Pog -AllVersions).Count)"
-        pog fzf, zstd, Jujutsu
-
-        Get-Pog
-
-        Write-Host ""
-        Write-Host "fzf: $(fzf --version)"
-        Write-Host "zstd: $(zstd --version)"
-        Write-Host "Jujutsu: $(jj --version)"
-
-        Write-Host ""
-        Uninstall-Pog fzf, zstd, Jujutsu
-        Clear-PogDownloadCache -Force
+      run: .\.github\workflows\TestPackageInstallation.ps1
 
     # the same test in PowerShell 5, to test compatibility
     - name: Test Pog packages (PowerShell 5)
       shell: powershell
-      run: |
-        Write-Host "PowerShell v$($PSVersionTable.PSVersion)"
-        $InformationPreference = "Continue"
-        Import-Module ./app/Pog
-
-        Write-Host "Exported cmdlets:"
-        (Get-Module Pog).ExportedCommands.Keys | % {Write-Host "- $_"}
-
-        Write-Host "Available packages: $(@(Find-Pog -AllVersions).Count)"
-        pog fzf, zstd, Jujutsu
-
-        Get-Pog
-
-        Write-Host ""
-        Write-Host "fzf: $(fzf --version)"
-        Write-Host "zstd: $(zstd --version)"
-        Write-Host "Jujutsu: $(jj --version)"
-
-        Write-Host ""
-        Uninstall-Pog fzf, zstd, Jujutsu
-        Clear-PogDownloadCache -Force
+      run: .\.github\workflows\TestPackageInstallation.ps1
 
     - name: Generate release archive
       shell: pwsh
