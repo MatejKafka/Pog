@@ -31,11 +31,9 @@ internal class ShowLockedFileList(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
             Host.UI.ReadLine();
         } catch (PSInvalidOperationException e) {
             // host is not interactive, just throw an exception
-            var exception = new PSInvalidOperationException(
-                    MessagePrefix + " because processes listed in the output above " +
-                    "are working with files inside the package.", e);
             // TODO: shouldn't this be a non-terminating error?
-            ThrowTerminatingError(new(exception, "PackageInUse", ErrorCategory.ResourceBusy, Path));
+            throw new PSInvalidOperationException(MessagePrefix + " because processes listed in the output above " +
+                                                  "are working with files inside the package.", e);
         }
     }
 

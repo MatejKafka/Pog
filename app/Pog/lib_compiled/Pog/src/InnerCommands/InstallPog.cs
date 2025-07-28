@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -39,14 +38,17 @@ public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposa
 
         _progressActivity = new() {Activity = $"Installing '{Package.PackageName}'"};
 
-        CleanPreviousInstallation();
+        try {
+            CleanPreviousInstallation();
 
-        Debug.Assert(Package.Manifest.Install != null);
-        foreach (var source in Package.Manifest.EvaluateInstallUrls(Package)) {
-            InstallSingleSource(source);
+            foreach (var source in Package.Manifest.EvaluateInstallUrls(Package)) {
+                InstallSingleSource(source);
+            }
+
+            ReplaceAppDirectory(_newAppDirPath, _appDirPath, _oldAppDirPath);
+        } catch (Exception e) {
+            throw new Exception($"Failed to install package '{Package.PackageName}': {e.Message}", e);
         }
-
-        ReplaceAppDirectory(_newAppDirPath, _appDirPath, _oldAppDirPath);
     }
 
     private void CleanPreviousInstallation() {
@@ -108,11 +110,10 @@ public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposa
             }
         }
 
-        var downloadParameters = new DownloadParameters(source.UserAgent);
         using var downloadedFile = InvokePogCommand(new InvokeCachedFileDownload(Cmdlet) {
             SourceUrl = url,
             ExpectedHash = source.ExpectedHash,
-            DownloadParameters = downloadParameters,
+            DownloadParameters = new DownloadParameters(source.UserAgent),
             Package = Package,
             ProgressActivity = _progressActivity,
         });
@@ -206,10 +207,8 @@ public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposa
                     break;
                 case 0:
                     // subdirectory does not exist
-                    var exception = new DirectoryNotFoundException(
-                            $"Subdirectory '{subdirectory}' requested in the package manifest does not exist inside the archive.");
-                    ThrowTerminatingError(exception, "ArchiveSubdirectoryNotFound", ErrorCategory.InvalidData, subdirectory);
-                    break;
+                    throw new DirectoryNotFoundException($"Subdirectory '{subdirectory}' requested in the package " +
+                                                         $"manifest does not exist inside the archive.");
             }
 
             var subPath = resolvedPaths[0]!;
@@ -244,10 +243,9 @@ public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposa
                 Directory.Delete(pluginDirPath, true);
                 WriteDebug($"Removed '{pluginDirName}' directory from the extracted NSIS installer archive.");
             } catch (DirectoryNotFoundException e) {
-                var exception = new DirectoryNotFoundException(
+                throw new DirectoryNotFoundException(
                         $"'-NsisInstaller' flag was set in the package manifest, but the directory '{pluginDirName}' " +
                         "does not exist in the extracted path (NSIS self-extracting archive should contain it).", e);
-                ThrowTerminatingError(exception, "NsisPluginDirNotFound", ErrorCategory.InvalidData, pluginDirPath);
             }
         }
 

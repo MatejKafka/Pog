@@ -61,7 +61,11 @@ internal class PogHttpClient : HttpClient {
 
         var response = await SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
         try {
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode) {
+                // default error message from `.EnsureSuccessStatusCode()` does not include the URL
+                throw new HttpRequestException(
+                        $"Could not download file at '{uri}': {(int) response.StatusCode} {response.ReasonPhrase}");
+            }
 
             // in theory, we should return the response as well and dispose it, but the authors of HttpClient are claiming
             //  that it should always be safe to just dispose the stream: https://github.com/dotnet/runtime/issues/28578
