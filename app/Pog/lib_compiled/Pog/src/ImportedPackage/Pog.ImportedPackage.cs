@@ -31,8 +31,6 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     internal string ExportedShortcutShimDirPath => $"{Path}{PathConfig.PackagePaths.ShortcutShimDirRelSuffix}";
 
     public override bool Exists => Directory.Exists(Path);
-    /// Indicates whether a package manifest is available (either already loaded, or the manifest file exists).
-    public bool ManifestAvailable => ManifestLoaded || File.Exists(ManifestPath);
 
     private PackageUserManifest? _userManifest;
     public PackageUserManifest UserManifest => EnsureUserManifestIsLoaded();
