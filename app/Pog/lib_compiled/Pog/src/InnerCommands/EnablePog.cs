@@ -9,8 +9,7 @@ using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public sealed class EnablePog(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
-    [Parameter] public required ImportedPackage Package;
+public sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
     [Parameter] public Hashtable? PackageArguments = null;
 
     public override void Invoke() {

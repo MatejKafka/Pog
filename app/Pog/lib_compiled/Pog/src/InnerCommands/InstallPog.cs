@@ -11,9 +11,7 @@ using PPaths = Pog.PathConfig.PackagePaths;
 
 namespace Pog.InnerCommands;
 
-public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposable {
-    [Parameter] public required ImportedPackage Package;
-
+public sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet), IDisposable {
     private string _appDirPath = null!;
     private string _newAppDirPath = null!;
     private string _oldAppDirPath = null!;
@@ -250,7 +248,7 @@ public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposa
         }
 
         if (setupScript != null) {
-            InvokePogCommand(new InvokeContainer(Cmdlet) {
+            var cmd = new InvokeContainer(Cmdlet) {
                 WorkingDirectory = subdirectoryPath,
                 // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
                 Variables = [
@@ -258,8 +256,12 @@ public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposa
                     new("ErrorActionPreference", ActionPreference.Stop, ""),
                 ],
                 Run = ps => ps.AddScript("Set-StrictMode -Version 3; & $Args[0]").AddArgument(setupScript),
-            }).Drain();
-            // ^ ignore output
+            };
+
+            // setup script should not output anything, show a warning
+            foreach (var o in InvokePogCommand(cmd)) {
+                WriteWarning($"SETUP: {o}");
+            }
         }
     }
 
@@ -343,6 +345,4 @@ public sealed class InstallPog(PogCmdlet cmdlet) : VoidCommand(cmdlet), IDisposa
         });
         _lockFileListShown = true;
     }
-
-    public class UserRefusedOverwriteException(string message) : Exception(message);
 }
