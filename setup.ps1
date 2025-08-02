@@ -84,16 +84,6 @@ To allow creating symbolic links, do any of the following and re-run '$PSCommand
 }
 
 
-# before running the actual setup, start the BITS service in the background, which is used for downloading packages
-# the user it likely to want to install a package after installing Pog, and BITS takes a bit of time to start up
-$BitsJob = Start-Job {Start-Service BITS}
-$null = Register-ObjectEvent -InputObject $BitsJob -EventName StateChanged -Action {
-    # when the job finishes, automatically remove it
-    Unregister-Event $EventSubscriber.SourceIdentifier
-    Remove-Job $EventSubscriber.SourceIdentifier
-    Remove-Job -Id $EventSubscriber.SourceObject.Id
-}
-
 # need to call unblock before importing any modules
 Write-Host "Unblocking Pog PowerShell files..."
 & {
