@@ -1,4 +1,5 @@
-﻿using Pog.InnerCommands.Common;
+﻿using Pog.Commands.Common;
+using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 

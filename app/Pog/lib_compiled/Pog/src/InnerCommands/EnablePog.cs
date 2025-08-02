@@ -4,12 +4,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 using Pog.Commands;
+using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
+internal sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
     [Parameter] public Hashtable? PackageArguments = null;
 
     public override void Invoke() {

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using Microsoft.Win32.SafeHandles;
+using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
 using PPaths = Pog.PathConfig.PackagePaths;

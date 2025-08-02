@@ -8,7 +8,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Pog.InnerCommands;
 
 namespace Pog.Utils.Http;
 

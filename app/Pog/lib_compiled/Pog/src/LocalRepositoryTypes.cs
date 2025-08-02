@@ -111,6 +111,7 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
     }
 }
 
+/// Specific version of a package contained in a local Pog package repository.
 [PublicAPI]
 public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage parent, PackageVersion version, string path)
         : RepositoryPackage(parent, version), ILocalPackage {

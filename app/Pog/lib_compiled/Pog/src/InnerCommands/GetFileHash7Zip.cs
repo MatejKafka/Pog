@@ -1,18 +1,18 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Management.Automation;
 using System.Text.RegularExpressions;
 using Pog.Commands.Common;
+using Pog.Commands.InternalCommands;
 using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
 
 public class Failed7ZipHashCalculationException(string message) : Exception(message);
 
-public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet) {
+internal sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cmdlet) {
     [Parameter] public required string Path;
-    [Parameter] public HashAlgorithm Algorithm = default;
+    [Parameter] public HashAlgorithm7Zip Algorithm = default;
     [Parameter] public ProgressActivity ProgressActivity = new();
 
     // -bsp1  = enable progress reports
@@ -82,7 +82,8 @@ public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cm
             throw new PipelineStoppedException();
         }
 
-        Debug.Assert(hash.Length == GetExpectedHashLength(Algorithm));
+        // * 2 for hex
+        Debug.Assert(hash.Length == 2 * GetHashLength(Algorithm));
         return hash;
     }
 
@@ -96,19 +97,13 @@ public sealed class GetFileHash7Zip(PogCmdlet cmdlet) : ScalarCommand<string>(cm
         };
     }
 
-    // TODO: 7zip 24.09 added support for sha-512, expose it (if 7z.exe version is high enough)
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    public enum HashAlgorithm {
-        // SHA256 is `default(T)`
-        SHA256 = 0, CRC32, CRC64, SHA1,
-    }
-
-    private static int GetExpectedHashLength(HashAlgorithm algorithm) {
+    private static int GetHashLength(HashAlgorithm7Zip algorithm) {
         return algorithm switch {
-            HashAlgorithm.CRC32 => 8,
-            HashAlgorithm.CRC64 => 16,
-            HashAlgorithm.SHA1 => 40,
-            HashAlgorithm.SHA256 => 64,
+            HashAlgorithm7Zip.SHA256 => 32,
+            HashAlgorithm7Zip.SHA512 => 64,
+            HashAlgorithm7Zip.SHA1 => 20,
+            HashAlgorithm7Zip.CRC32 => 4,
+            HashAlgorithm7Zip.CRC64 => 8,
             _ => throw new ArgumentOutOfRangeException(nameof(algorithm), algorithm, null),
         };
     }

@@ -4,7 +4,6 @@ using System.Security;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
-using Pog.InnerCommands.Common;
 using Pog.PSAttributes;
 
 namespace Pog.Commands;

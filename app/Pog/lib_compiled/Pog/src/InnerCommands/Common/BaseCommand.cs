@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Threading;
+using Pog.Commands.Common;
 
 namespace Pog.InnerCommands.Common;
 
@@ -16,7 +17,7 @@ namespace Pog.InnerCommands.Common;
 /// <remarks>
 /// Note that if a subclass of this invokes `ThrowTerminatingError`, it terminates the calling cmdlet immediately.
 /// </remarks>
-public abstract class BaseCommand(PogCmdlet cmdlet) {
+internal abstract class BaseCommand(PogCmdlet cmdlet) {
     protected readonly PogCmdlet Cmdlet = cmdlet;
     protected CancellationToken CancellationToken => Cmdlet.CancellationToken;
 

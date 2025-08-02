@@ -1,6 +1,6 @@
 ﻿using System.Management.Automation;
 using JetBrains.Annotations;
-using Pog.InnerCommands.Common;
+using Pog.Commands.Common;
 using Pog.Native;
 using Pog.PSAttributes;
 

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Management.Automation;
-using Pog.InnerCommands.Common;
 using Pog.Utils;
 
 namespace Pog.Commands.Common;

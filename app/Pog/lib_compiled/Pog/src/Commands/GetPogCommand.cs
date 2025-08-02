@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
-using Pog.InnerCommands.Common;
+using Pog.Commands.Common;
 using Pog.PSAttributes;
 
 namespace Pog.Commands;

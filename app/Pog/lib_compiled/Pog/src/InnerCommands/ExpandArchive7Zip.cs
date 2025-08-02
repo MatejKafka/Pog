@@ -13,7 +13,7 @@ using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
+internal sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) {
     [Parameter] public required string ArchivePath;
     [Parameter] public required string TargetPath;
     [Parameter] public string? RawTargetPath;

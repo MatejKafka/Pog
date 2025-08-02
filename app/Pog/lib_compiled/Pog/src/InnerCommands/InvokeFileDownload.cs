@@ -9,6 +9,8 @@ using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
+internal record struct DownloadedFile(string? Path, string? Hash);
+
 /// Downloads a file and either stores it to a directory using the original name or computes its SHA-256 hash.
 internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<DownloadedFile>(cmdlet) {
     [Parameter] public required string SourceUrl;
@@ -73,5 +75,3 @@ internal sealed class InvokeFileDownload(PogCmdlet cmdlet) : ScalarCommand<Downl
         }
     }
 }
-
-public record struct DownloadedFile(string? Path, string? Hash);

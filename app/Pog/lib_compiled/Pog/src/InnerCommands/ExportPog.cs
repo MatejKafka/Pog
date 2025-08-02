@@ -1,12 +1,13 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
 
 namespace Pog.InnerCommands;
 
-public sealed class ExportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
+internal sealed class ExportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
     public override void Invoke() {
         ExportShortcuts();
         ExportCommands();

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Management.Automation;
+using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;

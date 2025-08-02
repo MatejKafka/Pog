@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Management.Automation;
 using JetBrains.Annotations;
-using Pog.InnerCommands.Common;
+using Pog.Commands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 

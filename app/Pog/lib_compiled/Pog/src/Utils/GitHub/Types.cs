@@ -3,6 +3,7 @@ using JetBrains.Annotations;
 
 namespace Pog.Utils.GitHub;
 
+/// Asset of a GitHub release, accessed through <see cref="GitHubRelease"/>.
 [PublicAPI]
 public record GitHubAsset(
         string Name,
@@ -46,6 +47,7 @@ public abstract record GitHubObject {
     }
 }
 
+/// Release in a GitHub repository, returned by the GitHub API.
 [PublicAPI]
 public record GitHubRelease(
         string Name,

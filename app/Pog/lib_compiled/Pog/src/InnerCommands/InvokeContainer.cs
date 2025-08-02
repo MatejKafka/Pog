@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;

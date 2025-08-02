@@ -3,7 +3,6 @@ using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
-using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.InternalCommands;
 
@@ -17,7 +16,6 @@ public sealed class ExpandArchive7ZipCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 1)] public string TargetPath = null!;
     /// If passed, only paths inside the archive matching at least one of the filters are extracted.
     [Parameter] public string[]? Filter;
-    [Parameter] public ProgressActivity ProgressActivity = new();
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
@@ -27,7 +25,6 @@ public sealed class ExpandArchive7ZipCommand : PogCmdlet {
             TargetPath = GetUnresolvedProviderPathFromPSPath(TargetPath),
             RawTargetPath = TargetPath,
             Filter = Filter,
-            ProgressActivity = ProgressActivity,
         });
     }
 }

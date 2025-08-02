@@ -3,7 +3,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
-using Pog.InnerCommands.Common;
+using Pog.Commands.Common;
 
 namespace Pog.Commands.ContainerCommands;
 

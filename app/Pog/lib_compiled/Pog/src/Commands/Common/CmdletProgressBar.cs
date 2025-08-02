@@ -68,4 +68,4 @@ internal sealed class CmdletProgressBar : IProgress<double>, IDisposable {
 }
 
 /// Metadata for rendering a PowerShell progress bar.
-public record struct ProgressActivity(string? Activity = null, string? Description = null, int? Id = null);
+internal record struct ProgressActivity(string? Activity = null, string? Description = null, int? Id = null);

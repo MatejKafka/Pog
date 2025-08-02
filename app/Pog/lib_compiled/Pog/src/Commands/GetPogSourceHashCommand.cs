@@ -9,6 +9,7 @@ public record PackageSourceHash(string Url, string Hash, string? ExpectedHash, P
     public bool? Matches => ExpectedHash == null ? null : Hash == ExpectedHash;
 }
 
+/// <summary>Downloads all resources needed to install the given package and returns the SHA-256 hash for each resource.</summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogSourceHash", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 [OutputType(typeof(PackageSourceHash))]

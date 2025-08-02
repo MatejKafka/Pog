@@ -3,7 +3,6 @@ using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
-using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.InternalCommands;
 
@@ -14,8 +13,7 @@ namespace Pog.Commands.InternalCommands;
 public sealed class InvokeFileDownloadCommand : PogCmdlet {
     [Parameter(Mandatory = true, Position = 0)] public string SourceUrl = null!;
     [Parameter(Mandatory = true, Position = 1)] public string DestinationDirPath = null!;
-    [Parameter] public DownloadParameters DownloadParameters = new();
-    [Parameter] public ProgressActivity ProgressActivity = new();
+    [Parameter] public UserAgentType UserAgent = default;
 
     protected override void BeginProcessing() {
         base.BeginProcessing();
@@ -28,8 +26,7 @@ public sealed class InvokeFileDownloadCommand : PogCmdlet {
         WriteObject(InvokePogCommand(new InvokeFileDownload(this) {
             SourceUrl = SourceUrl,
             DestinationDirPath = destinationDir,
-            DownloadParameters = DownloadParameters,
-            ProgressActivity = ProgressActivity,
+            DownloadParameters = new(UserAgent),
         }).Path);
     }
 }

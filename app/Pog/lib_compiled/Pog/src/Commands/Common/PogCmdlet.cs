@@ -6,8 +6,9 @@ using System.Management.Automation;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Threading;
+using Pog.InnerCommands.Common;
 
-namespace Pog.InnerCommands.Common;
+namespace Pog.Commands.Common;
 
 /// <summary>
 /// A custom PSCmdlet subclass which adds useful internal methods used by most Pog cmdlets.

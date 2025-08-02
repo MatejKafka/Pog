@@ -11,7 +11,7 @@ using PPaths = Pog.PathConfig.PackagePaths;
 
 namespace Pog.InnerCommands;
 
-public sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet), IDisposable {
+internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet), IDisposable {
     private string _appDirPath = null!;
     private string _newAppDirPath = null!;
     private string _oldAppDirPath = null!;
