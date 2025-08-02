@@ -20,6 +20,9 @@ env:
   VERSION_UPX: "4.2.3"
   VERSION_7ZIP: "24.09"
 
+  # avoid "Workload updates are available. Run `dotnet workload list` for more information."
+  DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -104,11 +107,12 @@ jobs:
       working-directory: app/Pog/lib_compiled
       run: |
         dotnet sln remove RandomTests RandomBenchmarks
-        dotnet restore
+        dotnet restore -bl:D:\logs\restore.binlog
 
     - name: Build Pog.dll
       working-directory: app/Pog/lib_compiled
-      run: dotnet publish --no-restore Pog
+      run: |
+        dotnet publish --no-restore Pog -bl:D:\logs\build.binlog
 
     - name: Build Pog.Shim
       working-directory: app/Pog/lib_compiled
@@ -177,6 +181,12 @@ jobs:
       with:
         name: Pog
         path: D:/PogRelease
+
+    - name: Upload logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs
+        path: D:/logs
 
     - name: Update nightly release
       shell: pwsh
