@@ -25,6 +25,8 @@ jobs:
     runs-on: windows-latest
     steps:
 
+    ### SETUP #####################################################################################
+
     - name: Configure git to preserve line endings
       run: git config --global core.autocrlf false
 
@@ -35,6 +37,8 @@ jobs:
       with:
         path: ~\.nuget\packages
         key: nuget-${{ github.job }}-${{ runner.os }}-${{ hashFiles('**/packages.lock.json') }}
+
+    ### TOOL INSTALLATION #########################################################################
 
     # used for PowerShell unit tests
     - name: Install Pester
@@ -94,13 +98,17 @@ jobs:
         gcm upx.exe
         gcm ..\7zip\app\7z.exe
 
+    ### BUILD #####################################################################################
 
-    - name: Build Pog.dll
+    - name: Restore NuGet dependencies
       working-directory: app/Pog/lib_compiled
       run: |
         dotnet sln remove RandomTests RandomBenchmarks
         dotnet restore
-        dotnet publish --no-restore Pog
+
+    - name: Build Pog.dll
+      working-directory: app/Pog/lib_compiled
+      run: dotnet publish --no-restore Pog
 
     - name: Build Pog.Shim
       working-directory: app/Pog/lib_compiled
@@ -129,6 +137,7 @@ jobs:
         # reinstall 7zip with correct manifest
         pog 7zip -Force
 
+    ### TESTING ###################################################################################
 
     - name: Pog.Tests
       working-directory: app/Pog/lib_compiled
@@ -153,6 +162,8 @@ jobs:
     - name: Test Pog packages (PowerShell 5)
       shell: powershell
       run: .\.github\workflows\TestPackageInstallation.ps1
+
+    ### RELEASE ###################################################################################
 
     - name: Generate release archive
       shell: pwsh
