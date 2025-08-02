@@ -173,3 +173,18 @@ jobs:
       with:
         name: Pog
         path: D:/PogRelease
+
+    - name: Update nightly release
+      shell: pwsh
+      run: |
+        .\.github\workflows\UpdateReleaseAsset.ps1 `
+          -ReleaseId 237074955 `
+          -AssetName Pog.zip `
+          -InFile D:\PogRelease.zip `
+          -GitHubToken (ConvertTo-SecureString -AsPlainText -Force "${{ secrets.GITHUB_TOKEN }}")
+
+    - name: Update nightly tag
+      shell: pwsh
+      run: |
+        git tag nightly HEAD -f
+        git push origin refs/tags/nightly -f
