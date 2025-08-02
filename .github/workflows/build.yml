@@ -7,18 +7,13 @@ on:
     branches: [ "main" ]
 
 env:
-  # C:\ drive in gh action is much slower than D:\, move everything we can to D:\
-  DOTNET_INSTALL_DIR: D:\dotnet
-
   # versions of dependencies needed for building and bootstrapping Pog
   # these should be updated periodically with the following command:
   # ```
-  # "VERSION_DOTNET: `"$(dotnet --version)`""
   # "VERSION_PESTER: `"$((Find-Module Pester).Version)`""
   # "VERSION_WIX_DARK: `"$((Find-Pog dark@ScoopInstaller).Version)`""
   # Find-Pog ILRepack, UPX, 7zip | % {"VERSION_$($_.PackageName.ToUpperInvariant()): `"$($_.Version)`""}
   # ```
-  VERSION_DOTNET: "9.0.104"
   VERSION_PESTER: "5.7.1"
   VERSION_WIX_DARK: "3.14"
   VERSION_ILREPACK: "2.0.41"
@@ -35,13 +30,11 @@ jobs:
 
     - uses: actions/checkout@v4
 
-    # needed to build Pog.dll
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
       with:
-        dotnet-version: ${{env.VERSION_DOTNET}}
-        cache: true
-        cache-dependency-path: app/Pog/lib_compiled/*/packages.lock.json
+        path: ~\.nuget\packages
+        key: nuget-${{ github.job }}-${{ runner.os }}-${{ hashFiles('**/packages.lock.json') }}
 
     # used for PowerShell unit tests
     - name: Install Pester
