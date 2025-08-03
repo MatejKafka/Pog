@@ -124,14 +124,14 @@ jobs:
     - name: Build Pog.Shim
       working-directory: app/Pog/lib_compiled
       run: |
-        cmake -B ./Pog.Shim/cmake-build-release -S ./Pog.Shim -DCMAKE_BUILD_TYPE=Release
-        cmake --build ./Pog.Shim/cmake-build-release --config Release
-        gi ./PogShimTemplate.exe
+        cmake -B .\Pog.Shim\cmake-build-release -S .\Pog.Shim -DCMAKE_BUILD_TYPE=Release
+        cmake --build .\Pog.Shim\cmake-build-release --config Release
+        gi .\PogShimTemplate.exe
 
     - name: Download VC Redistributable
       shell: pwsh
       run: |
-        ./app/Pog/_scripts/vcredist-download.ps1 -OutDir ./app/Pog/lib_compiled/vc_redist @(
+        .\app\Pog\_scripts\vcredist-download.ps1 -OutDir .\app\Pog\lib_compiled\vc_redist @(
           # latest vcredist 140
           "https://aka.ms/vs/17/release/vc_redist.x64.exe"
           # fixed vcredist 120
@@ -179,11 +179,11 @@ jobs:
     - name: Generate release archive
       shell: pwsh
       run: |
-        & ./app/Pog/_scripts/release/build-release.ps1 -ReleasePath D:/PogRelease.zip
+        .\app\Pog\_scripts\release\build-release.ps1 -ReleasePath D:\PogRelease.zip
         # unpack so that the generated artifact (which is always zipped) is not a nested .zip
         Expand-Archive D:\PogRelease.zip D:\PogRelease
 
-    - name: Publish release archive as artifact
+    - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
         name: Pog
