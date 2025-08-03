@@ -23,9 +23,16 @@ env:
   # avoid "Workload updates are available. Run `dotnet workload list` for more information."
   DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: true
 
+  # D:\ drive on the GitHub actions runners is significantly faster than C:\, move what we can from C:\
+  TEMP: D:\.temp
+  NUGET_PACKAGES: D:\.nuget\packages
+  NUGET_HTTP_CACHE_PATH: D:\nuget\http-cache
+  NUGET_SCRATCH: D:\nuget\scratch
+  NUGET_PLUGINS_CACHE_PATH: D:\nuget\plugins-cache
+
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
 
     ### SETUP #####################################################################################
@@ -38,8 +45,8 @@ jobs:
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
-        path: ~\.nuget\packages
-        key: nuget-${{ github.job }}-${{ runner.os }}-${{ hashFiles('**/packages.lock.json') }}
+        path: ${{ env.NUGET_PACKAGES }}
+        key: nuget-${{ github.job }}-${{ runner.os }}-${{ env.NUGET_PACKAGES }}-${{ hashFiles('**/packages.lock.json') }}
 
     ### TOOL INSTALLATION #########################################################################
 
