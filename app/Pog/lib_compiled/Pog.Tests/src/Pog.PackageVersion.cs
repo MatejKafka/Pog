@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using System;
+using Xunit;
 using VT = Pog.PackageVersion.DevVersionType;
 
 namespace Pog.Tests;

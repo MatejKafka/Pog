@@ -1,4 +1,7 @@
-﻿using System.Management.Automation;
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using JetBrains.Annotations;
 using Pog.PSAttributes;
