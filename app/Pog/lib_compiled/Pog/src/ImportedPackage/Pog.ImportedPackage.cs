@@ -102,4 +102,6 @@ public sealed class ImportedPackage : Package, ILocalPackage {
             return $"package '{Manifest.Name}' (installed as '{PackageName}'){versionStr}";
         }
     }
+
+    public override string ToString() => $"{this.GetType().FullName}({PackageName} v{Version}, {Path})";
 }

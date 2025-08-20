@@ -134,6 +134,7 @@ public abstract class RepositoryPackage(RepositoryVersionedPackage parent, Packa
     internal abstract string ExpectedPathStr {get;}
 
     public override string GetDescriptionString() => $"package '{PackageName}', version '{Version}'";
+    public override string ToString() => $"{this.GetType().FullName}({PackageName} v{Version})";
 
     public abstract bool MatchesImportedManifest(ImportedPackage p);
     public abstract void ImportTo(ImportedPackage target);
