@@ -410,17 +410,14 @@ internal static partial class Win32 {
     /// <summary>
     /// Represents a Win32 handle that can be closed with <see cref="FreeLibrary"/>.
     /// </summary>
-    public class FreeLibrarySafeHandle
-            : SafeHandle {
-        private static readonly IntPtr InvalidHandleValue = new IntPtr(0L);
+    public class FreeLibrarySafeHandle : SafeHandle {
+        private static readonly IntPtr InvalidHandleValue = new(0L);
         public FreeLibrarySafeHandle() : base(InvalidHandleValue, true) {}
 
-        public FreeLibrarySafeHandle(IntPtr preexistingHandle, bool ownsHandle = true) :
-                base(InvalidHandleValue, ownsHandle) {
-            this.SetHandle(preexistingHandle);
-        }
+        public FreeLibrarySafeHandle(IntPtr preexistingHandle, bool ownsHandle = true)
+                : base(InvalidHandleValue, ownsHandle) => this.SetHandle(preexistingHandle);
 
-        public override bool IsInvalid => this.handle.ToInt64() == 0L;
+        public override bool IsInvalid => this.handle == InvalidHandleValue;
 
         protected override bool ReleaseHandle() => FreeLibrary((HMODULE) this.handle);
     }
