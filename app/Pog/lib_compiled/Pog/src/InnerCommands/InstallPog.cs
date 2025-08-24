@@ -21,10 +21,10 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
     private bool _lockFileListShown = false;
     private ProgressActivity _progressActivity = new();
 
-    public override void Invoke() {
+    public override bool Invoke() {
         if (Package.Manifest.Install == null) {
             WriteInformation($"Package '{Package.PackageName}' does not have an Install block.");
-            return;
+            return false;
         }
         WriteInformation($"Installing {Package.GetDescriptionString()}...");
 
@@ -47,6 +47,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
         } catch (Exception e) {
             throw new Exception($"Failed to install package '{Package.PackageName}': {e.Message}", e);
         }
+        return true;
     }
 
     private void CleanPreviousInstallation() {

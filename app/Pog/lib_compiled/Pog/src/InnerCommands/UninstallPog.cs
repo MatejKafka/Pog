@@ -14,11 +14,11 @@ namespace Pog.InnerCommands;
 internal class UninstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
     [Parameter] public required bool KeepData;
 
-    public override void Invoke() {
+    public override bool Invoke() {
         if (Package.PackageName == "Pog") {
             WriteWarning("Cannot uninstall Pog itself using Pog. To uninstall Pog, Run `Disable-Pog Pog`, close the" +
                          $" PowerShell session and then delete the Pog package directory ('{Package.Path}') manually.");
-            return;
+            return false;
         }
 
         InvokePogCommand(new UnexportPog(Cmdlet) {
@@ -27,6 +27,7 @@ internal class UninstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(
 
         DisablePackage();
         UninstallPackage();
+        return true;
     }
 
     private void DisablePackage() {

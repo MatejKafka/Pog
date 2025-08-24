@@ -59,4 +59,10 @@ internal abstract class BaseCommand(PogCmdlet cmdlet) {
     protected Collection<string> GetResolvedProviderPathFromPSPath(string path, out ProviderInfo provider) {
         return Cmdlet.GetResolvedProviderPathFromPSPath(path, out provider);
     }
+
+    protected bool ShouldContinue(string query, string caption) => Cmdlet.ShouldContinue(query, caption);
+
+    protected bool ShouldProcess(string verboseDescription, string verboseWarning, string? caption) {
+        return Cmdlet.ShouldProcess(verboseDescription, verboseWarning, caption);
+    }
 }

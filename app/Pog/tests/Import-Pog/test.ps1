@@ -39,16 +39,14 @@ test {Import-Pog (Find-Pog test1, test2)}
 test {Import-Pog (Find-Pog test1) -TargetName target}
 test {Import-Pog (Find-Pog test1) -TargetPackageRoot $Roots[1]}
 test {Import-Pog (Find-Pog test1) -TargetName target -TargetPackageRoot $Roots[1]}
-test {Import-Pog (Find-Pog test1) (Get-Pog test1-imported)}
+test {Import-Pog (Find-Pog test1) -Target (Get-Pog test1-imported)}
 test {Find-Pog test1, test2 | Import-Pog}
 test {Find-Pog test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]}
 
 title "Package, should fail"
 test {Import-Pog (Find-Pog test1) -TargetPackageRoot ".\nonexistent"}
-test {Import-Pog (Find-Pog test1) -TargetName target, target2}
 test {Import-Pog (Find-Pog test1, test2) -TargetName target}
-test {Import-Pog (Find-Pog test1) (Get-Pog test1-imported, test1-imported)}
-test {Import-Pog (Find-Pog test1, test2) (Get-Pog test1-imported)}
+test {Import-Pog (Find-Pog test1, test2) -Target (Get-Pog test1-imported)}
 test {Find-Pog test1 | Import-Pog -TargetName target}
 test {Find-Pog test1 | Import-Pog -Version 1.0.0}
 
@@ -70,19 +68,9 @@ test {"test1", "test2" | Import-Pog -TargetPackageRoot $Roots[1]}
 
 title "PackageName, should fail"
 test {Import-Pog test1, test2 -TargetName target}
-test {Import-Pog test1 -TargetName test1, test2}
 test {Import-Pog test1, test2 1.0.0}
 test {Import-Pog -Version 1.0.0}
 test {Import-Pog (Find-Pog test1) 1.0.0}
-
-
-title "Target/TargetName"
-test {Import-Pog -TargetName test1-imported}
-test {Import-Pog -TargetName test1-imported, test2-imported}
-test {Import-Pog -TargetName test1-imported -TargetPackageRoot $Roots[0]}
-test {Import-Pog (Get-Pog test1-imported)}
-test {Import-Pog (Get-Pog test1-imported, test2-imported)}
-test {Get-Pog test1-imported, test2-imported | Import-Pog}
 
 
 title "Completion"

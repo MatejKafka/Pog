@@ -7,7 +7,7 @@ namespace Pog.InnerCommands;
 
 /// Removes both local and global exports of the package.
 internal class UnexportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
-    public override void Invoke() {
+    public override bool Invoke() {
         RemoveGloballyExportedCommands(Package);
         RemoveGloballyExportedShortcuts(Package);
 
@@ -29,6 +29,7 @@ internal class UnexportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(c
                 });
             }
         }
+        return true;
     }
 
     private static void RemoveExportedShortcuts(ImportedPackage p) {

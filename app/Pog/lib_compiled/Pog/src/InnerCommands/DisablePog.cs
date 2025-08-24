@@ -4,10 +4,10 @@ using Pog.InnerCommands.Common;
 namespace Pog.InnerCommands;
 
 internal class DisablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
-    public override void Invoke() {
+    public override bool Invoke() {
         if (Package.Manifest.Disable == null) {
             WriteVerbose($"Package '{Package.PackageName}' does not have a Disable block.");
-            return;
+            return false;
         }
 
         WriteInformation($"Disabling '{Package.GetDescriptionString()}'...");
@@ -24,5 +24,6 @@ internal class DisablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cm
         foreach (var o in it) {
             WriteWarning($"DISABLE: {o}");
         }
+        return true;
     }
 }

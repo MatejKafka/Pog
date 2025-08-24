@@ -15,7 +15,7 @@ What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\test1'.
 Import-Pog (Find-Pog test1) -TargetName target -TargetPackageRoot $Roots[1]
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\target'.
 
-Import-Pog (Find-Pog test1) (Get-Pog test1-imported)
+Import-Pog (Find-Pog test1) -Target (Get-Pog test1-imported)
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
 
 Find-Pog test1, test2 | Import-Pog
@@ -30,17 +30,11 @@ What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2'.
 Import-Pog (Find-Pog test1) -TargetPackageRoot ".\nonexistent"
 TERMINATING ERROR: The passed package root is not registered: TEST_DIR\nonexistent
 
-Import-Pog (Find-Pog test1) -TargetName target, target2
-TERMINATING ERROR: At most one target must be specified when a source package is provided to avoid ambiguity.
-
 Import-Pog (Find-Pog test1, test2) -TargetName target
-TERMINATING ERROR: At most one source package must be specified when an explicit target is specified.
+TERMINATING ERROR: Exactly one source package must be specified when an explicit target is specified, got 2.
 
-Import-Pog (Find-Pog test1) (Get-Pog test1-imported, test1-imported)
-TERMINATING ERROR: At most one target must be specified when a source package is provided to avoid ambiguity.
-
-Import-Pog (Find-Pog test1, test2) (Get-Pog test1-imported)
-TERMINATING ERROR: At most one source package must be specified when an explicit target is specified.
+Import-Pog (Find-Pog test1, test2) -Target (Get-Pog test1-imported)
+TERMINATING ERROR: Exactly one source package must be specified when an explicit target is specified, got 2.
 
 Find-Pog test1 | Import-Pog -TargetName target
 TERMINATING ERROR: -TargetName must not be passed together with pipeline input.
@@ -93,10 +87,7 @@ What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2'.
 
 --- PackageName, should fail ---
 Import-Pog test1, test2 -TargetName target
-TERMINATING ERROR: At most one source package must be specified when an explicit target is specified.
-
-Import-Pog test1 -TargetName test1, test2
-TERMINATING ERROR: At most one target must be specified when a source package is provided to avoid ambiguity.
+TERMINATING ERROR: Exactly one source package must be specified when an explicit target is specified, got 2.
 
 Import-Pog test1, test2 1.0.0
 TERMINATING ERROR: -Version must not be passed when -PackageName contains multiple package names.
@@ -106,28 +97,6 @@ PARAMETER BINDING EXCEPTION
 
 Import-Pog (Find-Pog test1) 1.0.0
 PARAMETER BINDING EXCEPTION
-
---- Target/TargetName ---
-Import-Pog -TargetName test1-imported
-What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
-
-Import-Pog -TargetName test1-imported, test2-imported
-What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
-What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2-imported'.
-
-Import-Pog -TargetName test1-imported -TargetPackageRoot $Roots[0]
-What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
-
-Import-Pog (Get-Pog test1-imported)
-What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
-
-Import-Pog (Get-Pog test1-imported, test2-imported)
-What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
-What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2-imported'.
-
-Get-Pog test1-imported, test2-imported | Import-Pog
-What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
-What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2-imported'.
 
 --- Completion ---
 'Import-Pog te': test1, test2

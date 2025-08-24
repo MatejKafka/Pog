@@ -8,9 +8,10 @@ using Pog.Utils;
 namespace Pog.InnerCommands;
 
 internal sealed class ExportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
-    public override void Invoke() {
+    public override bool Invoke() {
         ExportShortcuts();
         ExportCommands();
+        return true;
     }
 
     private void ExportShortcuts() {

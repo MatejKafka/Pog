@@ -13,10 +13,10 @@ namespace Pog.InnerCommands;
 internal sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
     [Parameter] public Hashtable? PackageArguments = null;
 
-    public override void Invoke() {
+    public override bool Invoke() {
         if (Package.Manifest.Enable == null) {
             WriteInformation($"Package '{Package.PackageName}' does not have an Enable block.");
-            return;
+            return false;
         }
 
         // TODO: consider whether to remove this print and instead prefix all logs from Env_Enable with the name of the package
@@ -55,6 +55,7 @@ internal sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
 
         // here, we can safely let any exceptions bubble, unlike above
         RemoveStaleExports(ctx);
+        return true;
     }
 
     // FIXME: in "NormalView" error view, the error looks slightly confusing, as it's designed for "ConciseView"
