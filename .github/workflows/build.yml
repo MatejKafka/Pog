@@ -101,12 +101,14 @@ jobs:
     - name: Verify build dependencies
       shell: pwsh
       run: |
-        [pscustomobject]@{Name = "dotnet.exe"; Version = dotnet.exe --version; Source = (gcm dotnet.exe).Source}
-        gmo Pester -ListAvailable | select -First 1
-        gcm dark.exe
-        gcm ilrepack.exe
-        gcm upx.exe
-        gcm ..\7zip\app\7z.exe
+        & {
+          [pscustomobject]@{Name = "dotnet.exe"; Version = dotnet.exe --version; Source = (gcm dotnet.exe).Source}
+          gmo Pester -ListAvailable | select -First 1
+          gcm dark.exe
+          gcm ilrepack.exe
+          gcm upx.exe
+          gcm ..\7zip\app\7z.exe
+        } | Format-Table -AutoSize
 
     ### BUILD #####################################################################################
 
@@ -118,11 +120,15 @@ jobs:
 
     - name: Build Pog.dll
       working-directory: app/Pog/lib_compiled
+      # most time is spent in ILRepack, and there's a lot of variance, I did not yet figure out
+      #  an easy way to profile ILRepack execution in the CI
       run: |
         dotnet publish --no-restore Pog -bl:D:\logs\build.binlog
 
     - name: Build Pog.Shim
       working-directory: app/Pog/lib_compiled
+      # most time is spent configuring the CMake project, especially discovering compiler ID
+      # timing info can be found in .\Pog.Shim\cmake-build-release\CMakeFiles\CMakeConfigureLog.yaml
       run: |
         cmake -B .\Pog.Shim\cmake-build-release -S .\Pog.Shim -DCMAKE_BUILD_TYPE=Release
         cmake --build .\Pog.Shim\cmake-build-release --config Release
