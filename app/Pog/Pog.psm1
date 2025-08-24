@@ -192,12 +192,25 @@ function New-PogPackage {
 }
 
 
+# internal class to hide some fields from Out-GridView, never exposed publicly
+class PackageUpdateInfo {
+    $PackageName
+    $CurrentVersion
+    $LatestVersion
+    hidden $Package
+    hidden $Target
+}
+
 # this is a temporary function which is not very well thought through
 function Update-Pog {
     ### .SYNOPSIS
     ### Lists outdated installed packages and updates selected packages to the latest version.
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding=$false, DefaultParameterSetName="PackageName")]
     param(
+            [Parameter(Position=0, ParameterSetName="Package")]
+            [Pog.ImportedPackage[]]
+        $Package,
+            [Parameter(Position=0, ParameterSetName="PackageName")]
             [ArgumentCompleter([Pog.PSAttributes.ImportedPackageNameCompleter])]
             [Pog.Verify+PackageName()]
             [string[]]
@@ -215,8 +228,13 @@ function Update-Pog {
         $Frozen
     )
 
-    $ImportedPackages = Get-Pog $PackageName | ? {$_.Version -and $_.ManifestName -and $_.UserManifest.Frozen -eq $Frozen}
+    if ($PSCmdlet.ParameterSetName -eq "PackageName") {
+        $Package = Get-Pog $PackageName
+    }
 
+    $ImportedPackages = $Package | ? {$_.Version -and $_.ManifestName -and $_.UserManifest.Frozen -eq $Frozen}
+
+    # find corresponding repository package
     $RepositoryPackageMap = @{}
     $ImportedPackages | % ManifestName `
         | select -Unique `
@@ -230,23 +248,23 @@ function Update-Pog {
         }
 
         if ($r.Version -gt $_.Version -or ($ManifestCheck -and $r.Version -eq $_.Version -and -not $r.MatchesImportedManifest($_))) {
-            return [pscustomobject]@{
+            return [PackageUpdateInfo]@{
                 PackageName = $_.PackageName
                 CurrentVersion = $_.Version
                 LatestVersion = $r.Version
+                Package = $r
                 Target = $_
             }
         }
     }
 
-    $SelectedPackages = if ($Force) {
-        $OutdatedPackages | % Target
-    } else {
-        $OutdatedPackages | Out-GridView -PassThru -Title "Outdated packages" | % Target
+    if (-not $Force) {
+        # let the user select which packages to update
+        $OutdatedPackages = $OutdatedPackages | Out-GridView -PassThru -Title "Outdated packages"
     }
 
     if ($ListOnly) {
-        return $SelectedPackages
+        return $OutdatedPackages | Select-Object Package, Target
     } else {
         # support parameter defaults for `Import-Pog` set by the user
         #  (quite hacky, but the result behaves consistently with `Invoke-Pog`, which implicitly
@@ -254,14 +272,14 @@ function Update-Pog {
         $PSDefaultParameterValues = $global:PSDefaultParameterValues
 
         # -Force because user already confirmed the update
-        $SelectedPackages | Invoke-Pog -Force
+        $OutdatedPackages | % {Invoke-Pog -Force -Package $_.Package -Target $_.Target}
     }
 }
 
 class DownloadCacheEntry {
     [string]$PackageName
     # FIXME: this should be a Pog.PackageVersion (but Pog.dll is not loaded when this is parsed)
-    [string]$Version
+    [object]$Version
     [string]$Hash
     [string]$FileName
 
