@@ -1,14 +1,11 @@
-﻿using System.Collections;
-using System.Management.Automation;
-using System.Reflection;
+﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
+using Pog.InnerCommands;
 
 namespace Pog.Commands;
 
 // TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
-// TODO: to rollback on error or Ctrl-C, we will first need to know 1) which part of the pipeline failed, 2) which package failed
-//  seems like there's no way to get that information using public APIs; investigate
 
 // FIXME: when XmlDoc2CmdletDoc syntax is changed to something saner, format the list accordingly
 /// <summary>Install a package from the package repository.</summary>
@@ -27,96 +24,46 @@ namespace Pog.Commands;
 /// </para>
 [PublicAPI]
 [Alias("pog")]
-// Cmdlet(...) params are manually copied from Import-Pog, there doesn't seem any way to dynamically copy this like with dynamicparam
-[Cmdlet(VerbsLifecycle.Invoke, "Pog", DefaultParameterSetName = ImportPogCommand.DefaultPS)]
+[Cmdlet(VerbsLifecycle.Invoke, "Pog", DefaultParameterSetName = DefaultPS)]
 [OutputType(typeof(ImportedPackage))]
-public sealed class InvokePogCommand : PackageCommandBase, IDynamicParameters {
+public sealed class InvokePogCommand : ImportCommandBase {
     /// Import and install the package, do not enable and export.
     [Parameter] public SwitchParameter Install;
 
     /// Import, install and enable the package, do not export it.
     [Parameter] public SwitchParameter Enable;
 
+    /// Return a [Pog.ImportedPackage] object with information about the installed package.
+    [Parameter] public SwitchParameter PassThru;
+
     // TODO: add an `-Imported` parameter set to allow installing+enabling+exporting an imported package
 
-    private static readonly CommandInfo ImportPogInfo = new CmdletInfo("Import-Pog", typeof(ImportPogCommand));
-    private static readonly CommandInfo InstallPogInfo = new CmdletInfo("Install-Pog", typeof(InstallPogCommand));
-    private static readonly CommandInfo EnablePogInfo = new CmdletInfo("Enable-Pog", typeof(EnablePogCommand));
-    private static readonly CommandInfo ExportPogInfo = new CmdletInfo("Export-Pog", typeof(ExportPogCommand));
-
-    private DynamicCommandParameters? _proxiedParams;
-    private PowerShell _ps = PowerShell.Create();
-    private SteppablePipeline? _pipeline;
-
-    public object GetDynamicParameters() {
-        if (_proxiedParams != null) {
-            return _proxiedParams;
-        }
-        var builder = new DynamicCommandParameters.Builder(UnknownAttributeHandler: (paramName, attr) =>
-                throw new InternalError($"Cannot copy parameter '{paramName}', attribute '{attr.GetType()}'."));
-        return _proxiedParams = builder.CopyParameters(ImportPogInfo);
-    }
-
-    private Hashtable CopyCommonParameters() {
-        // TODO: check if there isn't a built-in way to forward common parameters
-        var commonParams = new Hashtable();
-        foreach (var p in CommonParameters) {
-            if (MyInvocation.BoundParameters.TryGetValue(p, out var value)) {
-                commonParams[p] = value;
-            }
-        }
-        return commonParams;
-    }
-
     // TODO: rollback on error
-    protected override void BeginProcessing() {
-        base.BeginProcessing();
 
-        var importParams = _proxiedParams!.Extract();
+    protected override void ProcessPackage(RepositoryPackage source, ImportedPackage target) {
+        var imported = InvokePogCommand(new ImportPog(this) {
+            SourcePackage = source,
+            Package = target,
+            Diff = Diff,
+            Force = Force,
+        });
 
-        // reuse PassThru parameter from Import-Pog for Enable-Pog
-        var passThru = (importParams["PassThru"] as SwitchParameter?)?.IsPresent ?? false;
-        importParams.Remove("PassThru");
-        var commonParams = CopyCommonParameters();
-
-        _ps.AddCommand(ImportPogInfo).AddParameters(commonParams).AddParameter("PassThru").AddParameters(importParams);
-        if (Install) {
-            _ps.AddCommand(InstallPogInfo).AddParameters(commonParams).AddParameter("PassThru", passThru);
-        } else {
-            _ps.AddCommand(InstallPogInfo).AddParameters(commonParams).AddParameter("PassThru");
-            if (Enable) {
-                _ps.AddCommand(EnablePogInfo).AddParameters(commonParams).AddParameter("PassThru", passThru);
-            } else {
-                _ps.AddCommand(EnablePogInfo).AddParameters(commonParams).AddParameter("PassThru");
-                _ps.AddCommand(ExportPogInfo).AddParameters(commonParams).AddParameter("PassThru", passThru);
-            }
+        if (!imported) {
+            return;
         }
 
-        _pipeline = (SteppablePipeline) PowerShellGetSteppablePipelineMethod.Invoke(_ps, []);
-        _pipeline.Begin(this);
+        SetupPackage(target);
+
+        if (PassThru) {
+            WriteObject(target);
+        }
     }
 
-    protected override void ProcessRecord() {
-        base.ProcessRecord();
-
-        // https://github.com/orgs/PowerShell/discussions/21356
-        var pipelineInput = CurrentPipelineObjectProperty.GetValue(this);
-        _pipeline!.Process(pipelineInput);
+    private void SetupPackage(ImportedPackage target) {
+        InvokePogCommand(new InstallPog(this) {Package = target});
+        if (Install) return;
+        InvokePogCommand(new EnablePog(this) {Package = target}); // TODO: package arguments
+        if (Enable) return;
+        InvokePogCommand(new ExportPog(this) {Package = target});
     }
-
-    protected override void EndProcessing() {
-        base.EndProcessing();
-        _pipeline!.End();
-    }
-
-    public override void Dispose() {
-        _ps.Dispose();
-        _pipeline?.Dispose();
-    }
-
-    private static readonly MethodInfo PowerShellGetSteppablePipelineMethod = typeof(PowerShell).GetMethod(
-            "GetSteppablePipeline", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, [], [])!;
-
-    private static readonly PropertyInfo CurrentPipelineObjectProperty = typeof(PSCmdlet).GetProperty(
-            "CurrentPipelineObject", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
 }
