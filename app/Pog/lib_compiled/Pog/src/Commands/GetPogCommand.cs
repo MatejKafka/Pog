@@ -17,6 +17,7 @@ namespace Pog.Commands;
 public sealed class GetPogCommand : PogCmdlet {
     /// Names of installed packages to return. If not passed, all installed packages are returned.
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    [SupportsWildcards]
     [ArgumentCompleter(typeof(ImportedPackageNameCompleter))]
     public string[]? PackageName;
 

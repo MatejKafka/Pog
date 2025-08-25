@@ -22,16 +22,17 @@ public sealed class FindPogCommand : PogCmdlet {
 
     /// Names of packages to return. If not passed, all repository packages are returned.
     [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    [SupportsWildcards]
     [ValidateNotNullOrEmpty]
     [ArgumentCompleter(typeof(RepositoryPackageNameCompleter))]
     public string[]? PackageName;
 
-    // TODO: figure out how to remove this parameter when -PackageName is an array
-    /// Return only a single package with the given version. An exception is thrown if the version is not found.
-    /// This parameter is only supported when a single package name is passed in <see cref="PackageName"/>.
+    /// Return the specified versions of a single package.
+    /// This parameter is only allowed when a single package name is passed in <see cref="PackageName"/>.
     [Parameter(Position = 1, ParameterSetName = VersionPS)]
+    [SupportsWildcards]
     [ArgumentCompleter(typeof(RepositoryPackageVersionCompleter))]
-    public PackageVersion? Version;
+    public string[]? Version;
 
     /// Return all available versions of each repository package. By default, only the latest one is returned.
     [Parameter(ParameterSetName = AllVersionsPS)]
@@ -59,19 +60,38 @@ public sealed class FindPogCommand : PogCmdlet {
                         "-Version must not be passed when -PackageName contains multiple package names.");
             }
 
-            try {
-                var package = InternalState.Repository
-                        .GetPackage(PackageName![0], true, true)
-                        .GetVersionPackage(Version, true);
-                if (LoadManifest) {
-                    package.ReloadManifest();
+            ListSpecificVersions(PackageName![0], Version);
+        }
+    }
+
+    private void ListSpecificVersions(string packageName, string[] versions) {
+        RepositoryVersionedPackage vp;
+        try {
+            vp = InternalState.Repository.GetPackage(packageName, true, true);
+        } catch (RepositoryPackageNotFoundException e) {
+            WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, PackageName![0]);
+            return;
+        }
+
+        foreach (var v in versions) {
+            if (WildcardPattern.ContainsWildcardCharacters(v)) {
+                foreach (var p in vp.Enumerate(v)) {
+                    WritePackage(p);
                 }
-                WritePackage(package);
-            } catch (RepositoryPackageNotFoundException e) {
-                WriteError(e, "PackageNotFound", ErrorCategory.ObjectNotFound, PackageName![0]);
-            } catch (RepositoryPackageVersionNotFoundException e) {
-                WriteError(e, "PackageVersionNotFound", ErrorCategory.ObjectNotFound, Version);
+            } else {
+                if (GetPackageVersion(vp, new(v)) is {} p) {
+                    WritePackage(p);
+                }
             }
+        }
+    }
+
+    private RepositoryPackage? GetPackageVersion(RepositoryVersionedPackage vp, PackageVersion version) {
+        try {
+            return vp.GetVersionPackage(version, true);
+        } catch (RepositoryPackageVersionNotFoundException e) {
+            WriteError(e, "PackageVersionNotFound", ErrorCategory.ObjectNotFound, Version);
+            return null;
         }
     }
 

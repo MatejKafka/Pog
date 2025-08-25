@@ -5,8 +5,6 @@ using Pog.InnerCommands;
 
 namespace Pog.Commands;
 
-// TODO: allow wildcards in PackageName and Version arguments for commands where it makes sense
-
 // FIXME: when XmlDoc2CmdletDoc syntax is changed to something saner, format the list accordingly
 /// <summary>Install a package from the package repository.</summary>
 /// <para>Pog installs packages in four discrete steps:</para>
