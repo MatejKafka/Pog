@@ -26,6 +26,9 @@ Find-Pog test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]
 What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root1\test1'.
 What if: Importing package 'test2', version '1.2.3' to 'TEST_DIR\root1\test2'.
 
+[pscustomobject]@{Package = Find-Pog test1; Target = Get-Pog test1-imported} | Import-Pog
+What if: Importing package 'test1', version '2.0.0' to 'TEST_DIR\root0\test1-imported'.
+
 --- Package, should fail ---
 Import-Pog (Find-Pog test1) -TargetPackageRoot ".\nonexistent"
 TERMINATING ERROR: The passed package root is not registered: TEST_DIR\nonexistent

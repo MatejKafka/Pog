@@ -19,19 +19,19 @@ public abstract class TransformArgumentAttribute : ArgumentTransformationAttribu
         }
 
         if (Array && inputData is IList list) {
-            return list.Cast<object?>().Select(p => ProcessSingle(p, engineIntrinsics)).ToArray();
+            return list.Cast<object?>().Select(p => ProcessSingle(engineIntrinsics, p)).ToArray();
         } else {
-            return ProcessSingle(inputData, engineIntrinsics);
+            return ProcessSingle(engineIntrinsics, inputData);
         }
     }
 
-    protected abstract object? ProcessSingle(object? item, EngineIntrinsics engineIntrinsics);
+    protected abstract object? ProcessSingle(EngineIntrinsics engineIntrinsics, object? item);
 }
 
 /// This attribute validates that the passed path is valid and resolves the PSPath into an absolute provider path,
 /// without expanding wildcards.
 public class ResolvePathAttribute(string targetName = "Path") : TransformArgumentAttribute {
-    protected override object? ProcessSingle(object? item, EngineIntrinsics engineIntrinsics) {
+    protected override object? ProcessSingle(EngineIntrinsics engineIntrinsics, object? item) {
         if (item == null) return null;
         // this mirrors what PowerShell does for string args
         var path = item.ToString();
@@ -45,11 +45,11 @@ public class ResolvePathAttribute(string targetName = "Path") : TransformArgumen
 }
 
 public class ResolveShellLinkTargetAttribute() : ResolvePathAttribute("Shell link target") {
-    protected override object? ProcessSingle(object? item, EngineIntrinsics engineIntrinsics) {
+    protected override object? ProcessSingle(EngineIntrinsics engineIntrinsics, object? item) {
         if (item is string path && path.StartsWith("::{") && path.EndsWith("}")) {
             return path;
         }
-        return base.ProcessSingle(item, engineIntrinsics);
+        return base.ProcessSingle(engineIntrinsics, item);
     }
 }
 

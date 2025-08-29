@@ -42,6 +42,7 @@ test {Import-Pog (Find-Pog test1) -TargetName target -TargetPackageRoot $Roots[1
 test {Import-Pog (Find-Pog test1) -Target (Get-Pog test1-imported)}
 test {Find-Pog test1, test2 | Import-Pog}
 test {Find-Pog test1, test2 | Import-Pog -TargetPackageRoot $Roots[1]}
+test {[pscustomobject]@{Package = Find-Pog test1; Target = Get-Pog test1-imported} | Import-Pog}
 
 title "Package, should fail"
 test {Import-Pog (Find-Pog test1) -TargetPackageRoot ".\nonexistent"}

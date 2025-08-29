@@ -18,9 +18,9 @@ public abstract class ImportCommandBase : PackageCommandBase {
     //
     // - both packages can be specified by either passing a resolved package, or by specifying a name/version, or a combination
     // - if destination is not specified, we use the same package name as the source and the default package root
-
-    // TODO: explore whether ArgumentTransformation attribute would work better than the parameter sets
-    //  (https://vexx32.github.io/2018/12/13/Working-Argument-Transformations/)
+    //
+    // ArgumentTransformationAttribute could only help for -Target, but for the source package, we either specify -Package
+    // or -PackageName and an optional -Version
 
     // ReSharper disable InconsistentNaming
     // checks: if any target args are passed, Package.Length == 1 and it must not be passed from pipeline
@@ -71,7 +71,7 @@ public abstract class ImportCommandBase : PackageCommandBase {
     #region Repository Package Arguments
 
     [Parameter(Mandatory = true, Position = 0, ParameterSetName = Package_TargetName_PS, ValueFromPipeline = true)]
-    [Parameter(Mandatory = true, Position = 0, ParameterSetName = Package_Target_PS)]
+    [Parameter(Mandatory = true, Position = 0, ParameterSetName = Package_Target_PS, ValueFromPipelineByPropertyName = true)]
     public RepositoryPackage[] Package = null!;
 
     /// Names of the repository packages to import.
@@ -92,7 +92,7 @@ public abstract class ImportCommandBase : PackageCommandBase {
 
     #region Imported Package Arguments
 
-    [Parameter(Mandatory = true, ParameterSetName = Package_Target_PS)]
+    [Parameter(Mandatory = true, ParameterSetName = Package_Target_PS, ValueFromPipelineByPropertyName = true)]
     [Parameter(Mandatory = true, ParameterSetName = PackageName_Target_PS)]
     public ImportedPackage Target = null!;
 
@@ -129,6 +129,12 @@ public abstract class ImportCommandBase : PackageCommandBase {
             } catch (InvalidPackageRootException e) {
                 ThrowTerminatingError(e, "InvalidTargetPackageRoot", ErrorCategory.InvalidArgument, TargetPackageRoot);
             }
+        }
+
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        if (Target != null && MyInvocation.ExpectingInput) {
+            ThrowArgumentError(TargetName, "TargetWithPipelineInput",
+                    "-Target must not be passed together with pipeline input.");
         }
 
         if (TargetName != null && MyInvocation.ExpectingInput) {

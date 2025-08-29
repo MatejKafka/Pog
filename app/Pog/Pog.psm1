@@ -263,8 +263,10 @@ function Update-Pog {
         $OutdatedPackages = $OutdatedPackages | Out-GridView -PassThru -Title "Outdated packages"
     }
 
+    $OutdatedPackages = $OutdatedPackages | Select-Object Package, Target
+
     if ($ListOnly) {
-        return $OutdatedPackages | Select-Object Package, Target
+        return $OutdatedPackages
     } else {
         # support parameter defaults for `Import-Pog` set by the user
         #  (quite hacky, but the result behaves consistently with `Invoke-Pog`, which implicitly
@@ -272,7 +274,7 @@ function Update-Pog {
         $PSDefaultParameterValues = $global:PSDefaultParameterValues
 
         # -Force because user already confirmed the update
-        $OutdatedPackages | % {Invoke-Pog -Force -Package $_.Package -Target $_.Target}
+        $OutdatedPackages | Invoke-Pog -Force
     }
 }
 
