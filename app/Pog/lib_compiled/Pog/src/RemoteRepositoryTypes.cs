@@ -200,18 +200,8 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         return versions != null && Array.BinarySearch(versions, Version, new PackageVersion.DescendingComparer()) >= 0;
     }
 
-    public override void ImportTo(ImportedPackage target) {
-        // this also loads the archive
-        EnsureManifestIsLoaded();
-
-        // remove any previous manifest
-        target.RemoveManifest();
-        // ensure target directory exists
-        Directory.CreateDirectory(target.Path);
-
+    public override void ImportToRaw(ImportedPackage target) {
         ExtractManifestArchive(target);
-
-        Debug.Assert(MatchesImportedManifest(target));
     }
 
     // TODO: this and MapArchivePathsToDirectory needs some fuzzing, I'm not exactly sure the code is correct in all edge cases

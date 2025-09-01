@@ -10,6 +10,7 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
     [Parameter] public required RepositoryPackage SourcePackage;
     [Parameter] public required bool Diff;
     [Parameter] public required bool Force;
+    [Parameter] public required bool Backup;
 
     public override bool Invoke() {
         // TODO: in the PowerShell version, we used to run Confirm-PogRepository here;
@@ -35,7 +36,7 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
         }
 
         // import the package, replacing the previous manifest (and creating the directory if the package is new)
-        SourcePackage.ImportTo(Package);
+        SourcePackage.ImportTo(Package, Backup);
 
         var nameStr = Package.PackageName == SourcePackage.PackageName ? "" : $" (package '{SourcePackage.PackageName}')";
         WriteInformation(targetVersion != null && targetVersion != SourcePackage.Version

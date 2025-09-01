@@ -26,6 +26,9 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     public string ManifestResourceDirPath => $"{Path}\\{PathConfig.PackagePaths.ManifestResourceDirName}";
     public string UserManifestPath => $"{Path}\\{PathConfig.PackagePaths.UserManifestFileName}";
 
+    private string ManifestBackupPath => $"{Path}\\{PathConfig.PackagePaths.ManifestBackupFileName}";
+    private string ManifestResourceDirBackupPath => $"{Path}\\{PathConfig.PackagePaths.ManifestResourceBackupFileName}";
+
     internal string ExportedCommandDirPath => $"{Path}{PathConfig.PackagePaths.CommandDirRelSuffix}";
     internal string ExportedShortcutDirPath => $"{Path}{PathConfig.PackagePaths.ShortcutDirRelSuffix}";
     internal string ExportedShortcutShimDirPath => $"{Path}{PathConfig.PackagePaths.ShortcutShimDirRelSuffix}";
@@ -56,11 +59,27 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     }
 
     // called while importing a new manifest
-    internal void RemoveManifest() {
-        FsUtils.EnsureDeleteFile(ManifestPath);
-        FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
+    internal void RemoveManifest(bool backup) {
+        if (backup) {
+            FsUtils.MoveAtomicallyIfExists(ManifestPath, ManifestBackupPath);
+            FsUtils.MoveAtomicallyIfExists(ManifestResourceDirPath, ManifestResourceDirBackupPath);
+        } else {
+            FsUtils.EnsureDeleteFile(ManifestPath);
+            FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
+        }
         // invalidate the current loaded manifest
         InvalidateManifest();
+    }
+
+    internal bool RestoreManifestBackup() {
+        RemoveManifest(false);
+        return FsUtils.MoveAtomicallyIfExists(ManifestResourceDirBackupPath, ManifestResourceDirPath)
+               || FsUtils.MoveAtomicallyIfExists(ManifestBackupPath, ManifestPath);
+    }
+
+    internal void RemoveManifestBackup() {
+        FsUtils.EnsureDeleteFile(ManifestBackupPath);
+        FsUtils.EnsureDeleteDirectory(ManifestResourceDirBackupPath);
     }
 
     public PackageUserManifest EnsureUserManifestIsLoaded() => _userManifest ?? ReloadUserManifest();
@@ -69,7 +88,7 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     private PackageUserManifest LoadUserManifest() {
         if (!Exists) {
             throw new PackageNotFoundException(
-                    $"Tried to read the package user manifest of a non-existent package at '{Path}'.");
+                    $"Tried to read the user manifest of a non-existent package at '{Path}'.");
         }
         return new PackageUserManifest(UserManifestPath);
     }

@@ -52,6 +52,11 @@ public class PathConfig {
         internal const string DataDirName = "data";
         internal const string ConfigDirName = "config";
 
+        /// Path where the old package manifest is moved while installing a new version of a package,
+        /// so that we can restore it in case the installation fails.
+        internal const string ManifestBackupFileName = ".POG_INTERNAL_backup_pog.psd1";
+        /// See <see cref="ManifestBackupFileName"/>.
+        internal const string ManifestResourceBackupFileName = ".POG_INTERNAL_backup_pog";
         /// Temporary directory where the previous ./app directory is moved when installing
         /// a new version to support rollback in case of a failed installation.
         internal const string AppBackupDirName = ".POG_INTERNAL_app_old";

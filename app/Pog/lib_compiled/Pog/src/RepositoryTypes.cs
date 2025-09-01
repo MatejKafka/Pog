@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using JetBrains.Annotations;
 
@@ -137,5 +139,31 @@ public abstract class RepositoryPackage(RepositoryVersionedPackage parent, Packa
     public override string ToString() => $"{this.GetType().FullName}({PackageName} v{Version})";
 
     public abstract bool MatchesImportedManifest(ImportedPackage p);
-    public abstract void ImportTo(ImportedPackage target);
+    public abstract void ImportToRaw(ImportedPackage target);
+
+    public void ImportTo(ImportedPackage target, bool backup) {
+        // load manifest to ensure that it is valid, which also loads the archive for remote packages
+        EnsureManifestIsLoaded();
+
+        // ensure target directory exists
+        Directory.CreateDirectory(target.Path);
+
+        // remove any previous manifest
+        target.RemoveManifest(true);
+
+        try {
+            // actually import the manifest
+            ImportToRaw(target);
+        } catch {
+            target.RestoreManifestBackup();
+            throw;
+        }
+
+        if (!backup) {
+            // we successfully finished the import and caller does not want to preserve the backup, remove it
+            target.RemoveManifestBackup();
+        }
+
+        Debug.Assert(MatchesImportedManifest(target));
+    }
 }

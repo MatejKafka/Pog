@@ -365,19 +365,16 @@ public static class FsUtils {
         ForceDeleteDirectory(tmpMovePath);
     }
 
-    /// <inheritdoc cref="DeleteDirectoryAtomically"/>
-    public static bool EnsureDeleteDirectoryAtomically(string srcDirPath, string tmpMovePath) {
+    public static bool MoveAtomicallyIfExists(string srcDirPath, string targetPath) {
         try {
-            MoveAtomically(srcDirPath, tmpMovePath);
+            MoveAtomically(srcDirPath, targetPath);
+            return true;
         } catch (FileNotFoundException) {
             return false;
         } catch (DirectoryNotFoundException) {
             return false;
         }
-        ForceDeleteDirectory(tmpMovePath);
-        return true;
     }
-
 
     /// Attempts to atomically move the directory at `srcPath` to `destinationPath`. Returns `true on success,
     /// `false` if the directory is locked, throws an exception for other error cases.

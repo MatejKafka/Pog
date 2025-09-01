@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -120,16 +119,7 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
     internal override string ExpectedPathStr => $"expected path: {Path}";
     protected abstract string ManifestResourceDirPath {get;}
 
-    public override void ImportTo(ImportedPackage target) {
-        // load manifest to ensure that it is valid; this is not strictly necessary, but it's a good sanity check and we'd
-        //  load it below anyway
-        EnsureManifestIsLoaded();
-
-        // remove any previous manifest
-        target.RemoveManifest();
-        // ensure target directory exists
-        Directory.CreateDirectory(target.Path);
-
+    public override void ImportToRaw(ImportedPackage target) {
         // copy the resource directory
         var resDir = new DirectoryInfo(ManifestResourceDirPath);
         if (resDir.Exists) {
@@ -141,8 +131,6 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
         //  this risks inconsistencies between the filesystem and the cached manifest (e.g. torn import with new resource dir
         //  but old manifest), but since we expect the package objects to be short-lived, this shouldn't be an issue
         File.WriteAllText(target.ManifestPath, Manifest.RawString);
-
-        Debug.Assert(MatchesImportedManifest(target));
     }
 
     public override bool MatchesImportedManifest(ImportedPackage p) {

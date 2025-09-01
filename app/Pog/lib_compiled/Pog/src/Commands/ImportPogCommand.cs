@@ -24,6 +24,7 @@ public sealed class ImportPogCommand : ImportCommandBase {
             Package = target,
             Diff = Diff,
             Force = Force,
+            Backup = false,
         });
 
         if (PassThru && imported) {

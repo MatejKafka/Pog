@@ -36,19 +36,31 @@ public sealed class InvokePogCommand : ImportCommandBase {
 
     // TODO: add an `-Imported` parameter set to allow installing+enabling+exporting an imported package
 
-    // TODO: rollback on error
-
     protected override void ProcessPackage(RepositoryPackage source, ImportedPackage target) {
         var imported = InvokePogCommand(new ImportPog(this) {
             SourcePackage = source,
             Package = target,
             Diff = Diff,
             Force = Force,
+            Backup = true,
         });
 
         if (!imported) {
+            // safe to return, manifest backup was not created
             return;
         }
+
+        try {
+            InvokePogCommand(new InstallPog(this) {Package = target});
+        } catch {
+            WriteVerbose("Install-Pog failed, rolling back previous manifest.");
+            target.RestoreManifestBackup();
+            throw;
+        }
+
+        // it doesn't make sense to keep the manifest backup for Enable & Export, as we don't know what state the package
+        //  is left in case of an error, so rolling back could make the situation worse
+        target.RemoveManifestBackup();
 
         SetupPackage(target);
 
@@ -58,7 +70,6 @@ public sealed class InvokePogCommand : ImportCommandBase {
     }
 
     private void SetupPackage(ImportedPackage target) {
-        InvokePogCommand(new InstallPog(this) {Package = target});
         if (Install) return;
         InvokePogCommand(new EnablePog(this) {Package = target}); // TODO: package arguments
         if (Enable) return;
