@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Pog.Native;
 using Xunit;
 using Win32 = Pog.Tests.TestUtils.Win32;
