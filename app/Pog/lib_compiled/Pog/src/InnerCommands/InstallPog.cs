@@ -130,11 +130,10 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
     }
 
     public void Dispose() {
-        FsUtils.EnsureDeleteDirectory(_tmpDeletePath);
         FsUtils.EnsureDeleteDirectory(_extractionDirPath);
         FsUtils.EnsureDeleteDirectory(_newAppDirPath);
-        // do not attempt to delete AppBackupDirName here, it should be already cleaned up
-        //  (and if it isn't, it probably also won't work here)
+        // do not attempt to delete _oldAppDirPath and _tmpDeletePath here, it should be already cleaned up
+        //  (and if it isn't, most likely because they're in use, it probably also won't work here)
     }
 
     private void InstallNoArchive(SharedFileCache.IFileLock downloadedFile, string targetPath) {
@@ -293,8 +292,19 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
                 throw;
             }
         }
-        // delete the backup app directory
-        FsUtils.DeleteDirectoryAtomically(backupDir, _tmpDeletePath);
+
+        try {
+            // delete the backup app directory
+            FsUtils.DeleteDirectoryAtomically(backupDir, _tmpDeletePath);
+        } catch (UnauthorizedAccessException e) {
+            // FIXME: for binaries that don't open any other files in the app dir, we currently cannot efficiently detect
+            //  that they're in use (see comment below), so it's possible that we'll discover that they're in use here
+            // since part of the app directory might have already been deleted, it's not safe to move the old app dir back
+            throw new UnauthorizedAccessException(
+                    "Could not clean up the previous version, it seems to be in use. The package is now left " +
+                    "in a half-installed state, please stop any running instances of the running program and " +
+                    $"retry the installation: {e.Message}", e);
+        }
     }
 
     // FIXME: if there's an executing binary from the dir, but no other open files (e.g. AutoHotkey v2), this function will
