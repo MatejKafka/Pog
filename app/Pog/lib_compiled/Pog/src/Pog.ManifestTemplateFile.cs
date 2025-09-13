@@ -90,7 +90,7 @@ public static class ManifestTemplateFile {
 
     /// Serializes the passed dictionary into a valid PowerShell data file (.psd1).
     public static void SerializeSubstitutionFile(string outputPath, IDictionary content, string? indent = null) {
-        File.WriteAllText(outputPath, SerializeSubstitutionFile(content, indent), Encoding.UTF8);
+        File.WriteAllText(outputPath, SerializeSubstitutionFile(content, indent));
     }
 
     /// Serializes the passed dictionary into a valid PowerShell Hashtable literal and returns the string.
