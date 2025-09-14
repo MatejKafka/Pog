@@ -97,9 +97,16 @@ public sealed class GetGitHubAssetCommand : PogCmdlet {
     }
 
     private class RegexPattern(string pattern) : IPattern {
-        private readonly Regex _pattern = new(pattern, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private readonly Regex _pattern = new(AddAnchors(pattern), RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
         public bool IsMatch(string input) => _pattern.IsMatch(input);
         public override string ToString() => _pattern.ToString();
+
+        /// Ensure that the pattern matches the whole string by adding ^ and $ if not already present.
+        private static string AddAnchors(string pattern) {
+            if (!pattern.StartsWith("^", StringComparison.Ordinal)) pattern = "^" + pattern;
+            if (!pattern.EndsWith("$", StringComparison.Ordinal)) pattern += "$";
+            return pattern;
+        }
     }
 
     private class GlobPattern(string pattern) : IPattern {
