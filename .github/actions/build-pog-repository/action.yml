@@ -4,7 +4,8 @@ description: 'Use a local package repository to generate a remote Pog package re
 inputs:
   source:
     description: 'Path to the source local repository.'
-    required: true
+    required: false
+    default: "."
 
   output:
     description: 'Output path where the generated remote repository files are placed.'
