@@ -65,8 +65,8 @@ internal sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
         var graphic = ii.PositionMessage.Substring(ii.PositionMessage.IndexOf('\n') + 1);
         var positionMsg = $"At {Package.ManifestPath}, Enable:{ii.ScriptLineNumber}\n" + graphic;
         return new EnableScriptFailedException(
-                $"Enable script for package '{Package.PackageName}' failed. Please fix the package manifest or " +
-                $"report the issue to the package maintainer:\n" +
+                $"Failed to setup package '{Package.PackageName}'. If it's a transient issue, re-run the setup, otherwise " +
+                $"please fix the package manifest or report the issue to the package maintainer:\n" +
                 $"    {e.Message.Replace("\n", "\n    ")}\n\n" +
                 $"    {positionMsg.Replace("\n", "\n    ")}\n", e);
     }

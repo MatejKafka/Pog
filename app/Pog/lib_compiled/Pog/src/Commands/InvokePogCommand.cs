@@ -1,4 +1,5 @@
-﻿using System.Management.Automation;
+﻿using System;
+using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
@@ -52,11 +53,17 @@ public sealed class InvokePogCommand : ImportCommandBase {
 
         try {
             InvokePogCommand(new InstallPog(this) {Package = target});
-        } catch {
-            WriteVerbose("Install-Pog failed, rolling back previous manifest.");
+        } catch (Exception) {
+            try {
+                WriteVerbose("Install-Pog failed, rolling back previous manifest.");
+            } catch (PipelineStoppedException) {
+                // ignore, we still want to restore the backup and throw the original exception
+            }
             target.RestoreManifestBackup();
             throw;
         }
+
+        // FIXME: if the process is killed at this point, next time you try to resume the installation, we'll rollback the manifest and create an inconsistency
 
         // it doesn't make sense to keep the manifest backup for Enable & Export, as we don't know what state the package
         //  is left in case of an error, so rolling back could make the situation worse

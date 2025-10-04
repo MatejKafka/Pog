@@ -44,6 +44,8 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
             }
 
             ReplaceAppDirectory(_newAppDirPath, _appDirPath, _oldAppDirPath);
+        } catch (PipelineStoppedException) {
+            throw;
         } catch (Exception e) {
             throw new Exception($"Failed to install package '{Package.PackageName}': {e.Message}", e);
         }
