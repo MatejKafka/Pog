@@ -1,10 +1,10 @@
 # Pog: A portable package manager for Windows
 
-Short visual intro: [https://pog.matejkafka.com](https://pog.matejkafka.com) (slighly outdated)
+Short visual intro: [https://pog.matejkafka.com](https://pog.matejkafka.com) (few years old, quite outdated)
 
 Pog is a **fast**, in-development package manager for Windows, managing **encapsulated, portable applications**. As a frequent Linux user, I always enjoyed the hassle-free experience of installing software. Windows has multiple package managers, but other than Scoop, all of them are unreasonably slow and fiddly, and Scoop is a bit too minimal for my taste and does not fully utilize portable packages. Pog is an attempt to provide Linux-level user experience in a Windows-native way.
 
-Unlike most existing Windows package managers, which delegate to existing program installers, Pog installs packages from static archives with a readable package manifest. The packages are encapsulated by redirecting their default data directories to a package-local directory, providing first-class support for portable packages, where multiple versions can be installed side-by-side and even moved between machines without reinstallation.
+Unlike most existing Windows package managers, which delegate to existing program installers, Pog installs packages from static archives with a [readable package manifest](https://github.com/MatejKafka/PogPackages/blob/main/Bun/.template/pog.psd1). The packages are encapsulated by redirecting their default data directories to a package-local directory, providing first-class support for portable packages, where multiple versions can be installed side-by-side and even moved between machines without reinstallation.
 
 **Pog is pretty usable in its current state, but there's a lot of on-going development, and the documentation is lacking. If anything seems broken or you're not sure how to do something, feel free to open an issue. :)**
 
