@@ -12,7 +12,7 @@ internal class GloballyExportedCommand(string path) {
 
     public bool Exists => FsUtils.FileExistsCaseSensitive(Path);
     // take the target path and go ../.. (from `<package>/.commands/name.exe`)
-    public string? SourcePackagePath => !Exists ? null : IOPath.GetDirectoryName(IOPath.GetDirectoryName(Target));
+    public string? SourcePackagePath => Target is {} t ? IOPath.GetDirectoryName(IOPath.GetDirectoryName(t)) : null;
     public string? Target => FsUtils.GetSymbolicLinkTarget(Path);
 
     public static GloballyExportedCommand FromLocal(string localExportPath) {
@@ -20,7 +20,9 @@ internal class GloballyExportedCommand(string path) {
         return new(path);
     }
 
-    public bool IsFromPackage(ImportedPackage p) => SourcePackagePath == p.Path;
+    public bool IsFromPackage(ImportedPackage p) {
+        return string.Equals(SourcePackagePath, p.Path, StringComparison.OrdinalIgnoreCase);
+    }
 
     public void Delete() => File.Delete(Path);
 

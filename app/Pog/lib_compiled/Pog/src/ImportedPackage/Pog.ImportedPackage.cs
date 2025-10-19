@@ -41,6 +41,9 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     public FileInfo[] ExportedCommands => EnumerateExportedCommands().ToArray();
     public FileInfo[] ExportedShortcuts => EnumerateExportedShortcuts().ToArray();
 
+    internal ImportedPackage(string path, bool loadManifest = true)
+            : this(System.IO.Path.GetFileName(path), path, loadManifest) {}
+
     internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, null) {
         Verify.Assert.FilePath(path);
         Verify.Assert.PackageName(packageName);

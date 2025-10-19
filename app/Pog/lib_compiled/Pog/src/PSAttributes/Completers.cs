@@ -6,6 +6,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using JetBrains.Annotations;
+using Pog.Utils;
 
 // This module implements a set of argument completers that are used in the public Pog cmdlets.
 // Originally, `ValidateSet` was used, which automatically provides autocomplete, but there were a few issues:
@@ -177,5 +178,13 @@ public sealed class DownloadCachePackageNameCompleter : QuotingArgumentCompleter
         return InternalState.DownloadCache.EnumerateEntries()
                 .SelectMany(e => e.SourcePackages.Select(s => s.PackageName))
                 .Where(s => s.StartsWith(wordToComplete, StringComparison.InvariantCultureIgnoreCase));
+    }
+}
+
+[PublicAPI]
+public sealed class ExportedCommandNameCompleter : DirectoryListingArgumentCompleter {
+    protected override IEnumerable<string> GetMatchingItems(string searchPattern, IDictionary _) {
+        return FsUtils.EnumerateNonHiddenFileNames(InternalState.PathConfig.ExportedCommandDir)
+                .Select(Path.GetFileNameWithoutExtension);
     }
 }

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.PSAttributes;
 
@@ -37,7 +36,7 @@ public abstract class ImportedPackageNoPassThruCommand : PackageCommandBase {
         base.ProcessRecord();
 
         // TODO: do this in parallel (even for packages passed as array)
-        foreach (var package in EnumerateParameterPackages()) {
+        foreach (var package in GetImportedPackage(Package, PackageName, _loadManifest) ?? []) {
             if (ShouldProcess(package.PackageName)) {
                 ProcessPackageNoPassThru(package);
             }
@@ -45,12 +44,4 @@ public abstract class ImportedPackageNoPassThruCommand : PackageCommandBase {
     }
 
     protected abstract void ProcessPackageNoPassThru(ImportedPackage package);
-
-    protected IEnumerable<ImportedPackage> EnumerateParameterPackages() {
-        // all parameters are null-coalesced, because this is also called from `GetDynamicParameters()`,
-        //  where mandatory parameters are not enforced
-        return ParameterSetName == PackagePS
-                ? _loadManifest ? EnsureManifestIsLoaded(Package ?? []) : Package ?? []
-                : GetImportedPackage(PackageName ?? [], _loadManifest);
-    }
 }

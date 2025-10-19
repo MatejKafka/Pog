@@ -25,6 +25,14 @@ public abstract class PackageCommandBase : PogCmdlet {
     }
 #endif
 
+    protected IEnumerable<ImportedPackage>? GetImportedPackage(
+            IEnumerable<ImportedPackage>? package, IEnumerable<string>? packageName, bool loadManifest) {
+        if (package != null) return loadManifest ? EnsureManifestIsLoaded(package) : package;
+        if (packageName != null) return GetImportedPackage(packageName, loadManifest);
+        // return null to distinguish whether anything was passed
+        return null;
+    }
+
     protected IEnumerable<ImportedPackage> GetImportedPackage(IEnumerable<string> packageName, bool loadManifest) {
         return GetImportedPackage(packageName, null, loadManifest);
     }

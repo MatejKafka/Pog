@@ -26,6 +26,7 @@
 
         'Find-Pog'
         'Get-Pog'
+        'Get-PogCommand'
 
         'Update-PogRepository'
 
