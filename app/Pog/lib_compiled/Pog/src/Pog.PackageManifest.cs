@@ -62,6 +62,13 @@ public record PackageManifest {
     public readonly PackageArchitecture[]? Architecture;
     // public readonly PackageChannel? Channel;
 
+    /// List of paths that the program accesses outside its package directory.
+    /// <remarks>
+    /// If this property is non-null, it indicates that the package is non-portable.
+    /// An empty list indicates that the package is non-portable, with unspecified paths.
+    /// </remarks>
+    public readonly string[]? NonPortablePaths;
+
     public readonly string? Description;
     public readonly string? Website;
 
@@ -93,7 +100,7 @@ public record PackageManifest {
 
     /// <exception cref="PackageManifestNotFoundException">The package manifest file does not exist.</exception>
     /// <exception cref="PackageManifestParseException">The package manifest file is not a valid PowerShell data file (.psd1).</exception>
-    /// <exception cref="InvalidPackageManifestStructureException">The package manifest was correctly parsed, but has invalid structure.</exception>
+    /// <exception cref="InvalidPackageManifestStructureException">The package manifest was correctly parsed but has an invalid structure.</exception>
     private PackageManifest((string, Hashtable) manifest, string manifestSource, RepositoryPackage? owningPackage = null) {
         InstrumentationCounter.ManifestLoads.Increment();
 
@@ -101,7 +108,7 @@ public record PackageManifest {
         // parse the raw manifest into properties on this object
         var parser = new HashtableParser(Raw);
 
-        Private = parser.ParseScalar<bool>("Private", false) ?? false;
+        Private = parser.ParseScalar<bool>(nameof(Private), false) ?? false;
         if (Private) {
             if (owningPackage != null) {
                 parser.AddIssue("Property 'Private' is not allowed in manifests in a package repository.");
@@ -110,29 +117,31 @@ public record PackageManifest {
             }
         }
 
-        Name = parser.ParseScalar<string>("Name", true);
+        Name = parser.ParseScalar<string>(nameof(Name), true);
         // check that the manifest name matches package name, if passed
         if (owningPackage != null && Name != owningPackage.PackageName) {
-            parser.AddValidityIssue("Name", Name, $"expected '{owningPackage.PackageName}'");
+            parser.AddValidityIssue(nameof(Name), Name, $"expected '{owningPackage.PackageName}'");
         }
 
-        var versionStr = parser.ParseScalar<string>("Version", true);
+        var versionStr = parser.ParseScalar<string>(nameof(Version), true);
         Version = versionStr == null ? null : ParseVersion(parser, versionStr);
-        // check that the manifest version matches package version, if passed
+        // check that the manifest version matches the package version, if passed
         if (owningPackage != null && versionStr != owningPackage.Version.ToString()) {
-            parser.AddValidityIssue("Version", versionStr, $"expected '{owningPackage.Version}'");
+            parser.AddValidityIssue(nameof(Version), versionStr, $"expected '{owningPackage.Version}'");
         }
 
-        var archRaw = parser.ParseList<string>("Architecture", true);
+        var archRaw = parser.ParseList<string>(nameof(Architecture), true);
         Architecture = archRaw == null ? null : ParseArchitecture(parser, archRaw);
 
-        Description = parser.ParseScalar<string>("Description", false);
-        Website = parser.ParseScalar<string>("Website", false);
+        NonPortablePaths = parser.ParseList<string>(nameof(NonPortablePaths), false);
 
-        var installRaw = parser.ParseList<Hashtable>("Install", true);
+        Description = parser.ParseScalar<string>(nameof(Description), false);
+        Website = parser.ParseScalar<string>(nameof(Website), false);
+
+        var installRaw = parser.ParseList<Hashtable>(nameof(Install), true);
         Install = installRaw == null ? null : ParseInstallBlock(parser, installRaw, ref _unknownPropertyNames);
-        Enable = parser.ParseScalar<ScriptBlock>("Enable", true);
-        Disable = parser.ParseScalar<ScriptBlock>("Disable", false);
+        Enable = parser.ParseScalar<ScriptBlock>(nameof(Enable), true);
+        Disable = parser.ParseScalar<ScriptBlock>(nameof(Disable), false);
 
         // check for extra unknown keys
         foreach (var extraKey in parser.ExtraNonPrivateKeys) {
@@ -150,7 +159,7 @@ public record PackageManifest {
         try {
             return new PackageVersion(versionStr);
         } catch (InvalidPackageVersionException e) {
-            parser.AddValidityIssue("Version", versionStr, e.Message);
+            parser.AddValidityIssue(nameof(Version), versionStr, e.Message);
             return null;
         }
     }
@@ -158,12 +167,12 @@ public record PackageManifest {
     private static PackageSource[]? ParseInstallBlock(HashtableParser parentParser, Hashtable[] raw,
             ref List<string>? extraPropNames) {
         if (raw.Length == 0) {
-            parentParser.AddIssue("Value of 'Install' must not be an empty array.");
+            parentParser.AddIssue($"Value of '{nameof(Install)}' must not be an empty array.");
         }
 
         var parsed = new PackageSource[raw.Length];
         for (var i = 0; i < raw.Length; i++) {
-            var p = ParseInstallHashtable(new HashtableParser(raw[i], $"Install[{i}].", parentParser.Issues),
+            var p = ParseInstallHashtable(new HashtableParser(raw[i], $"{nameof(Install)}[{i}].", parentParser.Issues),
                     ref extraPropNames);
             if (p == null) return null;
             else parsed[i] = p;
@@ -173,18 +182,6 @@ public record PackageManifest {
 
     public enum PackageArchitecture { Any, X64, X86, Arm64 }
 
-    private static PackageArchitecture[]? ParseArchitecture(HashtableParser parser, string[] raw) {
-        var parsed = new PackageArchitecture[raw.Length];
-        for (var i = 0; i < raw.Length; i++) {
-            if (!_architectureMap.TryGetValue(raw[i], out parsed[i])) {
-                parser.AddIssue($"Invalid 'Architecture' value: {raw[i]} " +
-                                $"(supported values: {string.Join(", ", _architectureMap.Keys)})");
-                return null;
-            }
-        }
-        return parsed;
-    }
-
     private static Dictionary<string, PackageArchitecture> _architectureMap = new(StringComparer.InvariantCultureIgnoreCase) {
         {"*", PackageArchitecture.Any},
         {"x86", PackageArchitecture.X86},
@@ -192,8 +189,19 @@ public record PackageManifest {
         {"arm64", PackageArchitecture.Arm64},
     };
 
-    private static PackageSource? ParseInstallHashtable(HashtableParser parser,
-            ref List<string>? extraPropNames) {
+    private static PackageArchitecture[]? ParseArchitecture(HashtableParser parser, string[] raw) {
+        var parsed = new PackageArchitecture[raw.Length];
+        for (var i = 0; i < raw.Length; i++) {
+            if (!_architectureMap.TryGetValue(raw[i], out parsed[i])) {
+                parser.AddIssue($"Invalid '{nameof(Architecture)}' value: {raw[i]} " +
+                                $"(supported values: {string.Join(", ", _architectureMap.Keys)})");
+                return null;
+            }
+        }
+        return parsed;
+    }
+
+    private static PackageSource? ParseInstallHashtable(HashtableParser parser, ref List<string>? extraPropNames) {
         // If set, the downloaded file is directly moved to the ./app directory, without being treated as an archive and extracted.
         var noArchive = parser.ParseScalar<bool>("NoArchive", false) ?? false;
 

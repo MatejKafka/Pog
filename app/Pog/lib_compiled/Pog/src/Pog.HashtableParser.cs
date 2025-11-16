@@ -82,7 +82,7 @@ internal struct HashtableParser {
     private T[] ParseListInternal<T>(string key, bool required) {
         var value = GetPropertyInternal(key, required, typeof(T).ToString());
         if (value is T v) {
-            return new[] {v}; // single item, wrap into an array
+            return [v]; // single item, wrap into an array
         } else if (value is not Array) {
             throw new DataFileParseException($"{GetKeyName(key, required)} is present, " +
                                              $"but has an incorrect type '{value.GetType()}', expected '{typeof(T[])}'.");

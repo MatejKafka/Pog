@@ -35,6 +35,16 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             return false;
         }
 
+        if (SourcePackage.Manifest.NonPortablePaths is {} paths) {
+            if (paths.Length > 0) {
+                var s = paths.Length == 1 ? "" : "s";
+                WriteWarning($"Package '{SourcePackage.PackageName}' is non-portable, " +
+                             $"it uses the following path{s}: {string.Join(", ", paths)}");
+            } else {
+                WriteWarning($"Package '{SourcePackage.PackageName}' is non-portable.");
+            }
+        }
+
         // import the package, replacing the previous manifest (and creating the directory if the package is new)
         SourcePackage.ImportTo(Package, Backup);
 
