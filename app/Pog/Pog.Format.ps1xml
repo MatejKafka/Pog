@@ -235,6 +235,9 @@
                             <TableColumnItem>
                                 <PropertyName>PackageName</PropertyName>
                             </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Path</PropertyName>
+                            </TableColumnItem>
                         </TableColumnItems>
                     </TableRowEntry>
                 </TableRowEntries>

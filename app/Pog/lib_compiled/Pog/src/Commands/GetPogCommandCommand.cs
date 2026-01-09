@@ -41,38 +41,34 @@ public class GetPogCommandCommand : PackageCommandBase {
     public ImportedPackage[]? Package = null;
 
     protected override void ProcessRecord() {
-        WriteObjectEnumerable(ProcessInner().Select(path => {
-            var cmd = new GloballyExportedCommand(path);
-            return new ExportedCommand(path, new(cmd.SourcePackagePath!, false), cmd.Target!);
-        }));
+        WriteObjectEnumerable(ProcessInner()
+                .Select(cmd => new ExportedCommand(cmd.Path, new(cmd.SourcePackagePath!, false), cmd.Target!)));
     }
 
-    private IEnumerable<string> ProcessInner() {
+    private IEnumerable<GloballyExportedCommand> ProcessInner() {
         var packages = GetImportedPackage(Package, PackageName, false);
         if (packages == null) {
             return Name == null ? EnumerateAllCommands() : Name.SelectMany(EnumerateCommands);
         } else if (Name == null) {
-            return packages.SelectMany(p => p.EnumerateExportedCommands().Select(c => {
-                var cmd = GloballyExportedCommand.FromLocal(c.FullName);
-                return cmd.Path;
-            }));
+            return packages.SelectMany(p => p.EnumerateExportedCommands())
+                    .Select(localCmd => GloballyExportedCommand.FromLocal(localCmd.FullName))
+                    .Where(cmd => cmd.Exists);
         } else {
             var packagesArr = packages.ToArray();
-            return Name.SelectMany(EnumerateCommands).Where(path => {
-                var cmd = new GloballyExportedCommand(path);
-                return packagesArr.Any(p => cmd.IsFromPackage(p));
-            });
+            return Name.SelectMany(EnumerateCommands).Where(cmd => packagesArr.Any(cmd.IsFromPackage));
         }
     }
 
-    private IEnumerable<string> EnumerateAllCommands() {
-        return Directory.EnumerateFiles(InternalState.PathConfig.ExportedCommandDir);
+    private IEnumerable<GloballyExportedCommand> EnumerateAllCommands() {
+        return Directory.EnumerateFiles(InternalState.PathConfig.ExportedCommandDir)
+                .Select(path => new GloballyExportedCommand(path));
     }
 
-    private IEnumerable<string> EnumerateCommands(string namePattern) {
+    private IEnumerable<GloballyExportedCommand> EnumerateCommands(string namePattern) {
         // filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
         return Directory.EnumerateFiles(InternalState.PathConfig.ExportedCommandDir, $"{namePattern}.*")
-                .Where(GetCommandFilterFn(namePattern));
+                .Where(GetCommandFilterFn(namePattern))
+                .Select(path => new GloballyExportedCommand(path));
     }
 
     private Func<string, bool> GetCommandFilterFn(string namePattern) {
