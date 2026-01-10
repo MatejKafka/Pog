@@ -139,9 +139,9 @@ public abstract class RepositoryPackage(RepositoryVersionedPackage parent, Packa
     public override string ToString() => $"{this.GetType().FullName}({PackageName} v{Version})";
 
     public abstract bool MatchesImportedManifest(ImportedPackage p);
-    public abstract void ImportToRaw(ImportedPackage target);
+    protected abstract void ImportToRaw(ImportedPackage target);
 
-    public void ImportTo(ImportedPackage target, bool backup) {
+    public void ImportTo(ImportedPackage target, bool backup = false) {
         // load manifest to ensure that it is valid, which also loads the archive for remote packages
         EnsureManifestIsLoaded();
 

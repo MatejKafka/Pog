@@ -119,7 +119,7 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
     internal override string ExpectedPathStr => $"expected path: {Path}";
     protected abstract string ManifestResourceDirPath {get;}
 
-    public override void ImportToRaw(ImportedPackage target) {
+    protected override void ImportToRaw(ImportedPackage target) {
         // copy the resource directory
         var resDir = new DirectoryInfo(ManifestResourceDirPath);
         if (resDir.Exists) {

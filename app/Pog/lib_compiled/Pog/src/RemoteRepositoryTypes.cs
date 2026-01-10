@@ -209,7 +209,7 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         return versions != null && Array.BinarySearch(versions, Version, new PackageVersion.DescendingComparer()) >= 0;
     }
 
-    public override void ImportToRaw(ImportedPackage target) {
+    protected override void ImportToRaw(ImportedPackage target) {
         ExtractManifestArchive(target);
     }
 
