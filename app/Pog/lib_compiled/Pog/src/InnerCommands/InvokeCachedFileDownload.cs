@@ -71,7 +71,9 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
             if (ExpectedHash != null && file.Hash != ExpectedHash) {
                 throw new IncorrectFileHashException(
                         $"File downloaded from '{SourceUrl}' has an incorrect checksum, seems that the file was changed " +
-                        $"since the package was created (expected checksum: '{ExpectedHash}', actual: '{file.Hash}').");
+                        $"since the package was created (expected checksum: '{ExpectedHash}', actual: '{file.Hash}'). " +
+                        "This is most likely caused by upstream replacing the file with a different version, please report " +
+                        "the issue to the Pog package maintainers.");
             }
 
             WriteVerbose($"Adding the downloaded file to the local cache under the key '{file.Hash}'.");

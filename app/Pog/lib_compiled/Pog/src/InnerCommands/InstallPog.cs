@@ -304,7 +304,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
             // since part of the app directory might have already been deleted, it's not safe to move the old app dir back
             throw new UnauthorizedAccessException(
                     "Could not clean up the previous version, it seems to be in use. The package is now left " +
-                    "in a half-installed state, please stop any running instances of the running program and " +
+                    "in a half-installed state, please stop any running instances of the application and " +
                     $"retry the installation: {e.Message}", e);
         }
     }
