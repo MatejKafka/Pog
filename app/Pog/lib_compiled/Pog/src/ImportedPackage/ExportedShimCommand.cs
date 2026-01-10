@@ -1,12 +1,13 @@
 ﻿using System;
 using System.IO;
+using Pog.Native;
 using Pog.Shim;
 using Pog.Utils;
 
 namespace Pog;
 
 internal class ExportedShimCommand(ShimExecutable shim) {
-    public bool UpdateCommand(string exportPath, Action<string> debugLogFn) {
+    public (bool, PeBinary.PeInfo?) UpdateCommand(string exportPath, Action<string> debugLogFn) {
         if (File.Exists(exportPath)) {
             if ((new FileInfo(exportPath).Attributes & FileAttributes.ReparsePoint) != 0) {
                 debugLogFn("Overwriting symlink with a shim executable...");
@@ -31,12 +32,11 @@ internal class ExportedShimCommand(ShimExecutable shim) {
         // copy empty shim to rLinkPath
         File.Copy(InternalState.PathConfig.ShimPath, exportPath);
         try {
-            shim.WriteNewShim(exportPath);
+            return (true, shim.WriteNewShim(exportPath));
         } catch {
             // clean up the empty shim
             FsUtils.EnsureDeleteFile(exportPath);
             throw;
         }
-        return true;
     }
 }

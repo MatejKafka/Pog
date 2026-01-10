@@ -7,6 +7,11 @@ using System.Xml.XPath;
 
 namespace Pog.Native;
 
+// FIXME: there can be multiple manifests for a single .exe, both embedded and external; we should load all of them,
+//  check if the requested option is set in at least one of them (and probably not overriden in another manifest);
+//  we could also add changes to a new manifest and add it, not sure if that's a good idea
+// TODO: investigate how Windows actually load multiple manifests and how conflicting options are resolved
+
 /// <summary>Class for reading and manipulating the PE application manifest.</summary>
 /// <see href="https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests"/>
 internal class PeApplicationManifest {

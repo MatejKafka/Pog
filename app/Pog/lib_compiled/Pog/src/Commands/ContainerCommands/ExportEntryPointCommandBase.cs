@@ -5,6 +5,7 @@ using System.Linq;
 using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
+using Pog.Native;
 using Pog.PSAttributes;
 using Pog.Shim;
 using Pog.Utils;
@@ -43,6 +44,8 @@ public class ExportEntryPointCommandBase : PogCmdlet {
     public IDictionary? EnvironmentVariables;
 
     /// Path to an .exe to copy icons and similar PE resources from. If not passed, -TargetPath is used instead.
+    /// This should only be used when the target is a batch file (.cmd/.bat) that wraps an actual binary, and you
+    /// want to copy icons, elevation requirements etc. from the binary.
     [Parameter(ParameterSetName = ShimPS)]
     [ResolvePath("Metadata source")]
     public string? MetadataSource;
@@ -70,7 +73,17 @@ public class ExportEntryPointCommandBase : PogCmdlet {
         }
 
         var shim = new ShimExecutable(targetPath, WorkingDirectory, args, envVars, MetadataSource, replaceArgv0);
-        return new ExportedShimCommand(shim).UpdateCommand(exportPath, WriteDebug);
+        var (updated, targetInfo) = new ExportedShimCommand(shim).UpdateCommand(exportPath, WriteDebug);
+
+        if (VcRedist && targetInfo?.Architecture == PeBinary.Architecture.I386) {
+            // currently, Pog only provides x64 VC redistributable libraries, so a 32bit program will fail
+            // TODO: better handling for this
+            WriteWarning($"Exported binary '{targetPath}' is a 32-bit binary, -VcRedist is not supported yet.");
+        }
+
+        // TODO: add a check that warns when a package that declares, e.g., x86 exports something with a different arch
+
+        return updated;
     }
 
     private string ResolvePotentialPath(string value) {
