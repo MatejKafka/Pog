@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using JetBrains.Annotations;
 using Pog.Utils;
 using IOPath = System.IO.Path;
@@ -117,44 +116,12 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
     public string Path {get; init;} = path;
     public abstract string ManifestPath {get;}
     internal override string ExpectedPathStr => $"expected path: {Path}";
-    protected abstract string ManifestResourceDirPath {get;}
-
-    protected override void ImportToRaw(ImportedPackage target) {
-        // copy the resource directory
-        var resDir = new DirectoryInfo(ManifestResourceDirPath);
-        if (resDir.Exists) {
-            FsUtils.CopyDirectory(resDir, target.ManifestResourceDirPath);
-        }
-
-        // write the manifest
-        // we're loading the manifest anyway for validation, so write it out directly without going back to the filesystem;
-        //  this risks inconsistencies between the filesystem and the cached manifest (e.g. torn import with new resource dir
-        //  but old manifest), but since we expect the package objects to be short-lived, this shouldn't be an issue
-        File.WriteAllText(target.ManifestPath, Manifest.ToString());
-    }
-
-    public override bool MatchesImportedManifest(ImportedPackage p) {
-        // compare resource dirs
-        if (!FsUtils.DirectoryTreeEqual(ManifestResourceDirPath, p.ManifestResourceDirPath)) {
-            return false;
-        }
-
-        // compare manifest
-        var importedManifest = new FileInfo(p.ManifestPath);
-        if (!importedManifest.Exists) {
-            return false;
-        } else {
-            var repoManifestBytes = Encoding.UTF8.GetBytes(Manifest.ToString());
-            return FsUtils.FileContentEqual(repoManifestBytes, importedManifest);
-        }
-    }
 }
 
 [PublicAPI]
 public sealed class DirectLocalRepositoryPackage(LocalRepositoryVersionedPackage parent, PackageVersion version)
         : LocalRepositoryPackage(parent, version, $"{parent.Path}\\{version}") {
     public override string ManifestPath => $"{Path}\\{PPaths.ManifestFileName}";
-    protected override string ManifestResourceDirPath => $"{Path}\\{PPaths.ManifestResourceDirName}";
     public override bool Exists => Directory.Exists(Path);
 
     protected override PackageManifest LoadManifest() {
@@ -169,7 +136,6 @@ public sealed class DirectLocalRepositoryPackage(LocalRepositoryVersionedPackage
 public sealed class TemplatedLocalRepositoryPackage(LocalRepositoryVersionedPackage parent, PackageVersion version)
         : LocalRepositoryPackage(parent, version, $"{parent.Path}\\{version}.psd1") {
     public override string ManifestPath => Path;
-    protected override string ManifestResourceDirPath => $"{TemplateDirPath}\\{PPaths.ManifestResourceDirName}";
     public override bool Exists => File.Exists(Path) && Directory.Exists(TemplateDirPath);
 
     public string TemplateDirPath => ((LocalRepositoryVersionedPackage) Container).TemplateDirPath;

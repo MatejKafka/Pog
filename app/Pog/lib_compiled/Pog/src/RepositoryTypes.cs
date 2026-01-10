@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using JetBrains.Annotations;
+using Pog.Utils;
 
 namespace Pog;
 
@@ -138,8 +140,15 @@ public abstract class RepositoryPackage(RepositoryVersionedPackage parent, Packa
     public override string GetDescriptionString() => $"package '{PackageName}', version '{Version}'";
     public override string ToString() => $"{this.GetType().FullName}({PackageName} v{Version})";
 
-    public abstract bool MatchesImportedManifest(ImportedPackage p);
-    protected abstract void ImportToRaw(ImportedPackage target);
+    public bool MatchesImportedManifest(ImportedPackage p) {
+        var importedManifest = new FileInfo(p.ManifestPath);
+        if (!importedManifest.Exists) {
+            return false;
+        } else {
+            var repoManifestBytes = Encoding.UTF8.GetBytes(Manifest.ToString());
+            return FsUtils.FileContentEqual(repoManifestBytes, importedManifest);
+        }
+    }
 
     public void ImportTo(ImportedPackage target, bool backup = false) {
         // load manifest to ensure that it is valid, which also loads the archive for remote packages
@@ -153,7 +162,10 @@ public abstract class RepositoryPackage(RepositoryVersionedPackage parent, Packa
 
         try {
             // actually import the manifest
-            ImportToRaw(target);
+            // we're loading the manifest anyway for validation, so write it out directly without going back to the filesystem;
+            //  this risks inconsistencies between the filesystem and the cached manifest, but since we expect the package
+            //  objects to be short-lived, this shouldn't be an issue
+            File.WriteAllText(target.ManifestPath, Manifest.ToString());
         } catch {
             target.RestoreManifestBackup();
             throw;

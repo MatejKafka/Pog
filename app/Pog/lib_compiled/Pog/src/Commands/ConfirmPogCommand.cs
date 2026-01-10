@@ -150,7 +150,7 @@ public sealed class ConfirmPogCommand : PogCmdlet {
 
     private static readonly HashSet<string> AllowedDirs = new() {
         "app", "cache", "logs", "data", "config",
-        ".pog", ".commands", // internal Pog dirs
+        ".commands", // internal Pog dir
         ".user_private", // dir where users can put their custom files, scripts,...
     };
 

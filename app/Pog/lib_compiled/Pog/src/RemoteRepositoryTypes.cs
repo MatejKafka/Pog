@@ -75,7 +75,7 @@ public sealed class RemoteRepository : IRepository {
 
     // each client will be at most 10 minutes out-of-date with the repository; since the package listing is less than 100 kB,
     //  re-downloading it every 10 minutes of active usage shouldn't be much of an issue (especially since users typically
-    //  use package managers either for a single invocation, or for multiple invocations in a quick succession when running
+    //  use package managers either for a single invocation or for multiple invocations in a quick succession when running
     //  in a script)
     private static readonly TimeSpan PackageCacheExpiration = TimeSpan.FromMinutes(10);
 
@@ -117,8 +117,8 @@ public sealed class RemoteRepository : IRepository {
         }
     }
 
-    /// List of available packages and their versions is cached locally for a short duration. This method invalidates
-    /// the cache, causing it to be retrieved again on the next access.
+    /// List of available packages and their versions is cached locally for a short duration.
+    /// This method invalidates the cache, causing it to be retrieved again on the next access.
     public void InvalidateCache() {
         _packagesLazy.Invalidate();
     }
@@ -188,19 +188,15 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
     }
 }
 
-public class InvalidRepositoryPackageArchiveException(string message) : Exception(message);
+/// Thrown when the package manifest archive downloaded from a remote repository is invalid.
+public class InvalidPackageArchiveException(string message) : Exception(message);
 
 [PublicAPI]
 public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage parent, PackageVersion version)
-        : RepositoryPackage(parent, version), IRemotePackage, IDisposable {
+        : RepositoryPackage(parent, version), IRemotePackage {
     public string Url {get; init;} = $"{parent.Url}{HttpUtility.UrlPathEncode(version.ToString())}.zip";
     public override bool Exists => ManifestLoaded || ExistsInPackageList();
     internal override string ExpectedPathStr => $"expected URL: {Url}";
-    private ZipArchive? _manifestArchive = null;
-
-    public void Dispose() {
-        _manifestArchive?.Dispose();
-    }
 
     private bool ExistsInPackageList() {
         var repo = (RemoteRepository) ((RemoteRepositoryVersionedPackage) Container).Repository;
@@ -209,144 +205,34 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         return versions != null && Array.BinarySearch(versions, Version, new PackageVersion.DescendingComparer()) >= 0;
     }
 
-    protected override void ImportToRaw(ImportedPackage target) {
-        ExtractManifestArchive(target);
-    }
-
-    // TODO: this and MapArchivePathsToDirectory needs some fuzzing, I'm not exactly sure the code is correct in all edge cases
-    private void ExtractManifestArchive(ImportedPackage target) {
-        var manifestPath = target.ManifestPath;
-        var manifestResourceDirPath = target.ManifestResourceDirPath;
-
-        foreach (var entry in _manifestArchive!.Entries) {
-            var targetPath = FsUtils.JoinValidateSubPath(target.Path, entry.FullName);
-            if (targetPath == null || targetPath == target.Path) {
-                // either attempt at directory traversal, or the target is the root directory
-                throw new InvalidRepositoryPackageArchiveException(
-                        $"Invalid entry path in package manifest from '{Url}': {entry.FullName}");
-            }
-
-            var isDirectory = entry.FullName.EndsWith("/");
-            if (isDirectory) {
-                targetPath += "\\";
-            }
-
-            if (targetPath != manifestPath && FsUtils.EscapesDirectory(manifestResourceDirPath, targetPath)) {
-                throw new InvalidRepositoryPackageArchiveException(
-                        $"Invalid entry in package manifest from '{Url}', only the 'pog.psd1' manifest file " +
-                        $"and an optional '.pog' directory are allowed: {entry.FullName}");
-            }
-
-            if (targetPath == manifestPath && isDirectory) {
-                throw new InvalidRepositoryPackageArchiveException(
-                        $"Invalid entry in package manifest from '{Url}', 'pog.psd1' must be a file, not a directory");
-            }
-
-            if (targetPath == manifestResourceDirPath && !isDirectory) {
-                throw new InvalidRepositoryPackageArchiveException(
-                        $"Invalid entry in package manifest from '{Url}', '.pog' must be a directory, not a file");
-            }
-
-            // TODO: if there are duplicate entries in the archive, this will throw exceptions; distinguishing between
-            //       possible failure scenarios and throwing more semantic exceptions does not seem exactly trivial
-            if (isDirectory) {
-                // directory
-                Directory.CreateDirectory(targetPath);
-            } else {
-                // file
-                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-                entry.ExtractToFile(targetPath);
-            }
-        }
-    }
-
-    private static Dictionary<string, ZipArchiveEntry?>? MapArchivePathsToDirectory(
-            ZipArchive archive, string targetDirectoryPath) {
-        var dict = new Dictionary<string, ZipArchiveEntry?>();
-        foreach (var entry in archive.Entries) {
-            var targetPath = FsUtils.JoinValidateSubPath(targetDirectoryPath, entry.FullName);
-            if (targetPath == null) {
-                return null;
-            }
-
-            // add all parent directories to dict for comparison
-            var dirPath = Path.GetDirectoryName(targetPath);
-            while (dirPath != targetDirectoryPath) {
-                dict[dirPath] = null;
-                dirPath = Path.GetDirectoryName(dirPath);
-            }
-
-            // set value for directories to null
-            dict[targetPath] = entry.FullName.EndsWith("/") ? null : entry;
-        }
-        return dict;
-    }
-
-    public override bool MatchesImportedManifest(ImportedPackage p) {
-        // this also loads the archive
-        EnsureManifestIsLoaded();
-
-        var mappedPathDict = MapArchivePathsToDirectory(_manifestArchive!, p.Path);
-        if (mappedPathDict == null) {
-            // malicious archive
-            return false;
-        }
-
-        var manifestFile = new FileInfo(p.ManifestPath);
-        if (!manifestFile.Exists) {
-            return false;
-        }
-
-        IEnumerable<FileSystemInfo> targetEntries = [manifestFile];
-
-        var resourceDir = new DirectoryInfo(p.ManifestResourceDirPath);
-        if (resourceDir.Exists) {
-            targetEntries = targetEntries.Append(resourceDir)
-                    .Concat(resourceDir.EnumerateFileSystemInfos("*", SearchOption.AllDirectories));
-        }
-
-        foreach (var entry in targetEntries) {
-            if (!mappedPathDict.TryGetValue(entry.FullName, out var archiveEntry)) {
-                return false;
-            }
-            mappedPathDict.Remove(entry.FullName);
-
-            var equal = (entry, archiveEntry) switch {
-                (DirectoryInfo, null) => true,
-                (FileInfo f, not null) => FsUtils.FileContentEqual(archiveEntry, f),
-                _ => false,
-            };
-            if (!equal) return false;
-        }
-
-        if (mappedPathDict.Count != 0) {
-            // archive contains some extra files
-            return false;
-        }
-
-        return true;
-    }
-
     protected override PackageManifest LoadManifest() {
+        // FIXME: cancellation
         return LoadManifestAsync().GetAwaiter().GetResult();
     }
 
+    // originally, the remote package manifest was a zip archive that contained the manifest and an optional .pog dir;
+    //  since the .pog dir was almost unused, and it complicated some aspects of package installation, it is no longer
+    //  supported; for backwards compatibility, the manifest is still in a zip archive, but we check that there's only
+    //  a single entry; eventually, I'll probably update the repository format to just store the manifest directly
     protected override async Task<PackageManifest> LoadManifestAsync(CancellationToken token = default) {
-        // dispose any previous archive instance
-        _manifestArchive?.Dispose();
-
-        _manifestArchive = await InternalState.HttpClient.RetrieveZipArchiveAsync(new(Url), token).ConfigureAwait(false);
-        if (_manifestArchive == null) {
+        using var archive = await InternalState.HttpClient.RetrieveZipArchiveAsync(new(Url), token).ConfigureAwait(false);
+        if (archive == null) {
             throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Url}'.");
+        }
+
+        if (archive.Entries.Count != 1) {
+            var otherEntries = archive.Entries.Select(e => e.FullName).Where(n => n != "pog.psd1");
+            throw new InvalidPackageArchiveException($"Repository package from '{Url}' contains files " +
+                                                     $"other than the manifest: {string.Join(", ", otherEntries)}");
         }
 
         ZipArchiveEntry manifestEntry;
         try {
-            manifestEntry = _manifestArchive.GetEntry("pog.psd1") ?? throw new InvalidRepositoryPackageArchiveException(
+            manifestEntry = archive.GetEntry("pog.psd1") ?? throw new InvalidPackageArchiveException(
                     $"Repository package is missing a pog.psd1 manifest: {Url}");
         } catch (InvalidDataException) {
             // malformed archive
-            throw new InvalidRepositoryPackageArchiveException($"Repository package is corrupted: {Url}");
+            throw new InvalidPackageArchiveException($"Repository package is corrupted: {Url}");
         }
 
         var manifestStr = ReadArchiveEntryAsString(manifestEntry, Encoding.UTF8);
@@ -360,7 +246,7 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
             return reader.ReadToEnd();
         } catch (InvalidDataException) {
             // malformed archive
-            throw new InvalidRepositoryPackageArchiveException(
+            throw new InvalidPackageArchiveException(
                     $"File '{entry.FullName}' in the repository package is corrupted: {Url}");
         }
     }

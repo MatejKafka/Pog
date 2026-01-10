@@ -36,7 +36,6 @@ public class PackageRootConfig {
 public class PathConfig {
     public static class PackagePaths {
         internal const string ManifestFileName = "pog.psd1";
-        internal const string ManifestResourceDirName = ".pog";
         internal const string RepositoryTemplateDirName = ".template";
         internal const string GeneratorFileName = "generator.psd1";
         internal const string UserManifestFileName = "pog.user.psd1";
@@ -55,8 +54,6 @@ public class PathConfig {
         /// Path where the old package manifest is moved while installing a new version of a package,
         /// so that we can restore it in case the installation fails.
         internal const string ManifestBackupFileName = ".POG_INTERNAL_backup_pog.psd1";
-        /// See <see cref="ManifestBackupFileName"/>.
-        internal const string ManifestResourceBackupFileName = ".POG_INTERNAL_backup_pog";
         /// Temporary directory where the previous ./app directory is moved when installing
         /// a new version to support rollback in case of a failed installation.
         internal const string AppBackupDirName = ".POG_INTERNAL_app_old";

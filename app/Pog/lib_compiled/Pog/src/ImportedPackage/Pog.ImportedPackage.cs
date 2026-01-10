@@ -23,11 +23,9 @@ public sealed class ImportedPackage : Package, ILocalPackage {
 
     public string Path {get;}
     public string ManifestPath => $"{Path}\\{PathConfig.PackagePaths.ManifestFileName}";
-    public string ManifestResourceDirPath => $"{Path}\\{PathConfig.PackagePaths.ManifestResourceDirName}";
     public string UserManifestPath => $"{Path}\\{PathConfig.PackagePaths.UserManifestFileName}";
 
     private string ManifestBackupPath => $"{Path}\\{PathConfig.PackagePaths.ManifestBackupFileName}";
-    private string ManifestResourceDirBackupPath => $"{Path}\\{PathConfig.PackagePaths.ManifestResourceBackupFileName}";
 
     internal string ExportedCommandDirPath => $"{Path}{PathConfig.PackagePaths.CommandDirRelSuffix}";
     internal string ExportedShortcutDirPath => $"{Path}{PathConfig.PackagePaths.ShortcutDirRelSuffix}";
@@ -65,10 +63,8 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     internal void RemoveManifest(bool backup) {
         if (backup) {
             FsUtils.MoveAtomicallyIfExists(ManifestPath, ManifestBackupPath);
-            FsUtils.MoveAtomicallyIfExists(ManifestResourceDirPath, ManifestResourceDirBackupPath);
         } else {
             FsUtils.EnsureDeleteFile(ManifestPath);
-            FsUtils.EnsureDeleteDirectory(ManifestResourceDirPath);
         }
         // invalidate the current loaded manifest
         InvalidateManifest();
@@ -81,8 +77,7 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         }
 
         RemoveManifest(false);
-        var restored = FsUtils.MoveAtomicallyIfExists(ManifestResourceDirBackupPath, ManifestResourceDirPath)
-                       || FsUtils.MoveAtomicallyIfExists(ManifestBackupPath, ManifestPath);
+        var restored = FsUtils.MoveAtomicallyIfExists(ManifestBackupPath, ManifestPath);
 
         if (!restored && !Directory.EnumerateFileSystemEntries(Path).Any()) {
             // the package was freshly created, delete it to not leave an empty directory
@@ -93,7 +88,6 @@ public sealed class ImportedPackage : Package, ILocalPackage {
 
     internal void RemoveManifestBackup() {
         FsUtils.EnsureDeleteFile(ManifestBackupPath);
-        FsUtils.EnsureDeleteDirectory(ManifestResourceDirBackupPath);
     }
 
     public PackageUserManifest EnsureUserManifestIsLoaded() => _userManifest ?? ReloadUserManifest();

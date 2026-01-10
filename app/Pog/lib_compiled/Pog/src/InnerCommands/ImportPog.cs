@@ -28,7 +28,7 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             // not happy with this being a warning, but WriteHost is imo not the right one to use here,
             // and WriteInformation will not be visible for users with default $InformationPreference
             WriteWarning($"Skipping import of {SourcePackage.GetDescriptionString()} to '{Package.Path}', " +
-                         "target already contains this package. Pass '-Force' to override.");
+                         "target already contains this package version. Pass '-Force' to override.");
             return false;
         }
 
@@ -87,7 +87,6 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
         targetVersion = targetManifest?.Version;
 
         if (Diff && targetManifest != null) {
-            // TODO: also probably check if any supporting files in .pog changed
             // FIXME: in typical scenarios, the `package.Manifest` access is the only reason why the manifest is parsed;
             //  figure out how to either get a raw string, or copy over the repository manifest to the imported package
             //  (since the target manifest is typically immediately used, loading it here won't cause much overhead)
@@ -99,8 +98,11 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             return true;
         }
 
-        if (targetVersion != null && targetVersion < source.Version) {
-            // target is older than the imported package, continue silently
+        if (targetVersion != null && targetVersion <= source.Version) {
+            // target is either
+            // 1) older than the imported package, we should silently continue with the update
+            // 2) or it has the same version, but the manifest is different, which indicates that the manifest was patched
+            //    by the package maintainer, where it also makes little sense to ask for confirmation
             return true;
         }
 

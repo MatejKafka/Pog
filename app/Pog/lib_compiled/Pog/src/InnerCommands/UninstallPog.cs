@@ -67,7 +67,7 @@ internal class UninstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(
             // delete all subdirectories first; this way, the package remains valid even if something fails
             //  (e.g. due to an opened file); TODO: check for used files similarly to Install-Pog
             foreach (var e in Directory.EnumerateDirectories(Package.Path)) {
-                if (e == Package.ManifestResourceDirPath || e == tmpDeletePath) {
+                if (e == tmpDeletePath) {
                     continue;
                 }
                 DeleteDirectoryWithWait(e, tmpDeletePath);
