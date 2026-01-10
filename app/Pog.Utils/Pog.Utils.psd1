@@ -34,8 +34,9 @@ This module is not exactly polished and might break sometimes.
 
 	FunctionsToExport = @(
 		# Env_UpdateRepository
-		'Get-NugetRelease'
+		'Get-GithubAssetHash'
 		'Get-HashFromChecksumText'
 		'Get-HashFromChecksumFile'
+		'Get-NuGetRelease'
 	)
 }
