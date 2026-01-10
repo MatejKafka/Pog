@@ -15,7 +15,7 @@ function test($Name) {
     }
 
     "MANIFESTS:"
-    $p | % {$_.Manifest.RawString}
+    $p | % {$_.Manifest.ToString()}
 }
 
 title "Generated package with version"
