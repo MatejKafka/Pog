@@ -8,7 +8,7 @@ inputs:
   version:
     description: 'Pog version to install. By default, downloads the version matching this GitHub Action ref.'
     required: false
-    default: 0.13.0
+    default: 0.14.0
 runs:
   using: "composite"
   steps:

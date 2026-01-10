@@ -3,7 +3,7 @@
 	Private = $true
 
 	Name = "Pog"
-	Version = "0.13.0"
+	Version = "0.14.0"
 	# why x64:
 	#  1) shim binaries are compiled only for x64 (should be easy to change)
 	#  2) VC redist DLLs are currently x64 (shouldn't be too hard to change)
