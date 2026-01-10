@@ -77,7 +77,9 @@ public record PackageManifest {
     public readonly ScriptBlock? Disable;
 
     public readonly Hashtable Raw;
-    public readonly string RawString;
+
+    private readonly string _rawManifestStr;
+    public override string ToString() => _rawManifestStr;
 
     /// List of unknown non-underscored properties on the manifest, should be almost always empty.
     private readonly List<string>? _unknownPropertyNames = null;
@@ -104,7 +106,7 @@ public record PackageManifest {
     private PackageManifest((string, Hashtable) manifest, string manifestSource, RepositoryPackage? owningPackage = null) {
         InstrumentationCounter.ManifestLoads.Increment();
 
-        (RawString, Raw) = manifest;
+        (_rawManifestStr, Raw) = manifest;
         // parse the raw manifest into properties on this object
         var parser = new HashtableParser(Raw);
 

@@ -91,7 +91,7 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             // FIXME: in typical scenarios, the `package.Manifest` access is the only reason why the manifest is parsed;
             //  figure out how to either get a raw string, or copy over the repository manifest to the imported package
             //  (since the target manifest is typically immediately used, loading it here won't cause much overhead)
-            var diff = DiffRenderer.RenderDiff(targetManifest.RawString, source.Manifest.RawString, ignoreMatching: true);
+            var diff = DiffRenderer.RenderDiff(targetManifest.ToString(), source.Manifest.ToString(), ignoreMatching: true);
             if (diff != "") WriteHost(diff);
         }
 

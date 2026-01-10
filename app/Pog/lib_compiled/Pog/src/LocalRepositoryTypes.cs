@@ -130,7 +130,7 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
         // we're loading the manifest anyway for validation, so write it out directly without going back to the filesystem;
         //  this risks inconsistencies between the filesystem and the cached manifest (e.g. torn import with new resource dir
         //  but old manifest), but since we expect the package objects to be short-lived, this shouldn't be an issue
-        File.WriteAllText(target.ManifestPath, Manifest.RawString);
+        File.WriteAllText(target.ManifestPath, Manifest.ToString());
     }
 
     public override bool MatchesImportedManifest(ImportedPackage p) {
@@ -144,7 +144,7 @@ public abstract class LocalRepositoryPackage(LocalRepositoryVersionedPackage par
         if (!importedManifest.Exists) {
             return false;
         } else {
-            var repoManifestBytes = Encoding.UTF8.GetBytes(Manifest.RawString);
+            var repoManifestBytes = Encoding.UTF8.GetBytes(Manifest.ToString());
             return FsUtils.FileContentEqual(repoManifestBytes, importedManifest);
         }
     }

@@ -5,15 +5,11 @@ namespace Pog;
 
 [PublicAPI]
 public record PackageUserManifest {
-    public readonly string Path;
-
     /// Indicates whether this package should be updated by `Update-Pog`.
     public readonly bool Frozen = false;
 
     public PackageUserManifest(string userManifestPath) {
         InstrumentationCounter.UserManifestLoads.Increment();
-
-        Path = userManifestPath;
 
         Hashtable raw;
         try {
