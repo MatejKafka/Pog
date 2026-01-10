@@ -75,9 +75,20 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     }
 
     internal bool RestoreManifestBackup() {
+        if (!File.Exists(ManifestBackupPath)) {
+            // early exit to avoid deleting the current manifest if there's no backup
+            return false;
+        }
+
         RemoveManifest(false);
-        return FsUtils.MoveAtomicallyIfExists(ManifestResourceDirBackupPath, ManifestResourceDirPath)
-               || FsUtils.MoveAtomicallyIfExists(ManifestBackupPath, ManifestPath);
+        var restored = FsUtils.MoveAtomicallyIfExists(ManifestResourceDirBackupPath, ManifestResourceDirPath)
+                       || FsUtils.MoveAtomicallyIfExists(ManifestBackupPath, ManifestPath);
+
+        if (!restored && !Directory.EnumerateFileSystemEntries(Path).Any()) {
+            // the package was freshly created, delete it to not leave an empty directory
+            Directory.Delete(Path);
+        }
+        return restored;
     }
 
     internal void RemoveManifestBackup() {

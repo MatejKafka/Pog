@@ -13,6 +13,13 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
     [Parameter] public required bool Backup;
 
     public override bool Invoke() {
+        // if a manifest backup exists, restore it; this may happen when package installation in Invoke-Pog crashes;
+        //  more generally, the existence of an undeleted manifest backup means that the content of the package does
+        //  not match its current manifest, so we should behave as if the backup is the actual manifest
+        if (Package.RestoreManifestBackup()) {
+            WriteWarning($"Restored manifest backup for package '{Package.PackageName}' from an interrupted installation.");
+        }
+
         // TODO: in the PowerShell version, we used to run Confirm-PogRepository here;
         //  think through whether it's a good idea to add that back
         SourcePackage.EnsureManifestIsLoaded();
