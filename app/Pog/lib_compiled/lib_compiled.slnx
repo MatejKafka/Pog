@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Pog/Pog.csproj"/>
+  <Project Path="Pog.Tests/Pog.Tests.csproj"/>
+  <Project Path="Polyfills/Polyfills.csproj"/>
+  <Project Path="RandomTests/RandomTests.csproj"/>
+  <Project Path="RandomBenchmarks/RandomBenchmarks.csproj"/>
+</Solution>
