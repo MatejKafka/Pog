@@ -99,13 +99,22 @@ public sealed class RemoteRepository : IRepository {
         }
         Url = new Uri(repositoryBaseUrl).ToString();
 
-        _packagesLazy = new(PackageCacheExpiration, () => {
-            // FIXME: we're doing a network request while holding a mutex over the cache, other threads will be stuck waiting
-            //  until this one finishes the request
+        // FIXME: we're doing a network request while holding a mutex over the cache, other threads will be stuck waiting
+        //  until this one finishes the request
+        _packagesLazy = new(PackageCacheExpiration, DownloadRepositoryRoot);
+    }
+
+    private RemotePackageDictionary DownloadRepositoryRoot() {
+        try {
             // FIXME: blocking without possible cancellation
-            return new(InternalState.HttpClient.RetrieveJsonAsync(new(Url)).GetAwaiter().GetResult() ??
-                       throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}"), Url);
-        });
+            var result = InternalState.HttpClient.RetrieveJsonAsync(new(Url)).GetAwaiter().GetResult();
+            if (result == null) {
+                throw new RepositoryNotFoundException($"Package repository does not seem to exist: {Url}");
+            }
+            return new(result.Value, Url);
+        } catch (HttpRequestException e) {
+            throw new HttpRequestException($"Failed to fetch a remote package repository at '{Url}': {e.Message}", e);
+        }
     }
 
     /// List of available packages and their versions is cached locally for a short duration. This method invalidates
