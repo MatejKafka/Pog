@@ -16,6 +16,8 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 # link msvc runtime library statically
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+add_compile_options(/analyze)
+
 if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
     # in release builds, we want to cut down the shim size as much as we can, since it's copied around a lot
 
