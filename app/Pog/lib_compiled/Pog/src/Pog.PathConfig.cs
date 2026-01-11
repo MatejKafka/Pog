@@ -66,7 +66,7 @@ public class PathConfig {
         internal const string TmpDeleteDirName = ".POG_INTERNAL_delete_tmp";
     }
 
-    public const string DefaultRemoteRepositoryUrl = "https://matejkafka.github.io/PogPackages/";
+    public const string DefaultRemoteRepositoryUrl = "https://packages.pog.matejkafka.com/v1/";
 
     /// Path to the main Pog module to import.
     public readonly string MainModulePath;

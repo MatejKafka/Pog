@@ -3,7 +3,7 @@ param(
         [string]
     $PogPath,
         [Parameter(Mandatory)]
-        [version]
+        [string]
     $Version
 )
 
@@ -11,10 +11,16 @@ Set-StrictMode -Version 3
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
-$ArchivePath = "${PogPath}.zip"
-$ReleaseUrl = "https://github.com/MatejKafka/Pog/releases/download/v$Version/Pog-v$Version.zip"
+$Tag = if ($Version -eq "nightly") {
+    "nightly"
+} else {
+    "v$([version]$Version)"
+}
 
-Write-Host "Installing Pog v$Version from '$ReleaseUrl'..."
+$ArchivePath = "${PogPath}.zip"
+$ReleaseUrl = "https://github.com/MatejKafka/Pog/releases/download/$Tag/Pog-$Tag.zip"
+
+Write-Host "Installing Pog $Tag from '$ReleaseUrl'..."
 
 # download Pog
 iwr $ReleaseUrl -OutFile $ArchivePath
