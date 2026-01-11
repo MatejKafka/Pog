@@ -79,7 +79,9 @@ public sealed class RemoteRepository : IRepository {
     //  in a script)
     private static readonly TimeSpan PackageCacheExpiration = TimeSpan.FromMinutes(10);
 
+    /// Resolved URL of the remote repository, including the version.
     public readonly string Url;
+
     public bool Exists {
         get {
             try {
@@ -99,15 +101,30 @@ public sealed class RemoteRepository : IRepository {
         }
 
         var url = new Uri(repositoryBaseUrl);
-        Url = url.ToString();
-        if (url.Segments.LastOrDefault() != "v2/") {
-            throw new InvalidRemoteRepositoryException(
-                    $"Unsupported repository URL version, only 'v2' is supported, the URL should end with '/v2': {Url}");
+        var urlRepoVersion = ParseUrlVersionSegment(url.Segments.LastOrDefault());
+        if (urlRepoVersion == null) {
+            // if we do not have a version suffix, append v2/ so that the base unversioned URL can be used for any version
+            url = new(url, "v2/");
+        } else if (urlRepoVersion != 2) {
+            throw new InvalidRemoteRepositoryException($"Unsupported repository URL version 'v{urlRepoVersion}', " +
+                                                       $"only 'v2' is supported by this Pog version: {url}");
         }
 
+        Url = url.ToString();
         // FIXME: we're doing a network request while holding a mutex over the cache, other threads will be stuck waiting
         //  until this one finishes the request
         _packagesLazy = new(PackageCacheExpiration, DownloadRepositoryRoot);
+    }
+
+    private static int? ParseUrlVersionSegment(string? segment) {
+        if (string.IsNullOrEmpty(segment)) {
+            return null;
+        }
+        if (segment![0] == 'v' && int.TryParse(segment.Substring(1, segment.Length - 2), out var version)) {
+            return version;
+        } else {
+            return null;
+        }
     }
 
     private RemotePackageDictionary DownloadRepositoryRoot() {
