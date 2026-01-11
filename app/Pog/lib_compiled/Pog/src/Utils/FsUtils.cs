@@ -352,9 +352,9 @@ public static class FsUtils {
     /// Why not just use MoveFileEx? Because internally, if the move fails, it attempts to copy.
     /// See https://youtu.be/uhRWMGBjlO8?t=2162
     /// </remarks>
-    public static void MoveAtomically(string srcDirPath, string targetPath) {
+    public static void MoveAtomically(string srcDirPath, string targetPath, bool replaceExistingFile = false) {
         using var handle = OpenForMove(srcDirPath);
-        MoveByHandle(handle, targetPath);
+        MoveByHandle(handle, targetPath, replaceExistingFile);
     }
 
     /// It is not possible to atomically delete a directory. Instead, we use a temporary directory
@@ -365,9 +365,9 @@ public static class FsUtils {
         ForceDeleteDirectory(tmpMovePath);
     }
 
-    public static bool MoveAtomicallyIfExists(string srcDirPath, string targetPath) {
+    public static bool MoveAtomicallyIfExists(string srcDirPath, string targetPath, bool replaceExistingFile = false) {
         try {
-            MoveAtomically(srcDirPath, targetPath);
+            MoveAtomically(srcDirPath, targetPath, replaceExistingFile);
             return true;
         } catch (FileNotFoundException) {
             return false;

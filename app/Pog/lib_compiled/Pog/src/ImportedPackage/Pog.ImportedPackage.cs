@@ -62,7 +62,8 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     // called while importing a new manifest
     internal void RemoveManifest(bool backup) {
         if (backup) {
-            FsUtils.MoveAtomicallyIfExists(ManifestPath, ManifestBackupPath);
+            // overwrite possible previous backup
+            FsUtils.MoveAtomicallyIfExists(ManifestPath, ManifestBackupPath, true);
         } else {
             FsUtils.EnsureDeleteFile(ManifestPath);
         }
