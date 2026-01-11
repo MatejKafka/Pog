@@ -255,7 +255,7 @@ public sealed class ConfirmPogRepositoryCommand : PogCmdlet {
         if (extraEntriesStr != "") {
             AddIssue($"Manifest directory for {packageInfoStr} at '{manifestDirPath}' contains extra entries: " +
                      $"{extraEntriesStr}. Only a 'pog.psd1' manifest file{(isTemplate ? " and a 'generator.psd1' generator file" : "")} " +
-                     $" is allowed.");
+                     $"is allowed.");
         }
 
         // pog.psd1 manifest is validated separately

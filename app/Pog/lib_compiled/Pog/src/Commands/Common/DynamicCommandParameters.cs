@@ -14,13 +14,13 @@ namespace Pog.Commands.Common;
 public class DynamicCommandParameters : RuntimeDefinedParameterDictionary {
     private readonly int _namePrefixLength;
 
-    private const BindingFlags NonPublicFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+    private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
     private static readonly PropertyInfo SsInternalProperty =
-            typeof(SessionState).GetProperty("Internal", NonPublicFlags)!;
+            typeof(SessionState).GetProperty("Internal", Flags)!;
     private static readonly PropertyInfo SbSessionStateInternalProperty =
-            typeof(ScriptBlock).GetProperty("SessionStateInternal", NonPublicFlags)!;
+            typeof(ScriptBlock).GetProperty("SessionStateInternal", Flags)!;
     private static readonly PropertyInfo SbParamsProperty =
-            typeof(ScriptBlock).GetProperty("RuntimeDefinedParameters", NonPublicFlags)!;
+            typeof(ScriptBlock).GetProperty("RuntimeDefinedParameters", Flags)!;
 
     /** Creates an empty parameter dictionary. */
     public DynamicCommandParameters() {

@@ -52,13 +52,13 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             }
         }
 
-        // import the package, replacing the previous manifest (and creating the directory if the package is new)
-        SourcePackage.ImportTo(Package, Backup);
-
         var nameStr = Package.PackageName == SourcePackage.PackageName ? "" : $" (package '{SourcePackage.PackageName}')";
         WriteInformation(targetVersion != null && targetVersion != SourcePackage.Version
-                ? $"Updated '{Package.Path}'{nameStr} from version '{targetVersion}' to '{SourcePackage.Version}'."
-                : $"Imported {SourcePackage.GetDescriptionString()} to '{Package.Path}'.");
+                ? $"Updating '{Package.Path}'{nameStr} from version '{targetVersion}' to '{SourcePackage.Version}'..."
+                : $"Importing {SourcePackage.GetDescriptionString()} to '{Package.Path}'...");
+
+        // import the package, replacing the previous manifest (and creating the directory if the package is new)
+        SourcePackage.ImportTo(Package, Backup);
         return true;
     }
 

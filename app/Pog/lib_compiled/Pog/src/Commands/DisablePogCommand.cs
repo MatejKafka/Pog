@@ -15,8 +15,7 @@ namespace Pog.Commands;
 public sealed class DisablePogCommand() : ImportedPackageCommand(true) {
     protected override void ProcessPackage(ImportedPackage package) {
         // enumerate exported items and delete them
-        // do this before disabling the package, so that prevent anyone from calling a disabled package
-        // FIXME: the "Disabling package ..." print is only done in DisablePog, this runs before it
+        // do this before disabling the package to prevent the user from calling a disabled package
         InvokePogCommand(new UnexportPog(this) {
             Package = package,
         });

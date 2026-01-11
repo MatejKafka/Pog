@@ -184,7 +184,7 @@ public sealed class DownloadCachePackageNameCompleter : QuotingArgumentCompleter
 [PublicAPI]
 public sealed class ExportedCommandNameCompleter : DirectoryListingArgumentCompleter {
     protected override IEnumerable<string> GetMatchingItems(string searchPattern, IDictionary _) {
-        return FsUtils.EnumerateNonHiddenFileNames(InternalState.PathConfig.ExportedCommandDir)
+        return FsUtils.EnumerateNonHiddenFileNames(InternalState.PathConfig.ExportedCommandDir, searchPattern)
                 .Select(Path.GetFileNameWithoutExtension);
     }
 }

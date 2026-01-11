@@ -46,7 +46,7 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
             WriteVerbose("No hash provided, cannot use the local cache.");
         }
 
-        WriteInformation($"Downloading file from '{SourceUrl}'.");
+        WriteInformation($"Downloading '{SourceUrl}'...");
 
         // TODO: hold a handle to the tmp directory during download, so that another process can safely delete stale entries
         //  (typically after a crash) without accidentally deleting a live entry
