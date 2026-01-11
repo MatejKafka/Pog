@@ -54,7 +54,7 @@ public sealed class ImportedPackage : Package, ILocalPackage {
 
     protected override PackageManifest LoadManifest() {
         if (!Exists) {
-            throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Path}'.");
+            throw new PackageNotFoundException($"Cannot read the package manifest of a non-existent package at '{Path}'.");
         }
         return new PackageManifest(ManifestPath);
     }
@@ -95,8 +95,7 @@ public sealed class ImportedPackage : Package, ILocalPackage {
 
     private PackageUserManifest LoadUserManifest() {
         if (!Exists) {
-            throw new PackageNotFoundException(
-                    $"Tried to read the user manifest of a non-existent package at '{Path}'.");
+            throw new PackageNotFoundException($"Cannot read the user manifest of a non-existent package at '{Path}'.");
         }
         return new PackageUserManifest(UserManifestPath);
     }

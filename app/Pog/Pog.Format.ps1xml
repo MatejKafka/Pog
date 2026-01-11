@@ -89,8 +89,8 @@
                                 <Label>Source URL</Label>
                                 <ScriptBlock>
                                     $(foreach ($i in $_.Install) {
-                                    if ($i.SourceUrl -is [scriptblock]) {"{$($i.SourceUrl)}"}
-                                    else {$i.SourceUrl}
+                                    if ($i.Url -is [scriptblock]) {"{$($i.Url)}"}
+                                    else {$i.Url}
                                     }) -join "`n"
                                 </ScriptBlock>
                             </ListItem>

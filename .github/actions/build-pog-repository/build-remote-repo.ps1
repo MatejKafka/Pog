@@ -34,7 +34,7 @@ $VersionMap = [ordered]@{}
 $Packages | % {
     $VersionMap[$_.PackageName] = @($_.EnumerateVersions() | % ToString)
 }
-# not really html, but whatever
+# not really html, but GitHub Pages will not accept `index.json`
 $VersionMap | ConvertTo-Json -Depth 100 -Compress | Set-Content "$OutV1\index.html", "$OutV2\index.html"
 
 $TmpPackage = New-PogPackage _remote_repo_zip_export

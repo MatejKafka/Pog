@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -41,17 +40,17 @@ internal class PogHttpClient : HttpClient {
         return response;
     }
 
+    public async Task<string?> RetrieveTextAsync(Uri uri, CancellationToken token = default) {
+        using var response = EnsureSuccessOr404(await GetAsync(uri, token).ConfigureAwait(false));
+        if (response == null) return null;
+        // ReadAsStringAsync() does not have an overload with CancellationToken in netstandard2.0 :(
+        return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+    }
+
     public async Task<JsonElement?> RetrieveJsonAsync(Uri uri, CancellationToken token = default) {
         using var response = EnsureSuccessOr404(await GetAsync(uri, token).ConfigureAwait(false));
         if (response == null) return null;
         return await response.Content.ReadFromJsonAsync<JsonElement>(token).ConfigureAwait(false);
-    }
-
-    public async Task<ZipArchive?> RetrieveZipArchiveAsync(Uri uri, CancellationToken token = default) {
-        // do not dispose, otherwise the returned stream would also get closed: https://github.com/dotnet/runtime/issues/28578
-        var response = EnsureSuccessOr404(await GetAsync(uri, token).ConfigureAwait(false));
-        if (response == null) return null;
-        return new ZipArchive(await response.Content.ReadAsStreamAsync().ConfigureAwait(false), ZipArchiveMode.Read);
     }
 
     public async Task<HttpFileStream> GetStreamAsync(Uri uri, UserAgentType userAgent, CancellationToken token = default) {

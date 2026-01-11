@@ -3,11 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Management.Automation;
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,9 +15,11 @@ using Pog.Utils;
 
 namespace Pog;
 
-/// <summary>Thrown when the JSON package version listing from the remote repository is not a valid JSON.</summary>
-public class RemoteRepositoryInvalidListingException(string message, Exception innerException)
-        : Exception(message, innerException);
+/// <summary>Thrown when a remote repository has an incorrect structure or metadata.</summary>
+public class InvalidRemoteRepositoryException : Exception {
+    public InvalidRemoteRepositoryException(string message) : base(message) {}
+    public InvalidRemoteRepositoryException(string message, Exception innerException) : base(message, innerException) {}
+}
 
 internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, PackageVersion[]>> {
     private readonly List<string> _packageNames = [];
@@ -43,8 +43,8 @@ internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, Packag
                 Debug.Assert(versions.SequenceEqual(versions.OrderByDescending(v => v)));
             }
         } catch (InvalidDataException e) {
-            throw new RemoteRepositoryInvalidListingException(
-                    $"Remote repository at '{url}' is invalid, has incorrect structure of the package listing JSON file. " +
+            throw new InvalidRemoteRepositoryException(
+                    $"Remote repository at '{url}' is invalid, has incorrect structure of the package index JSON file. " +
                     $"This is likely the result of an incorrectly generated repository. Please, notify the maintainer of " +
                     $"the repository.", e);
         }
@@ -73,7 +73,7 @@ public sealed class RemoteRepository : IRepository {
     private readonly TimedLazy<RemotePackageDictionary> _packagesLazy;
     internal RemotePackageDictionary Packages => _packagesLazy.Value;
 
-    // each client will be at most 10 minutes out-of-date with the repository; since the package listing is less than 100 kB,
+    // each client will be at most 10 minutes out-of-date with the repository; since the package index is less than 100 kB,
     //  re-downloading it every 10 minutes of active usage shouldn't be much of an issue (especially since users typically
     //  use package managers either for a single invocation or for multiple invocations in a quick succession when running
     //  in a script)
@@ -94,10 +94,16 @@ public sealed class RemoteRepository : IRepository {
     }
 
     public RemoteRepository(string repositoryBaseUrl) {
-        if (!repositoryBaseUrl.EndsWith("/")) {
+        if (!repositoryBaseUrl.EndsWith("/", StringComparison.Ordinal)) {
             repositoryBaseUrl += "/";
         }
-        Url = new Uri(repositoryBaseUrl).ToString();
+
+        var url = new Uri(repositoryBaseUrl);
+        Url = url.ToString();
+        if (url.Segments.LastOrDefault() != "v2/") {
+            throw new InvalidRemoteRepositoryException(
+                    $"Unsupported repository URL version, only 'v2' is supported, the URL should end with '/v2': {Url}");
+        }
 
         // FIXME: we're doing a network request while holding a mutex over the cache, other threads will be stuck waiting
         //  until this one finishes the request
@@ -188,13 +194,10 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
     }
 }
 
-/// Thrown when the package manifest archive downloaded from a remote repository is invalid.
-public class InvalidPackageArchiveException(string message) : Exception(message);
-
 [PublicAPI]
 public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage parent, PackageVersion version)
         : RepositoryPackage(parent, version), IRemotePackage {
-    public string Url {get; init;} = $"{parent.Url}{HttpUtility.UrlPathEncode(version.ToString())}.zip";
+    public string Url {get; init;} = $"{parent.Url}{HttpUtility.UrlPathEncode(version.ToString())}.psd1";
     public override bool Exists => ManifestLoaded || ExistsInPackageList();
     internal override string ExpectedPathStr => $"expected URL: {Url}";
 
@@ -212,42 +215,19 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
 
     // originally, the remote package manifest was a zip archive that contained the manifest and an optional .pog dir;
     //  since the .pog dir was almost unused, and it complicated some aspects of package installation, it is no longer
-    //  supported; for backwards compatibility, the manifest is still in a zip archive, but we check that there's only
-    //  a single entry; eventually, I'll probably update the repository format to just store the manifest directly
+    //  supported; in the `v2` format, the manifest is provided directly
     protected override async Task<PackageManifest> LoadManifestAsync(CancellationToken token = default) {
-        using var archive = await InternalState.HttpClient.RetrieveZipArchiveAsync(new(Url), token).ConfigureAwait(false);
-        if (archive == null) {
-            throw new PackageNotFoundException($"Tried to read the package manifest of a non-existent package at '{Url}'.");
+        var manifestStr = await InternalState.HttpClient.RetrieveTextAsync(new(Url), token).ConfigureAwait(false);
+        if (manifestStr == null) {
+            if (Exists) {
+                throw new InvalidRemoteRepositoryException(
+                        $"Package '{PackageName}' is listed in the remote repository index, but was not found at '{Url}'. " +
+                        $"This indicates either a malformed repository or an incompatible repository version.");
+            } else {
+                throw new PackageNotFoundException(
+                        $"Package '{PackageName}' does not exist in remote repository, {ExpectedPathStr}");
+            }
         }
-
-        if (archive.Entries.Count != 1) {
-            var otherEntries = archive.Entries.Select(e => e.FullName).Where(n => n != "pog.psd1");
-            throw new InvalidPackageArchiveException($"Repository package from '{Url}' contains files " +
-                                                     $"other than the manifest: {string.Join(", ", otherEntries)}");
-        }
-
-        ZipArchiveEntry manifestEntry;
-        try {
-            manifestEntry = archive.GetEntry("pog.psd1") ?? throw new InvalidPackageArchiveException(
-                    $"Repository package is missing a pog.psd1 manifest: {Url}");
-        } catch (InvalidDataException) {
-            // malformed archive
-            throw new InvalidPackageArchiveException($"Repository package is corrupted: {Url}");
-        }
-
-        var manifestStr = ReadArchiveEntryAsString(manifestEntry, Encoding.UTF8);
         return new PackageManifest(manifestStr, Url, owningPackage: this);
-    }
-
-    private string ReadArchiveEntryAsString(ZipArchiveEntry entry, Encoding encoding) {
-        try {
-            using var stream = entry.Open();
-            using var reader = new StreamReader(stream, encoding);
-            return reader.ReadToEnd();
-        } catch (InvalidDataException) {
-            // malformed archive
-            throw new InvalidPackageArchiveException(
-                    $"File '{entry.FullName}' in the repository package is corrupted: {Url}");
-        }
     }
 }
