@@ -44,10 +44,6 @@ internal sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) 
             }
         }
 
-        if (Directory.Exists(TargetPath)) {
-            throw new IOException($"Target directory already exists: '{RawTargetPath}'", -2146232800);
-        }
-
         WriteDebug($"Extracting archive using 7zip... (source: '{ArchivePath}', target: '{TargetPath}')");
         ProgressActivity.Activity ??= "Extracting archive with 7zip";
         ProgressActivity.Description ??= $"Extracting archive '{Path.GetFileName(ArchivePath)}'...";
@@ -144,7 +140,7 @@ internal sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) 
     }
 
     private static readonly Regex TarArchiveNameRegex =
-            new(@"\.(tar\.(gz|xz|bz2)|tgz|txz|tbz)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            new(@"\.(tar\.(gz|xz|bz2|zst)|tgz|txz|tbz)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static bool IsCompressedTarArchive(string archivePath) {
         // guess based on the extension
@@ -195,11 +191,11 @@ internal sealed class ExpandArchive7Zip(PogCmdlet cmdlet) : VoidCommand(cmdlet) 
                         + (filterPatterns == null ? "" : $" {Win32Args.EscapeArguments(filterPatterns)}")
                         + " -bso0" // disable normal output
                         + " -bsp2" // enable progress prints to stderr (cannot use stdout for consistency with .tar.gz extraction above)
-                        + " -aoa" // automatically overwrite existing files (should not usually occur, unless
-                        //           the archive is a bit malformed, but NSIS installers occasionally do it for some reason)
-                        + " -stxPE", // refuse to extract PE binaries, unless they're recognized as a self-contained installer like NSIS;
-                //             otherwise, if a package downloaded the program executable directly and forgot to pass -NoArchive,
-                //             7zip would extract the PE segments, which is not very useful
+                        + " -aoa", // automatically overwrite existing files (should not usually occur, unless
+                //                    the archive is a bit malformed, but NSIS installers occasionally do it for some reason)
+                // we also used to include `-stxPE` here, which refuses to extract PE binaries, unless they're
+                //  recognized as a self-contained installer like NSIS, but for some reason, it also blocks some kinds
+                //  of NSIS installers (e.g., Tor browser)
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true, // we must capture stderr, otherwise it would fight with pwsh output
