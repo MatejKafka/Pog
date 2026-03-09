@@ -1,9 +1,12 @@
-﻿using System.Management.Automation;
+﻿using System;
+using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
 
 namespace Pog.Commands;
+
+public class SetupScriptFailedException(string message, Exception innerException) : Exception(message, innerException);
 
 /// <summary>Downloads and extracts package files.</summary>
 /// <para>

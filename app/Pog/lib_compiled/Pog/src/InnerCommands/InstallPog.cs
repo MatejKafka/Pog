@@ -4,6 +4,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
+using Pog.Commands;
 using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 using Pog.Utils;
@@ -158,10 +159,16 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
             });
         }
 
-        // find and prepare the used subdirectory
+        if (param.NsisInstaller) {
+            PrepareNsisExtractedDirectory(_extractionDirPath);
+        }
+
         var usedDir = GetExtractedSubdirectory(_extractionDirPath, param.Subdirectory);
         WriteDebug($"Resolved source directory: {usedDir}");
-        PrepareExtractedSubdirectory(usedDir.FullName, param.SetupScript, param.NsisInstaller);
+
+        if (param.SetupScript != null) {
+            SetupExtractedSubdirectory(usedDir.FullName, param.SetupScript);
+        }
 
         // move `usedDir` to the new app directory
         if (!Directory.Exists(targetPath)) {
@@ -177,6 +184,20 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
 
         // remove any unused files from the extraction dir
         FsUtils.EnsureDeleteDirectory(_extractionDirPath);
+    }
+
+    private void PrepareNsisExtractedDirectory(string path) {
+        // extracted NSIS installers contain this directory, typically it doesn't contain anything useful
+        const string pluginDirName = "$PLUGINSDIR";
+        var pluginDirPath = Path.Combine(path, pluginDirName);
+        try {
+            Directory.Delete(pluginDirPath, true);
+            WriteDebug($"Removed '{pluginDirName}' directory from the extracted NSIS installer archive.");
+        } catch (DirectoryNotFoundException e) {
+            throw new DirectoryNotFoundException(
+                    $"'-NsisInstaller' flag was set in the package manifest, but the directory '{pluginDirName}' " +
+                    "does not exist in the extracted path (NSIS self-extracting archive should contain it).", e);
+        }
     }
 
     private DirectoryInfo GetExtractedSubdirectory(string extractedRootPath, string? subdirectory) {
@@ -234,37 +255,37 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
         }
     }
 
-    private void PrepareExtractedSubdirectory(string subdirectoryPath, ScriptBlock? setupScript, bool nsisInstaller) {
-        if (nsisInstaller) {
-            // extracted NSIS installers contain this directory, typically it doesn't contain anything useful
-            const string pluginDirName = "$PLUGINSDIR";
-            var pluginDirPath = Path.Combine(subdirectoryPath, pluginDirName);
-            try {
-                Directory.Delete(pluginDirPath, true);
-                WriteDebug($"Removed '{pluginDirName}' directory from the extracted NSIS installer archive.");
-            } catch (DirectoryNotFoundException e) {
-                throw new DirectoryNotFoundException(
-                        $"'-NsisInstaller' flag was set in the package manifest, but the directory '{pluginDirName}' " +
-                        "does not exist in the extracted path (NSIS self-extracting archive should contain it).", e);
-            }
-        }
+    private void SetupExtractedSubdirectory(string subdirectoryPath, ScriptBlock setupScript) {
+        var cmd = new InvokeContainer(Cmdlet) {
+            WorkingDirectory = subdirectoryPath,
+            // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
+            Variables = [
+                new("this", Package.Manifest.Raw, ""),
+            ],
+            Run = ps => ps.AddScript("Set-StrictMode -Version 3; & $Args[0]").AddArgument(setupScript),
+        };
 
-        if (setupScript != null) {
-            var cmd = new InvokeContainer(Cmdlet) {
-                WorkingDirectory = subdirectoryPath,
-                // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
-                Variables = [
-                    new("this", Package.Manifest.Raw, ""),
-                    new("ErrorActionPreference", ActionPreference.Stop, ""),
-                ],
-                Run = ps => ps.AddScript("Set-StrictMode -Version 3; & $Args[0]").AddArgument(setupScript),
-            };
-
+        try {
             // setup script should not output anything, show a warning
             foreach (var o in InvokePogCommand(cmd)) {
                 WriteWarning($"SETUP: {o}");
             }
+        } catch (RuntimeException e) {
+            throw WrapContainerError(e);
         }
+    }
+
+    // FIXME: in "NormalView" error view, the error looks slightly confusing, as it's designed for "ConciseView"
+    private SetupScriptFailedException WrapContainerError(RuntimeException e) {
+        var ii = e.ErrorRecord.InvocationInfo;
+        // replace the position info with a custom listing, since the script path is missing
+        var graphic = ii.PositionMessage.Substring(ii.PositionMessage.IndexOf('\n') + 1);
+        var positionMsg = $"At {Package.ManifestPath}, SetupScript:{ii.ScriptLineNumber}\n" + graphic;
+        return new SetupScriptFailedException(
+                $"Failed to run setup script for package '{Package.PackageName}'. Either fix the package " +
+                $"manifest or report the issue to the package maintainer:\n" +
+                $"    {e.Message.Replace("\n", "\n    ")}\n\n" +
+                $"    {positionMsg.Replace("\n", "\n    ")}\n", e);
     }
 
     /// <summary>Moves <paramref name="srcDir"/> to the ./app directory. Ensures that there are no locked files
