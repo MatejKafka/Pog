@@ -16,25 +16,32 @@ public class GitHubRequestException(string message) : HttpRequestException(messa
 
 public class GitHubRateLimitException(string message) : GitHubRequestException(message);
 
-internal class GitHubApiClient(HttpClient httpClient) {
-    public IAsyncEnumerable<GitHubRelease> EnumerateReleasesAsync(
-            string repo, string? apiToken = null, CancellationToken token = default) {
+/// API client for GitHub and mostly compatible services like Forgejo.
+internal class GitHubApiClient(HttpClient httpClient, string? apiToken = null, string baseUrl = "https://api.github.com") {
+    private readonly bool _isGitHub = baseUrl == "https://api.github.com";
+
+    public IAsyncEnumerable<GitHubRelease> EnumerateReleasesAsync(string repo, CancellationToken token = default) {
         return EnumerateFeedAsync<GitHubRelease>(
-                $"Cannot list releases for GitHub repository '{repo}'",
+                GetErrorMsg("releases", repo),
                 // 100 releases per page is the maximum: https://docs.github.com/en/rest/releases/releases#list-releases
-                new($"https://api.github.com/repos/{repo}/releases?per_page=100"),
+                new($"{baseUrl}/repos/{repo}/releases?per_page=100"),
                 // TODO: when System.Text.Json is updated to 9.0.0, add RespectRequiredConstructorParameters and RespectNullableAnnotations
-                new JsonSerializerOptions {PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower},
-                apiToken, token);
+                new() {PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower},
+                token);
     }
 
-    public IAsyncEnumerable<GitHubTag> EnumerateTagsAsync(
-            string repo, string? apiToken = null, CancellationToken token = default) {
+    public IAsyncEnumerable<GitHubTag> EnumerateTagsAsync(string repo, CancellationToken token = default) {
         return EnumerateFeedAsync<GitHubTag>(
-                $"Cannot list tags for GitHub repository '{repo}'",
-                new($"https://api.github.com/repos/{repo}/tags?per_page=100"),
+                GetErrorMsg("tags", repo),
+                new($"{baseUrl}/repos/{repo}/tags?per_page=100"),
                 new() {PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower},
-                apiToken, token);
+                token);
+    }
+
+    private string GetErrorMsg(string subject, string repo) {
+        return _isGitHub
+                ? $"Cannot list {subject} for GitHub repository '{repo}'"
+                : $"Cannot list {subject} for repository '{repo}' at instance '{baseUrl}'";
     }
 
     private static HttpResponseMessage ValidateApiResponse(string errorMsg, HttpResponseMessage response) {
@@ -68,7 +75,7 @@ internal class GitHubApiClient(HttpClient httpClient) {
     }
 
     private async IAsyncEnumerable<T> EnumerateFeedAsync<T>(
-            string errorMsg, Uri? uri, JsonSerializerOptions options, string? apiToken = null,
+            string errorMsg, Uri? uri, JsonSerializerOptions options,
             [EnumeratorCancellation] CancellationToken token = default) {
         // TODO: this could be optimized by querying the "last" rel link and then requesting all pages in between in parallel
         while (uri != null) {

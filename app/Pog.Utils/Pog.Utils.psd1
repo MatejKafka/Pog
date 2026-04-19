@@ -27,6 +27,7 @@ This module is not exactly polished and might break sometimes.
 		"Invoke-FileDownload"
 
 		# Env_UpdateRepository
+		'Get-ForgejoRelease'
 		'Get-GithubRelease'
 		'Get-GithubAsset'
 		'Get-UrlHash'
