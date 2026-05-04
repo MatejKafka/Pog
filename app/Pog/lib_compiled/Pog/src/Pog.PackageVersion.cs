@@ -7,6 +7,8 @@ using IOPath = System.IO.Path;
 
 namespace Pog;
 
+public class InvalidPackageVersionException(string message) : FormatException(message);
+
 /// <summary>
 /// Used to parse and represent package versions. There's quite a lot of heuristics here,
 /// but it behaves sanely for all the version formats I encountered yet.
@@ -68,8 +70,13 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
             throw new InvalidPackageVersionException("Could not parse package version: " + versionString);
         }
 
-        // the regex should ensure this always works
-        this.Main = match.Groups["Main"].Value.Split('.').Select(int.Parse).ToArray();
+        try {
+            // the regex should ensure this always works, other than int overflows
+            this.Main = match.Groups["Main"].Value.Split('.').Select(int.Parse).ToArray();
+        } catch (OverflowException) {
+            throw new InvalidPackageVersionException(
+                    $"Could not parse package version '{versionString}', one of the numeric components is too large.");
+        }
 
         var devVersion = new List<IComparable>();
         bool? isNumericToken = null;
@@ -77,11 +84,12 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
 
         void Flush() {
             if (token == "") return;
-            devVersion.Add(isNumericToken.GetValueOrDefault(false)
-                    ? int.Parse(token)
-                    : DevVersionTypeMap.TryGetValue(token, out var value)
-                            ? value
-                            : token);
+            if (isNumericToken.GetValueOrDefault(false)) {
+                // if the number is too large, store it as string (e.g., short git hash that happens to be numerical)
+                devVersion.Add(int.TryParse(token, out var num) ? num : token);
+            } else {
+                devVersion.Add(DevVersionTypeMap.TryGetValue(token, out var value) ? value : token);
+            }
         }
 
         foreach (var c in match.Groups["Dev"].Value) {
@@ -93,6 +101,7 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
             } else if (char.IsDigit(c) == isNumericToken) {
                 token += c;
             } else {
+                // parse, e.g., `alpha1` as two tokens
                 Flush();
                 isNumericToken = char.IsDigit(c);
                 token = c.ToString();
@@ -167,7 +176,7 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
     // we want a non-generic comparison, since that's what PowerShell likes to use
     public int CompareTo(object? obj) {
         if (obj is PackageVersion v) return CompareTo(v);
-        if (obj is string s) return CompareTo(s);
+        if (obj is string s) return CompareTo(new PackageVersion(s));
         if (obj is null) return 1;
         throw new ArgumentException("Object is not comparable with Pog.PackageVersion.");
     }
@@ -211,5 +220,3 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
         }
     }
 }
-
-public class InvalidPackageVersionException(string message) : FormatException(message);

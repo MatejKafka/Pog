@@ -22,11 +22,28 @@ public static class PackageVersionTests {
             // ensure we don't try to parse the meta as an int
             Test("3.7.0+99999999999999999999", [3, 7, 0], [], "99999999999999999999");
         }
+
+        [Fact] public void LongNumeric() {
+            Assert.Throws<InvalidPackageVersionException>(() => new PackageVersion("20250101123000"));
+            // parse short enough components as numeric, gracefully fallback to a string if too long
+            Test("2026.04.22-git-35422603", [2026, 4, 22], ["git", 35422603]);
+            Test("2026.04.22-git-3542260376", [2026, 4, 22], ["git", "3542260376"]);
+        }
+
+        [Fact] public void InvalidVersion() {
+            Assert.Throws<InvalidPackageVersionException>(() => new PackageVersion("test"));
+        }
     }
 
     public class Comparison {
         private static int Compare(string v1, string v2) {
             return new PackageVersion(v1).CompareTo(new PackageVersion(v2));
+        }
+
+        [Fact] public void TypeCoercion() {
+            Assert.True(new PackageVersion("1.2.3").CompareTo("1.2.2") > 0);
+            Assert.True(new PackageVersion("1.2.3").CompareTo("1.2.4") < 0);
+            Assert.Throws<ArgumentException>(() => new PackageVersion("1.2.3").CompareTo(true));
         }
 
         [Fact] public void DifferentLengths() {
