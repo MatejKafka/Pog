@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.Win32.SafeHandles;
+using Pog.Native;
 using Pog.Utils;
 using IOPath = System.IO.Path;
 
@@ -100,7 +101,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
 
         using (stream) {
             // lock the whole file in a shared read-only mode
-            using var regionLock = Native.FileLock.Lock(stream.SafeFileHandle!, Native.Win32.LockFileFlags.WAIT);
+            using var regionLock = FileLock.Lock(stream.SafeFileHandle!, Win32.LockFileFlags.WAIT);
             return EnumerateMetadataFileStream(stream).ToArray();
         }
     }
@@ -108,8 +109,8 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
     private void AddPackageMetadata(string metadataPath, SourcePackageMetadata packageInfo) {
         using var stream = File.Open(metadataPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
         // lock the whole file in RW mode
-        using var regionLock = Native.FileLock.Lock(stream.SafeFileHandle!,
-                Native.Win32.LockFileFlags.EXCLUSIVE_LOCK | Native.Win32.LockFileFlags.WAIT);
+        using var regionLock = FileLock.Lock(stream.SafeFileHandle!,
+                Win32.LockFileFlags.EXCLUSIVE_LOCK | Win32.LockFileFlags.WAIT);
 
         // ensure that we're not adding a duplicate
         if (EnumerateMetadataFileStream(stream).Any(pm => pm == packageInfo)) {
@@ -205,7 +206,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
     /// Information about the requesting package is recorded into the entry metadata.
     /// </summary>
     /// <exception cref="InvalidCacheEntryException"></exception>
-    public CacheEntryLock? GetEntryLocked(string entryKey, Package package) {
+    public CacheEntryLock? GetEntryLocked(string entryKey, Package package, string sourceUrl) {
         Verify.FileName(entryKey);
 
         var entryDirPath = IOPath.Combine(Path, entryKey);
@@ -228,7 +229,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
         }
 
         try {
-            AddPackageMetadata(metadataInfo.FullName, SourcePackageMetadata.CreateFromPackage(package));
+            AddPackageMetadata(metadataInfo.FullName, SourcePackageMetadata.CreateFromPackage(package, sourceUrl));
             return new CacheEntryLock(entryKey, entryInfo.FullName, readStream);
         } catch (FileNotFoundException) {
             readStream.Dispose();
@@ -288,7 +289,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
         }
     }
 
-    public NewCacheEntry PrepareNewEntry(string entrySrcDir, Package package) {
+    public NewCacheEntry PrepareNewEntry(string entrySrcDir, Package package, string sourceUrl) {
         if (!Directory.Exists(entrySrcDir)) {
             throw new InvalidAddedCacheEntryException("Attempted to add a cache entry from a non-existent directory.");
         }
@@ -314,7 +315,7 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
         using var metadataStream = File.Open(IOPath.Combine(entrySrcDir, MetadataFileName), FileMode.CreateNew);
         // write the serialized metadata into the file
         // NOTE: since we use \n as a record separator, we must not pretty-print the JSON
-        JsonSerializer.Serialize(metadataStream, SourcePackageMetadata.CreateFromPackage(package));
+        JsonSerializer.Serialize(metadataStream, SourcePackageMetadata.CreateFromPackage(package, sourceUrl));
 
         // the entry setup is finished
         return new NewCacheEntry(entrySrcDir, entryFileName);
@@ -405,11 +406,16 @@ public class SharedFileCache(string cacheDirPath, TmpDirectory tmpDir) {
     }
 
     [PublicAPI]
-    public record SourcePackageMetadata(string PackageName, string? ManifestName, string? ManifestVersion) {
+    public record SourcePackageMetadata(
+            string PackageName,
+            string? ManifestName,
+            string? ManifestVersion,
+            // optional because older cache entries might not have it
+            string? SourceUrl) {
         // we cannot use a secondary constructor, because that would confuse JsonSerializer.Deserialize,
         //  and we cannot annotate the primary constructor in a `record` with `[JsonConstructor]`
-        public static SourcePackageMetadata CreateFromPackage(Package p) {
-            return new SourcePackageMetadata(p.PackageName, p.Manifest.Name, p.Manifest.Version?.ToString());
+        public static SourcePackageMetadata CreateFromPackage(Package p, string sourceUrl) {
+            return new SourcePackageMetadata(p.PackageName, p.Manifest.Name, p.Manifest.Version?.ToString(), sourceUrl);
         }
 
         // TODO: if an invalid record is encountered during enumeration, remove it from the file

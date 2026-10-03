@@ -177,7 +177,8 @@ public sealed class DownloadCachePackageNameCompleter : QuotingArgumentCompleter
     protected override IEnumerable<string> GetCompletions(string wordToComplete, IDictionary fakeBoundParameters) {
         return InternalState.DownloadCache.EnumerateEntries()
                 .SelectMany(e => e.SourcePackages.Select(s => s.PackageName))
-                .Where(s => s.StartsWith(wordToComplete, StringComparison.InvariantCultureIgnoreCase));
+                .Where(s => s.StartsWith(wordToComplete, StringComparison.InvariantCultureIgnoreCase))
+                .Distinct();
     }
 }
 

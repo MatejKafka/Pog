@@ -95,7 +95,7 @@ public sealed class ClearPogDownloadCacheCommand : PogCmdlet {
 
     private static string GetEntryOwnerStr(SharedFileCache.CacheEntryInfo entry) {
         return string.Join(", ", entry.SourcePackages.Select(s =>
-                s.PackageName + (s.ManifestVersion == null ? "" : $" v{s.ManifestVersion}")));
+                s.PackageName + (s.ManifestVersion == null ? "" : $" v{s.ManifestVersion}")).Distinct());
     }
 
     private void OnInvalidCacheEntry(InvalidCacheEntryException e) {

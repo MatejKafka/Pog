@@ -77,7 +77,8 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
             }
 
             WriteVerbose($"Adding the downloaded file to the local cache under the key '{file.Hash}'.");
-            return AddEntryToCache(file.Hash, InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, Package));
+            var entry = InternalState.DownloadCache.PrepareNewEntry(downloadDirPath, Package, SourceUrl);
+            return AddEntryToCache(file.Hash, entry);
         } catch {
             FsUtils.EnsureDeleteDirectory(downloadDirPath);
             throw;
@@ -111,7 +112,7 @@ internal class InvokeCachedFileDownload(PogCmdlet cmdlet) : ScalarCommand<Shared
 
     private SharedFileCache.CacheEntryLock? GetEntryLockedWithCleanup(string hash) {
         try {
-            return InternalState.DownloadCache.GetEntryLocked(hash, Package);
+            return InternalState.DownloadCache.GetEntryLocked(hash, Package, SourceUrl);
         } catch (InvalidCacheEntryException) {
             WriteWarning($"Found an invalid download cache entry '{hash}', replacing...");
             // TODO: figure out how to handle the failure more gracefully (maybe skip the cache all-together
