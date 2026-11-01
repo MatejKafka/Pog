@@ -93,11 +93,7 @@ public abstract class RepositoryVersionedPackage {
     public abstract IEnumerable<string> EnumerateVersionStrings(string searchPattern = "*");
 
     /// Enumerate parsed versions of the package, in a DESCENDING order.
-    public virtual IEnumerable<PackageVersion> EnumerateVersions(string searchPattern = "*") {
-        return EnumerateVersionStrings(searchPattern)
-                .Select(v => new PackageVersion(v))
-                .OrderByDescending(v => v);
-    }
+    public abstract IEnumerable<PackageVersion> EnumerateVersions(string searchPattern = "*");
 
     /// Enumerate packages for versions matching the pattern, in a DESCENDING order according to the version.
     public IEnumerable<RepositoryPackage> Enumerate(string searchPattern = "*") {

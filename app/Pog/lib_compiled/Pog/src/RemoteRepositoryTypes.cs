@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management.Automation;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -32,15 +30,12 @@ internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, Packag
     public RemotePackageDictionary(JsonElement packageJson, string url) {
         try {
             foreach (var p in packageJson.EnumerateObject()) {
+                Verify.Assert.PackageName(p.Name);
                 var versions = p.Value.EnumerateArray()
                         .Select(e => new PackageVersion(e.GetString() ?? throw new InvalidDataException()))
                         .ToArray();
                 _packageNames.Add(p.Name);
                 _packageVersions.Add(p.Name, (p.Name, versions));
-
-                Verify.Assert.PackageName(p.Name);
-                // check that versions were sorted on server
-                Debug.Assert(versions.SequenceEqual(versions.OrderByDescending(v => v)));
             }
         } catch (InvalidDataException e) {
             throw new InvalidRemoteRepositoryException(
@@ -49,8 +44,9 @@ internal class RemotePackageDictionary : IEnumerable<KeyValuePair<string, Packag
                     $"the repository.", e);
         }
 
-        // check that package names were sorted on server
-        Debug.Assert(_packageNames.SequenceEqual(_packageNames.OrderBy(pn => pn, StringComparer.OrdinalIgnoreCase)));
+        // ensure that package names are sorted (should be already done by server, so this should be cheap)
+        // versions are sorted lazily when actually needed
+        _packageNames.Sort(StringComparer.OrdinalIgnoreCase);
     }
 
     public PackageVersion[]? this[string key] => _packageVersions.TryGetValue(key, out var val) ? val.Item2 : null;
@@ -185,7 +181,9 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
 
     public override IEnumerable<PackageVersion> EnumerateVersions(string searchPattern = "*") {
         return (_repository.Packages[PackageName] ?? [])
-                .WhereFsWildcard(searchPattern, v => v.ToString());
+                .WhereFsWildcard(searchPattern, v => v.ToString())
+                // versions from server are supposed to be sorted but don't rely on it here
+                .OrderByDescending(v => v);
     }
 
     public override IEnumerable<string> EnumerateVersionStrings(string searchPattern = "*") {

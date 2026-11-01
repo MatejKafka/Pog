@@ -87,6 +87,12 @@ public sealed class LocalRepositoryVersionedPackage : RepositoryVersionedPackage
         }
     }
 
+    public override IEnumerable<PackageVersion> EnumerateVersions(string searchPattern = "*") {
+        return EnumerateVersionStrings(searchPattern)
+                .Select(v => new PackageVersion(v))
+                .OrderByDescending(v => v);
+    }
+
     public override RepositoryPackage GetVersionPackage(PackageVersion version, bool mustExist) {
         if (version.ToString() == PPaths.RepositoryTemplateDirName) {
             // disallow creating this version, otherwise we couldn't distinguish between a templated and direct package types
