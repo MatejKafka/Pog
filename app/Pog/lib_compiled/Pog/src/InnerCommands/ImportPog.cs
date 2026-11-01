@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Management.Automation;
 using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
@@ -37,7 +38,15 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             return false;
         }
 
-        if (!ConfirmManifestOverwrite(SourcePackage, Package, out var targetVersion)) {
+        LoadPackageManifest(Package, out var targetManifest, out var rawTargetManifest);
+        if (Diff && rawTargetManifest != null) {
+            // `source` manifest is already loaded above
+            var rawSourceManifest = SourcePackage.RawManifest!;
+            var diff = DiffRenderer.RenderDiff(rawTargetManifest, rawSourceManifest, ignoreMatching: true);
+            if (diff != "") WriteHost(diff);
+        }
+
+        if (!ConfirmImport(SourcePackage, Package, targetManifest)) {
             WriteInformation($"Skipping import of package '{SourcePackage.PackageName}'.");
             return false;
         }
@@ -52,67 +61,82 @@ internal sealed class ImportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             }
         }
 
-        var nameStr = Package.PackageName == SourcePackage.PackageName ? "" : $" (package '{SourcePackage.PackageName}')";
-        WriteInformation(targetVersion != null && targetVersion != SourcePackage.Version
-                ? $"Updating '{Package.Path}'{nameStr} from version '{targetVersion}' to '{SourcePackage.Version}'..."
-                : $"Importing {SourcePackage.GetDescriptionString()} to '{Package.Path}'...");
-
         // import the package, replacing the previous manifest (and creating the directory if the package is new)
         SourcePackage.ImportTo(Package, Backup);
         return true;
     }
 
-    private bool ConfirmManifestOverwrite(RepositoryPackage source, ImportedPackage target,
-            out PackageVersion? targetVersion) {
-        PackageManifest? targetManifest = null;
-        targetVersion = null;
+    private void LoadPackageManifest(ImportedPackage target, out PackageManifest? manifest, out string? rawManifest) {
         try {
             // try to load the (possibly) existing manifest
             // TODO: maybe add a method to only load the name and version from the manifest and skip full validation?
-            targetManifest = target.ReloadManifest();
+            manifest = target.ReloadManifest();
+            rawManifest = target.RawManifest;
         } catch (PackageNotFoundException) {
             // the package does not exist, no need to confirm
-            return true;
+            manifest = null;
+            rawManifest = null;
         } catch (PackageManifestNotFoundException) {
             // the package exists, but the manifest is missing
             // either a random folder was erroneously created, or this is a package, but corrupted
             WriteWarning($"A package directory already exists at '{target.Path}', but it doesn't seem to contain " +
                          $"a package manifest. All directories in a package root should be packages with a valid manifest.");
             // overwrite without confirmation
-            return true;
+            manifest = null;
+            rawManifest = null;
         } catch (Exception e) when (e is IPackageManifestException) {
             WriteWarning($"Found an existing package manifest at '{target.Path}', but it is not valid.");
+            manifest = null;
+            // this should be populated here, needed to show the diff
+            rawManifest = target.RawManifest;
         }
+    }
 
-        targetVersion = targetManifest?.Version;
+    private bool ShouldContinueForce(string query, string caption, string successLog) {
+        var confirmed = Force || ShouldContinue(query, caption);
+        if (confirmed) WriteInformation(successLog);
+        return confirmed;
+    }
 
-        if (Diff && targetManifest != null) {
-            // FIXME: in typical scenarios, the `package.Manifest` access is the only reason why the manifest is parsed;
-            //  figure out how to either get a raw string, or copy over the repository manifest to the imported package
-            //  (since the target manifest is typically immediately used, loading it here won't cause much overhead)
-            var diff = DiffRenderer.RenderDiff(targetManifest.ToString(), source.Manifest.ToString(), ignoreMatching: true);
-            if (diff != "") WriteHost(diff);
-        }
-
-        if (Force) {
+    private bool ConfirmImport(RepositoryPackage source, ImportedPackage target,
+            PackageManifest? targetManifest) {
+        // this is a fresh import (no preexisting package) or the existing target is invalid
+        if (targetManifest == null) {
+            WriteInformation($"Importing {source.GetDescriptionString()} to '{target.Path}'...");
             return true;
         }
 
-        if (targetVersion != null && targetVersion <= source.Version) {
-            // target is either
-            // 1) older than the imported package, we should silently continue with the update
-            // 2) or it has the same version, but the manifest is different, which indicates that the manifest was patched
-            //    by the package maintainer, where it also makes little sense to ask for confirmation
-            return true;
+        if (targetManifest.Private) {
+            // not a repository package, make sure the user really intends to overwrite it
+            var title = $"Replace private package at '{target.Path}' with repository {source.GetDescriptionString()}?";
+            var message = $"This seems to be a local-only package since it is marked as private. " +
+                          $"Are you sure you want to replace it?";
+            return ShouldContinueForce(message, title,
+                    $"Replacing private package '{target.Path}' with {source.GetDescriptionString()}...");
         }
 
-        // prompt for confirmation
-        var downgrading = targetVersion != null && targetVersion > source.Version;
-        var title = $"{(downgrading ? "Downgrade" : "Overwrite")} an existing package manifest for '{target.PackageName}'?";
-        var manifestDescription =
-                targetManifest == null ? "" : $" (manifest '{targetManifest.Name}', version '{targetVersion}')";
-        var message = $"There is already an imported package '{target.PackageName}' at '{target.Path}'" +
-                      $"{manifestDescription}. Overwrite its manifest with version '{source.Version}'?";
-        return ShouldContinue(message, title);
+        // checking for .Private above ensures that the manifest has a name and version (otherwise it would fail to parse)
+        Debug.Assert(targetManifest.Name != null);
+        Debug.Assert(targetManifest.Version != null);
+
+        if (targetManifest.Name != source.PackageName) {
+            // we're changing the package, not just the version, this is quite unusual, prompt for confirmation
+            var title = $"Replace package '{targetManifest.Name}' at '{target.Path}' " +
+                        $"with repository {source.GetDescriptionString()}?";
+            var message = "The currently used manifest is for a different package. Are you sure you want to replace it?";
+            return ShouldContinueForce(message, title,
+                    $"Replacing package '{targetManifest.Name}' at '{target.Path}' with {source.GetDescriptionString()}...");
+        }
+
+        if (source.Version < targetManifest.Version) {
+            // downgrading, show a warning but continue without confirmation;
+            //  the user specified an explicit version, so they likely intend to downgrade
+            WriteWarning($"Downgrading '{target.Path}' from '{targetManifest.Version}' to '{source.Version}'...");
+        } else if (source.Version == targetManifest.Version) {
+            WriteInformation($"Importing updated manifest for {source.GetDescriptionString()} to '{Package.Path}'...");
+        } else {
+            WriteInformation($"Updating '{Package.Path}' from version '{targetManifest.Version}' to '{source.Version}'...");
+        }
+        return true;
     }
 }

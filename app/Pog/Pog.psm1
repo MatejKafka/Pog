@@ -232,7 +232,10 @@ function Update-Pog {
         $Package = Get-Pog $PackageName
     }
 
-    $ImportedPackages = $Package | ? {$_.Version -and $_.ManifestName -and $_.UserManifest.Frozen -eq $Frozen}
+    $ImportedPackages = $Package `
+        | ? Manifest | ? ManifestName | ? Version `
+        | ? {-not $_.Manifest.Private} `
+        | ? {$_.UserManifest.Frozen -eq $Frozen}
 
     # find corresponding repository package
     $RepositoryPackageMap = @{}
@@ -268,13 +271,9 @@ function Update-Pog {
     if ($ListOnly) {
         return $OutdatedPackages
     } else {
-        # support parameter defaults for `Import-Pog` set by the user
-        #  (quite hacky, but the result behaves consistently with `Invoke-Pog`, which implicitly
-        #  invokes `Import-Pog` in the caller's scope, so it picks up the caller's defaults)
+        # support parameter defaults for `Invoke-Pog` set by the user (quite hacky)
         $PSDefaultParameterValues = $global:PSDefaultParameterValues
-
-        # -Force because user already confirmed the update
-        $OutdatedPackages | Invoke-Pog -Force
+        $OutdatedPackages | Invoke-Pog
     }
 }
 
