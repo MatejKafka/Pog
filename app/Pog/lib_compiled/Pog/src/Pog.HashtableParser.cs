@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Management.Automation;
 
 namespace Pog;
 
@@ -33,8 +34,14 @@ internal struct HashtableParser {
         Issues.Add(issueMessage);
     }
 
-    public void AddValidityIssue(string propertyName, string? value, string validDescription) {
-        AddIssue($"Invalid '{ObjectPath}{propertyName}' value: '{value}' ({validDescription})");
+    public void AddValidityIssue(string propertyName, object? value, string validDescription) {
+        var valueStr = value switch {
+            string s => $"'{s}'",
+            ScriptBlock sb => $"{{{sb}}}",
+            null => "null",
+            _ => value.ToString(),
+        };
+        AddIssue($"Invalid '{ObjectPath}{propertyName}' value: {valueStr} ({validDescription})");
     }
 
     private class DataFileParseException(string message) : Exception(message);
@@ -70,22 +77,22 @@ internal struct HashtableParser {
     }
 
     private T ParseScalarInternal<T>(string key, bool required) {
-        var value = GetPropertyInternal(key, required, typeof(T).ToString());
+        var value = GetPropertyInternal(key, required, typeof(T).Name);
         if (value is T v) {
             return v;
         } else {
-            throw new DataFileParseException($"{GetKeyName(key, required)} is present, " +
-                                             $"but has an incorrect type '{value.GetType()}', expected '{typeof(T)}'.");
+            throw new DataFileParseException($"{GetKeyName(key, required)} is present, but has an incorrect type " +
+                                             $"'{value.GetType().Name}', expected '{typeof(T).Name}'.");
         }
     }
 
     private T[] ParseListInternal<T>(string key, bool required) {
-        var value = GetPropertyInternal(key, required, typeof(T).ToString());
+        var value = GetPropertyInternal(key, required, typeof(T).Name);
         if (value is T v) {
             return [v]; // single item, wrap into an array
         } else if (value is not Array) {
-            throw new DataFileParseException($"{GetKeyName(key, required)} is present, " +
-                                             $"but has an incorrect type '{value.GetType()}', expected '{typeof(T[])}'.");
+            throw new DataFileParseException($"{GetKeyName(key, required)} is present, but has an incorrect type " +
+                                             $"'{value.GetType().Name}', expected '{typeof(T[]).Name}'.");
         }
 
         var arr = (Array) value;
@@ -97,9 +104,10 @@ internal struct HashtableParser {
             if (item is T v2) {
                 parsed[i] = v2;
             } else {
-                var description = item == null ? "is set to $null" : $"({item}) has an incorrect type '{item.GetType()}'";
+                var description =
+                        item == null ? "is set to $null" : $"({item}) has an incorrect type '{item.GetType().Name}'";
                 throw new DataFileParseException(
-                        $"{GetKeyName(key, required)} is present, but item #{i} {description}, expected '{typeof(T)}'.");
+                        $"{GetKeyName(key, required)} is present, but item #{i} {description}, expected '{typeof(T).Name}'.");
             }
         }
         return parsed;
@@ -118,7 +126,7 @@ internal struct HashtableParser {
         return null;
     }
 
-    public T? ParseScalar<T>(string key, bool required, T? dummy = default) where T : struct {
+    public T? ParseScalar<T>(string key, bool required, T? dummy = null) where T : struct {
         try {
             return ParseScalarInternal<T>(key, required);
         } catch (DataFileParseException e) {
