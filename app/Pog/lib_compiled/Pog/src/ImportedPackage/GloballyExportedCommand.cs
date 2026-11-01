@@ -10,7 +10,6 @@ namespace Pog;
 internal class GloballyExportedCommand(string path) {
     public readonly string Path = path;
 
-    public bool Exists => FsUtils.FileExistsCaseSensitive(Path);
     // take the target path and go ../.. (from `<package>/.commands/name.exe`)
     public string? SourcePackagePath => Target is {} t ? IOPath.GetDirectoryName(IOPath.GetDirectoryName(t)) : null;
     public string? Target => FsUtils.GetSymbolicLinkTarget(Path);

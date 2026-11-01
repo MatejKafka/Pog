@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Management.Automation;
 using System.Threading;
 
 namespace Pog.Utils;
@@ -23,6 +24,19 @@ internal static class EnumerableExtensions {
 
     public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> enumerable) where T : class {
         return enumerable.Where(e => e != null).Select(e => e!);
+    }
+
+    public static IEnumerable<T> WhereFsWildcard<T>(this IEnumerable<T> enumerable, string searchPattern,
+            Func<T, string> toString) {
+        if (searchPattern == "*") {
+            return enumerable;
+        }
+        var pattern = new WildcardPattern(searchPattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
+        return enumerable.Where(item => pattern.IsMatch(toString(item)));
+    }
+
+    public static IEnumerable<string> WhereFsWildcard(this IEnumerable<string> enumerable, string searchPattern) {
+        return enumerable.WhereFsWildcard(searchPattern, item => item);
     }
 
     public static List<T> Split<T>(this IEnumerable<T> enumerable, Predicate<T> predicate, out List<T> failedValues) {

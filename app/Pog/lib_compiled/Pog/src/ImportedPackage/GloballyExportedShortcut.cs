@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using Pog.Native;
 using Pog.Utils;
 using IOPath = System.IO.Path;
 
@@ -13,9 +14,8 @@ internal class GloballyExportedShortcut(string path) {
         return new(path);
     }
 
-    public bool Exists => FsUtils.FileExistsCaseSensitive(Path);
     // somewhat expensive
-    public string? SourcePackagePath => !Exists ? null : ExportedShortcut.GetShortcutSource(new(Path));
+    public string? SourcePackagePath => LoadShortcut() is {} s ? ExportedShortcut.GetShortcutSource(s) : null;
 
     // we consider the shortcut matching if it exists and its source package matches instead of matching exact content;
     //  this ensures that if something caused the two shortcuts to desync previously, we can recover
@@ -46,5 +46,15 @@ internal class GloballyExportedShortcut(string path) {
 
         localShortcut.CopyTo(Path);
         return exists;
+    }
+
+    private Shortcut? LoadShortcut() {
+        try {
+            return new Shortcut(Path);
+        } catch (FileNotFoundException) {
+            return null;
+        } catch (DirectoryNotFoundException) {
+            return null;
+        }
     }
 }

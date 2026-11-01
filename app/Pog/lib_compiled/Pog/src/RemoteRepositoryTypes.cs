@@ -147,13 +147,7 @@ public sealed class RemoteRepository : IRepository {
     }
 
     public IEnumerable<string> EnumeratePackageNames(string searchPattern = "*") {
-        var packageNames = Packages.Keys;
-        if (searchPattern == "*") {
-            return packageNames;
-        }
-
-        var pattern = new WildcardPattern(searchPattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
-        return packageNames.Where(p => pattern.IsMatch(p));
+        return Packages.Keys.WhereFsWildcard(searchPattern);
     }
 
     public IEnumerable<RepositoryVersionedPackage> Enumerate(string searchPattern = "*") {
@@ -190,16 +184,8 @@ public class RemoteRepositoryVersionedPackage : RepositoryVersionedPackage {
     }
 
     public override IEnumerable<PackageVersion> EnumerateVersions(string searchPattern = "*") {
-        var versions = _repository.Packages[PackageName];
-        if (versions == null) {
-            return [];
-        }
-        if (searchPattern == "*") {
-            return versions;
-        }
-
-        var pattern = new WildcardPattern(searchPattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
-        return versions.Where(v => pattern.IsMatch(v.ToString()));
+        return (_repository.Packages[PackageName] ?? [])
+                .WhereFsWildcard(searchPattern, v => v.ToString());
     }
 
     public override IEnumerable<string> EnumerateVersionStrings(string searchPattern = "*") {

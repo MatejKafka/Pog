@@ -6,13 +6,15 @@ using System.Management.Automation;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.PSAttributes;
+using Pog.Utils;
 
 namespace Pog.Commands;
 
 [PublicAPI]
-public record ExportedCommand(string Path, ImportedPackage Package, string Target) {
+public record ExportedCommand(bool Local, string Path, ImportedPackage Package, string Target) {
     public string Name => System.IO.Path.GetFileNameWithoutExtension(Path);
     public string PackageName => Package.PackageName;
+    public override string ToString() => Path;
 }
 
 /// <summary>Lists commands exported to PATH by installed packages.</summary>
@@ -41,22 +43,30 @@ public class GetPogCommandCommand : PackageCommandBase {
     public ImportedPackage[]? Package = null;
 
     protected override void ProcessRecord() {
-        WriteObjectEnumerable(ProcessInner()
-                .Select(cmd => new ExportedCommand(cmd.Path, new(cmd.SourcePackagePath!, false), cmd.Target!)));
+        WriteObjectEnumerable(ProcessInner());
     }
 
-    private IEnumerable<GloballyExportedCommand> ProcessInner() {
+    private IEnumerable<ExportedCommand> ProcessInner() {
         var packages = GetImportedPackage(Package, PackageName, false);
         if (packages == null) {
-            return Name == null ? EnumerateAllCommands() : Name.SelectMany(EnumerateCommands);
-        } else if (Name == null) {
-            return packages.SelectMany(p => p.EnumerateExportedCommands())
-                    .Select(localCmd => GloballyExportedCommand.FromLocal(localCmd.FullName))
-                    .Where(cmd => cmd.Exists);
-        } else {
-            var packagesArr = packages.ToArray();
-            return Name.SelectMany(EnumerateCommands).Where(cmd => packagesArr.Any(cmd.IsFromPackage));
+            return (Name == null ? EnumerateAllCommands() : Name.SelectMany(EnumerateCommands))
+                    .Select(cmd => new ExportedCommand(false, cmd.Path, new(cmd.SourcePackagePath!, false), cmd.Target!));
         }
+
+        if (Name == null) {
+            return packages.SelectMany(p => p.EnumerateExportedCommands()
+                    .Select(cmd => new ExportedCommand(true, cmd.FullName, p, cmd.FullName)));
+        } else {
+            var matchers = Name.Select(GetCommandFilterFn).ToArray();
+            return packages.SelectMany(p => p.EnumerateExportedCommands()
+                    .Where(cmd => matchers.Any(m => m(cmd.FullName)))
+                    .Select(cmd => new ExportedCommand(true, cmd.FullName, p, cmd.FullName)));
+        }
+    }
+
+    private Func<string, bool> GetCommandFilterFn(string namePattern) {
+        var pattern = new WildcardPattern(namePattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
+        return path => pattern.IsMatch(Path.GetFileNameWithoutExtension(path));
     }
 
     private IEnumerable<GloballyExportedCommand> EnumerateAllCommands() {
@@ -67,17 +77,7 @@ public class GetPogCommandCommand : PackageCommandBase {
     private IEnumerable<GloballyExportedCommand> EnumerateCommands(string namePattern) {
         // filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
         return Directory.EnumerateFiles(InternalState.PathConfig.ExportedCommandDir, $"{namePattern}.*")
-                .Where(GetCommandFilterFn(namePattern))
+                .WhereFsWildcard(namePattern, Path.GetFileNameWithoutExtension)
                 .Select(path => new GloballyExportedCommand(path));
-    }
-
-    private Func<string, bool> GetCommandFilterFn(string namePattern) {
-        if (WildcardPattern.ContainsWildcardCharacters(namePattern)) {
-            var pattern = new WildcardPattern(namePattern, WildcardOptions.CultureInvariant | WildcardOptions.IgnoreCase);
-            return path => pattern.IsMatch(Path.GetFileNameWithoutExtension(path));
-        } else {
-            return path =>
-                    string.Equals(Path.GetFileNameWithoutExtension(path), namePattern, StringComparison.OrdinalIgnoreCase);
-        }
     }
 }
