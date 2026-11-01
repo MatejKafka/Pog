@@ -33,7 +33,7 @@ public class PackageVersion : IComparable<PackageVersion>, IComparable, IEquatab
             @"^(?<Main>\d+(\.\d+)*)(?<Dev>[^+]*)(?:\+(?<BuildMeta>.*))?$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    private static readonly Dictionary<string, DevVersionType> DevVersionTypeMap = new() {
+    private static readonly Dictionary<string, DevVersionType> DevVersionTypeMap = new(StringComparer.OrdinalIgnoreCase) {
         {"nightly", DevVersionType.Nightly},
         {"preview", DevVersionType.Preview},
         {"alpha", DevVersionType.Alpha},
