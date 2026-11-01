@@ -24,7 +24,6 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     public string Path {get;}
     public string ManifestPath => $"{Path}\\{PathConfig.PackagePaths.ManifestFileName}";
     public string UserManifestPath => $"{Path}\\{PathConfig.PackagePaths.UserManifestFileName}";
-
     private string ManifestBackupPath => $"{Path}\\{PathConfig.PackagePaths.ManifestBackupFileName}";
 
     internal string ExportedCommandDirPath => $"{Path}{PathConfig.PackagePaths.CommandDirRelSuffix}";
@@ -42,7 +41,7 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     internal ImportedPackage(string path, bool loadManifest = true)
             : this(System.IO.Path.GetFileName(path), path, loadManifest) {}
 
-    internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName, null) {
+    internal ImportedPackage(string packageName, string path, bool loadManifest = true) : base(packageName) {
         Verify.Assert.FilePath(path);
         Verify.Assert.PackageName(packageName);
         Path = path;
@@ -52,11 +51,11 @@ public sealed class ImportedPackage : Package, ILocalPackage {
         }
     }
 
-    protected override PackageManifest LoadManifest() {
+    protected override ManifestText ReadManifest() {
         if (!Exists) {
             throw new PackageNotFoundException($"Cannot read the package manifest of a non-existent package at '{Path}'.");
         }
-        return new PackageManifest(ManifestPath);
+        return new(PackageManifestParser.ReadManifestString(ManifestPath), ManifestPath);
     }
 
     // called while importing a new manifest

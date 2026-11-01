@@ -127,7 +127,7 @@ public abstract class RepositoryVersionedPackage {
 /// Class representing a package available for installation from a repository (either local or remote).
 [PublicAPI]
 public abstract class RepositoryPackage(RepositoryVersionedPackage parent, PackageVersion version)
-        : Package(parent.PackageName, null) {
+        : Package(parent.PackageName) {
     public readonly RepositoryVersionedPackage Container = parent;
     public readonly PackageVersion Version = version;
 

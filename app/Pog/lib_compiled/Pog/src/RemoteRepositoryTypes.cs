@@ -209,26 +209,31 @@ public sealed class RemoteRepositoryPackage(RemoteRepositoryVersionedPackage par
         return versions != null && Array.BinarySearch(versions, Version, new PackageVersion.DescendingComparer()) >= 0;
     }
 
-    protected override PackageManifest LoadManifest() {
+    protected override ManifestText ReadManifest() {
         // FIXME: cancellation
-        return LoadManifestAsync().GetAwaiter().GetResult();
+        return ReadManifestAsync().GetAwaiter().GetResult();
     }
 
     // originally, the remote package manifest was a zip archive that contained the manifest and an optional .pog dir;
     //  since the .pog dir was almost unused, and it complicated some aspects of package installation, it is no longer
     //  supported; in the `v2` format, the manifest is provided directly
-    protected override async Task<PackageManifest> LoadManifestAsync(CancellationToken token = default) {
-        var manifestStr = await InternalState.HttpClient.RetrieveTextAsync(new(Url), token).ConfigureAwait(false);
-        if (manifestStr == null) {
-            if (Exists) {
-                throw new InvalidRemoteRepositoryException(
-                        $"Package '{PackageName}' is listed in the remote repository index, but was not found at '{Url}'. " +
-                        $"This indicates either a malformed repository or an incompatible repository version.");
-            } else {
-                throw new PackageNotFoundException(
-                        $"Package '{PackageName}' does not exist in remote repository, {ExpectedPathStr}");
+    protected override async Task<ManifestText> ReadManifestAsync(CancellationToken token = default) {
+        try {
+            var manifestStr = await InternalState.HttpClient.RetrieveTextAsync(new(Url), token).ConfigureAwait(false);
+            if (manifestStr != null) {
+                return new(manifestStr, Url);
             }
+        } catch (HttpRequestException e) {
+            throw new HttpRequestException($"Failed to fetch a package manifest at '{Url}': {e.Message}", e);
         }
-        return new PackageManifest(manifestStr, Url, owningPackage: this);
+
+        if (Exists) {
+            throw new InvalidRemoteRepositoryException(
+                    $"Package '{PackageName}' is listed in the remote repository index, but was not found at '{Url}'. " +
+                    $"This indicates either a malformed repository or an incompatible repository version.");
+        } else {
+            throw new PackageNotFoundException(
+                    $"Package '{PackageName}' does not exist in remote repository, {ExpectedPathStr}");
+        }
     }
 }

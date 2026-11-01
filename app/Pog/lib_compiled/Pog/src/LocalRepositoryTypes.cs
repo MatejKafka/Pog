@@ -130,11 +130,11 @@ public sealed class DirectLocalRepositoryPackage(LocalRepositoryVersionedPackage
     public override string ManifestPath => $"{Path}\\{PPaths.ManifestFileName}";
     public override bool Exists => Directory.Exists(Path);
 
-    protected override PackageManifest LoadManifest() {
+    protected override ManifestText ReadManifest() {
         if (!Exists) {
             throw new PackageNotFoundException($"Cannot read the package manifest of a non-existent package: {Path}");
         }
-        return new PackageManifest(ManifestPath, owningPackage: this);
+        return new(PackageManifestParser.ReadManifestString(ManifestPath), ManifestPath);
     }
 }
 
@@ -147,12 +147,10 @@ public sealed class TemplatedLocalRepositoryPackage(LocalRepositoryVersionedPack
     public string TemplateDirPath => ((LocalRepositoryVersionedPackage) Container).TemplateDirPath;
     public string TemplatePath => ((LocalRepositoryVersionedPackage) Container).TemplatePath;
 
-    protected override PackageManifest LoadManifest() {
+    protected override ManifestText ReadManifest() {
         if (!Exists) {
             throw new PackageNotFoundException($"Cannot read the package manifest of a non-existent package at '{Path}'.");
         }
-
-        var manifestStr = ManifestTemplateFile.Substitute(TemplatePath, ManifestPath);
-        return new PackageManifest(manifestStr, ManifestPath, owningPackage: this);
+        return new(ManifestTemplateFile.Substitute(TemplatePath, ManifestPath), TemplatePath);
     }
 }

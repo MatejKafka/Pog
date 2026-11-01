@@ -7,39 +7,55 @@ using System.Management.Automation.Language;
 
 namespace Pog;
 
+/// Internal helper used to override the source file on an extent.
+internal class FileScriptExtent(IScriptExtent baseExtent, string source) : IScriptExtent {
+    public string File => source;
+    public string Text => baseExtent.Text;
+
+    public IScriptPosition StartScriptPosition => baseExtent.StartScriptPosition;
+    public int StartColumnNumber => baseExtent.StartColumnNumber;
+    public int StartLineNumber => baseExtent.StartLineNumber;
+    public int StartOffset => baseExtent.StartOffset;
+
+    public IScriptPosition EndScriptPosition => baseExtent.EndScriptPosition;
+    public int EndColumnNumber => baseExtent.EndColumnNumber;
+    public int EndLineNumber => baseExtent.EndLineNumber;
+    public int EndOffset => baseExtent.EndOffset;
+}
+
 // NOTE: how the manifest is loaded is important; the resulting scriptblocks must NOT be bound to a single runspace;
 //  this should not be an issue when loading the manifest in C#, but in PowerShell, it happens semi-often
 //  (see e.g. https://github.com/PowerShell/PowerShell/issues/11658#issuecomment-577304407)
 internal static class PackageManifestParser {
+    public static string ReadManifestString(string manifestPath) {
+        try {
+            return File.ReadAllText(manifestPath);
+        } catch (FileNotFoundException) {
+            throw new PackageManifestNotFoundException($"Package manifest file is missing: {manifestPath}", manifestPath);
+        }
+    }
+
     /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
     /// unwrapping any script-blocks (see the other methods).
     public static (string RawStr, Hashtable Parsed) LoadManifest(string manifestPath) {
-        if (!File.Exists(manifestPath)) {
-            throw new PackageManifestNotFoundException($"Package manifest file is missing, expected path: {manifestPath}",
-                    manifestPath);
-        }
-
-        var ast = Parser.ParseFile(manifestPath, out _, out var errors);
-        if (errors.Length > 0) {
-            throw new PackageManifestParseException(manifestPath, errors);
-        }
-
-        var manifestText = ast.Extent.Text;
-        return (manifestText, ParseLoadedManifest(ast, manifestPath));
+        return ParseManifest(ReadManifestString(manifestPath), manifestPath);
     }
 
     /// Loads the manifest the same way as `Import-PowerShellDataFile` would, while providing better error messages and
     /// unwrapping any script-blocks (see the other methods).
-    public static (string, Hashtable) LoadManifest(string manifestStr, string manifestSource) {
+    public static (string RawStr, Hashtable Parsed) ParseManifest(string manifestStr, string manifestSource) {
         var ast = Parser.ParseInput(manifestStr, out _, out var errors);
         if (errors.Length > 0) {
-            throw new PackageManifestParseException(manifestSource, errors);
+            // since we're loading the manifest from string, the errors do not include the source file/URL
+            // replace extents on the parse errors to properly show the source
+            throw new PackageManifestParseException(manifestSource, errors
+                    .Select(e => new ParseError(new FileScriptExtent(e.Extent, manifestSource), e.ErrorId, e.Message))
+                    .ToArray());
         }
-
-        return (manifestStr, ParseLoadedManifest(ast, manifestSource));
+        return (manifestStr, ProcessManifest(ast, manifestSource));
     }
 
-    private static Hashtable ParseLoadedManifest(Ast ast, string manifestSource) {
+    private static Hashtable ProcessManifest(Ast ast, string manifestSource) {
         var hashtableNode = (HashtableAst) ast.Find(static a => a is HashtableAst, false);
         if (hashtableNode == null) {
             throw new PackageManifestParseException(manifestSource,

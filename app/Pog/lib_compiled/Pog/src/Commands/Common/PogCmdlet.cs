@@ -24,24 +24,21 @@ public class PogCmdlet : PSCmdlet, IDisposable {
     protected internal CancellationToken CancellationToken => (_stopping ??= new CancellationTokenSource()).Token;
 
     internal void InvokePogCommand(VoidCommand cmd) {
-        using (new CommandStopContext(this, cmd)) {
-            cmd.Invoke();
-        }
+        using var context = new CommandStopContext(this, cmd);
+        cmd.Invoke();
     }
 
     internal T InvokePogCommand<T>(ScalarCommand<T> cmd) {
-        using (new CommandStopContext(this, cmd)) {
-            return cmd.Invoke();
-        }
+        using var context = new CommandStopContext(this, cmd);
+        return cmd.Invoke();
     }
 
     internal IEnumerable<T> InvokePogCommand<T>(EnumerableCommand<T> cmd) {
-        using (new CommandStopContext(this, cmd)) {
-            // by re-yielding the enumerable, we dispose the stop context only after the whole enumerable
-            //  is iterated over (= the command finished)
-            foreach (var obj in cmd.Invoke()) {
-                yield return obj;
-            }
+        using var context = new CommandStopContext(this, cmd);
+        // by re-yielding the enumerable, we dispose the stop context only after the whole enumerable
+        //  is iterated over (= the command finished)
+        foreach (var obj in cmd.Invoke()) {
+            yield return obj;
         }
     }
 
