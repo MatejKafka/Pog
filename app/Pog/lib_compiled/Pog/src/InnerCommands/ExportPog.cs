@@ -27,7 +27,7 @@ internal sealed class ExportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             } else {
                 var ownerPath = target.SourcePackagePath;
                 if (target.OverwriteWith(shortcut)) {
-                    WriteWarning($"Overwritten an existing shortcut '{shortcutName}' from package " +
+                    WriteWarning($"Overwrote an existing shortcut '{shortcutName}' from package " +
                                  $"'{Path.GetFileName(ownerPath)}'.");
                 } else {
                     // created new shortcut
@@ -65,7 +65,7 @@ internal sealed class ExportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
                     collidingCmdPath.Delete();
                 }
 
-                WriteWarning($"Overwritten an existing command '{cmdName}' from package '{Path.GetFileName(ownerPath)}'.");
+                WriteWarning($"Overwrote an existing command '{cmdName}' from package '{Path.GetFileName(ownerPath)}'.");
             }
 
             try {

@@ -100,7 +100,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
         if (targetPath == null) {
             // the target path escapes from the app directory
             ThrowArgumentError(target, "TargetEscapesRoot",
-                    $"Argument passed to the -Target parameter must be a relative path that does not escape " +
+                    $"'Target' path for a package source must be a relative path that does not escape " +
                     $"the app directory, got '{target}'.");
             throw new UnreachableException();
         }
@@ -364,7 +364,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
         WriteDebug("The previous app directory seems to be used.");
         InvokePogCommand(new ShowLockedFileList(Cmdlet) {
             Path = _appDirPath,
-            MessagePrefix = "Cannot overwrite an existing package installation,",
+            MessagePrefix = $"Cannot overwrite an existing package installation for '{Package.PackageName}',",
             NoList = _lockFileListShown,
             Wait = true,
         });
@@ -375,7 +375,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
     private void ShowLockedFileInfo(string dirPath) {
         InvokePogCommand(new ShowLockedFileList(Cmdlet) {
             Path = _appDirPath,
-            MessagePrefix = "Cannot overwrite an existing package installation,",
+            MessagePrefix = $"Cannot overwrite an existing package installation for '{Package.PackageName}',",
         });
         _lockFileListShown = true;
     }

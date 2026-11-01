@@ -10,7 +10,7 @@ namespace Pog.Commands.ContainerCommands;
 /// <summary>Exports a shortcut (.lnk) entry point to the package and places the created shortcut in the root
 /// of the package directory. The user can invoke the shortcut to run the packaged application.</summary>
 [PublicAPI]
-// do not set ShimPS as default parameter set, we need to distinguish it from the case where only -TargetPath is passed
+// do not set ShimPS as a default parameter set, we need to distinguish it from the case where only -TargetPath is passed
 [Cmdlet(VerbsData.Export, "Shortcut")]
 public sealed class ExportShortcutCommand : ExportEntryPointCommandBase {
     /// Path to the invoked target. Note that it must either be an executable (.exe), a batch file (.cmd/.bat), a directory
@@ -19,7 +19,7 @@ public sealed class ExportShortcutCommand : ExportEntryPointCommandBase {
     [ResolveShellLinkTarget]
     public string TargetPath = null!;
 
-    /// Path to the icon file used to set the shortcut icon. The path should refer to an .ico file,
+    /// Path to the icon file used to set the shortcut icon. The path should refer to an .ico file
     /// or an executable with an embedded icon.
     [Parameter]
     [ResolvePath("Icon source")]
