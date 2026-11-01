@@ -284,13 +284,21 @@ public record PackageManifest {
         }
 
         if (Install != null) {
-            foreach (var ip in Install) {
-                if (ip.ExpectedHash == null && !ignoreMissingHash) {
+            foreach (var source in Install) {
+                if (source.ExpectedHash == null && !ignoreMissingHash) {
                     addIssueCb($"Missing checksum in the manifest for {packageInfoStr}. " +
                                "This means that during installation, Pog cannot verify if the downloaded file is the same" +
                                "one that the package author intended. This may or may not be a problem on its own, but " +
                                "it's a better style to include a checksum, and it improves security and reproducibility. " +
                                "Additionally, Pog can cache downloaded files if the checksum is provided.");
+                }
+
+                if (source.Url is ScriptBlock urlSb) {
+                    try {
+                        urlSb.ValidatePurity();
+                    } catch (ImpureScriptBlockException e) {
+                        addIssueCb($"Source URL scriptblock {e.Message}");
+                    }
                 }
             }
         }
@@ -368,7 +376,11 @@ public abstract record PackageSource {
         }
 
         var sb = (ScriptBlock) Url;
-        ValidateUrlScriptBlock(sb);
+        try {
+            sb.ValidatePurity();
+        } catch (ImpureScriptBlockException e) {
+            throw new InvalidPackageManifestUrlScriptBlockException(e.Message, e);
+        }
 
         var resolvedUrlObj = InvokeUrlSb(sb, rawManifest, manifestSourceStr);
         if (resolvedUrlObj.Count != 1) {
@@ -404,44 +416,6 @@ public abstract record PackageSource {
                     $"failed. Please fix the package manifest or report the issue to the package maintainer:\n" +
                     $"    {e.Message.Replace("\n", "\n    ")}\n\n" +
                     $"    {positionMsg.Replace("\n", "\n    ")}\n", e);
-        }
-    }
-
-    /// Validates that the passed source URL generator scriptblock does not invoke any cmdlets, does not use any variables
-    /// that it does not itself define and does not assign to any non-local variables.
-    ///
-    /// <remarks>The goal is not to be 100% robust, but serve mostly as a lint. We're just attempting to prevent a manifest
-    /// author from using cmdlets or variables that could be locally overriden. The alternative that was originally used was
-    /// to run the scriptblock in a container, but that has non-trivial setup overhead.</remarks>
-    private static void ValidateUrlScriptBlock(ScriptBlock sb) {
-        var cmdletCalls = sb.Ast.FindAll(node => node is CommandAst, true).ToArray();
-        if (cmdletCalls.Length != 0) {
-            throw new InvalidPackageManifestUrlScriptBlockException(
-                    "must not invoke any commands, since the user may have aliased them in their PowerShell profile. " +
-                    $"Found the following command invocations: {string.Join(", ", cmdletCalls.Select(c => $"`{c}`"))}");
-        }
-
-        var assignments = sb.Ast.FindAllByType<VariableExpressionAst>(true)
-                .Split(v => v.Parent is AssignmentStatementAst, out var usages)
-                .ToDictionary(v => v.VariablePath.UserPath, StringComparer.OrdinalIgnoreCase);
-
-        var nonLocalAssignments = assignments.Values.Where(a => !a.VariablePath.IsUnqualified).ToArray();
-        if (nonLocalAssignments.Length > 0) {
-            throw new InvalidPackageManifestUrlScriptBlockException(
-                    "must not assign to any non-local variables. Found the following non-local variable assignments: " +
-                    $"{string.Join(", ", nonLocalAssignments.Select(c => $"`{c}`"))}");
-        }
-
-        var invalidUsages = usages
-                .Where(u => !assignments.ContainsKey(u.VariablePath.UserPath))
-                // $this is the only allowed external variable
-                .Where(u => u.VariablePath.UserPath != "this")
-                .ToArray();
-
-        if (invalidUsages.Length > 0) {
-            throw new InvalidPackageManifestUrlScriptBlockException(
-                    "must not use any variables that were not previously defined in the scriptblock, except for `$this`. " +
-                    $"Found the following variable usages: {string.Join(", ", invalidUsages.Select(c => $"`{c}`"))}");
         }
     }
 }
