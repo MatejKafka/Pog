@@ -65,8 +65,8 @@ function RenderPackageGenerator($Path) {
         Generate = {
             return [ordered]@{
                 Version = $_.Version
-                Url = ''
-                Hash = ''
+                Url = $_.Asset.Url
+                Hash = Get-GithubAssetHash $_.Asset
             }
         }
     } | RenderPsd1 $Path
@@ -97,7 +97,7 @@ function New-PogRepositoryPackage {
             ### - Generated = templated package that also includes a generator for automatically updating the package
             [ValidateSet('Direct', 'Templated', 'Generated')]
             [string]
-        $Type = 'Templated'
+        $Type = 'Generated'
     )
 
     begin {

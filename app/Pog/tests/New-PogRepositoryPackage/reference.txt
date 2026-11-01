@@ -23,8 +23,8 @@ GENERATOR:
     Generate = {
         return [ordered]@{
             Version = $_.Version
-            Url = ''
-            Hash = ''
+            Url = $_.Asset.Url
+            Hash = Get-GithubAssetHash $_.Asset
         }
     }
 }
@@ -145,8 +145,8 @@ GENERATOR:
     Generate = {
         return [ordered]@{
             Version = $_.Version
-            Url = ''
-            Hash = ''
+            Url = $_.Asset.Url
+            Hash = Get-GithubAssetHash $_.Asset
         }
     }
 }
