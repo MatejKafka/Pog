@@ -12,11 +12,11 @@ env:
   # "VERSION_WIX_DARK: `"$((Find-Pog dark@ScoopInstaller).Version)`""
   # Find-Pog ILRepack, UPX, 7zip | % {"VERSION_$($_.PackageName.ToUpperInvariant()): `"$($_.Version)`""}
   # ```
-  VERSION_PESTER: "5.7.1"
+  VERSION_PESTER: "6.2.0"
   VERSION_WIX_DARK: "3.14"
-  VERSION_ILREPACK: "2.0.41"
+  VERSION_ILREPACK: "2.0.48"
   VERSION_UPX: "4.2.3"
-  VERSION_7ZIP: "24.09"
+  VERSION_7ZIP: "26.05"
 
   # avoid "Workload updates are available. Run `dotnet workload list` for more information."
   DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: true
