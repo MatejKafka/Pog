@@ -127,8 +127,12 @@ public sealed class UpdatePogRepositoryCommand : PogCmdlet {
             Run = ps => ps.AddCommand("__main").AddParameters(new object?[] {package, Version, force, ListOnly}),
         });
 
-        foreach (var o in it) {
-            WriteObject(o);
+        try {
+            foreach (var o in it) {
+                WriteObject(o);
+            }
+        } catch (RuntimeException e) {
+            WriteError(e.ErrorRecord);
         }
     }
 }
