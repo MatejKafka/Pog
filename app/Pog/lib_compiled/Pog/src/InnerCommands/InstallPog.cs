@@ -262,7 +262,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
             Variables = [
                 new("this", Package.Manifest.Raw, ""),
             ],
-            Run = ps => ps.AddScript("Set-StrictMode -Version 3; & $Args[0]").AddArgument(setupScript),
+            Run = new PSCommand().AddScript("Set-StrictMode -Version 3; & $Args[0]").AddArgument(setupScript),
         };
 
         try {

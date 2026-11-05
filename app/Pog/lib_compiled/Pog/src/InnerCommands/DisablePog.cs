@@ -1,4 +1,5 @@
-﻿using Pog.Commands.Common;
+﻿using System.Management.Automation;
+using Pog.Commands.Common;
 using Pog.InnerCommands.Common;
 
 namespace Pog.InnerCommands;
@@ -17,7 +18,7 @@ internal class DisablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cm
             Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_Disable.psm1"],
             // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
             Variables = [new("this", Package.Manifest.Raw, "Loaded manifest of the processed package")],
-            Run = ps => ps.AddCommand("__main").AddArgument(Package.Manifest),
+            Run = new PSCommand().AddCommand("__main").AddArgument(Package.Manifest),
         });
 
         // Disable scriptblock should not output anything, show a warning

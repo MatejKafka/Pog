@@ -24,6 +24,7 @@ This module is not exactly polished and might break sometimes.
 		# Pog.dll
 		"Expand-Archive7Zip"
 		"Get-FileHash7Zip"
+		"Invoke-Container"
 		"Invoke-FileDownload"
 
 		# Env_UpdateRepository
