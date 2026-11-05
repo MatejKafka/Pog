@@ -70,6 +70,7 @@ internal class GitHubApiClient(HttpClient httpClient) {
     private async IAsyncEnumerable<T> EnumerateFeedAsync<T>(
             string errorMsg, Uri? uri, JsonSerializerOptions options, string? apiToken = null,
             [EnumeratorCancellation] CancellationToken token = default) {
+        Log.Verbose($"Enumerating feed at '{uri}'...");
         // TODO: this could be optimized by querying the "last" rel link and then requesting all pages in between in parallel
         while (uri != null) {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);

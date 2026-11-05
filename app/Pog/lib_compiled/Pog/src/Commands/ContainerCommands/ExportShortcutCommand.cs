@@ -107,7 +107,7 @@ public sealed class ExportShortcutCommand : ExportEntryPointCommandBase {
         }
 
         // shortcut to a directory or to a shell folder (shouldn't really be used in public packages)
-        return shortcut.UpdateShortcut(exportPath, WriteDebug);
+        return shortcut.UpdateShortcut(exportPath);
     }
 
     // for each executable shortcut, we create a hidden shim that sets all actual options; originally, the shim was only
@@ -124,7 +124,7 @@ public sealed class ExportShortcutCommand : ExportEntryPointCommandBase {
     private bool ExportShimShortcut(string exportPath, string shimPath, ExportedShortcut shortcut) {
         var shimChanged = CreateExportShim(shimPath, shortcut.Target, true);
         // ensure that the shortcut is correct
-        var shortcutChanged = (shortcut with {Target = shimPath}).UpdateShortcut(exportPath, WriteDebug);
+        var shortcutChanged = (shortcut with {Target = shimPath}).UpdateShortcut(exportPath);
         return shortcutChanged || shimChanged;
     }
 

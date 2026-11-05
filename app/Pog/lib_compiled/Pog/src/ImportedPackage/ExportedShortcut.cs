@@ -6,23 +6,23 @@ using Pog.Utils;
 namespace Pog;
 
 internal record ExportedShortcut(string Target, (string, int)? IconLocation, string Description, string SourcePackage) {
-    private static Shortcut LoadShortcut(string shortcutPath, Action<string> debugLogFn) {
+    private static Shortcut LoadShortcut(string shortcutPath) {
         var s = new Shortcut();
         if (File.Exists(shortcutPath)) {
             if (!FsUtils.FileExistsCaseSensitive(shortcutPath)) {
-                debugLogFn("Updating casing of an exported shortcut...");
+                Log.Debug("Updating casing of an exported shortcut...");
                 // casing mismatch, behave as if we're creating a new shortcut
                 File.Delete(shortcutPath);
             } else {
-                debugLogFn($"Shortcut at '{shortcutPath}' already exists, reusing it...");
+                Log.Debug($"Shortcut at '{shortcutPath}' already exists, reusing it...");
                 s.LoadFrom(shortcutPath);
             }
         }
         return s;
     }
 
-    public bool UpdateShortcut(string shortcutPath, Action<string> debugLogFn) {
-        var s = LoadShortcut(shortcutPath, debugLogFn);
+    public bool UpdateShortcut(string shortcutPath) {
+        var s = LoadShortcut(shortcutPath);
         var icon = IconLocation ?? ("", 0);
 
         // use .TargetID instead of .Target, because we also support shell folder targets

@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using Pog.Native;
 using Pog.Shim;
 using Pog.Utils;
@@ -7,20 +6,20 @@ using Pog.Utils;
 namespace Pog;
 
 internal class ExportedShimCommand(ShimExecutable shim) {
-    public (bool, PeBinary.PeInfo?) UpdateCommand(string exportPath, Action<string> debugLogFn) {
+    public (bool, PeBinary.PeInfo?) UpdateCommand(string exportPath) {
         if (File.Exists(exportPath)) {
             if ((new FileInfo(exportPath).Attributes & FileAttributes.ReparsePoint) != 0) {
-                debugLogFn("Overwriting symlink with a shim executable...");
+                Log.Debug("Overwriting symlink with a shim executable...");
                 // reparse point, not an ordinary file, remove
                 File.Delete(exportPath);
             } else if (!FsUtils.FileExistsCaseSensitive(exportPath)) {
-                debugLogFn("Updating casing of an exported command...");
+                Log.Debug("Updating casing of an exported command...");
                 File.Delete(exportPath);
             } else {
                 try {
                     return shim.UpdateShim(exportPath);
                 } catch (ShimExecutable.OutdatedShimException) {
-                    debugLogFn("Old shim executable, replacing with an up-to-date one...");
+                    Log.Debug("Old shim executable, replacing with an up-to-date one...");
                     File.Delete(exportPath);
                 }
             }

@@ -73,7 +73,7 @@ public class ExportEntryPointCommandBase : PogCmdlet {
         }
 
         var shim = new ShimExecutable(targetPath, WorkingDirectory, args, envVars, MetadataSource, replaceArgv0);
-        var (updated, targetInfo) = new ExportedShimCommand(shim).UpdateCommand(exportPath, WriteDebug);
+        var (updated, targetInfo) = new ExportedShimCommand(shim).UpdateCommand(exportPath);
 
         if (VcRedist && targetInfo?.Architecture == PeBinary.Architecture.I386) {
             // currently, Pog only provides x64 VC redistributable libraries, so a 32bit program will fail
