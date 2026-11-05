@@ -16,9 +16,9 @@
       },
       "MatejKafka.XmlDoc2CmdletDoc": {
         "type": "Direct",
-          "requested": "[0.7.0, )",
-          "resolved": "0.7.0",
-          "contentHash": "eDSh2QshAFS2Sl58bO/jRUhGGhUaGQjHpIsMak0kW/mYH61tZjEadNLZG9soFprSZOBoE7pagQX26Zjy13ASUg=="
+          "requested": "[0.7.1, )",
+          "resolved": "0.7.1",
+          "contentHash": "H/kFFIPMf2csyviVqsKhqQaTsnslz86iG9RT0RDQYqopvW+eWx55IapKCu6G0CLP+k1GvdxA473dLzNBOsaJTw=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Direct",
