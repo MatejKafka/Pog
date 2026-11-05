@@ -4,7 +4,6 @@ using System.Management.Automation;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Pog.Commands.Common;
-using Pog.Utils;
 using Pog.Utils.GitHub;
 
 namespace Pog.Commands.ContainerCommands;
@@ -81,8 +80,8 @@ public sealed class GetGitHubAssetCommand : PogCmdlet {
             // ambiguous pattern, multiple assets matched
             var e = new Exception($"Ambiguous asset name, multiple assets matched '{pattern}' for release at " +
                                   $"'{release.HtmlUrl}'.");
-            ThrowTerminatingError(e, "AmbiguousAssetPattern", ErrorCategory.InvalidData, release);
-            throw new UnreachableException();
+            WriteError(e, "AmbiguousAssetPattern", ErrorCategory.InvalidData, release);
+            return null;
         }
 
         if (!ignoreMissing && asset == null) {
