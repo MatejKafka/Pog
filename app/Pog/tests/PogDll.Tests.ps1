@@ -63,9 +63,12 @@ Describe "<_>" -ForEach (ls -Directory $PSScriptRoot | % Name) {
     #  for each section in the `It` tests below; one downside is that when the invocation fails,
     #  the error message is slightly less informative, but it still shows the full path of the test file
     BeforeAll {
-        # dump the output to a file for easier manual comparison
-        $Output = InvokeIsolatedTest $PSScriptRoot\$_\test.ps1 | Tee-Object $PSScriptRoot\$_\output.txt
-        $OutBlocks = ParseTestOutput $Output
+        $Timing = Measure-Command {
+            # dump the output to a file for easier manual comparison
+            $Output = InvokeIsolatedTest $PSScriptRoot\$_\test.ps1 | Tee-Object $PSScriptRoot\$_\output.txt
+            $OutBlocks = ParseTestOutput $Output
+        }
+        Write-Host "- ${_}: $($Timing.TotalMilliseconds)ms"
     }
 
     It "<Name> (block #<I>)" -ForEach $RefBlocks {
@@ -79,6 +82,6 @@ Describe "<_>" -ForEach (ls -Directory $PSScriptRoot | % Name) {
     # the -ForEach is a hack that allows us to pass a variable from `BeforeDiscovery` to `It`
     It "Verify output block count" -ForEach @($RefBlocks).Count {
         # only check -le, equality is effectively checked below
-        $OutBlocks.Count | Should -BeLessOrEqual $_ -Because "reference and output should have the same number of blocks"
+        @($OutBlocks).Count | Should -BeLessOrEqual $_ -Because "reference and output should have the same number of blocks"
     }
 }

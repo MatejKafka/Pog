@@ -9,6 +9,8 @@ namespace Pog.InnerCommands;
 
 internal sealed class ExportPog(PogCmdlet cmdlet) : ImportedPackageInnerCommandBase(cmdlet) {
     public override bool Invoke() {
+        WriteVerbose($"Exporting {Package.GetDescriptionString()}...");
+
         ExportShortcuts();
         ExportCommands();
         return true;

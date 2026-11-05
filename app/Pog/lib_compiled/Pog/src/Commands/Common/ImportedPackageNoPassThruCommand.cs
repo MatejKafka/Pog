@@ -38,6 +38,7 @@ public abstract class ImportedPackageNoPassThruCommand : PackageCommandBase {
         // TODO: do this in parallel (even for packages passed as array)
         foreach (var package in GetImportedPackage(Package, PackageName, _loadManifest) ?? []) {
             if (ShouldProcess(package.PackageName)) {
+                using var prefixGuard = SetLogPrefix(package.PackageName);
                 ProcessPackageNoPassThru(package);
             }
         }

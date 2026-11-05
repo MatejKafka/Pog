@@ -1,0 +1,10 @@
+--- Log prefixing ---
+VERBOSE: [test] Enabling private package 'test'...
+WARNING: [test] warning
+WARNING: [test] warning streamed
+[test] info
+[test] info streamed
+VERBOSE: [test] verbose
+VERBOSE: [test] verbose streamed
+DEBUG: [test] debug
+DEBUG: [test] debug streamed

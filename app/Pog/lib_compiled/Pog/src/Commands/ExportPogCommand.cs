@@ -11,7 +11,7 @@ namespace Pog.Commands;
 
 /// <summary>Exports shortcuts and commands from the package.</summary>
 /// <para>
-/// Exports shortcuts from the package to the start menu, and commands to an internal Pog directory that's available on $env:PATH.
+/// Exports shortcuts from the package to the start menu and commands to an internal Pog directory that's available on $env:PATH.
 /// </para>
 [PublicAPI]
 [Cmdlet(VerbsData.Export, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]

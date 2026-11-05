@@ -17,6 +17,7 @@ public class SetupScriptFailedException(string message, Exception innerException
 [Cmdlet(VerbsLifecycle.Install, "Pog", DefaultParameterSetName = DefaultPS, SupportsShouldProcess = true)]
 public sealed class InstallPogCommand() : ImportedPackageCommand(true) {
     protected override void ProcessPackage(ImportedPackage package) {
+        WriteInformation($"Installing {package.GetDescriptionString()}...");
         InvokePogCommand(new InstallPog(this) {
             Package = package,
         });
