@@ -197,10 +197,10 @@ public abstract class ImportCommandBase : PackageCommandBase {
         Debug.Assert(srcPackages.Length == 1 || targetPackage == null);
 
         if (targetPackage != null) {
-            ProcessPackage(srcPackages[0], targetPackage);
+            ProcessPackageWrapper(srcPackages[0], targetPackage);
         } else {
             foreach (var src in srcPackages) {
-                ProcessPackage(src, GetTargetPackage(src.PackageName, TargetPackageRoot));
+                ProcessPackageWrapper(src, GetTargetPackage(src.PackageName, TargetPackageRoot));
             }
         }
     }
@@ -213,6 +213,11 @@ public abstract class ImportCommandBase : PackageCommandBase {
         } else {
             return InternalState.ImportedPackageManager.GetPackageDefault(packageName, true, false);
         }
+    }
+
+    private void ProcessPackageWrapper(RepositoryPackage source, ImportedPackage target) {
+        using var prefixGuard = SetLogPrefix(target.PackageName);
+        ProcessPackage(source, target);
     }
 
     protected abstract void ProcessPackage(RepositoryPackage source, ImportedPackage target);

@@ -119,13 +119,12 @@ public sealed class ImportedPackage : Package, ILocalPackage {
     internal string GetExportedShortcutShimPath(string shortcutName) => @$"{ExportedShortcutShimDirPath}\{shortcutName}.exe";
 
     public override string GetDescriptionString() {
-        var versionStr = Manifest.Version != null ? $", version '{Manifest.Version}'" : "";
         if (Manifest.Private) {
-            return $"private package '{PackageName}'{versionStr}";
+            return $"private package '{PackageName}'";
         } else if (Manifest.Name == PackageName) {
-            return $"package '{Manifest.Name}'{versionStr}";
+            return $"package '{Manifest.Name}'";
         } else {
-            return $"package '{Manifest.Name}' (installed as '{PackageName}'){versionStr}";
+            return $"package '{Manifest.Name}' (installed as '{PackageName}')";
         }
     }
 

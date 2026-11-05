@@ -19,9 +19,7 @@ internal sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             return false;
         }
 
-        // TODO: consider whether to remove this print and instead prefix all logs from Env_Enable with the name of the package
-        //  currently, when enabling many packages, the noise from this line makes it harder to see what actually changed
-        WriteInformation($"Enabling {Package.GetDescriptionString()}...");
+        WriteVerbose($"Enabling {Package.GetDescriptionString()}...");
 
         var ctx = new EnableContainerContext(Package);
         var cmd = new InvokeContainer(Cmdlet) {

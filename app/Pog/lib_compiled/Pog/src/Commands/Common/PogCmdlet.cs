@@ -6,14 +6,39 @@ using System.Management.Automation;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Threading;
+using JetBrains.Annotations;
 using Pog.InnerCommands.Common;
 
 namespace Pog.Commands.Common;
 
+public abstract class LogPrefixedCmdlet : PSCmdlet {
+    private string _logPrefix = "";
+
+    [MustDisposeResource]
+    protected LogPrefixGuard SetLogPrefix(string prefix) {
+        var guard = new LogPrefixGuard(this, _logPrefix);
+        _logPrefix = $"[{prefix}] ";
+        return guard;
+    }
+
+    protected class LogPrefixGuard(LogPrefixedCmdlet cmdlet, string previousPrefix) : IDisposable {
+        public void Dispose() => cmdlet._logPrefix = previousPrefix;
+    }
+
+    public new void WriteDebug(string text) => base.WriteDebug(_logPrefix + text);
+    public new void WriteVerbose(string text) => base.WriteVerbose(_logPrefix + text);
+    public new void WriteWarning(string text) => base.WriteWarning(_logPrefix + text);
+
+    // do not wrap WriteHost, since it's occasionally necessary for rendered output
+    public new void WriteInformation(object messageData, string[]? tags) {
+        base.WriteInformation(messageData is string text ? _logPrefix + text : messageData, tags);
+    }
+}
+
 /// <summary>
 /// A custom PSCmdlet subclass which adds useful internal methods used by most Pog cmdlets.
 /// </summary>
-public class PogCmdlet : PSCmdlet, IDisposable {
+public abstract class PogCmdlet : LogPrefixedCmdlet, IDisposable {
     private HashSet<BaseCommand>? _currentlyExecutingCommands;
 
     // newer versions of PowerShell allow progress updates at most every 200 ms and debounce more frequent updates

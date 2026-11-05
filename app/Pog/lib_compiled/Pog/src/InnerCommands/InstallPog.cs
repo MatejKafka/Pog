@@ -27,7 +27,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
             WriteInformation($"Package '{Package.PackageName}' does not have an Install block.");
             return false;
         }
-        WriteInformation($"Installing {Package.GetDescriptionString()}...");
+        WriteVerbose($"Installing {Package.GetDescriptionString()}...");
 
         _appDirPath = $@"{Package.Path}\{PPaths.AppDirName}";
         _newAppDirPath = $@"{Package.Path}\{PPaths.NewAppDirName}";
