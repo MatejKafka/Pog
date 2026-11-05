@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
 
-namespace Pog.Commands.InternalCommands;
+namespace Pog.Commands.UtilCommands;
 
 /// Hash algorithms supported by 7zip.
 [SuppressMessage("ReSharper", "InconsistentNaming")]

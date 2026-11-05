@@ -6,7 +6,7 @@ using System.Management.Automation;
 using System.Text;
 using System.Text.RegularExpressions;
 using Pog.Commands.Common;
-using Pog.Commands.InternalCommands;
+using Pog.Commands.UtilCommands;
 using Pog.InnerCommands.Common;
 using Pog.Native;
 using Pog.Utils;

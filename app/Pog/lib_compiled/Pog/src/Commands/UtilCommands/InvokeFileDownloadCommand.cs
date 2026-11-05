@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using Pog.Commands.Common;
 using Pog.InnerCommands;
 
-namespace Pog.Commands.InternalCommands;
+namespace Pog.Commands.UtilCommands;
 
 /// <summary>Downloads a file to the provided directory, using the server-provided file name.</summary>
 [PublicAPI]
