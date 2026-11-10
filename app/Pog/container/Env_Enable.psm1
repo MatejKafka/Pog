@@ -226,6 +226,7 @@ function New-Directory {
         & $DefaultContent $Dir
     } catch {
         Remove-Item -Recurse -Force $Dir
+        throw
     }
     Write-Information "Created directory '$Path'."
 }
