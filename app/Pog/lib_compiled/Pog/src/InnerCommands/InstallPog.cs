@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -148,8 +149,7 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
         File.Copy(downloadedFile.Path, targetPath, true);
     }
 
-    private void InstallArchive(PackageSourceArchive param,
-            SharedFileCache.IFileLock downloadedFile, string targetPath) {
+    private void InstallArchive(PackageSourceArchive param, SharedFileCache.IFileLock downloadedFile, string targetPath) {
         using (downloadedFile) {
             // extract the archive to a temporary directory
             InvokePogCommand(new ExpandArchive7Zip(Cmdlet) {
@@ -217,7 +217,12 @@ internal sealed class InstallPog(PogCmdlet cmdlet) : ImportedPackageInnerCommand
             }
         } else {
             // `subdirectory` may contain wildcards, resolve them
-            var resolvedPaths = GetResolvedProviderPathFromPSPath(Path.Combine(extractedRootPath, subdirectory), out _);
+            Collection<string> resolvedPaths;
+            try {
+                resolvedPaths = GetResolvedProviderPathFromPSPath(Path.Combine(extractedRootPath, subdirectory), out _);
+            } catch (FileNotFoundException) {
+                resolvedPaths = [];
+            }
             switch (resolvedPaths.Count) {
                 case > 1:
                     // multiple matches
