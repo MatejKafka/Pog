@@ -1,0 +1,12 @@
+https://blogs.gentoo.org/mgorny/2021/02/19/the-modern-packagers-security-nightmare/
+	why classic Linux package maintainers dislike static linking and bundling in general
+	https://wiki.gentoo.org/wiki/Why_not_bundle_dependencies
+
+https://faultlore.com/blah/swift-abi/
+	How Swift Achieved Dynamic Linking Where Rust Couldn't
+
+https://wiki.debian.org/SoftwarePackaging#External_libraries
+https://wiki.debian.org/StaticLinking#Downsides
+	why not statically link
+
+https://wiki.alopex.li/LetsBeRealAboutDependencies
