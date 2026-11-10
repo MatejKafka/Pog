@@ -17,6 +17,8 @@ public record ExportedCommand(bool Local, string Path, ImportedPackage Package, 
     public override string ToString() => Path;
 }
 
+public class PackageCommandNotFound(string message) : Exception(message);
+
 /// <summary>Lists commands exported to PATH by installed packages.</summary>
 [PublicAPI]
 [Cmdlet(VerbsCommon.Get, "PogCommand", DefaultParameterSetName = DefaultPS)]
@@ -76,8 +78,15 @@ public class GetPogCommandCommand : PackageCommandBase {
 
     private IEnumerable<GloballyExportedCommand> EnumerateCommands(string namePattern) {
         // filter out files with a dot before the extension (e.g. `arm-none-eabi-ld.bfd.exe`)
-        return Directory.EnumerateFiles(InternalState.PathConfig.ExportedCommandDir, $"{namePattern}.*")
+        var cmds = Directory.EnumerateFiles(InternalState.PathConfig.ExportedCommandDir, $"{namePattern}.*")
                 .WhereFsWildcard(namePattern, Path.GetFileNameWithoutExtension)
-                .Select(path => new GloballyExportedCommand(path));
+                .Select(path => new GloballyExportedCommand(path))
+                .ToArray();
+        // FIXME: this method takes escaping into account, so a`*b does not contain a wildcard
+        if (cmds.Length == 0 && !WildcardPattern.ContainsWildcardCharacters(namePattern)) {
+            var e = new PackageCommandNotFound($"Command '{namePattern}' is not exported by any package.");
+            WriteError(new ErrorRecord(e, "CommandNotFound", ErrorCategory.ObjectNotFound, namePattern));
+        }
+        return cmds;
     }
 }
