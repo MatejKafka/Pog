@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Language;
@@ -7,7 +8,18 @@ namespace Pog.Utils;
 
 internal class ImpureScriptBlockException(string message) : Exception(message);
 
-internal static class ScriptBlockExtensions {
+/// Extension methods for various PowerShell classes.
+internal static class PwshExtensions {
+    /// Indicates whether the information record originated from `Write-Host`.
+    public static bool IsHostRecord(this InformationRecord record) {
+        // this condition mirrors `MshCommandRuntime.WriteInformation`
+        return record.Tags.Contains("PSHOST") && !record.Tags.Contains("FORWARDED");
+    }
+
+    public static IEnumerable<T> FindAllByType<T>(this Ast ast, bool searchNestedScriptBlocks) where T : Ast {
+        return ast.FindAll(node => node is T, searchNestedScriptBlocks).Cast<T>();
+    }
+
     /// Validates that the passed scriptblock does not invoke any cmdlets, does not use any variables
     /// that it does not itself define and does not assign to any non-local variables.
     ///

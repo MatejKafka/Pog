@@ -124,7 +124,8 @@ public sealed class UpdatePogRepositoryCommand : PogCmdlet {
                     {"Get-GithubRelease:AccessToken", GitHubToken},
                 }, "PSDefaultParameterValues"),
             ],
-            Run = ps => ps.AddCommand("__main").AddParameters(new object?[] {package, Version, force, ListOnly}),
+            Run = new PSCommand().AddCommand("__main")
+                    .AddArgument(package).AddArgument(Version).AddArgument(force).AddArgument(ListOnly),
         });
 
         try {

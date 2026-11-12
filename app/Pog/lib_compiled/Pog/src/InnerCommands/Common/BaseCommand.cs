@@ -43,6 +43,10 @@ internal abstract class BaseCommand(PogCmdlet cmdlet) {
         Cmdlet.WriteInformation(messageData, tags);
     }
 
+    protected void WriteInformation(InformationRecord record) {
+        Cmdlet.WriteInformation(record);
+    }
+
     protected void ThrowArgumentError(object? argumentValue, string errorId, string message) {
         Cmdlet.ThrowArgumentError(argumentValue, errorId, message);
     }

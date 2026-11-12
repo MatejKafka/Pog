@@ -30,7 +30,7 @@ internal sealed class EnablePog(PogCmdlet cmdlet) : ImportedPackageInnerCommandB
             Modules = [$@"{InternalState.PathConfig.ContainerDir}\Env_Enable.psm1"],
             // $this is used inside the manifest to refer to fields of the manifest itself to emulate class-like behavior
             Variables = [new("this", Package.Manifest.Raw, "Loaded manifest of the processed package")],
-            Run = ps => ps.AddCommand("__main").AddArgument(Package.Manifest).AddArgument(PackageArguments ?? new()),
+            Run = new PSCommand().AddCommand("__main").AddArgument(Package.Manifest).AddArgument(PackageArguments ?? new()),
         };
 
         try {
